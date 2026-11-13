@@ -393,7 +393,6 @@ const start = (draft: Draft | null, layer: Layer.Layer<any>) =>
   Effect.gen(function* () {
     const app = (yield* Runtime.scoped(OwnerLive as never, {
       layer: layer as never,
-      window: 0,
     })) as Runtime;
     fields.set(app, draft);
     return app;
@@ -402,9 +401,7 @@ const start = (draft: Draft | null, layer: Layer.Layer<any>) =>
 /** Asks the Dictation as the app does: through the root's Command. */
 const askIt = (app: Runtime, asked: typeof Ask.Type) =>
   Effect.andThen(
-    Effect.sync(() =>
-      app.send(app.snapshot.root.address, { _tag: 'Ask', ask: asked }),
-    ),
+    Effect.sync(() => app.root.send({ _tag: 'Ask', ask: asked })),
     settle,
   );
 
@@ -417,7 +414,7 @@ const send = (
   message: { readonly _tag: string; readonly [field: string]: unknown },
 ) =>
   Effect.andThen(
-    Effect.sync(() => app.send(dictation(app).address, message)),
+    Effect.sync(() => app.at(dictation(app).address)?.send(message)),
     settle,
   );
 
@@ -714,7 +711,7 @@ describe('Dictation', () => {
           microphone: 'usb',
           using: 'usb',
         });
-        app.send(app.snapshot.root.address, {
+        app.root.send({
           _tag: 'Choose',
           microphone: 'desk',
         });

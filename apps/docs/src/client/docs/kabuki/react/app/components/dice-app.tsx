@@ -72,10 +72,10 @@ export const DiceApp = View.app(DiceView, {
 // Not part of the app: it reads the running app from beside it.
 function RuntimeBar() {
   const app = DiceApp.useRuntime();
-  const { runtime, seeking } = app;
+  const { runtime, history, seeking } = app;
   if (runtime === null) return null;
-  // The entries from the first to the Head, and which Step one is.
-  const line = History.line(runtime.history);
+  // The entries from the start to the Head, and which Step one is.
+  const line = History.entries(history);
   const step = (entry: number | null) =>
     entry === null ? 0 : line.findIndex(({ id }) => id === entry) + 1;
   return (

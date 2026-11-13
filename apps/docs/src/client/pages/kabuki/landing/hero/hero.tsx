@@ -256,7 +256,7 @@ function Timeline({
   readonly onStep: (step: number) => void;
   readonly onHead: () => void;
 }) {
-  // Where a step sits on the track: init at the start, the Head at the end.
+  // Where a step sits on the track: the History's start first, the Head at the end.
   const place = (step: number) => `${count === 0 ? 0 : (step / count) * 100}%`;
   return (
     <div className="flex h-14 items-center gap-4 border-t border-border px-5">
@@ -318,9 +318,9 @@ function Timeline({
 // 4. The card
 
 export function Hero() {
-  const { runtime, seeking, seek, toHead } = App.useRuntime();
-  const branch = runtime === null ? [] : History.line(runtime.history);
-  // Step 0 is right after init; step n right after the nth Message.
+  const { runtime, history, seeking, seek, toHead } = App.useRuntime();
+  const branch = runtime === null ? [] : History.entries(history);
+  // Step 0 is the History's start; step n right after the nth Message.
   const at =
     seeking === null
       ? branch.length
@@ -365,7 +365,7 @@ export function Hero() {
         <Timeline
           count={branch.length}
           at={at}
-          label={landed?.message._tag ?? 'init'}
+          label={landed?.message._tag ?? 'start'}
           atHead={seeking === null}
           onStep={showStep}
           onHead={toHead}

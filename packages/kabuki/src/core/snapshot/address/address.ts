@@ -1,6 +1,6 @@
-import type { AnyActor, Blueprint } from '../actor/index.ts';
-import { parse as read, within as under } from './play/index.ts';
-import type { Address as Of, Parsed } from './play/index.ts';
+import type { AnyActor, Blueprint } from '../../actor/index.ts';
+import { parse as read, within as under } from './path.ts';
+import type { Address as Of, Parsed } from './path.ts';
 
 /*
  * Reading Addresses, as plain strings: what one is made of, its parent, its
@@ -8,7 +8,7 @@ import type { Address as Of, Parsed } from './play/index.ts';
  * Child the root's Blueprint has.
  */
 
-export type { Parsed, Segment } from './play/index.ts';
+export type { Parsed, Segment } from './path.ts';
 
 /** An Instance's Address, carrying its Actor's type so only its Messages can be Sent to it. */
 export type Address<A = AnyActor> = Of<A>;

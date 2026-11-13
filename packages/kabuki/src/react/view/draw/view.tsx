@@ -8,7 +8,7 @@ import type {
   Only,
   Types,
 } from '../../../core/actor/index.ts';
-import type { Address } from '../../../core/data/index.ts';
+import type { Address } from '../../../core/snapshot/index.ts';
 
 /** One Instance in the tree, to draw: its Address and, for a keyed Child, its key. Never changes. */
 export interface Handle<A> {

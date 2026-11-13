@@ -367,10 +367,10 @@ export const sendTo = (
   app: Runtime,
   name: string,
   message: { readonly _tag: string; readonly [field: string]: unknown },
-) => app.send(find(app, name)!.address, message);
+) => app.at(find(app, name)!.address)?.send(message);
 
 /** Sends the Router a Message: `{ _tag: 'Pushed', route }`, `{ _tag: 'Went', by: -1 }`. */
 export const sendRouter = (
   app: Runtime,
   message: { readonly _tag: string; readonly [field: string]: unknown },
-) => app.send(app.snapshot.root.address, message);
+) => app.root.send(message);

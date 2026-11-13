@@ -1,12 +1,45 @@
-import type { Schema } from 'effect';
-import type { Data, QuerySchemas, Requires, Tagged } from '../index.ts';
+import type { Context, Schema } from 'effect';
 
 /*
- * An Actor as the engine reads it: its plain definition, made by `build`.
+ * An Actor's Definition: its Shape and its Build together, as one plain
+ * tree linked by its Children. `build` makes it, and a Runtime runs it.
  * Only kabuki's own code reads it, through `actor.definition`; every tool
- * outside reads the Actor's Blueprint. Beside it, the hidden key a Command
- * keeps its Effect under, which only the Runtime reads.
+ * outside reads the Actor's Blueprint. First, the words every Actor is
+ * written in; last, the hidden key a Command keeps its Effect under, which
+ * only the Runtime reads.
  */
+
+/** A value told apart by its tag: every State, Message and Emit. */
+export type Tagged = { readonly _tag: string };
+
+/** The one State of an Actor declared without States. */
+export type Single = { readonly _tag: 'Single' };
+
+export type AnyKey = Context.Key<any, any>;
+/** The Capabilities an Actor's own code may use. */
+export type Requires = ReadonlyArray<AnyKey>;
+
+export type IdsOf<R extends Requires> = R[number] extends infer K
+  ? K extends Context.Key<infer I, any>
+    ? I
+    : never
+  : never;
+
+export type Only<U, T> = Extract<U, { readonly _tag: T }>;
+
+/** An Instance's data at one moment: its own Model and State, and the Props its parent hands it. */
+export type Data<Model, State, Props = void> = {
+  readonly model: Model;
+  readonly state: State;
+  /** What the parent hands it now. Read only: a change runs none of its rules. */
+  readonly props: Props;
+};
+
+/** One Query's Schemas, as `define` declares them; one without args has none. */
+export interface QuerySchemas {
+  readonly args?: Schema.Top;
+  readonly result: Schema.Top;
+}
 
 /** Where a Command keeps the Effect it runs, out of sight of a comparison. */
 export const RUN: unique symbol = Symbol.for('@kestack/kabuki/Command/run');
@@ -78,7 +111,7 @@ export interface ProvideDefinition {
   readonly layer: Function;
 }
 
-/** The plain definition the engine works from; an Actor without States is keyed by its one State. */
+/** The Definition the engine works from; an Actor without States is keyed by its one State. */
 export interface ActorDefinition {
   readonly name: string;
   /** Every State it can be in, by tag: the ones its State Schema names. */

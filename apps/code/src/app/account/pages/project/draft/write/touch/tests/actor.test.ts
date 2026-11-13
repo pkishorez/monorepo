@@ -71,7 +71,6 @@ const worldOf = (leftOpen: boolean, collapses = true) =>
     });
     const app = (yield* Runtime.scoped(draftOf(leftOpen, collapses) as never, {
       layer: device as never,
-      window: 0,
     })) as Runtime;
     yield* settle;
     const root = () => app.snapshot.root as Instance;
@@ -89,13 +88,15 @@ const worldOf = (leftOpen: boolean, collapses = true) =>
         readonly [k: string]: unknown;
       }) =>
         Effect.andThen(
-          Effect.sync(() => app.send(touch().address, message)),
+          Effect.sync(() => app.at(touch().address)?.send(message)),
           settle,
         ),
       heard: (dictation: string, sendable = true) =>
         Effect.andThen(
           Effect.sync(() =>
-            app.send(touch().address, { _tag: 'Heard', dictation, sendable }),
+            app
+              .at(touch().address)
+              ?.send({ _tag: 'Heard', dictation, sendable }),
           ),
           settle,
         ),

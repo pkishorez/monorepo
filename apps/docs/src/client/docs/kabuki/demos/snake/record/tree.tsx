@@ -19,11 +19,11 @@ export function Tree({
   const { seeking } = runtime;
   const stage = (seeking ?? runtime.runtime)?.snapshot.root;
   if (stage === undefined) return null;
-  const { game } = stage.children;
+  // Only a Stage that is Playing holds a Game.
+  const game = stage._tag === 'Playing' ? stage.children.game : undefined;
   const workers = (instance: Instance) =>
     seeking === null
-      ? runtime
-          .workers(instance.address)
+      ? (runtime.runtime?.at(instance.address)?.workers ?? [])
           .filter((worker) => worker.status === 'running')
           .map((worker) => worker.name)
       : null;

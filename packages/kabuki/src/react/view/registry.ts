@@ -1,5 +1,5 @@
 import type { AnyActor } from '../../core/actor/index.ts';
-import type { History } from '../../core/data/index.ts';
+import type { History } from '../../core/history/index.ts';
 
 /*
  * Where an app's History outlives its module: a registry on `globalThis`,

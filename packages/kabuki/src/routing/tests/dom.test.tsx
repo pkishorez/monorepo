@@ -523,23 +523,32 @@ describe('the Timeline', () => {
     const counts = await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
-          const app = yield* Runtime.scoped(Root.actor, { layer: browser() });
+          // Made stopped and started once it is followed, so no entry is missed.
+          const app = yield* Runtime.scoped(Root.actor, {
+            layer: browser(),
+            running: false,
+          });
+          let timeline = History.init(app.snapshot);
+          app.subscribe((entries) => {
+            timeline = History.add(timeline, entries);
+          });
+          yield* Effect.promise(() => app.start());
           const settled = Effect.promise(
             () => new Promise((done) => setTimeout(done, 10)),
           );
           yield* settled;
-          const before = History.line(app.history).length;
-          app.send(app.snapshot.root.address, {
+          const before = History.entries(timeline).length;
+          app.root.send({
             _tag: 'Pushed',
             route: Routes.Projects.Project({ id: 7 }),
           });
           yield* settled;
-          const pushed = History.line(app.history).length - before;
+          const pushed = History.entries(timeline).length - before;
           history.back();
           yield* settled;
           return {
             pushed,
-            back: History.line(app.history).length - before - pushed,
+            back: History.entries(timeline).length - before - pushed,
           };
         }),
       ),

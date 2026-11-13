@@ -28,8 +28,8 @@ songs: Actor.child(SongLive, {
 }),
 ```
 
-The Child says what Props it takes in its Definition, so the parent can't
-hand it the wrong shape:
+The Child says what Props it takes in its Shape, so the parent can't
+hand it the wrong data:
 
 ```ts
 props: { playing: Schema.Boolean },

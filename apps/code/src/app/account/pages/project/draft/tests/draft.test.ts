@@ -351,7 +351,7 @@ const textOf = (app: Runtime, mode: Mode = modelOf(app).mode) =>
 /** An edit in a mode, as the editor its View draws hands it. */
 const write = (app: Runtime, text: string, mode = modelOf(app).mode) =>
   Effect.sync(() =>
-    app.send(modesOf(app)[mode]!.address, {
+    app.at(modesOf(app)[mode]!.address)?.send({
       _tag: 'Edited',
       text,
       anchor: text.length,
@@ -361,11 +361,11 @@ const write = (app: Runtime, text: string, mode = modelOf(app).mode) =>
 
 const ask = (app: Runtime, mode: Mode) =>
   Effect.sync(() =>
-    app.send(draftOf(app).address, { _tag: 'ModeAsked', mode }),
+    app.at(draftOf(app).address)?.send({ _tag: 'ModeAsked', mode }),
   );
 
 const toDraft = (app: Runtime, message: unknown) =>
-  Effect.sync(() => app.send(draftOf(app).address, message as never));
+  Effect.sync(() => app.at(draftOf(app).address)?.send(message as never));
 
 const start = (
   to: typeof To.Type,
@@ -373,7 +373,6 @@ const start = (
 ) =>
   Runtime.scoped(Owner(to) as never, {
     layer: layer as never,
-    window: 0,
   }) as Effect.Effect<Runtime, never, Scope.Scope>;
 
 /** Writes in the mode open and sends it, as Enter does. */
@@ -382,7 +381,7 @@ const say = (app: Runtime, text: string) =>
     Effect.andThen(
       write(app, text),
       Effect.sync(() =>
-        app.send(modesOf(app)[modelOf(app).mode]!.address, {
+        app.at(modesOf(app)[modelOf(app).mode]!.address)?.send({
           _tag: 'SendAsked',
         }),
       ),
@@ -1238,7 +1237,9 @@ describe('Draft', () => {
           yield* write(app, 'and this?');
           yield* ask(app, 'Message');
           yield* Effect.sync(() =>
-            app.send(modesOf(app)['Message']!.address, { _tag: 'SendAsked' }),
+            app
+              .at(modesOf(app)['Message']!.address)
+              ?.send({ _tag: 'SendAsked' }),
           );
           yield* wait(600);
           const kept = yield* keptIn(saved);

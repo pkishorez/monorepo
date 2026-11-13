@@ -130,13 +130,12 @@ const OwnerLive = Owner.build({
 const start = (layer: Layer.Layer<any>) =>
   Runtime.scoped(OwnerLive as never, {
     layer: layer as never,
-    window: 0,
   }) as Effect.Effect<Runtime, never, Scope.Scope>;
 const sidebar = (app: Runtime) =>
   app.snapshot.root.children['sidebar'] as Instance;
 const model = (app: Runtime) => sidebar(app).model as Model;
 const send = (app: Runtime, message: object) =>
-  app.send(sidebar(app).address, message as never);
+  app.at(sidebar(app).address)?.send(message as never);
 const asked = (sessionId: string, settled: boolean, swiped: boolean) => ({
   _tag: 'MoveAsked',
   connectionId: 'm1',

@@ -148,7 +148,7 @@ GET /blog/hello
   1. read      /blog/hello → Blog › Post { slug: 'hello' }
   2. split     Blog, Blog.Post: static, drawn here
   3. load      Blog() and Blog.Post({ slug }), at once
-  4. start     the Router's init at the Route, with each place's data → a Restore
+  4. start     the Router's init at the Route, with each place's data → a Snapshot
   5. draw      <Document><App saved /></Document>, every lazy View resolved
   6. keep      every place drawn here is static: in the Cache, by build id
 ```
@@ -169,7 +169,7 @@ GET /blog/hello
    and a `500`, logged. The pages above it are drawn as they are.
 4. **Start.** The Router's `startAt(url, known)` is its Input; its init,
    holding each place's data from what its Loader came to, and every page's
-   init under it, is the Snapshot, saved as a History of one Restore.
+   init under it, is the Snapshot, saved as a History that starts from it.
    Nothing runs.
 5. **Draw.** React draws the Document around the App drawn from that History
    and waits for every lazy View, so the HTML is whole. The lazy Views it drew
@@ -191,7 +191,7 @@ GET /blog/hello
 The client entry reads the saved History from the page, preloads the lazy
 Views the head names, and hydrates the Document with the browser's URL,
 the Loader RPC behind the Data cache, and the app's own Layer. Once mounted,
-the app's one Runtime is made on that History, running at the Restore. A client
+the app's one Runtime is made from that History's Snapshot, running. A client
 page, drawn loading, has its data loaded by the Router once it starts. The Metadata the server drew is the Router's from
 then on: it writes it after every move, and when a page's data comes.
 
@@ -255,7 +255,7 @@ the lazy Views it drew in the head and the browser preloads exactly those
 before it hydrates. A page's lazy View the server did not draw is found by
 its page's build, so it starts loading when a move to it or a preload of it
 starts, and its code and its data arrive together. Actors stay eager: Replay
-and Restore need every Actor.
+and a loaded Snapshot need every Actor.
 
 ## Where the code lives
 

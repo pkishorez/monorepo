@@ -3,7 +3,7 @@ import type { Blueprint } from '@kestack/kabuki';
 import type {
   AnyActor,
   BlueprintLevel,
-  Entry,
+  HistoryEntry,
   Instance,
   WorkerStatus,
 } from '@kestack/kabuki/types';
@@ -28,20 +28,22 @@ import {
   workersChanged,
 } from './read/step.ts';
 import type { Change } from './read/step.ts';
+import { momentsOf } from './read/trail.ts';
 
 /*
  * What `read` works out, as the Api says it: plain JSON, every value of
  * the app's own encoded by its Actor's Schemas, as its Blueprint holds
  * them. Kabuki is read only through its public surface: the root's
- * Blueprint, the History, Snapshots and Trails, the Workers the data asks
- * for, and the Runtime's Workers.
+ * Blueprint, the History and the Snapshot after any of its entries, the
+ * Workers the data asks for, and the Runtime's Workers.
  *
  * 1. Entry   a History entry, its Message encoded, and what came of it.
  * 2. Change  what a Step did to each Instance, its values and diffs
  *            compared on the encoded side.
  * 3. Graph   the canvas's tree at a Step, each Instance with its Blueprint.
  * 4. Node    one Instance's card: its data, its change, its Schemas.
- * 5. Trail   one Instance's story, each moment with its entry.
+ * 5. Trail   one Instance's story along a Branch, each moment with its
+ *            entry.
  */
 
 /** What an Instance's Workers are doing now; absent where nothing runs or it is not known. */
@@ -51,7 +53,7 @@ export type Statuses = (address: string) => ReadonlyArray<WorkerStatus>;
 export const entryOf = (
   actor: AnyActor,
   history: History,
-  entry: Entry,
+  entry: HistoryEntry,
 ): Api.Entry => {
   const saved = encodedEntries(actor, history).get(entry.id) ?? entry;
   return {
@@ -132,15 +134,14 @@ const instanceChangeOf = (
 export const changesAt = (
   actor: AnyActor,
   history: History,
-  entry: Entry,
+  entry: HistoryEntry,
 ): {
   readonly commands: ReadonlyArray<string>;
   readonly changes: ReadonlyArray<Api.InstanceChange>;
 } => {
-  const before = Snapshot.replay(actor, history, entry.parent);
-  const after = Snapshot.replay(actor, history, entry.id);
+  const { commands, before, after } = playedOf(actor, history, entry);
   return {
-    commands: playedOf(actor, history, entry).commands,
+    commands,
     changes: [...changesOf(before, after)].map(([address, change]) =>
       instanceChangeOf(actor, [before, after], address, change),
     ),
@@ -176,7 +177,7 @@ const childrenOf = (instance: Instance): ReadonlyArray<Instance> =>
     Snapshot.isMany(held) ? held : [held],
   );
 
-/** The app at the Step after `id` (`null`: init), as the canvas draws it. Throws for an entry not kept. */
+/** The app at the Step after `id` (`null`: the History's start), as the canvas draws it. Throws for an entry not kept. */
 export const graphAt = (
   actor: AnyActor,
   history: History,
@@ -186,12 +187,10 @@ export const graphAt = (
   const root = actor.blueprint;
   // Found by its id, so an entry a Fork left behind is read too.
   const entry = id === null ? undefined : History.entry(history, id);
-  const after = Snapshot.replay(actor, history, id);
-  const before = entry
-    ? Snapshot.replay(actor, history, entry.parent)
-    : undefined;
-  const changes = changesOf(before, after);
   const took = entry && { to: entry.to, ...playedOf(actor, history, entry) };
+  const before = took?.before;
+  const after = took?.after ?? History.snapshot(actor, history, id);
+  const changes = changesOf(before, after);
   const moves = movesOf(actor, history);
   // A Child gone is no longer in the tree: its parent's card names it.
   const gone = new Map<string, Array<{ slot: string; id: string }>>();
@@ -324,11 +323,10 @@ export const workersAt = (
 export const changeAt = (
   actor: AnyActor,
   history: History,
-  entry: Entry,
+  entry: HistoryEntry,
   address: string,
 ): Api.InstanceChange | undefined => {
-  const before = Snapshot.replay(actor, history, entry.parent);
-  const after = Snapshot.replay(actor, history, entry.id);
+  const { before, after } = playedOf(actor, history, entry);
   const change = changesOf(before, after).get(address);
   return change && instanceChangeOf(actor, [before, after], address, change);
 };
@@ -342,7 +340,7 @@ export const trailOf = (
   upTo: number | null = history.head,
 ): Api.Trail => {
   const print = blueprintAt(actor.blueprint, address);
-  const moments = Snapshot.trail(actor, history, address, upTo);
+  const moments = momentsOf(actor, history, address, upTo);
   const name =
     print?.name ??
     moments.find((one) => one.after ?? one.before)?.after?.actor ??

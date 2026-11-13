@@ -10,52 +10,49 @@ import {
   Stream,
 } from 'effect';
 import type { AnyActor, Tagged, Types } from '../actor/index.ts';
-import { History, Snapshot } from '../data/index.ts';
-import type { Address, From } from '../data/index.ts';
-import { actorAt, isRestore, remember } from '../data/play/index.ts';
-import {
-  LiveTree,
-  Stopped,
-  forkIn,
-  makeMailbox,
-  makeTime,
-} from './live/index.ts';
-import type {
-  Host,
-  Letter,
-  Sent,
-  Services,
-  WorkerStatus,
-} from './live/index.ts';
-import { reach } from './outside.ts';
-import type { LiveInstance } from './outside.ts';
+import { actorAt, Snapshot } from '../snapshot/index.ts';
+import type { Address, Entry, From } from '../snapshot/index.ts';
+import { LiveTree, Stopped, forkIn } from './live/index.ts';
+import type { Host, Services } from './live/index.ts';
+import { makeMailbox } from './mailbox.ts';
+import type { Sent } from './mailbox.ts';
+import { reach } from './reach.ts';
+import type { LiveInstance } from './reach.ts';
+import { makeTime } from './time.ts';
+
+export type { LiveInstance } from './reach.ts';
+export { Stopped } from './live/index.ts';
+export type { WorkerStatus } from './live/index.ts';
+export type { Sent } from './mailbox.ts';
 
 /*
- * The Runtime: what an app runs as, one per app. A History, the Snapshot at
- * its Head, and whether it runs. It runs from the moment it is made.
+ * The Runtime: a Snapshot kept alive, one per app. It holds the Snapshot
+ * and no other data: its live tree (./live) is the same tree, running the
+ * work each Instance's data asks for. It runs from the moment it is made,
+ * unless made stopped.
  *
- * 1. Make   on a History, a new one by default: replay to its Head, carry
- *           Time on from the Head's Time, and run.
- * 2. Send   a Message, stamped with its Time, into the one Mailbox. Each
- *           one becomes a History entry after the Head and is played at
- *           once; the History keeps to its Window after each. What its
- *           Update Emits is Sent next. Only while it runs: stopped, a Send
- *           is refused and adds nothing.
- * 3. Run    start the tree from the Snapshot at the Head, hosted by the
- *           Mailbox, the Time and the app's Layer, built once. After every
- *           Message the tree follows the Snapshot, starting the Workers and
- *           Provides it asks for and stopping the rest, and the Commands
- *           the Update asked for run. No Command runs twice: starting again
- *           starts only the work the Head's data asks for.
- * 4. Stop   the tree: every Worker, Provide and Command ends, and Time
- *           stands still until it runs again.
- * 5. Fork   move the Head to any entry, or to init, in place, and Time to
- *           that entry's: running, the work stops and starts again from
- *           that entry's data; stopped, only the Head moves. The next
- *           Message grows a new Branch.
- * 6. Seek   any entry, on any Branch, as a Step: plain data, a look that
- *           changes nothing.
- * 7. Let go stop, close the Mailbox and the Layer.
+ * 1. Make    from a Snapshot, or from the root's Input: carry Time on from
+ *            the Snapshot's Time, and run, unless made stopped: then it
+ *            runs nothing until it starts.
+ * 2. Send    a Message, stamped with its Time, into the one Mailbox. Each
+ *            one gives the next Snapshot by a pure step, which the tree
+ *            follows; then the Commands its Update asked for run, and what
+ *            it Emits is Sent next. Only while it runs: stopped, a Send is
+ *            refused and changes nothing.
+ * 3. Follow  a Snapshot handed in: the tree changes only what differs, so
+ *            work the old and the new Snapshot both ask for is not
+ *            touched; or, asked to restart, all work stops and starts
+ *            again from it. No Command runs.
+ * 4. Run     start the tree from the Snapshot, hosted by the Mailbox, the
+ *            Time and the app's Layer, built once. No Command runs twice:
+ *            starting again starts only the work the data asks for.
+ * 5. Stop    the tree: every Worker, Provide and Command ends, and Time
+ *            stands still until it runs again.
+ * 6. Let go  stop, close the Mailbox and the Layer.
+ *
+ * It keeps no History. Whoever subscribes is told the entries it played,
+ * to keep them in one. Work can Send as it starts, so to miss no entry,
+ * make the Runtime stopped, subscribe, then start it.
  */
 
 /** Capabilities an Actor's tree still needs from the app's Layer. */
@@ -66,18 +63,22 @@ export type MessageOf<A> = [Types<A>] extends [never]
   ? Tagged & { readonly [field: string]: unknown }
   : Types<A>['message'];
 
-/** How a Runtime is made. */
-export interface RuntimeSettings {
-  /** The root's Input, for a new History. One given a History plays from that History's Input. */
+/** What a Runtime starts from. */
+export interface RuntimeSettings<A = AnyActor> {
+  /** The Snapshot to run: the app carries on from it. By default the app right after init. */
+  readonly snapshot?: Snapshot<A>;
+  /** The root's Input, for init: read only when no Snapshot is given. */
   readonly input?: unknown;
-  /** The History to carry on from, at its Head; a new one by default. */
-  readonly history?: History;
-  /** How many entries to keep on the Head's Branch: 100 by default, `0` for none but the app as it is now, `null` for every one. */
-  readonly window?: number | null;
+  /**
+   * Whether it runs from the moment it is made, as by default. Made with
+   * `false`, it holds its Snapshot and runs nothing until `start()`: whoever
+   * subscribes before then is told every entry.
+   */
+  readonly running?: boolean;
 }
 
 /** How a Runtime of `A` is made: with the app's Layer, which must cover every Capability the tree still needs. */
-export type RuntimeOptions<A> = RuntimeSettings &
+export type RuntimeOptions<A> = RuntimeSettings<A> &
   ([Needs<A>] extends [never]
     ? { readonly layer?: Layer.Layer<never> }
     : { readonly layer: Layer.Layer<Needs<A>> });
@@ -87,53 +88,42 @@ export type OptionsFor<A> = [Needs<A>] extends [never]
   ? [options?: RuntimeOptions<A>]
   : [options: RuntimeOptions<A>];
 
-/** The app right after one History entry, or right after init, as plain data: what a Seek gives. */
-export interface Step<A = AnyActor> {
-  /** The entry it is right after; `null` right after init. */
-  readonly entry: number | null;
-  /** Its Time: its entry's, or 0 at init. */
-  readonly at: number;
-  readonly snapshot: Snapshot<A>;
-}
-
 export interface Runtime<A = AnyActor> {
   readonly actor: A;
-  /** The Snapshot at the Head. */
+  /** The app as data, now. */
   readonly snapshot: Snapshot<A>;
-  readonly history: History;
   /** Whether it runs: its Workers, Provides and Commands, and the Messages Sent to it. */
   readonly running: boolean;
-  /** How many entries are kept on the Head's Branch, or `null` for every one. */
-  readonly window: number | null;
+  /** The root Instance, live and typed: walk down from it to any Instance, and Send to it. */
+  readonly root: LiveInstance<A>;
   /**
-   * Hand a Message to any Instance, from outside the tree unless said
-   * otherwise: it becomes a History entry after the Head, is played at once
-   * and its Commands run. Says what became of it: `refused` once the
-   * Runtime is let go. Throws, changing nothing, when the Message does not
-   * match its Schema, and `Stopped` while the Runtime is stopped.
+   * The Instance at an Address, the same one walking down from the root
+   * reaches, typed by the Address's Actor; none if it is not in the tree
+   * now.
    */
-  send<B>(to: Address<B>, message: MessageOf<B>, from?: From): Sent;
-  /** Run again at the Head: the Workers and Provides its data asks for start. No past Command runs again. */
+  at<B>(address: Address<B>): LiveInstance<B> | undefined;
+  /**
+   * Become a Snapshot handed in, and carry Time on from its Time. The tree
+   * changes only what differs: a Worker both Snapshots ask for, at the same
+   * Address, is not touched. With `restart`, all work stops and starts
+   * again from it. Either way no Command runs. Stopped, only the Snapshot
+   * changes. Done once the new Snapshot is in place and, restarting, the
+   * work runs again.
+   */
+  follow(
+    snapshot: Snapshot<A>,
+    options?: { readonly restart?: boolean },
+  ): Promise<void>;
+  /** Run again from its Snapshot: the Workers and Provides its data asks for start, at once unless work is still stopping. No past Command runs again. */
   start(): Promise<void>;
   /** Stop all work, and Time with it. A Send is refused until it starts again. */
   stop(): Promise<void>;
   /**
-   * Move the Head to an entry (`null`: init), so the next Message grows a
-   * new Branch from it; the old one stays in the History. Running, the work
-   * stops and starts again from that entry's data, running no Command;
-   * stopped, only the Head moves. Always this same Runtime.
+   * Called once the Mailbox is empty, with the entries played since the
+   * last call, oldest first; and on every start, stop and Snapshot
+   * followed, and when it is let go, with none. Returns how to stop.
    */
-  fork(entry: number | null): Promise<void>;
-  /** The app right after an entry (`null`: init), on any Branch, as a Step. Changes nothing. */
-  seek(entry: number | null): Step<A>;
-  /** Change the Window, and Compact to it now, running or not. */
-  keep(window: number | null): void;
-  /** What an Instance's Workers are doing now. Empty while stopped. */
-  workers(address: Address<any>): ReadonlyArray<WorkerStatus>;
-  /** The root Instance, typed and always current, for code outside the tree: what it Sends comes from outside, named `from`. */
-  instance(options: { readonly from: string }): LiveInstance<A>;
-  /** Called once the Mailbox is empty, on every start, stop and Fork, and when it is let go. */
-  subscribe(listener: () => void): () => void;
+  subscribe(listener: (entries: ReadonlyArray<Entry>) => void): () => void;
   /** The Snapshot now, then whenever `subscribe` is called; a slow reader gets only the latest. */
   readonly changes: Stream.Stream<Snapshot<A>>;
   /** The Time now, in milliseconds. Stands still while stopped. */
@@ -141,9 +131,6 @@ export interface Runtime<A = AnyActor> {
   /** Stop, and let go of everything it holds. Nothing Sent after arrives. */
   dispose(): Promise<void>;
 }
-
-/** How many entries a Runtime keeps on the Head's Branch unless said. */
-const DEFAULT_WINDOW = 100;
 
 /** The services the Runtime's own work runs with: the clock, by default the real one. */
 const environmentOf = (clock: Clock.Clock): Context.Context<never> =>
@@ -156,44 +143,48 @@ const realClock = () =>
     }),
   );
 
-/** The Time of an entry (`null`: init, at 0). */
-const timeOf = (history: History, entry: number | null) =>
-  entry === null ? 0 : (History.entry(history, entry)?.at ?? 0);
+const NONE: ReadonlyArray<Entry> = [];
+
+/** The options as `open` reads them, whatever Layer the tree needs. */
+type Made<A> = RuntimeSettings<A> & { readonly layer?: Layer.Layer<any> };
 
 // 1. Make
 const open = <A extends AnyActor>(
   actor: A,
-  options: RuntimeSettings & { readonly layer?: Layer.Layer<any> },
+  options: Made<A>,
   environment: Context.Context<never>,
 ): Runtime<A> => {
   const root = actor.definition;
   const layer = options.layer;
-  let window = options.window === undefined ? DEFAULT_WINDOW : options.window;
-  let history = options.history ?? History.make({ input: options.input });
-  let snapshot = Snapshot.replay(actor, history);
-  history = History.compact(actor, history, window);
+  let snapshot: Snapshot = checked(
+    actor,
+    options.snapshot ?? Snapshot.init(actor, options.input),
+  );
 
   const clock = Context.get(environment, Clock.Clock);
-  const time = makeTime(
-    () => clock.monotonicTimeNanosUnsafe(),
-    timeOf(history, history.head),
-  );
+  const time = makeTime(() => clock.monotonicTimeNanosUnsafe(), snapshot.at);
   const scope = Scope.makeUnsafe();
   let tree: LiveTree | undefined;
-  /** Whether it should run, as the last start, stop or let go said. */
-  let wanted = true;
+  /** Whether it should run, as it was made, or as the last start, stop or let go said. */
+  let wanted = options.running !== false;
   /** The tree that last stopped, until it has. */
   let stopping: Promise<void> = Promise.resolve();
+  /** How many trees are still stopping: with none, a start runs at once. */
+  let halting = 0;
   let disposing: Promise<void> | undefined;
   let services: Services | undefined;
-  /** How many times the app has started over, by a Restore or a Fork: an Instance reached before is stopped after. */
-  let runs = 0;
 
-  const listeners = new Set<() => void>();
+  /** The entries played since subscribers were last told. */
+  let played: Array<Entry> = [];
+  const listeners = new Set<(entries: ReadonlyArray<Entry>) => void>();
   /** Told right after each Message is played, for what waits on one Instance's data. */
   const observers = new Set<() => void>();
-  const notify = () => listeners.forEach((listener) => listener());
-  const subscribe = (listener: () => void) => {
+  const notify = () => {
+    const entries = played.length === 0 ? NONE : played;
+    played = [];
+    listeners.forEach((listener) => listener(entries));
+  };
+  const subscribe = (listener: (entries: ReadonlyArray<Entry>) => void) => {
     listeners.add(listener);
     return () => void listeners.delete(listener);
   };
@@ -203,32 +194,28 @@ const open = <A extends AnyActor>(
   };
 
   // 2. Send
-  const deliver = (letter: Letter) => {
-    // Sent by work that was stopping: nothing runs, so nothing is added.
-    if (!tree) return 'dropped' as const;
-    const grown = History.add(history, letter);
+  const deliver = (entry: Entry) => {
+    // Sent by work that was stopping: nothing runs, so nothing changes.
+    const running = tree;
+    if (!running) return 'dropped' as const;
     // Throws before anything changes when the Message or the Update does not fit.
-    const played = Snapshot.play(actor, snapshot, grown.entry);
-    history = grown.history;
-    snapshot = played.snapshot;
-    remember(root, history.input, grown.entry, snapshot);
-    const restarted = isRestore(letter.message) && played.outcome === 'handled';
-    if (restarted) runs++;
-    tree.follow(snapshot.root, restarted);
-    tree.command(letter.to, played.commands);
-    history = History.compact(actor, history, window);
+    const next = Snapshot.next(actor, snapshot as Snapshot<A>, entry);
+    snapshot = next.snapshot;
+    played.push(entry);
+    running.follow(snapshot.root);
+    // Work that starts as the tree follows may stop the Runtime: its Commands are then lost, as at any stop.
+    if (tree === running) running.command(entry.to, next.commands);
     observers.forEach((observer) => observer());
-    for (const { to, message, from } of played.emitted) post(to, message, from);
-    return played.outcome;
+    for (const { to, message, from } of next.emitted) post(to, message, from);
+    return next.outcome;
   };
   const mailbox = makeMailbox(time.now, deliver, notify);
   /** Checked against its Actor's Schema first, so a Message that does not match throws at the Send that made it. */
   const post = (to: Address, message: Tagged, from: From): Sent => {
-    if (!isRestore(message))
-      actorAt(root, snapshot.root, to)?.check.message(
-        message,
-        `Message ${JSON.stringify(message._tag)}`,
-      );
+    actorAt(root, snapshot.root, to)?.check.message(
+      message,
+      `Message ${JSON.stringify(message._tag)}`,
+    );
     return mailbox.send(to, message, from);
   };
 
@@ -254,7 +241,7 @@ const open = <A extends AnyActor>(
     return (services = made);
   };
 
-  // 3. Run
+  // 4. Run
   const run = () => {
     time.start();
     mailbox.hold(() => {
@@ -263,7 +250,7 @@ const open = <A extends AnyActor>(
     notify();
   };
 
-  // 4. Stop
+  // 5. Stop
   /** Stop the tree, if one runs: at once for the Runtime, its Workers' finalizers after. */
   const halt = (): Promise<void> => {
     if (!tree) return stopping;
@@ -271,9 +258,10 @@ const open = <A extends AnyActor>(
     tree = undefined;
     time.stop();
     notify();
-    return (stopping = stopping.then(() =>
-      Effect.runPromiseWith(environment)(stopped.stop()),
-    ));
+    halting++;
+    return (stopping = stopping
+      .then(() => Effect.runPromiseWith(environment)(stopped.stop()))
+      .finally(() => void halting--));
   };
 
   const stop = (): Promise<void> => {
@@ -284,37 +272,57 @@ const open = <A extends AnyActor>(
   const start = (): Promise<void> => {
     if (disposing) return Promise.resolve();
     wanted = true;
+    // With nothing still stopping, at once: no Message is refused in between.
+    if (halting === 0) {
+      try {
+        if (!tree) run();
+      } catch (error) {
+        return Promise.reject(error);
+      }
+      return Promise.resolve();
+    }
     return stopping.then(() => {
       if (wanted && !disposing && !tree) run();
     });
   };
 
-  // 5. Fork
-  const fork = (entry: number | null): Promise<void> => {
+  // 3. Follow
+  const follow = (
+    next: Snapshot<A>,
+    options?: { readonly restart?: boolean },
+  ): Promise<void> => {
     if (disposing) return Promise.resolve();
-    let moved: History;
+    let given: Snapshot;
     try {
-      moved = History.go(history, entry);
+      given = checked(actor, next);
     } catch (error) {
       return Promise.reject(error);
     }
-    const halted = halt();
-    history = History.compact(actor, moved, window);
-    snapshot = Snapshot.replay(actor, history);
-    runs++;
-    time.stop(timeOf(history, history.head));
-    notify();
-    return wanted ? start() : halted;
+    if (options?.restart) {
+      const halted = halt();
+      snapshot = given;
+      time.set(given.at);
+      notify();
+      return wanted ? start() : halted;
+    }
+    // In its turn, so it never lands in the middle of a Message.
+    return new Promise<void>((resolve, reject) => {
+      const become = () => {
+        try {
+          snapshot = given;
+          time.set(given.at);
+          tree?.follow(given.root);
+          observers.forEach((observer) => observer());
+          resolve();
+        } catch (error) {
+          reject(error);
+        }
+      };
+      mailbox.run(become);
+    });
   };
 
-  // 6. Seek
-  const seek = (entry: number | null): Step<A> => ({
-    entry,
-    at: timeOf(history, entry),
-    snapshot: Snapshot.replay(actor, history, entry) as Snapshot<A>,
-  });
-
-  // 7. Let go
+  // 6. Let go
   const dispose = (): Promise<void> => {
     if (disposing) return disposing;
     wanted = false;
@@ -326,57 +334,40 @@ const open = <A extends AnyActor>(
     return disposing;
   };
 
-  /** Asks one of an Instance's Queries by name: `Stopped` while the Runtime is. */
-  const query = (address: Address, name: string, args: unknown) =>
-    Effect.suspend(
-      () =>
-        tree?.query(address, name, args) ??
-        Effect.fail(new Stopped({ instance: address, query: name })),
-    );
+  /** What reaching an Instance needs of this Runtime. */
+  const reachable = {
+    root: () => snapshot.root,
+    gone: () => disposing !== undefined,
+    send: (to: Address, message: Tagged, from: From): Sent =>
+      tree ? post(to, message, from) : 'refused',
+    subscribe: (listener: () => void) => subscribe(listener),
+    observe,
+    workers: (address: Address) => tree?.workers(address) ?? [],
+    /** Asks one of an Instance's Queries by name: `Stopped` while the Runtime is. */
+    query: (address: Address, name: string, args: unknown) =>
+      Effect.suspend(
+        () =>
+          tree?.query(address, name, args) ??
+          Effect.fail(new Stopped({ instance: address, query: name })),
+      ),
+  };
+  /** The root never leaves the tree, so one handle reads it for the Runtime's whole life. */
+  const top = reach(reachable, root, root.name as Address)!;
 
   const runtime: Runtime<A> = {
     actor,
     get snapshot() {
       return snapshot as Snapshot<A>;
     },
-    get history() {
-      return history;
-    },
     get running() {
       return tree !== undefined;
     },
-    get window() {
-      return window;
-    },
-    send: (to, message, from = { kind: 'outside' }) => {
-      if (!tree && !disposing) throw new Stopped({ instance: to as Address });
-      return post(to as Address, message as Tagged, from);
-    },
+    root: top as unknown as LiveInstance<A>,
+    at: ((address: Address) =>
+      reach(reachable, root, address)) as Runtime<A>['at'],
+    follow,
     start,
     stop,
-    fork,
-    seek,
-    keep: (next) => {
-      history = History.compact(actor, history, next);
-      window = next;
-      notify();
-    },
-    workers: (address) => tree?.workers(address) ?? [],
-    instance: ({ from }) =>
-      reach<A>(
-        {
-          root: () => snapshot.root,
-          gone: () => disposing !== undefined,
-          send: (to, message, by) => (tree ? post(to, message, by) : 'refused'),
-          subscribe,
-          observe,
-          workers: (address) => tree?.workers(address) ?? [],
-          query,
-          run: () => runs,
-        },
-        root,
-        from,
-      ),
     subscribe,
     changes: Stream.callback<Snapshot<A>>(
       (queue) =>
@@ -395,16 +386,25 @@ const open = <A extends AnyActor>(
     dispose,
   };
 
-  run();
+  if (wanted) run();
   return runtime;
 };
 
-/** Make a Runtime, running, on a new History unless given one. */
+/** The Snapshot, if it is one of this Actor's tree. Throws if its root is another's. */
+const checked = (actor: AnyActor, snapshot: Snapshot<any>): Snapshot => {
+  if (snapshot?.root?.address !== actor.name)
+    throw new TypeError(
+      `[@kestack/kabuki] a Runtime of ${actor.name} cannot run a Snapshot whose root is ${snapshot?.root?.address}`,
+    );
+  return snapshot as Snapshot;
+};
+
+/** Make a Runtime from a Snapshot, or from the root's Input, running, with the app's Layer. */
 const make = <A extends AnyActor>(
   actor: A,
   ...[options]: OptionsFor<A>
 ): Runtime<A> =>
-  open(actor, (options ?? {}) as RuntimeSettings, environmentOf(realClock()));
+  open(actor, (options ?? {}) as Made<A>, environmentOf(realClock()));
 
 /** Make a Runtime for Effect code: on the clock it runs with, and let go when its Scope closes. */
 const scoped = <A extends AnyActor>(
@@ -415,12 +415,12 @@ const scoped = <A extends AnyActor>(
     const clock = yield* Clock.Clock;
     const runtime = open(
       actor,
-      (options ?? {}) as RuntimeSettings,
+      (options ?? {}) as Made<A>,
       environmentOf(clock),
     );
     yield* Effect.addFinalizer(() => Effect.promise(() => runtime.dispose()));
     return runtime;
   });
 
-/** What an app runs as: its History, the Snapshot at its Head, and whether it runs. */
+/** What an app runs as: its Snapshot, kept alive. */
 export const Runtime = { make, scoped };

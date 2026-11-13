@@ -73,7 +73,7 @@ export const blueprintOf = (print: Blueprint): Api.GraphNode['blueprint'] => {
   return made;
 };
 
-/** An Actor with no place in the root's Blueprint, as an Instance a Restore from older code left: nothing known of it. */
+/** An Actor with no place in the root's Blueprint: nothing known of it. */
 export const unknownOf = (name: string): Api.GraphNode['blueprint'] => ({
   name,
   single: true,

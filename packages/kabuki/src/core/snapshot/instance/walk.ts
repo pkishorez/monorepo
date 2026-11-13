@@ -1,7 +1,7 @@
-import type { ActorDefinition } from '../../actor/engine/index.ts';
-import { parse, segmentToward, within } from './path.ts';
-import type { Segment } from './path.ts';
-import type { Instance } from './init.ts';
+import type { ActorDefinition } from '../../actor/index.ts';
+import { parse, segmentToward, within } from '../address/index.ts';
+import type { Segment } from '../address/index.ts';
+import type { Instance } from './instance.ts';
 
 /*
  * The tree: where each Instance sits, found by walking its Address down

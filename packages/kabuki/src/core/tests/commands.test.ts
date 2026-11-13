@@ -1,8 +1,8 @@
 import { Effect, Schema } from 'effect';
 import { TestClock } from 'effect/testing';
 import { describe, expect, it, vi } from 'vitest';
-import { Actor, Command, Runtime, Snapshot } from '../index.ts';
-import { Login, line, timed, Timer, to } from './fixtures.ts';
+import { Actor, Command, Snapshot } from '../index.ts';
+import { Login, line, scoped, send, timed, Timer } from './fixtures.ts';
 
 /* Commands: errands an Update asks for, each ending with at most one Message. */
 
@@ -10,8 +10,8 @@ describe('Commands', () => {
   it("sleep on Effect's Clock, and end with a Message stamped when it arrives", () =>
     timed(
       Effect.gen(function* () {
-        const app = yield* Runtime.scoped(Timer);
-        app.send(to(app, 'Timer'), { _tag: 'Wait' });
+        const app = yield* scoped(Timer);
+        send(app, 'Timer', { _tag: 'Wait' });
         yield* TestClock.adjust('999 millis');
         expect(line(app).length).toBe(1);
         yield* TestClock.adjust('1 millis');
@@ -47,8 +47,8 @@ describe('Commands', () => {
             Answered: () => ({}),
           },
         });
-        const app = yield* Runtime.scoped(Liar);
-        app.send(to(app, 'Liar'), { _tag: 'Ask' });
+        const app = yield* scoped(Liar);
+        send(app, 'Liar', { _tag: 'Ask' });
         yield* TestClock.adjust('1 millis');
         expect(line(app).map((entry) => entry.message._tag)).toEqual(['Ask']);
         expect(failed.mock.calls.join(' ')).toMatch(
@@ -60,9 +60,7 @@ describe('Commands', () => {
 
   it('what an Update asks for is data a test compares without running it', () => {
     const first = Snapshot.init(Login);
-    const asked = Snapshot.play(Login, first, {
-      id: 0,
-      parent: null,
+    const asked = Snapshot.next(Login, first, {
       to: first.root.address,
       message: { _tag: 'Submitted' },
       from: { kind: 'view', instance: first.root.address },
@@ -87,8 +85,8 @@ describe('Commands', () => {
             Saved: () => ({}),
           },
         });
-        const app = yield* Runtime.scoped(Form);
-        app.send(to(app, 'Form'), { _tag: 'Save' });
+        const app = yield* scoped(Form);
+        send(app, 'Form', { _tag: 'Save' });
         yield* TestClock.adjust('1 millis');
         expect(line(app).map((entry) => entry.message._tag)).toEqual(['Save']);
         expect(failed.mock.calls.join(' ')).toMatch(
@@ -101,8 +99,8 @@ describe('Commands', () => {
   it('a list of Commands runs concurrently', () =>
     timed(
       Effect.gen(function* () {
-        const app = yield* Runtime.scoped(Timer);
-        app.send(to(app, 'Timer'), { _tag: 'Both' });
+        const app = yield* scoped(Timer);
+        send(app, 'Timer', { _tag: 'Both' });
         yield* TestClock.adjust('1 second');
         expect(line(app).map((e) => [e.message._tag, e.at])).toEqual([
           ['Both', 0],

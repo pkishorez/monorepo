@@ -29,7 +29,7 @@ const session = Argument.String('session').pipe(
 );
 
 const toStep = (text: string): Step => {
-  if (text === 'init') return 'init';
+  if (text === 'start') return 'start';
   const id = Number(text);
   if (!Number.isInteger(id)) throw new Error(`not an entry id: ${text}`);
   return id;
@@ -160,7 +160,7 @@ const snapshotCommand = Command.make(
     at: Flag.optional(
       Flag.String('at').pipe(
         Flag.withDescription(
-          'The Step: an entry id, or init; the Head if absent',
+          "The Step: an entry id, or start, the History's start; the Head if absent",
         ),
         Flag.mapTryCatch(toStep, (error) => `--at: ${String(error)}`),
       ),

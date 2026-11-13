@@ -83,8 +83,6 @@ const fromText = (from: Entry['from']) => {
       return `worker ${from.instance}/${from.name}${from.key === undefined ? '' : `#${from.key}`}`;
     case 'outside':
       return from.name === undefined ? 'outside' : `outside ${from.name}`;
-    case 'restore':
-      return 'restore';
   }
 };
 
@@ -102,7 +100,7 @@ export const entryLine = (entry: Entry) =>
 /** A Branch, the Head's unless asked: where the app is, then one line per entry, oldest first. */
 export const renderHistoryText = (history: History) => {
   const where = [
-    `head ${history.head === null ? 'init' : `#${history.head}`}`,
+    `head ${history.head === null ? 'start' : `#${history.head}`}`,
     `${history.size} entries kept`,
     history.seeking === null
       ? 'drawing the Head'

@@ -5,9 +5,8 @@ import type { Root as ReactRoot } from 'react-dom/client';
 import { prerender } from 'react-dom/static';
 import { Context, Effect, Layer, Schema } from 'effect';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Actor, History, Runtime, Snapshot } from '../../core/index.ts';
-import type { SavedHistory } from '../../core/data/index.ts';
-import type { Step } from '../../core/runtime/index.ts';
+import { Actor, History, Runtime } from '../../core/index.ts';
+import type { SavedHistory } from '../../core/history/index.ts';
 import { Kabuki, View } from '../index.ts';
 import type { AppRuntime, AppSetup } from '../view/index.ts';
 import { registry } from '../view/registry.ts';
@@ -15,11 +14,11 @@ import { registry } from '../view/registry.ts';
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 /*
- * A Runtime or a Step drawn by `<Kabuki>`; and `View.app`, the app before
- * it runs: drawn from its History on a server and in a browser, hydrated,
- * then taken over by the Runtime it makes; carried across mounts and hot
- * reloads by the registry; and Time Travelled, Forked, stopped and started,
- * always on that one Runtime.
+ * A Runtime or a Snapshot drawn by `<Kabuki>`; and `View.app`, the app
+ * before it runs: drawn from its History on a server and in a browser,
+ * hydrated, then taken over by the Runtime it makes; carried across mounts
+ * and hot reloads by the registry; and Time Travelled, Forked, stopped and
+ * started, always on that one Runtime.
  */
 
 const Counter = Actor.define('Counter', {
@@ -36,30 +35,33 @@ const CounterView = View.make(Counter, (self) => {
   return <output>{self.model.count}</output>;
 });
 
-/** A Runtime of Counter, Bumped `n` times. */
+/** A Runtime of Counter, Bumped `n` times, and the History kept beside it. */
 const bumping = (n: number) => {
-  const runtime = Runtime.make(Counter);
-  for (let i = 0; i < n; i++)
-    runtime.send(runtime.snapshot.root.address, { _tag: 'Bumped' });
-  return runtime;
+  const runtime = Runtime.make(Counter, { running: false });
+  let history = History.init(runtime.snapshot);
+  runtime.subscribe((entries) => {
+    history = History.add(history, entries);
+  });
+  void runtime.start();
+  for (let i = 0; i < n; i++) runtime.root.send({ _tag: 'Bumped' });
+  return { runtime, history: () => history };
 };
 
-/** A History of `n` Bumps, as a Runtime leaves it. */
+/** A History of `n` Bumps, as one kept beside a Runtime is left. */
 const bumped = async (n: number): Promise<SavedHistory> => {
-  const runtime = bumping(n);
+  const { runtime, history } = bumping(n);
   await runtime.dispose();
-  return History.save(Counter, runtime.history);
+  return History.save(Counter, history());
 };
 
-/** A History of one Restore at `n` Bumps, at Time `at`, as a server makes one. */
-const restoredAt = async (n: number, at = 100) =>
-  History.save(
+/** A History with no entries that starts at `n` Bumps, at Time `at`, as a server makes one. */
+const startingAt = async (n: number, at = 100) => {
+  const { root } = History.snapshot(
     Counter,
-    History.restored(
-      Snapshot.replay(Counter, History.load(Counter, await bumped(n))),
-      { at },
-    ),
+    History.load(Counter, await bumped(n)),
   );
+  return History.save(Counter, History.init({ root, at }));
+};
 
 const tick = () => act(() => new Promise((done) => setTimeout(done, 0)));
 
@@ -136,8 +138,8 @@ describe('the first draw', () => {
     expect(host.textContent).toBe('4');
   });
 
-  it('draws a History of one Restore', async () => {
-    const App = View.app(CounterView, { saved: await restoredAt(5, 500) });
+  it('draws a History that only starts from a Snapshot', async () => {
+    const App = View.app(CounterView, { saved: await startingAt(5, 500) });
     root = createRoot(host);
     await act(async () => root!.render(<App />));
     expect(host.textContent).toBe('5');
@@ -207,7 +209,7 @@ describe('a History given when drawn', () => {
     const App = View.app(CounterView);
     const [three, seven] = await Promise.all([
       html(<App saved={await bumped(3)} />),
-      html(<App saved={await restoredAt(7)} />),
+      html(<App saved={await startingAt(7)} />),
     ]);
     expect(three).toContain('<output>3</output>');
     expect(seven).toContain('<output>7</output>');
@@ -216,8 +218,8 @@ describe('a History given when drawn', () => {
     expect(registry.history('Counter')).toBeUndefined();
   });
 
-  it('a History of one Restore is drawn on the first render, without suspending', () => {
-    return restoredAt(5).then((saved) => {
+  it('a History with no entries is drawn on the first render, without suspending', () => {
+    return startingAt(5).then((saved) => {
       const App = View.app(CounterView);
       root = createRoot(host);
       act(() => root!.render(<App saved={saved} fallback="…" />));
@@ -227,7 +229,7 @@ describe('a History given when drawn', () => {
 
   it.each([
     ['a Branch to replay', () => bumped(4), 4],
-    ['one Restore', () => restoredAt(4), 4],
+    ['a start with no entries', () => startingAt(4), 4],
   ])(
     'the browser hydrates %s as the server drew it, then the Runtime starts from it',
     async (_, make, count) => {
@@ -250,7 +252,7 @@ describe('a History given when drawn', () => {
       );
       await started(host);
       expect(host.textContent).toBe(`${count + 1}`);
-      expect(History.line(registry.history('Counter')!).length).toBe(
+      expect(History.entries(registry.history('Counter')!).length).toBe(
         saved.entries.length + 1,
       );
     },
@@ -310,13 +312,13 @@ describe('useRuntime', () => {
       ),
     );
     await tick();
-    const history = seen!.runtime!.history;
-    expect(History.line(history).map((e) => e.message._tag)).toEqual([
+    const history = seen!.history;
+    expect(History.entries(history).map((e) => e.message._tag)).toEqual([
       'Bumped',
       'Bumped',
     ]);
     expect(history.head).toBe(1);
-    expect(Snapshot.replay(Counter, history, 0).root.model).toEqual({
+    expect(History.snapshot(Counter, history, 0).root.model).toEqual({
       count: 1,
     });
     expect(History.children(history, null).map((e) => e.id)).toEqual([0]);
@@ -360,15 +362,11 @@ describe('Time Travel', () => {
     expect(seen().seeking).toMatchObject({ entry: 1 });
     expect(seen().runtime).toBe(runtime);
     await act(async () => sends['Counter']!({ _tag: 'Bumped' }));
-    expect(seen().runtime!.history.head).toBe(4);
+    expect(seen().history.head).toBe(4);
     expect(host.textContent).toBe('2');
 
     // The Runtime runs on underneath, and the past stays as it was.
-    await act(async () =>
-      seen().runtime!.send(seen().runtime!.snapshot.root.address, {
-        _tag: 'Bumped',
-      }),
-    );
+    await act(async () => seen().runtime!.root.send({ _tag: 'Bumped' }));
     expect(host.textContent).toBe('2');
 
     await act(async () => seen().toHead());
@@ -378,7 +376,7 @@ describe('Time Travel', () => {
     expect(runtime.running).toBe(true);
   });
 
-  it('seeks init, as runtime.seek(null) does, and toHead draws the Head again', async () => {
+  it("seeks the History's start, as History.snapshot gives it, and toHead draws the Head again", async () => {
     const App = View.app(CounterView, { saved: await bumped(4) });
     const seen = await probed(App);
     await started(host);
@@ -388,11 +386,11 @@ describe('Time Travel', () => {
     await tick();
     expect(seen().seeking).toMatchObject({ entry: null, at: 0 });
     expect(seen().seeking!.snapshot).toEqual(
-      seen().runtime!.seek(null).snapshot,
+      History.snapshot(Counter, seen().history, null),
     );
     expect(host.textContent).toBe('0');
     await act(async () => sends['Counter']!({ _tag: 'Bumped' }));
-    expect(seen().runtime!.history.head).toBe(4);
+    expect(seen().history.head).toBe(4);
 
     await act(async () => seen().toHead());
     expect(seen().seeking).toBe(null);
@@ -413,7 +411,7 @@ describe('Time Travel', () => {
     expect(seen().seeking?.entry).toBe(0);
   });
 
-  it('a Step Sought keeps its Snapshot after the Runtime Compacts it away', async () => {
+  it('a Step Sought keeps its Snapshot after the History Compacts it away', async () => {
     const App = View.app(CounterView, { saved: await bumped(4) });
     const seen = await probed(App);
     await started(host);
@@ -421,13 +419,11 @@ describe('Time Travel', () => {
     await tick();
     expect(host.textContent).toBe('2');
 
-    await act(async () => seen().runtime!.keep(2));
+    await act(async () => seen().keep(2));
     await tick();
     expect(seen().seeking?.entry).toBe(1);
     expect(host.textContent).toBe('2');
-    expect(History.line(seen().runtime!.history).map((e) => e.id)).toEqual([
-      3, 4,
-    ]);
+    expect(History.entries(seen().history).map((e) => e.id)).toEqual([3, 4]);
   });
 });
 
@@ -435,9 +431,9 @@ describe('the Window', () => {
   it('is remembered by name and outlasts a reload, over the one given in code', async () => {
     const First = View.app(CounterView, { name: 'kept', window: 10 });
     const seen = await probed(First);
-    expect(seen().runtime!.window).toBe(10);
+    expect(seen().window).toBe(10);
     expect(localStorage.getItem('@kestack/kabuki:kept:window')).toBeNull();
-    await act(async () => seen().runtime!.keep(3));
+    await act(async () => seen().keep(3));
     expect(localStorage.getItem('@kestack/kabuki:kept:window')).toBe('3');
     await act(async () => root?.unmount());
 
@@ -445,9 +441,9 @@ describe('the Window', () => {
     registry.clear();
     const Again = View.app(CounterView, { name: 'kept', window: 10 });
     const again = await probed(Again);
-    expect(again().runtime!.window).toBe(3);
+    expect(again().window).toBe(3);
 
-    await act(async () => again().runtime!.keep(null));
+    await act(async () => again().keep(null));
     expect(localStorage.getItem('@kestack/kabuki:kept:window')).toBe('all');
   });
 });
@@ -483,6 +479,42 @@ describe('across mounts and hot reloads', () => {
     expect(host.textContent).toBe('20');
     await started(host);
     expect(host.textContent).toBe('30');
+  });
+
+  it('a new app whose code no longer reads where the History left starts, starts over and says so', async () => {
+    const warnings = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const First = View.app(CounterView);
+    root = createRoot(host);
+    act(() => root!.render(<First />));
+    await started(host);
+    expect(host.textContent).toBe('1');
+    await act(async () => root!.unmount());
+
+    // The module reloaded with another Model: the old start no longer fits it.
+    const Reloaded = Actor.define('Counter', {
+      model: Schema.Struct({ total: Schema.Number }),
+      message: Schema.TaggedUnion({ Bumped: {} }),
+    }).build({
+      init: () => ({ model: { total: 100 } }),
+      on: {
+        Bumped: (_, { model }) => ({ model: { total: model.total + 1 } }),
+      },
+    });
+    const ReloadedView = View.make(Reloaded, (self) => {
+      sends[self.address] = self.send;
+      return <output>{self.model.total}</output>;
+    });
+    const Second = View.app(ReloadedView);
+    root = createRoot(host);
+    await act(async () => root!.render(<Second />));
+    // From init again, with none of the old entries.
+    expect(host.textContent).toBe('100');
+    expect(warnings.mock.calls.map((call) => String(call[0]))).toEqual([
+      expect.stringContaining('[@kestack/kabuki] Counter starts over: '),
+    ]);
+    await started(host);
+    expect(host.textContent).toBe('101');
+    expect(History.entries(registry.history('Counter')!)).toHaveLength(1);
   });
 
   it('mounted again, carries on as it was left', async () => {
@@ -641,8 +673,8 @@ describe('Attachments', () => {
     await act(async () => root!.render(<App />));
     await started(host);
     expect(held?.runtime?.running).toBe(true);
-    expect(held?.runtime?.history.head).toBe(0);
-    expect(History.line(held!.runtime!.history)).toHaveLength(1);
+    expect(held?.history.head).toBe(0);
+    expect(History.entries(held!.history)).toHaveLength(1);
     expect(heard).toBeGreaterThan(0);
     await act(async () => root!.unmount());
     root = undefined;
@@ -684,7 +716,7 @@ describe('useRuntime controls', () => {
     const Probe = () => {
       const app = App.useRuntime();
       each.push(app);
-      return <span>{app.runtime?.history.head}</span>;
+      return <span>{app.history.head}</span>;
     };
     root = createRoot(host);
     await act(async () =>
@@ -700,7 +732,7 @@ describe('useRuntime controls', () => {
     await act(async () => sends['Counter']!({ _tag: 'Bumped' }));
     expect(host.querySelector('span')!.textContent).toBe('1');
     expect(new Set(each).size).toBe(1);
-    expect(each[0]!.runtime?.history.head).toBe(1);
+    expect(each[0]!.history.head).toBe(1);
   });
 
   it('stop stops the work and drops each click; start runs it again, on the same Runtime', async () => {
@@ -713,7 +745,7 @@ describe('useRuntime controls', () => {
     expect(runtime.running).toBe(false);
     await act(async () => sends['Counter']!({ _tag: 'Bumped' }));
     expect(host.textContent).toBe('1');
-    expect(runtime.history.head).toBe(0);
+    expect(seen().history.head).toBe(0);
 
     await act(async () => seen().start());
     await tick();
@@ -736,21 +768,50 @@ describe('useRuntime controls', () => {
     await tick();
     expect(seen().runtime).toBe(runtime);
     expect(runtime.running).toBe(true);
-    expect(runtime.history.head).toBe(2);
+    expect(seen().history.head).toBe(2);
     expect(seen().seeking).toBe(null);
     expect(host.textContent).toBe('3');
 
     await started(host);
     expect(host.textContent).toBe('4');
-    expect(History.children(runtime.history, 2)).toHaveLength(2);
-    expect(registry.history('Counter')).toBe(runtime.history);
+    expect(History.children(seen().history, 2)).toHaveLength(2);
+    expect(registry.history('Counter')).toBe(seen().history);
 
     // To init: what `clear` was. The old Branches stay.
     await act(async () => seen().fork(null));
     await tick();
-    expect(runtime.history.head).toBe(null);
+    expect(seen().history.head).toBe(null);
     expect(host.textContent).toBe('0');
-    expect(History.tips(runtime.history)).toHaveLength(2);
+    expect(History.tips(seen().history)).toHaveLength(2);
+  });
+
+  it("startOver goes to init with a new History, where fork(null) goes only to the History's start", async () => {
+    const App = View.app(CounterView, { saved: await bumped(4), window: 2 });
+    const seen = await probed(App);
+    await started(host);
+    const runtime = seen().runtime!;
+    expect(host.textContent).toBe('5');
+
+    // The Window folded the oldest entries into the start, so it is not init.
+    await act(async () => seen().fork(null));
+    await tick();
+    expect(seen().history.head).toBe(null);
+    expect(host.textContent).not.toBe('0');
+
+    await act(async () => seen().startOver());
+    await tick();
+    expect(seen().runtime).toBe(runtime);
+    expect(runtime.running).toBe(true);
+    expect(seen().failure).toBe(null);
+    expect(seen().seeking).toBe(null);
+    expect(History.all(seen().history)).toHaveLength(0);
+    expect(seen().history.head).toBe(null);
+    expect(runtime.snapshot.at).toBe(0);
+    expect(host.textContent).toBe('0');
+
+    await act(async () => sends['Counter']!({ _tag: 'Bumped' }));
+    expect(host.textContent).toBe('1');
+    expect(History.entries(seen().history)).toHaveLength(1);
   });
 
   it('fork while stopped only moves the Head, and stays stopped', async () => {
@@ -763,7 +824,7 @@ describe('useRuntime controls', () => {
     await act(async () => seen().fork(0));
     await tick();
     expect(runtime.running).toBe(false);
-    expect(runtime.history.head).toBe(0);
+    expect(seen().history.head).toBe(0);
     expect(host.textContent).toBe('1');
     await act(async () => sends['Counter']!({ _tag: 'Bumped' }));
     expect(host.textContent).toBe('1');
@@ -811,7 +872,7 @@ describe('<Kabuki>', () => {
     act(() => within.querySelector('button')!.click());
 
   it('draws a Runtime, and a click Sends to it from its View', async () => {
-    const runtime = bumping(0);
+    const { runtime, history } = bumping(0);
     root = createRoot(host);
     await act(async () =>
       root!.render(<Kabuki of={runtime} view={ButtonView} />),
@@ -819,37 +880,40 @@ describe('<Kabuki>', () => {
     expect(host.textContent).toBe('0');
     await click(host);
     expect(host.textContent).toBe('1');
-    expect(History.line(runtime.history).at(-1)?.from).toEqual({
+    expect(History.entries(history()).at(-1)?.from).toEqual({
       kind: 'view',
       instance: 'Counter',
     });
 
     // What is Sent from outside is drawn too.
-    await act(async () =>
-      runtime.send(runtime.snapshot.root.address, { _tag: 'Bumped' }),
-    );
+    await act(async () => runtime.root.send({ _tag: 'Bumped' }));
     expect(host.textContent).toBe('2');
     await act(async () => root?.unmount());
     root = undefined;
     await runtime.dispose();
   });
 
-  it('draws a Step, drops its clicks, and the Runtime keeps going', async () => {
-    const runtime = bumping(3);
+  it('draws a Snapshot, drops its clicks, and the Runtime keeps going', async () => {
+    const { runtime, history } = bumping(3);
     const past = document.createElement('div');
     document.body.append(past);
     const pastRoot = createRoot(past);
     root = createRoot(host);
     await act(async () => {
       root!.render(<Kabuki of={runtime} view={ButtonView} />);
-      pastRoot.render(<Kabuki of={runtime.seek(0)} view={ButtonView} />);
+      pastRoot.render(
+        <Kabuki
+          of={History.snapshot(Counter, history(), 0)}
+          view={ButtonView}
+        />,
+      );
     });
     expect(past.textContent).toBe('1');
     expect(host.textContent).toBe('3');
 
     await click(past);
     expect(past.textContent).toBe('1');
-    expect(runtime.history.head).toBe(2);
+    expect(history().head).toBe(2);
 
     await click(host);
     expect(host.textContent).toBe('4');
@@ -860,22 +924,18 @@ describe('<Kabuki>', () => {
     await runtime.dispose();
   });
 
-  it('draws a Step made from a History with no Runtime', () => {
+  it('draws a Snapshot read from a History with no Runtime', () => {
     return bumped(2).then((saved) => {
       const history = History.load(Counter, saved);
-      const step: Step<typeof Counter> = {
-        entry: 0,
-        at: History.entry(history, 0)!.at,
-        snapshot: Snapshot.replay(Counter, history, 0),
-      };
+      const snapshot = History.snapshot(Counter, history, 0);
       root = createRoot(host);
-      act(() => root!.render(<Kabuki of={step} view={ButtonView} />));
+      act(() => root!.render(<Kabuki of={snapshot} view={ButtonView} />));
       expect(host.textContent).toBe('1');
     });
   });
 
   it('drops a click while the Runtime is stopped', async () => {
-    const runtime = bumping(1);
+    const { runtime, history } = bumping(1);
     root = createRoot(host);
     await act(async () =>
       root!.render(<Kabuki of={runtime} view={ButtonView} />),
@@ -883,7 +943,7 @@ describe('<Kabuki>', () => {
     await runtime.stop();
     await click(host);
     expect(host.textContent).toBe('1');
-    expect(runtime.history.head).toBe(0);
+    expect(history().head).toBe(0);
     await act(async () => root?.unmount());
     root = undefined;
     await runtime.dispose();

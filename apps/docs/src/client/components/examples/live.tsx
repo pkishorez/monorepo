@@ -29,7 +29,8 @@ import { split } from './files.tsx';
  *
  * A whole site, laid out by its own width, fills the window edge to edge
  * instead of sitting in the middle of it, and can be reloaded from its
- * tab: the app Forks to init and starts over from there.
+ * tab: the app Forks to the start of its History, which is init until its
+ * Window folds the oldest entries away, and carries on from there.
  */
 
 /** What `View.app` makes: the app, and a way to read its Runtime. */
@@ -243,11 +244,11 @@ function ReadOnlyInPast({
 }
 
 function Reload({ app: App }: { readonly app: LiveApp }) {
-  const { fork } = App.useRuntime();
+  const { startOver } = App.useRuntime();
   return (
     <button
       type="button"
-      onClick={() => fork(null)}
+      onClick={startOver}
       aria-label="Reload: start the app over"
       title="Reload: start the app over"
       className="-ml-2 grid size-10 shrink-0 place-items-center text-muted-foreground transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"

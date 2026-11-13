@@ -13,8 +13,8 @@ History, the Snapshot at any Step, what one Step changed, the graph the
 Inspector draws, the Blueprint of every Actor the app can grow, one
 Instance's Trail, any Branch of the History, and Seeking a Step in the app
 or Forking it. It reads Kabuki only through its public surface, the
-Blueprint, History and its Branches, Snapshots, Trails and Addresses, never
-how the engine holds an Actor.
+Blueprint, the app's History and its Branches, the Snapshot after any
+entry and Addresses, never how the engine holds an Actor.
 
 The connection is reversed. The app dials
 `ws://127.0.0.1:14400/kabuki/connect` and serves the Api over that socket.
@@ -55,7 +55,7 @@ The Kabuki Session Api, shared by the app, DevTools and the Inspector.
 | `StepNotFound`        | The error for a Step no longer kept; says the oldest and newest kept.                                                                        |
 | `PathNotFound`        | The error for a Snapshot path that is not there; lists the keys where it stopped.                                                            |
 | `InstanceNotFound`    | The error for an Address no Instance has at a Step, or the Blueprint has no place for; lists the Instances there are.                        |
-| `Step`                | The Schema of a Step: an entry id, or `'init'`.                                                                                              |
+| `Step`                | The Schema of a Step: an entry id, or `'start'`, the History's start.                                                                        |
 | `Entry`               | The Schema of a History entry: the Address it was Sent to, its Message encoded, who Sent it, what came of it.                                |
 | `From`                | The Schema of who Sent a Message.                                                                                                            |
 | `Outcome`             | The Schema of what came of a Message: handled, ignored or dropped.                                                                           |
@@ -196,20 +196,28 @@ await Effect.runPromise(Effect.scoped(program));
 
 How it works:
 
-- `at` absent means the Head; `'init'` the app right after init; an entry
-  id the Step right after it, else a `StepNotFound` naming those kept.
+- `at` absent means the Head; `'start'` the History's start, the app right
+  after init until the History is Compacted to its Window, then right
+  before the oldest entry kept; an entry id the Step right after it, else a
+  `StepNotFound` naming those kept.
 - An Instance is named by its Address, `Diary/counter#1`. What a Step
-  changed is what Kabuki marks on each Instance, which entry started it and
-  which last changed it; what came of a Message is its entry played again.
+  changed is read from the Snapshots right before and right after it: an
+  Instance only in the second is started, one whose State, Model or Props
+  is another object is changed, one only in the first is stopped. A Trail
+  is the same, asked of every entry on a Branch for one Instance, and
+  `snapshot` says of each Instance which entry started it and which last
+  changed it, `null` for one as the History's start has it. What came of a
+  Message is its entry played again.
 - `history` and `trail` read the Head's Branch, or with `branch` the one
   through that entry: the Head's if it passes through it, else the newest
   that does. `history` says every Branch's last entry, `tips`, and each
   Step on the Branch it reads that the History goes on from in more than
   one way, `splits`, with every entry that follows it.
 - `seek` Time Travels the app to any entry on any Branch while its Runtime
-  stays where it is, `'init'` too; `null` draws its Head again. `fork` moves the same
-  Runtime's Head to an entry, or init with `null`, so the next Message
-  grows a new Branch; it runs no past Command.
+  stays where it is, `'start'` too; `null` draws its Head again. `fork`
+  moves the History's Head to an entry, or to its start with `null`, and
+  the same Runtime follows it there, so the next Message grows a new
+  Branch; it runs no past Command.
 - Which Workers run is known only at the Head of a running app, from the
   Runtime; a past Step names none. Which Workers a Step started or stopped
   is known at any Step: the ones `Snapshot.workers` finds the data asks for

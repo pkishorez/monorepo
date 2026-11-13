@@ -48,7 +48,7 @@ export function Timeline({
   place = 'bottom',
 }: {
   readonly ticks: ReadonlyArray<Tick>;
-  /** The tick shown; -1 at init, before the first; null at the Head. */
+  /** The tick shown; -1 at the History's start, before the first; null at the Head. */
   readonly at: number | null;
   readonly onAt: (at: number | null) => void;
   readonly playing: boolean;
@@ -63,7 +63,7 @@ export function Timeline({
   const last = ticks.length - 1;
   const index = at ?? last;
   const go = (to: number) => onAt(Math.max(0, Math.min(last, to)));
-  // As wide as `init` at least.
+  // As wide as `start` at least.
   const digits = Math.max(2, String(Math.max(1, ticks.length)).length);
   return (
     <footer
@@ -148,7 +148,7 @@ export function Timeline({
           style={{ minWidth: `${digits * 2 + 1}ch` }}
         >
           {index < 0
-            ? 'init'
+            ? 'start'
             : ticks.length > 0
               ? `${index + 1}/${ticks.length}`
               : '0/0'}

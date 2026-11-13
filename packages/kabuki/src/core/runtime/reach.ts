@@ -1,5 +1,6 @@
 import { Effect } from 'effect';
 import type {
+  ActorDefinition,
   ActorOf,
   AnyActor,
   ChildAs,
@@ -10,29 +11,29 @@ import type {
   Tagged,
   Types,
 } from '../actor/index.ts';
-import type { ActorDefinition } from '../actor/engine/index.ts';
-import { Address, Snapshot } from '../data/index.ts';
-import type { From, Instance } from '../data/index.ts';
 import { Stopped } from './live/index.ts';
-import type { Sent, WorkerStatus } from './live/index.ts';
+import type { WorkerStatus } from './live/index.ts';
+import type { Sent } from './mailbox.ts';
+import { instanceAt, isMany, pathTo } from '../snapshot/index.ts';
+import type { Address, From, Instance } from '../snapshot/index.ts';
 
 /*
  * Reaching the app from outside its tree: the root Instance, typed by its
- * Actor, and every Instance below it. Each one holds only its Address and
- * its Actor, and reads the rest from the Runtime's Snapshot whenever it is
- * read, so it is always live. One that has stopped, or was reached before
- * the app last started over by a Restore or a Fork, reads what it held
- * when last read. While the Runtime runs, it can Send, always from outside
- * under the name it was reached with, and ask the Queries its Actor answers
+ * Actor, and every Instance below it, by walking down from the root or
+ * straight at its Address, which reach the same Instance. Each one holds
+ * only its Address and its Actor, and reads the rest from the Runtime's
+ * Snapshot whenever it is read, so it is always live. One that has stopped
+ * reads what it held when last read. While the Runtime runs, it can Send,
+ * from outside unless said otherwise, and ask the Queries its Actor answers
  * in its current State; it can wait `until` its data passes a test, and
  * change nothing else.
  */
 
 /**
- * One live Instance, reached from outside the tree and narrowed by its
- * current State: `_tag` repeats the State's tag at the top so a check on it
- * narrows `state` and `children` together. Of no Actor in particular, it is
- * any Actor's, so a `Running<unknown>` takes every Runtime.
+ * One live Instance: the Snapshot's Instance, and what only a Runtime
+ * gives. Narrowed by its current State: `_tag` repeats the State's tag at
+ * the top so a check on it narrows `state` and `children` together. Of no
+ * Actor in particular, it is any Actor's.
  */
 export type LiveInstance<A> = [Types<A>] extends [never]
   ? LiveInstance<AnyActor>
@@ -67,21 +68,21 @@ type Typed<A> = {
         Stopped
       >;
     };
-    /** Whether it has stopped, the app has started over by a Restore or a Fork since it was reached, or the Runtime was let go: nothing Sent to it arrives. Reach the app again after a Restore or a Fork. */
+    /** Whether it is gone from the Snapshot, or the Runtime was let go: nothing Sent to it arrives. */
     readonly stopped: boolean;
     /**
-     * Send it a Message from outside, and say what became of it: `handled`
-     * by a rule, `ignored` with no rule for it in this State, `queued`
-     * behind a Message being played, or `refused` once it has stopped,
-     * while the Runtime is stopped, or when the Message does not match its
-     * Schema.
+     * Send it a Message, from outside the tree unless `from` says otherwise,
+     * and say what became of it: `handled` by a rule, `ignored` with no
+     * rule for it in this State, `queued` behind a Message being played, or
+     * `refused` once it has stopped, while the Runtime is stopped, or when
+     * the Message does not match its Schema.
      */
-    send(message: Types<A>['message']): Sent;
+    send(message: Types<A>['message'], from?: From): Sent;
     /**
      * Wait until its data passes `test`, read now and after every Message:
      * the Instance, narrowed as the test narrows it, or `Stopped` once it
      * has stopped first. Send, then wait `until` what the Message started is
-     * done: the answer is read from data the History keeps.
+     * done.
      */
     until<N extends LiveInstance<A>>(
       test: (instance: LiveInstance<A>) => instance is N,
@@ -106,7 +107,7 @@ interface Untyped {
     Record<string, (args?: unknown) => Effect.Effect<unknown, unknown>>
   >;
   readonly stopped: boolean;
-  send(message: Tagged): Sent;
+  send(message: Tagged, from?: From): Sent;
   until(test: (instance: Untyped) => boolean): Effect.Effect<Untyped, Stopped>;
 }
 
@@ -117,7 +118,7 @@ export interface Reachable {
   /** Whether the Runtime has been let go. */
   readonly gone: () => boolean;
   readonly send: (address: Address, message: Tagged, from: From) => Sent;
-  /** Calls `listener` once the Mailbox is empty, and on every start, stop and Fork. */
+  /** Calls `listener` once the Mailbox is empty, and on every start and stop. */
   readonly subscribe: (listener: () => void) => () => void;
   /** Calls `listener` right after each Message is handled, while the Mailbox drains. */
   readonly observe: (listener: () => void) => () => void;
@@ -127,38 +128,28 @@ export interface Reachable {
     name: string,
     args: unknown,
   ) => Effect.Effect<unknown, unknown>;
-  /** How many times the app has started over, by a Restore or a Fork. */
-  readonly run: () => number;
 }
 
-/** The root Instance, live, Sending from outside under the name `from`. */
-export const reach = <A extends AnyActor>(
+/** The Instance at an Address, live; none if it is not in the tree now. */
+export const reach = (
   app: Reachable,
   root: ActorDefinition,
-  from: string,
-): LiveInstance<A> =>
-  live(
-    app,
-    root,
-    app.root(),
-    { kind: 'outside', name: from },
-    app.run(),
-  ) as unknown as LiveInstance<A>;
+  address: Address,
+): Untyped | undefined => {
+  const found = pathTo(root, app.root(), address)?.at(-1);
+  return found && live(app, found.definition, found.instance);
+};
+
+const OUTSIDE: From = { kind: 'outside' };
 
 const live = (
   app: Reachable,
   definition: ActorDefinition,
   first: Instance,
-  from: From,
-  run: number,
 ): Untyped => {
-  const { address } = first;
-  const key = Address.parse(address).path.at(-1)?.key;
+  const { address, key } = first;
   let last = first;
-  const found = () =>
-    app.run() === run
-      ? Snapshot.at({ entry: null, root: app.root() }, address)
-      : undefined;
+  const found = () => instanceAt(app.root(), address);
   const now = () => (last = found() ?? last);
   const stopped = () => app.gone() || found() === undefined;
 
@@ -183,8 +174,8 @@ const live = (
       return Object.fromEntries(
         Object.entries(children).map(([slot, held]) => {
           const child = (instance: Instance) =>
-            live(app, slots[slot]!.definition, instance, from, run);
-          return [slot, Snapshot.isMany(held) ? held.map(child) : child(held)];
+            live(app, slots[slot]!.definition, instance);
+          return [slot, isMany(held) ? held.map(child) : child(held)];
         }),
       );
     },
@@ -212,7 +203,7 @@ const live = (
     get stopped() {
       return stopped();
     },
-    send: (message: Tagged) => {
+    send: (message: Tagged, from: From = OUTSIDE) => {
       if (stopped()) return 'refused';
       try {
         definition.check.message(

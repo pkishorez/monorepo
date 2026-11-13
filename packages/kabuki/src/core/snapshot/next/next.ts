@@ -1,18 +1,15 @@
 import { Array as Arr } from 'effect';
-import type { Tagged } from '../../actor/index.ts';
-import type { ActorDefinition } from '../../actor/engine/index.ts';
-import { keyOf } from './path.ts';
-import type { Address } from './path.ts';
+import type { ActorDefinition, Tagged } from '../../actor/index.ts';
+import { keyOf } from '../address/index.ts';
+import type { Address } from '../address/index.ts';
+import { pathTo, replace } from '../instance/index.ts';
+import type { Instance, Snapshot, Step } from '../instance/index.ts';
+import type { Entry, From } from './entry.ts';
 import { enter, follow } from './invoke.ts';
-import { checkRestore, clamp, isRestore } from './restore.ts';
-import type { Restore } from './restore.ts';
-import type { Entry, From, Instance, Snapshot } from './init.ts';
-import { pathTo, replace } from './tree.ts';
-import type { Step } from './tree.ts';
 
 /*
- * Play: a History entry and the Snapshot before it give the Snapshot after
- * it. Pure, and the only thing that changes data.
+ * Next: one entry and the Snapshot before it give the Snapshot after it.
+ * Pure, and the only thing that changes data.
  *
  * 1. Find     the Instance the entry is for. One that is gone drops it.
  * 2. Check    the Message against its Actor's Schema: one that does not
@@ -23,20 +20,18 @@ import type { Step } from './tree.ts';
  *             the Model and any new State are checked against the Actor's
  *             Schemas, as is what it Emits: one that does not match throws
  *             before anything changes.
- * 4. Apply    the new data, marked as changed by the entry: a new State is a
- *             Transition and Invokes the State's Children fresh; the same
- *             State lets keyed Children follow the Model. Either way every
- *             Child is handed its Props again.
+ * 4. Apply    the new data: a new State is a Transition and Invokes the
+ *             State's Children fresh; the same State lets keyed Children
+ *             follow the Model. Either way every Child is handed its Props
+ *             again.
  * 5. Replace  the Instance in the tree. Every Instance off its path stays
  *             the same object.
  * 6. Emit     what the Update Emits becomes the parent's Message, as the
  *             Child's slot turns it, for the Runtime to Send next. One the
  *             slot does not turn, or the root's, is not heard.
- *
- * A Restore skips all of them: it puts a whole saved tree in place.
  */
 
-/** What playing one entry did. Never kept in the History: playing it again says the same. */
+/** What one entry did. Never kept: the same entry after the same Snapshot says the same. */
 export interface Played {
   readonly outcome: 'handled' | 'ignored' | 'dropped';
   /** The Snapshot right after the entry. */
@@ -62,18 +57,17 @@ const nothing = (
   outcome: 'ignored' | 'dropped',
 ): Played => ({
   outcome,
-  snapshot: { entry: entry.id, root },
+  snapshot: { root, at: entry.at },
   commands: [],
   emitted: [],
 });
 
-export const play = (
+export const next = (
   definition: ActorDefinition,
   { root }: Snapshot,
   entry: Entry,
 ): Played => {
   const { to, message, at } = entry;
-  if (isRestore(message)) return restored(definition, root, entry, message);
   // 1. Find
   const path = pathTo(definition, root, to);
   if (!path) return nothing(root, entry, 'dropped');
@@ -89,7 +83,7 @@ export const play = (
     | ((message: unknown, scope: unknown) => Next)
     | undefined;
   if (!rule) return nothing(root, entry, 'ignored');
-  const next = rule(message, {
+  const given = rule(message, {
     model: instance.model,
     state: instance.state,
     props: instance.props,
@@ -97,11 +91,11 @@ export const play = (
   });
 
   const by = `the Update for ${JSON.stringify(message._tag)} in ${from} gave ${to}`;
-  const model = merged(instance.model, next.model);
+  const model = merged(instance.model, given.model);
   if (model !== instance.model) actor.check.model(model, `the Model ${by}`);
-  if (next.state !== undefined && next.state !== instance.state)
-    actor.check.state(next.state, `the State ${by}`);
-  const emits = next.emit === undefined ? [] : Arr.ensure(next.emit);
+  if (given.state !== undefined && given.state !== instance.state)
+    actor.check.state(given.state, `the State ${by}`);
+  const emits = given.emit === undefined ? [] : Arr.ensure(given.emit);
   for (const event of emits)
     actor.check.emits(
       event,
@@ -109,23 +103,23 @@ export const play = (
     );
 
   // 4. Apply
-  const state = next.state ?? instance.state;
+  const state = given.state ?? instance.state;
   const changed = model !== instance.model || state !== instance.state;
-  const marked = { ...instance, model, state, changed: entry.id };
+  const applied = { ...instance, _tag: state._tag, model, state };
   const after = !changed
     ? instance
     : state._tag !== from
-      ? enter(actor, marked, entry.id)
-      : follow(actor, marked, entry.id);
+      ? enter(actor, applied)
+      : follow(actor, applied);
 
   // 5. Replace
   return {
     outcome: 'handled',
     snapshot: {
-      entry: entry.id,
       root: after === instance ? root : replace(path, after),
+      at,
     },
-    commands: next.command === undefined ? [] : Arr.ensure(next.command),
+    commands: given.command === undefined ? [] : Arr.ensure(given.command),
     // 6. Emit
     emitted: emittedOf(path, emits),
   };
@@ -170,33 +164,6 @@ const emittedOf = (
         ]
       : [];
   });
-};
-
-const warned = new WeakSet<object>();
-
-const restored = (
-  definition: ActorDefinition,
-  root: Instance,
-  entry: Entry,
-  message: Restore,
-): Played => {
-  if (entry.to !== definition.name) return nothing(root, entry, 'dropped');
-  const checked = checkRestore(definition, message);
-  if ('reason' in checked) {
-    if (!warned.has(message)) {
-      warned.add(message);
-      console.warn(
-        `[@kestack/kabuki] a Restore no longer matches ${definition.name}, and is ignored: ${checked.reason}`,
-      );
-    }
-    return nothing(root, entry, 'ignored');
-  }
-  return {
-    outcome: 'handled',
-    snapshot: { entry: entry.id, root: clamp(checked.root, entry.id) },
-    commands: [],
-    emitted: [],
-  };
 };
 
 type Next = {

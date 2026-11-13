@@ -1,5 +1,5 @@
-import { Address, Snapshot } from '../../core/data/index.ts';
-import type { Instance } from '../../core/data/index.ts';
+import { Address, Snapshot } from '../../core/snapshot/index.ts';
+import type { Instance } from '../../core/snapshot/index.ts';
 import type { AnyActor, Tagged } from '../../core/actor/index.ts';
 import type { Drawable, DrawnApp, Handle } from './draw/index.ts';
 

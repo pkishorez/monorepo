@@ -2,7 +2,7 @@ import { Effect, Layer, Schema } from 'effect';
 import type { Scope } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { Command, History, Runtime, Snapshot } from '../../core/index.ts';
-import type { Instance } from '../../core/data/index.ts';
+import type { Instance } from '../../core/snapshot/index.ts';
 import { View } from '../../react/index.ts';
 import { Navigation, Page, Router } from '../index.ts';
 import { Loading } from '../capabilities/index.ts';
@@ -150,7 +150,7 @@ const router = (app: Runtime) =>
 const send = (
   app: Runtime,
   message: { readonly _tag: string; readonly [field: string]: unknown },
-) => app.send(app.snapshot.root.address, message);
+) => app.root.send(message);
 const push = (app: Runtime, route: unknown) =>
   send(app, { _tag: 'Pushed', route });
 
@@ -253,7 +253,9 @@ describe('a move to pages with data', () => {
         push(app, Routes.Blog.Post({ slug: 'hello' }));
         yield* settle;
         const blog = find(app, 'Blog')!.address;
-        app.send(find(app, 'Post')!.address, { _tag: 'Typed', text: 'mine' });
+        app
+          .at(find(app, 'Post')!.address)!
+          .send({ _tag: 'Typed', text: 'mine' });
         push(app, Routes.Blog.Post({ slug: 'again' }));
         yield* settle;
         expect(find(app, 'Blog')!.address).toBe(blog);
@@ -529,7 +531,7 @@ describe('a reload', () => {
         push(app, Routes.Blog.Post({ slug: 'hello' }));
         yield* settle;
         const post = find(app, 'Post')!.address;
-        app.send(post, { _tag: 'Typed', text: 'mine' });
+        app.at(post)!.send({ _tag: 'Typed', text: 'mine' });
         const open = hold('Blog.Post:hello');
         send(app, { _tag: 'Reloaded' });
         yield* settle;
@@ -680,9 +682,32 @@ describe('a Fork, the app carried on from an earlier Step', () => {
     });
     return { layer, shown: () => entries[at]!, count: () => entries.length };
   };
-  /** The app Forked to `entry`, as a tool does: the same Runtime, its work started again there, running no Command. */
-  const fork = (app: Runtime, entry: number) =>
-    Effect.promise(() => app.fork(entry)).pipe(Effect.as(app));
+  /** The app with a History kept beside it, as a tool keeps one: every entry it plays, from its start. */
+  const recorded = (tab: ReturnType<typeof browser>) =>
+    Effect.gen(function* () {
+      // Made stopped and started once it is followed, so no entry is missed.
+      const app: Runtime = yield* Runtime.scoped(Root.actor, {
+        layer: Layer.merge(loading, tab.layer),
+        running: false,
+      });
+      let history = History.init(app.snapshot);
+      app.subscribe((entries) => {
+        history = History.add(history, entries);
+      });
+      yield* Effect.promise(() => app.start());
+      return {
+        app,
+        head: () => history.head,
+        /** The app Forked to `entry`, as a tool does: the same Runtime, its work started again there, running no Command. */
+        fork: (entry: number) =>
+          Effect.promise(() => {
+            history = History.move(history, entry);
+            return app.follow(History.snapshot(Root.actor, history), {
+              restart: true,
+            });
+          }).pipe(Effect.as(app)),
+      };
+    });
   const current = (app: Runtime) => {
     const model = app.snapshot.root.model as {
       readonly entries: ReadonlyArray<{ readonly key: string; route: unknown }>;
@@ -695,18 +720,16 @@ describe('a Fork, the app carried on from an earlier Step', () => {
     run(
       Effect.gen(function* () {
         const tab = browser('/');
-        const app = yield* Runtime.scoped(Root.actor, {
-          layer: Layer.merge(loading, tab.layer),
-        });
+        const { app, head, fork } = yield* recorded(tab);
         yield* settle;
         push(app, Routes.Blog());
         yield* settle;
-        const onBlog = app.history.head!;
+        const onBlog = head()!;
         push(app, Routes.Blog.Post({ slug: 'hello' }));
         yield* settle;
         expect(tab.shown().url).toBe('/blog/hello');
 
-        const forked = yield* fork(app, onBlog);
+        const forked = yield* fork(onBlog);
         yield* settle;
         expect(current(forked).route).toEqual(Routes.Blog());
         expect(tab.shown()).toEqual({
@@ -720,9 +743,7 @@ describe('a Fork, the app carried on from an earlier Step', () => {
     run(
       Effect.gen(function* () {
         const tab = browser('/');
-        const app = yield* Runtime.scoped(Root.actor, {
-          layer: Layer.merge(loading, tab.layer),
-        });
+        const { app, head, fork } = yield* recorded(tab);
         yield* settle;
         push(app, Routes.Blog());
         yield* settle;
@@ -730,12 +751,12 @@ describe('a Fork, the app carried on from an earlier Step', () => {
         yield* settle;
         send(app, { _tag: 'Went', by: -1 });
         yield* settle;
-        const backOnBlog = app.history.head!;
+        const backOnBlog = head()!;
         send(app, { _tag: 'Went', by: 1 });
         yield* settle;
         expect(tab.shown().url).toBe('/blog/hello');
 
-        const forked = yield* fork(app, backOnBlog);
+        const forked = yield* fork(backOnBlog);
         yield* settle;
         expect(current(forked).route).toEqual(Routes.Blog());
         expect(tab.shown()).toEqual({
@@ -780,10 +801,11 @@ describe('a drawing a server saves', () => {
       'Blog.Post': { _tag: 'Failed', reason: 'gone', notFound: true },
     });
     const drawn = Snapshot.init(Root.actor, input);
-    const saved = History.save(Root.actor, History.restored(drawn, { input }));
+    const saved = History.save(Root.actor, History.init(drawn));
     const loaded = History.load(Root.actor, JSON.parse(JSON.stringify(saved)));
-    // Right after its one entry, the Restore.
-    const tree = Snapshot.replay(Root.actor, loaded, 0).root as Instance;
+    // At its start: it has no entry.
+    expect(loaded.head).toBeNull();
+    const tree = History.snapshot(Root.actor, loaded).root as Instance;
     expect(tree).toEqual(drawn.root);
     const post = walk(tree).find((each) => each.actor === 'Post')!;
     expect((post.props as { readonly status: unknown }).status).toEqual({
@@ -1221,7 +1243,7 @@ describe('a reload anew', () => {
         // Past the minimum its first loading screen stays.
         yield* wait(400);
         const open = hold('Shown');
-        app.send(find(app, 'Shown')!.address, { _tag: 'Renew' });
+        app.at(find(app, 'Shown')!.address)!.send({ _tag: 'Renew' });
         yield* wait(500);
         expect(find(app, 'Shown')!.model).toEqual({ landed: false });
         expect(status(app, 'Shown')).toEqual(arrived({ visits: 1 }, true));

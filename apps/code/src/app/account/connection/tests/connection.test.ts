@@ -188,7 +188,6 @@ const run = (
         const storage = Context.get(context, Storage);
         const startIn = (over: Partial<Storage['Service']>) =>
           Runtime.scoped(OwnerLive as never, {
-            window: 0,
             layer: Layer.merge(
               Layer.succeedContext(
                 Context.add(context, Storage, { ...storage, ...over }),

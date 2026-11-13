@@ -42,7 +42,7 @@ export function Track({
   readonly ticks: ReadonlyArray<TrackTick>;
   /** How far apart, at most, in pixels, two ticks stand. */
   readonly gap?: number;
-  /** The tick chosen; -1 at init, the handle at the rail's start. */
+  /** The tick chosen; -1 at the History's start, the handle at the rail's start. */
   readonly index: number;
   readonly onPick: (index: number) => void;
   readonly className?: string;
@@ -113,7 +113,7 @@ export function Track({
       aria-valuenow={index + 1}
       aria-valuetext={
         index < 0
-          ? 'init'
+          ? 'start'
           : ticks[index]
             ? `${index + 1}: ${ticks[index].label}`
             : undefined

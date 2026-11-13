@@ -5,7 +5,7 @@ import { CounterLive } from '../components/counter.ts';
 // Run the Counter with no screen at all, and talk to it from outside.
 export const program = Effect.gen(function* () {
   const app = yield* Runtime.scoped(CounterLive);
-  const counter = app.instance({ from: 'docs' });
+  const counter = app.root;
   yield* Console.log('starts at', counter.model);
 
   // Each send hands over one Message, and says what became of it.

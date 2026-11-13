@@ -1,16 +1,14 @@
-import type { ActorDefinition } from '../../actor/engine/index.ts';
+import type { ActorDefinition } from '../../actor/index.ts';
 import { Equal } from 'effect';
-import { childAddress, counterOf, keyOf } from './path.ts';
-import type { Address } from './path.ts';
-import { isMany } from './tree.ts';
-import type { Instance } from './init.ts';
+import { childAddress, counterOf, keyOf } from '../address/index.ts';
+import type { Address } from '../address/index.ts';
+import { isMany } from '../instance/index.ts';
+import type { Instance } from '../instance/index.ts';
 
 /*
  * Invoke: each Child's Condition, read from the parent's data, says which
  * of its Instances exist, and the parent's data says what each is handed.
- * Pure: Instances are created by running init, never by Effects. `by` is the
- * History entry being played, `null` at init: an Instance it creates is
- * started by it, and one whose Props it changes is changed by it.
+ * Pure: Instances are created by running init, never by Effects.
  *
  * 1. Create  an Instance runs init from its Input and enters its State. The
  *            Input, the Props, and the Model and State init gives, are
@@ -37,7 +35,7 @@ export const create = (
   definition: ActorDefinition,
   address: Address,
   { input, props }: Given,
-  by: number | null,
+  key?: string,
 ): Instance => {
   definition.check.input(input, `the Input of ${address}`);
   definition.check.props(props, `the Props of ${address}`);
@@ -46,21 +44,17 @@ export const create = (
   const state = init.state ?? SINGLE;
   definition.check.model(model, `the Model init gave ${address}`);
   definition.check.state(state, `the State init gave ${address}`);
-  return enter(
-    definition,
-    {
-      address,
-      actor: definition.name,
-      model,
-      state,
-      ...(props === undefined ? {} : { props }),
-      started: by,
-      changed: null,
-      children: {},
-      invoked: {},
-    },
-    by,
-  );
+  return enter(definition, {
+    _tag: state._tag,
+    address,
+    ...(key === undefined ? {} : { key }),
+    actor: definition.name,
+    model,
+    state,
+    ...(props === undefined ? {} : { props }),
+    children: {},
+    invoked: {},
+  });
 };
 
 // 2. Enter
@@ -71,7 +65,6 @@ export const create = (
 export const enter = (
   definition: ActorDefinition,
   instance: Instance,
-  by: number | null,
 ): Instance => {
   const children: Record<string, Instance | ReadonlyArray<Instance>> = {};
   for (const slot of Object.keys(
@@ -82,14 +75,13 @@ export const enter = (
       : undefined;
     if (kept) children[slot] = kept;
   }
-  return follow(definition, { ...instance, children }, by);
+  return follow(definition, { ...instance, children });
 };
 
 // 3. Follow
 export const follow = (
   definition: ActorDefinition,
   instance: Instance,
-  by: number | null,
 ): Instance => {
   const slots = Object.entries(definition.children[instance.state._tag] ?? {});
   if (slots.length === 0) return instance;
@@ -119,7 +111,7 @@ export const follow = (
     const after = wanted.map((key, index) => {
       const kept = byKey.get(key);
       if (kept) {
-        const next = handedProps(child, kept, props(data, key), by);
+        const next = handedProps(child, kept, props(data, key));
         if (before[index] !== next) changed = true;
         return next;
       }
@@ -137,7 +129,7 @@ export const follow = (
         child,
         childAddress(instance.address, state, slot, at, n),
         { input: input(data, key), props: props(data, key) },
-        by,
+        at,
       );
     });
     if (!changed) continue;
@@ -156,18 +148,11 @@ const handedProps = (
   definition: ActorDefinition,
   child: Instance,
   props: unknown,
-  by: number | null,
 ): Instance => {
   if (Equal.equals(child.props, props)) return child;
   definition.check.props(props, `the Props of ${child.address}`);
   const { props: _, ...rest } = child;
-  return follow(
-    definition,
-    props === undefined
-      ? { ...rest, changed: by }
-      : { ...rest, props, changed: by },
-    by,
-  );
+  return follow(definition, props === undefined ? rest : { ...rest, props });
 };
 
 /** The keys a Condition names, each once. */

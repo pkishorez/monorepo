@@ -465,7 +465,6 @@ describe('the code Plugin, through the client and Replica', () => {
             );
 
             const app = yield* Runtime.scoped(Root, {
-              window: 0,
               layer: Layer.mergeAll(
                 ReplicaStore.memory(),
                 CodeClients.make(() =>
@@ -476,7 +475,7 @@ describe('the code Plugin, through the client and Replica', () => {
               ),
             });
             const page = () =>
-              app.instance({ from: 'test' }).children.page as unknown as {
+              app.root.children.page as unknown as {
                 readonly children: {
                   readonly projects: {
                     readonly model: { readonly rows: Rows };
@@ -509,7 +508,7 @@ describe('the code Plugin, through the client and Replica', () => {
                 newWorktree: false,
               }),
             );
-            app.send(Address.check(Root, 'Root/page#1')!, {
+            app.at(Address.check(Root, 'Root/page#1')!)?.send({
               _tag: 'Open',
               sessionId: session.id,
             });
@@ -589,7 +588,6 @@ describe('the code Plugin, through the client and Replica', () => {
               );
             const dialled: Array<string> = [];
             const app = yield* Runtime.scoped(TwoConnections, {
-              window: 0,
               layer: Layer.mergeAll(
                 ReplicaStore.memory(),
                 CodeClients.layer.pipe(
@@ -609,9 +607,7 @@ describe('the code Plugin, through the client and Replica', () => {
             });
             const rows = (connection: 'one' | 'two') =>
               (
-                app.instance({ from: 'test' }).children[
-                  connection
-                ] as unknown as {
+                app.root.children[connection] as unknown as {
                   readonly model: {
                     readonly rows: ReadonlyArray<{
                       readonly row: { readonly id: string };

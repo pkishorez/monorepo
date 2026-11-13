@@ -191,7 +191,7 @@ const opened = Effect.gen(function* () {
   const app = yield* Runtime.scoped(Root, { layer: accounts.layer });
   yield* wait(20);
   const send = (message: { readonly _tag: string; readonly id?: string }) =>
-    app.send(find(app, 'AccountSwitcher').address, message as never);
+    app.at(find(app, 'AccountSwitcher').address)?.send(message as never);
   return { app, send, ...accounts };
 });
 
@@ -293,7 +293,7 @@ describe('CurrentAccount', () => {
     run(
       Effect.gen(function* () {
         const { app, asked } = yield* opened;
-        app.send(find(app, 'Page').address, {
+        app.at(find(app, 'Page').address)?.send({
           _tag: 'Ask',
           id: 'bob',
         } as never);

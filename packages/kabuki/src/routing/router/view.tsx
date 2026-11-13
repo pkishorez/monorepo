@@ -2,7 +2,7 @@ import type { MouseEvent } from 'react';
 import { View } from '../../react/index.ts';
 import type { ViewOf } from '../../react/view/index.ts';
 import type { AnyActor } from '../../core/actor/index.ts';
-import type { Address } from '../../core/data/index.ts';
+import type { Address } from '../../core/snapshot/index.ts';
 import type { AnyRoute } from '../capabilities/index.ts';
 import { linkOf, linkOptions } from './context.tsx';
 import { readyOf, shownOf } from './data.ts';

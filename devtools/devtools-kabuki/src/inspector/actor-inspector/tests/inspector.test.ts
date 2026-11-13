@@ -162,7 +162,6 @@ const inspect = (travel: boolean) =>
   Effect.gen(function* () {
     const { layer, nows, asked } = yield* session;
     const app: App = yield* Runtime.scoped(InspectorLive, {
-      window: null,
       input: { travel, look: { presenting: false, place: 'bottom' } },
       layer,
     });
@@ -170,7 +169,9 @@ const inspect = (travel: boolean) =>
     yield* settle;
     const send = (actor: string, message: unknown) =>
       Effect.andThen(
-        Effect.sync(() => app.send(find(app, actor).address, message as never)),
+        Effect.sync(() =>
+          app.at(find(app, actor).address)?.send(message as never),
+        ),
         settle,
       );
     return { app, nows, asked, send };
@@ -226,13 +227,13 @@ describe('the Inspector', () => {
       }),
     ));
 
-  it('draws init, not the Head, while the app Seeks init, and forks from it', () =>
+  it("draws the History's start, not the Head, while the app Seeks it, and forks from it", () =>
     run(
       Effect.gen(function* () {
         const { app, nows, asked: all, send } = yield* inspect(true);
-        yield* Queue.offer(nows, nowOf(2, 'init'));
+        yield* Queue.offer(nows, nowOf(2, 'start'));
         yield* settle;
-        expect(asked(all, 'graph').at(-1)).toEqual({ at: 'init' });
+        expect(asked(all, 'graph').at(-1)).toEqual({ at: 'start' });
         expect(find(app, 'Timeline').props).toMatchObject({ at: -1 });
         yield* send('Timeline', { _tag: 'Forked' });
         expect(asked(all, 'fork')).toEqual([{ from: null }]);
@@ -330,7 +331,7 @@ describe('the Inspector', () => {
           only: 'Counter/page#1',
           opened: ['Counter/page#1'],
         });
-        // init is before the first moment, not one of the ticks.
+        // The History's start is before the first moment, not one of the ticks.
         expect(find(app, 'Timeline').props).toMatchObject({
           ticks: [{ id: 3, label: 'changed · Bumped → page#1', tone: 'took' }],
           at: null,

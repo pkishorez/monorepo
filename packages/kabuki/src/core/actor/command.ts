@@ -1,5 +1,5 @@
 import { Effect, Schema } from 'effect';
-import { RUN } from './engine/index.ts';
+import { RUN } from './definition/index.ts';
 
 /*
  * A Command is made once, outside any Update, from a name, the Schema of its

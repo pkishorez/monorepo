@@ -145,7 +145,7 @@ describe('a Query across Instances', () => {
         const app = yield* Runtime.scoped(Root, { layer: Store.memory() });
         const both = () =>
           (
-            app.instance({ from: 'test' }).children.both as unknown as {
+            app.root.children.both as unknown as {
               readonly model: Omit<QueryModel, 'rows'> & {
                 readonly rows: ReadonlyArray<{
                   readonly row: { readonly id: string; readonly owner: string };

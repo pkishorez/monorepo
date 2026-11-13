@@ -23,7 +23,7 @@ export function OpeningAnApp({
   readonly actions?: ReactNode;
 }) {
   const runtime = Demo.useRuntime();
-  const { seeking, fork } = runtime;
+  const { seeking, startOver } = runtime;
   const [device, setDevice] = useState<Device>('desktop');
 
   return (
@@ -55,11 +55,7 @@ export function OpeningAnApp({
           {actions}
         </header>
         <div className="flex min-h-0 flex-1 items-center justify-center px-6 pb-20 max-sm:p-0">
-          <Browser
-            device={device}
-            url="opening-an.app"
-            onReload={() => fork(null)}
-          >
+          <Browser device={device} url="opening-an.app" onReload={startOver}>
             <PastContext value={seeking !== null}>
               <Demo />
             </PastContext>

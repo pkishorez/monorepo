@@ -405,15 +405,17 @@ const opened = (path = '/replica') =>
   });
 
 const switchTo = (app: Runtime, id: string) =>
-  app.send(find(app, 'AccountSwitcher')!.address, {
+  app.at(find(app, 'AccountSwitcher')!.address)?.send({
     _tag: 'SwitchTo',
     id,
   } as never);
 const pocket = (app: Runtime) => find(app, 'Pocket')!;
 const ask = (app: Runtime, message: object) =>
-  app.send(pocket(app).address, message as never);
+  app.at(pocket(app).address)?.send(message as never);
 const show = (app: Runtime, account: string) =>
-  app.send(find(app, 'Replica')!.address, { _tag: 'Show', account } as never);
+  app
+    .at(find(app, 'Replica')!.address)
+    ?.send({ _tag: 'Show', account } as never);
 const balances = (app: Runtime) =>
   Object.fromEntries(
     (walletsUnder(app, 'pocket')?.rows ?? []).map(({ row }) => [

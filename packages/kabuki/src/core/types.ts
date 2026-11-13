@@ -10,15 +10,14 @@ export type {
   Entry,
   From,
   Instance,
-  Moment,
-  SavedHistory,
+  SavedSnapshot,
   WantedWorker,
-} from './data/index.ts';
+} from './snapshot/index.ts';
 export type {
   LiveInstance,
   Needs,
   RuntimeOptions,
   Sent,
-  Step,
   WorkerStatus,
 } from './runtime/index.ts';
+export type { HistoryEntry, SavedHistory } from './history/index.ts';

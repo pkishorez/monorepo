@@ -74,7 +74,7 @@ describe('Query', () => {
 
         const shown: Array<QueryModel | undefined> = [];
         const stop = app.subscribe(() => shown.push(seen.mine()));
-        app.send(pageOf(app), { _tag: 'Switched', mine: 'c' });
+        app.at(pageOf(app))?.send({ _tag: 'Switched', mine: 'c' });
         yield* eventually(() =>
           expect(balances(seen.mine())).toEqual({ w3: 30 }),
         );

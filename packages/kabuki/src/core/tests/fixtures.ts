@@ -18,7 +18,7 @@ import {
   Runtime,
   Snapshot,
 } from '../index.ts';
-import type { Entry, Instance } from '../types.ts';
+import type { From, HistoryEntry, Instance, Sent } from '../types.ts';
 
 /* The Actors, Layers and helpers the core tests share. */
 
@@ -190,23 +190,65 @@ export const to = (app: Runtime<any>, text: string): Address => {
   return address!;
 };
 
+/** The History kept beside each Runtime the helpers below made. */
+const recorded = new WeakMap<Runtime<any>, { history: History }>();
+
+/** Keep a History beside a Runtime made stopped, then start it, so every entry it plays is in it. */
+const record = <R extends Runtime<any>>(app: R, start: boolean): R => {
+  const kept = { history: History.init(app.snapshot) };
+  recorded.set(app, kept);
+  app.subscribe((entries) => {
+    kept.history = History.add(kept.history, entries);
+  });
+  if (start) void app.start();
+  return app;
+};
+
+/** `Runtime.scoped`, with a History kept beside the Runtime for the helpers below. */
+export const scoped = ((actor: any, options?: any) =>
+  Effect.map(Runtime.scoped(actor, { ...options, running: false }), (app) =>
+    record(app, options?.running !== false),
+  )) as typeof Runtime.scoped;
+
+/** `Runtime.make`, with a History kept beside the Runtime for the helpers below. */
+export const make = ((actor: any, options?: any) =>
+  record(
+    Runtime.make(actor, { ...options, running: false }),
+    options?.running !== false,
+  )) as typeof Runtime.make;
+
+/** The History kept beside a Runtime that `scoped` or `make` made. */
+export const historyOf = (app: Runtime<any>): History => {
+  const kept = recorded.get(app);
+  if (!kept) throw new Error('make the Runtime with the fixtures to read it');
+  return kept.history;
+};
+
 /** The entries from the first to the Head. */
-export const line = (app: Runtime<any>): ReadonlyArray<Entry> =>
-  History.line(app.history);
+export const line = (app: Runtime<any>): ReadonlyArray<HistoryEntry> =>
+  History.entries(historyOf(app));
 
 /** The tags of the Messages from the first entry to the Head. */
 export const tags = (app: Runtime<any>): ReadonlyArray<string> =>
   line(app).map((entry) => entry.message._tag);
 
+/** The Snapshot right after an entry (`null`: the start), replayed from the History. */
+export const seek = (app: Runtime<any>, entry: number | null): Snapshot =>
+  History.snapshot(app.actor, historyOf(app), entry);
+
 /** What came of an entry, worked out again by playing it from the Snapshot before it. */
 export const outcome = (app: Runtime<any>, id: number) => {
-  const entry = History.entry(app.history, id)!;
-  return Snapshot.play(
-    app.actor,
-    Snapshot.replay(app.actor, app.history, entry.parent),
-    entry,
-  ).outcome;
+  const entry = History.entry(historyOf(app), id)!;
+  return Snapshot.next(app.actor, seek(app, entry.parent), entry).outcome;
 };
+
+/** Send a Message to the Instance at an Address written by hand, from outside; `refused` when none is there. */
+export const send = (
+  app: Runtime<any>,
+  text: string,
+  message: { readonly _tag: string; readonly [field: string]: unknown },
+  from?: From,
+): Sent => app.at(to(app, text))?.send(message as never, from) ?? 'refused';
 
 /** Stop the Runtime, from Effect code. */
 export const stop = (app: Runtime<any>) => Effect.promise(() => app.stop());
@@ -214,9 +256,15 @@ export const stop = (app: Runtime<any>) => Effect.promise(() => app.stop());
 /** Run the Runtime again, from Effect code. */
 export const start = (app: Runtime<any>) => Effect.promise(() => app.start());
 
-/** Fork the Runtime to an entry (`null`: init), from Effect code. */
+/** Move the History's Head to an entry (`null`: the start), and have the Runtime start again from the Snapshot there, from Effect code. */
 export const fork = (app: Runtime<any>, entry: number | null) =>
-  Effect.promise(() => app.fork(entry));
+  Effect.promise(() => {
+    const kept = recorded.get(app)!;
+    kept.history = History.move(kept.history, entry);
+    return app.follow(History.snapshot(app.actor, kept.history), {
+      restart: true,
+    });
+  });
 
 export const run = <A>(effect: Effect.Effect<A, never, Scope.Scope>) =>
   Effect.runPromise(Effect.scoped(effect));
@@ -227,7 +275,7 @@ export const timed = <A>(effect: Effect.Effect<A, never, Scope.Scope>) =>
   );
 
 export const started = Effect.suspend(() =>
-  Runtime.scoped(Auth, { layer: ServerLive }),
+  scoped(Auth, { layer: ServerLive }),
 );
 
 export const Counter = Actor.define('Counter', {

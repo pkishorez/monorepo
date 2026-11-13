@@ -369,7 +369,7 @@ describe('Store', () => {
           balance: 7,
         });
         const app = yield* start(world, Idb.idb());
-        app.send(pageOf(app), { _tag: 'Switched', mine: 'idb' });
+        app.at(pageOf(app))?.send({ _tag: 'Switched', mine: 'idb' });
         yield* eventually(() =>
           expect(balances(read(app).mine())).toEqual({ w1: 7 }),
         );

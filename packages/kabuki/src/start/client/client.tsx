@@ -3,7 +3,7 @@ import type { ComponentType } from 'react';
 import { hydrateRoot } from 'react-dom/client';
 import type { Root } from 'react-dom/client';
 import { Layer } from 'effect';
-import type { SavedHistory } from '../../core/data/index.ts';
+import type { SavedHistory } from '../../core/history/index.ts';
 import { View } from '../../react/index.ts';
 import { Loading } from '../../routing/capabilities/index.ts';
 import { Start } from '../app/index.ts';

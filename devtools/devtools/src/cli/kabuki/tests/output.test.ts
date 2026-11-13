@@ -125,13 +125,13 @@ describe('kabuki output', () => {
   test('renders a Snapshot under where it was read', () => {
     expect(
       renderSnapshotText({
-        at: 'init',
+        at: 'start',
         path: 'model.notes',
         value: [],
         summarized: true,
       }),
     ).toBe(
-      'at init · path model.notes · summarized: pass --expand for all of it\n[]',
+      'at start · path model.notes · summarized: pass --expand for all of it\n[]',
     );
   });
 });

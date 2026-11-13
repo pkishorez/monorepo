@@ -8,6 +8,7 @@ export type {
   AppSetup,
   Attachment,
   Failure,
+  Step,
 } from './app.tsx';
 export { useChild, useChildren, useLive } from './draw/index.ts';
 export type {

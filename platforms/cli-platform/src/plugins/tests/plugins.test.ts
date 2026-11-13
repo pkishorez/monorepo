@@ -235,7 +235,7 @@ describe('a Plugin kept running by its CLI', () => {
             );
             const before = yield* controlAt(plugin.socket);
             const { pid } = yield* before.status();
-            running.send(running.snapshot.root.address, {
+            running.root.send({
               _tag: 'Want',
               wanted: { file: fixture('ping-b.mjs') },
             });
@@ -277,7 +277,7 @@ describe('a Plugin kept running by its CLI', () => {
             );
             const before = yield* controlAt(plugin.socket);
             const { pid } = yield* before.status();
-            running.send(running.snapshot.root.address, {
+            running.root.send({
               _tag: 'Want',
               wanted: { file: fixture('ping-b.mjs') },
             });

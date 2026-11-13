@@ -1,8 +1,8 @@
 import { Effect, Schema } from 'effect';
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import { Actor, Address, Blueprint, Runtime, Snapshot } from '../index.ts';
+import { Actor, Address, Blueprint, Snapshot } from '../index.ts';
 import type { Instance } from '../types.ts';
-import { Counter, run } from './fixtures.ts';
+import { Counter, run, scoped } from './fixtures.ts';
 
 /*
  * The Address: one path from the root, the State a Child is written in, its
@@ -61,10 +61,9 @@ describe('an Address', () => {
   it('is new for a Child Invoked again, and the same for one kept', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.scoped(App);
-        const root = app.snapshot.root.address;
-        app.send(root, { _tag: 'Left' });
-        app.send(root, { _tag: 'Entered' });
+        const app = yield* scoped(App);
+        app.root.send({ _tag: 'Left' });
+        app.root.send({ _tag: 'Entered' });
         expect(addresses(app.snapshot.root)).toEqual([
           'App',
           'App/counter#1',
@@ -73,8 +72,8 @@ describe('an Address', () => {
           'App/Inside:downloads#2/files[a%20b]#1',
         ]);
         const downloads = Address.check(App, 'App/Inside:downloads#2')!;
-        app.send(downloads, { _tag: 'Set', ids: ['3'] });
-        app.send(downloads, { _tag: 'Set', ids: ['3', 'a b'] });
+        app.at(downloads)!.send({ _tag: 'Set', ids: ['3'] });
+        app.at(downloads)!.send({ _tag: 'Set', ids: ['3', 'a b'] });
         expect(addresses(app.snapshot.root).slice(3)).toEqual([
           'App/Inside:downloads#2/files[3]#1',
           'App/Inside:downloads#2/files[a%20b]#2',
@@ -153,19 +152,17 @@ describe('Sending to an Address', () => {
   it('is typed by the Actor an Address taken from a Snapshot carries', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.scoped(App);
+        const app = yield* scoped(App);
         const root = app.snapshot.root.address;
         expectTypeOf(root).toEqualTypeOf<Address<typeof App>>();
-        expect(app.send(root, { _tag: 'Left' })).toBe('handled');
+        expect(app.at(root)!.send({ _tag: 'Left' })).toBe('handled');
         // @ts-expect-error not one of App's Messages
-        expect(() => app.send(root, { _tag: 'Opened' })).toThrow(
-          /does not match its Schema/,
-        );
+        expect(app.at(root)!.send({ _tag: 'Opened' })).toBe('refused');
         // @ts-expect-error a string is not an Address: it goes through `Address.check`
-        expect(app.send('App', { _tag: 'Left' })).toBe('ignored');
+        expect(app.at('App')!.send({ _tag: 'Left' })).toBe('ignored');
         // One checked by hand is of no Actor in particular: any tagged Message.
         const counter = Address.check(App, 'App/counter#1')!;
-        expect(app.send(counter, { _tag: 'Bumped' })).toBe('handled');
+        expect(app.at(counter)!.send({ _tag: 'Bumped' })).toBe('handled');
       }),
     ));
 });

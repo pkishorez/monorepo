@@ -65,7 +65,6 @@ export const run = (options: RunOptions) =>
     };
     const running = yield* Runtime.scoped(ActorConnection, {
       input,
-      window: 0,
       layer: Layer.mergeAll(
         Layer.succeed(Cloud, Cloud.of(cloud(options.cloud))),
         Layer.succeed(Tunnels, Tunnels.of(tunnels(downloads))),
@@ -73,7 +72,7 @@ export const run = (options: RunOptions) =>
         downloads,
       ),
     });
-    const root = () => running.instance({ from: 'serve' });
+    const root = () => running.root;
     const states = running.changes.pipe(
       Stream.map(() => root()),
       Stream.merge(Stream.sync(root)),

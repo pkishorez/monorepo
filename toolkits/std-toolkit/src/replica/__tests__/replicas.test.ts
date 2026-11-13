@@ -76,7 +76,7 @@ describe('Replicas', () => {
           expect(seen.instance('a')?.role).toBe('leading'),
         );
 
-        app.send(pageOf(app), { _tag: 'Shown', shown: false });
+        app.at(pageOf(app))?.send({ _tag: 'Shown', shown: false });
         yield* eventually(() =>
           expect(seen.instance('a')).toMatchObject({
             holders: [],
@@ -84,11 +84,11 @@ describe('Replicas', () => {
           }),
         );
         // Held again before its GC Time runs out, it carries on.
-        app.send(pageOf(app), { _tag: 'Shown', shown: true });
+        app.at(pageOf(app))?.send({ _tag: 'Shown', shown: true });
         yield* eventually(() =>
           expect(seen.instance('a')).toMatchObject({ gcAt: null }),
         );
-        app.send(pageOf(app), { _tag: 'Shown', shown: false });
+        app.at(pageOf(app))?.send({ _tag: 'Shown', shown: false });
         yield* eventually(() => expect(seen.instances()).toEqual([]));
       }),
     ));
@@ -103,7 +103,7 @@ describe('Replicas', () => {
           expect(seen.instance('a')?.role).toBe('leading'),
         );
 
-        app.send(pageOf(app), { _tag: 'Shown', shown: false });
+        app.at(pageOf(app))?.send({ _tag: 'Shown', shown: false });
         yield* eventually(() =>
           expect(seen.instance('a')?.holders).toEqual([]),
         );

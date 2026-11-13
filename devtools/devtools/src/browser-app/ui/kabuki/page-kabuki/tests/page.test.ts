@@ -83,7 +83,6 @@ const start = (
   layer: Layer.Layer<Sessions>,
 ): Effect.Effect<App, never, Scope.Scope> =>
   Runtime.scoped(Root.actor, {
-    window: 0,
     input: { route: kabukiRoute(name) },
     layer,
   });

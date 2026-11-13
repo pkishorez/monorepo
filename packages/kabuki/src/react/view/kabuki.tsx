@@ -1,33 +1,33 @@
 import type { ReactNode } from 'react';
 import type { AnyActor } from '../../core/actor/index.ts';
-import type { Address } from '../../core/data/index.ts';
-import type { Runtime, Step } from '../../core/runtime/index.ts';
+import type { Address, Snapshot } from '../../core/snapshot/index.ts';
+import type { Runtime } from '../../core/runtime/index.ts';
 import { makeDrawn } from './drawn.ts';
 import { AppContext } from './draw/index.ts';
 import type { DrawnApp, Handle, ViewOf } from './draw/index.ts';
 
 /*
- * Drawing a Runtime or a Step: the root's View, and every View under it,
- * drawn from its Snapshot. A Runtime is drawn at its Head, again after
- * every change, and what a View Sends goes to it while it runs; a Step is
- * one moment, drawn as it is, and what a View Sends from it is dropped.
+ * Drawing a Runtime or a Snapshot: the root's View, and every View under
+ * it. A Runtime is drawn at its Snapshot, again after every change, and
+ * what a View Sends goes to it while it runs; a Snapshot is the app as
+ * data, drawn as it is, and what a View Sends from it is dropped.
  */
 
 /** What `<Kabuki>` takes: what to draw, and the View of its root. */
 export interface KabukiProps<A> {
-  /** A Runtime, drawn at its Head, or a Step, as `runtime.seek` gives one, drawn as it is. */
-  readonly of: Runtime<A> | Step<A>;
+  /** A Runtime, drawn as it is now, or a Snapshot, drawn as it is. */
+  readonly of: Runtime<A> | Snapshot<A>;
   /** The View of the root Actor. */
   readonly view: ViewOf<A>;
 }
 
-const isRuntime = (of: Runtime<any> | Step<any>): of is Runtime<any> =>
-  'send' in of;
+const isRuntime = (of: Runtime<any> | Snapshot<any>): of is Runtime<any> =>
+  'follow' in of;
 
-// One drawing per Runtime or Step, so drawing one again keeps what its Views read.
+// One drawing per Runtime or Snapshot, so drawing one again keeps what its Views read.
 const drawings = new WeakMap<object, DrawnApp>();
 
-const drawingOf = (of: Runtime<any> | Step<any>): DrawnApp => {
+const drawingOf = (of: Runtime<any> | Snapshot<any>): DrawnApp => {
   let drawn = drawings.get(of);
   if (drawn) return drawn;
   if (isRuntime(of)) {
@@ -36,20 +36,19 @@ const drawingOf = (of: Runtime<any> | Step<any>): DrawnApp => {
     drawn = makeDrawn(
       () => of.snapshot,
       () => served,
+      // A stopped Runtime takes no Message: a click then does nothing.
       (address, message) => {
-        // A stopped Runtime takes no Message: a click then does nothing.
-        if (of.running)
-          of.send(address, message as never, {
-            kind: 'view',
-            instance: address,
-          });
+        of.at(address)?.send(message as never, {
+          kind: 'view',
+          instance: address,
+        });
       },
-      of.subscribe,
+      (listener) => of.subscribe(listener),
     );
   } else {
     drawn = makeDrawn(
-      () => of.snapshot,
-      () => of.snapshot,
+      () => of,
+      () => of,
       () => {},
       () => () => {},
       () => false,
@@ -69,9 +68,9 @@ export const rootOf = <A extends AnyActor>(actor: A): Handle<A> => {
 };
 
 /**
- * A Runtime or a Step, drawn: `<Kabuki of={runtime} view={AppView} />`.
+ * A Runtime or a Snapshot, drawn: `<Kabuki of={runtime} view={AppView} />`.
  * A Runtime is the running app, and a click Sends to it from its View; a
- * Step, `<Kabuki of={runtime.seek(3)} … />`, draws its moment, and a click
+ * Snapshot, `<Kabuki of={snapshot} … />`, is drawn as it is, and a click
  * does nothing.
  */
 export const Kabuki = <A extends AnyActor>({
