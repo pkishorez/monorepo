@@ -1,5 +1,5 @@
 // Stands in for `virtual:web-platform/pwa/client` in unit tests.
-import type { ClientBuildInfo } from '../../src/pwa/engine/contract/config/index.js';
+import type { ClientBuildInfo } from '../../src/pwa/contract/config/index.js';
 
 const info: ClientBuildInfo = {
   enabled: true,
