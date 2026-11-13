@@ -29,12 +29,6 @@ export const CanvasView = View.make(
         <Blueprint
           root={model.print}
           opened={props.opened}
-          form={model.form}
-          off={model.off}
-          picked={model.picked}
-          onForm={(form) => send({ _tag: 'Formed', form })}
-          onOff={(off) => send({ _tag: 'Offed', off })}
-          onPick={(id) => send({ _tag: 'Picked', id })}
           onOpen={(id, open) => send({ _tag: 'Opened', id, open })}
         />
       ) : null;
@@ -47,6 +41,7 @@ export const CanvasView = View.make(
           cards={cards}
           frame
           follow={props.follow}
+          only={props.only}
           {...(props.bring ? { bring: { ...props.bring, with: [] } } : {})}
           // Presenting, nothing to press.
           {...(props.follow

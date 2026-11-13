@@ -13,12 +13,12 @@ import { Opening } from './capabilities/opening.ts';
  * 1. Graph   what the Kabuki Session answers for the Step: read again at
  *            each new Step, and, live, at each change of the app. The
  *            Blueprint is read once each time it is shown: it holds only
- *            what the Actors declare. How it is shown is kept here.
+ *            what the Actors declare.
  * 2. Cards   one Card per card open, reading its Instance's data while it
  *            is open (./actor-card).
- * 3. Open    a card the reader opens or closes, or an Instance zoomed in
- *            on to its Trail, is asked of whoever placed the canvas, who
- *            keeps the cards open.
+ * 3. Open    a card the reader opens or closes, or an Instance's Trail
+ *            followed or let go, is asked of whoever placed the canvas,
+ *            who keeps the cards open.
  */
 
 const Props = Schema.Struct({
@@ -36,10 +36,9 @@ const Props = Schema.Struct({
   follow: Schema.Boolean,
   /** Draw the Blueprint instead of the app at a Step. */
   blueprint: Schema.Boolean,
+  /** The Instance whose Trail is followed: only its card is drawn; null for the whole tree. */
+  only: Schema.NullOr(Schema.String),
 });
-
-const Form = Schema.Literals(['whole', 'steps']);
-const Off = Schema.Literals(['dim', 'hide']);
 
 export const Canvas = Actor.define('Canvas', {
   requires: [KabukiSession, Opening],
@@ -48,21 +47,12 @@ export const Canvas = Actor.define('Canvas', {
     graph: Schema.NullOr(Graph),
     /** The Blueprint, once read. */
     print: Schema.NullOr(GraphNode),
-    /** The Blueprint whole, or a level at a time. */
-    form: Form,
-    /** What is out of the light: dimmed, or hidden. */
-    off: Off,
-    /** The Blueprint's card picked. */
-    picked: Schema.NullOr(Schema.String),
     /** Why the Step could not be drawn: no longer kept, or the Kabuki Session gone. */
     problem: Schema.NullOr(Schema.String),
   }),
   message: Schema.TaggedUnion({
     Drawn: { graph: Graph },
     Printed: { root: GraphNode },
-    Formed: { form: Form },
-    Offed: { off: Off },
-    Picked: { id: Schema.NullOr(Schema.String) },
     Failed: { problem: Schema.String },
     Opened: { id: Schema.String, open: Schema.Boolean },
     Zoomed: { id: Schema.String },
@@ -95,9 +85,6 @@ export const CanvasLive = Canvas.build({
     model: {
       graph: null,
       print: null,
-      form: 'whole',
-      off: 'dim',
-      picked: null,
       problem: null,
     },
   }),
@@ -143,12 +130,6 @@ export const CanvasLive = Canvas.build({
     Printed: ({ root }, { model }) => ({
       model: { ...model, print: root, problem: null },
     }),
-    // A Form starts from the root: a card picked in one means another thing in the other.
-    Formed: ({ form }, { model }) => ({
-      model: { ...model, form, picked: null },
-    }),
-    Offed: ({ off }, { model }) => ({ model: { ...model, off } }),
-    Picked: ({ id }, { model }) => ({ model: { ...model, picked: id } }),
     Failed: ({ problem }, { model }) => ({ model: { ...model, problem } }),
     Opened: ({ id, open: shown }) => ({ command: open({ id, open: shown }) }),
     Zoomed: ({ id }) => ({ command: zoom({ id }) }),

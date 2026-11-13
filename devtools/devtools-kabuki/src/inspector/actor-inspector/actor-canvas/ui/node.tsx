@@ -432,6 +432,25 @@ const activeIn = (level: Level, node: GraphNode, live: boolean) => {
   return { workers, children, any: workers + children > 0 };
 };
 
+/** Whether a level holds nothing to show: no Worker, Message, Child, Capability or field, and no Child the Step stopped. */
+const isEmpty = (
+  level: Level,
+  node: GraphNode,
+  card: Api.Node | undefined,
+  live: boolean,
+) =>
+  level.workers.length === 0 &&
+  level.on.length === 0 &&
+  level.children.length === 0 &&
+  level.gives.length === 0 &&
+  (level.key === '*' || (card?.schemas.states[level.key] ?? []).length === 0) &&
+  !(
+    live &&
+    (node.gone ?? []).some((one) =>
+      level.children.some((child) => child.name === one.slot),
+    )
+  );
+
 /** The section a Scene's part is in. */
 const sectionOfPart = (
   levels: ReturnType<typeof levelsOf>,
@@ -960,9 +979,9 @@ function Sections({
         (services || (focus?.kind === 'requires' && focus.name === use.name)),
     )
     .map(({ name }) => name);
-  // Active shows only the State it is in.
+  // Active shows only the State it is in; in none, as in the Blueprint, every State.
   const states =
-    mode === 'active'
+    mode === 'active' && current
       ? levels.states.filter((level) => level.key === current)
       : levels.states;
   const live = mode !== 'blueprint';
@@ -981,9 +1000,11 @@ function Sections({
       readonly kind?: Kind | undefined;
       /** Something in it runs now: teal, unless the Step changed it. */
       readonly active?: boolean;
+      /** It holds nothing: named, with nothing to open. */
+      readonly empty?: boolean;
     } = {},
   ) => {
-    const shown = open.has(key);
+    const shown = open.has(key) && !options.empty;
     const tone = options.kind
       ? INK[options.kind]
       : options.active
@@ -993,11 +1014,12 @@ function Sections({
       <li key={key} className={cn(options.dim && 'opacity-50')}>
         <button
           type="button"
-          aria-expanded={shown}
+          aria-expanded={options.empty ? undefined : shown}
+          disabled={options.empty}
           onClick={() => flip(key)}
           className={cn(
             'flex min-h-9 w-full min-w-0 items-center gap-2 rounded-md py-1.5 pr-2 pl-1 text-left outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none',
-            'hover:bg-muted/60',
+            options.empty ? 'cursor-default' : 'hover:bg-muted/60',
           )}
         >
           {/* Its chevron and its title in a change's colour; else blue while it is active. */}
@@ -1006,6 +1028,8 @@ function Sections({
             className={cn(
               'size-3.5 shrink-0 transition-transform duration-150 motion-reduce:transition-none',
               shown && 'rotate-90',
+              // Nothing to open: its place kept, so the titles line up.
+              options.empty && 'invisible',
               tone ?? 'text-muted-foreground',
             )}
           />
@@ -1036,24 +1060,26 @@ function Sections({
           '[&_li]:transition-opacity [&_li]:duration-300 [&_li:not(:has([data-focus]))]:opacity-35',
       )}
     >
-      {fold(
-        '*',
-        <span className="shrink-0 text-xs font-medium">Always</span>,
-        <Counts level={levels.always} node={node} live={live} />,
-        <Opened
-          level={levels.always}
-          node={node}
-          card={card}
-          mode={mode}
-          {...(focus ? { focus } : {})}
-          onChild={onChild}
-        />,
-        {
-          kind: kindsOf(levels.always, node, live).all,
-          active: activeIn(levels.always, node, live).any,
-        },
-      )}
-      {levels.states.length > 0 && (
+      {/* Always, holding nothing, is not shown at all. */}
+      {!isEmpty(levels.always, node, card, live) &&
+        fold(
+          '*',
+          <span className="shrink-0 text-xs font-medium">Always</span>,
+          <Counts level={levels.always} node={node} live={live} />,
+          <Opened
+            level={levels.always}
+            node={node}
+            card={card}
+            mode={mode}
+            {...(focus ? { focus } : {})}
+            onChild={onChild}
+          />,
+          {
+            kind: kindsOf(levels.always, node, live).all,
+            active: activeIn(levels.always, node, live).any,
+          },
+        )}
+      {states.length > 0 && (
         <li className="pt-1.5">
           <p className="px-1 pb-0.5 text-[10px] font-medium tracking-wider text-muted-foreground uppercase">
             States
@@ -1104,6 +1130,7 @@ function Sections({
                       : undefined,
                   // The State it is in is active, whatever runs in it.
                   active: live && level.key === current,
+                  empty: isEmpty(level, node, card, live),
                 },
               );
             })}
@@ -1297,7 +1324,8 @@ export const readableKey = (key: string): string => {
  * centred beside them: its name; what Actor it is, when and where it
  * exists; the key it is made again by. Then the State it is in, as a
  * label, and two icon switches, its other States and its Services; the
- * way to its Trail, for an Instance. Clicking the band closes the card.
+ * switch that follows its Trail, for an Instance. Clicking the band
+ * closes the card.
  */
 function Head({
   node,
@@ -1305,6 +1333,7 @@ function Head({
   onAll,
   services,
   onServices,
+  trailing,
   onTrail,
   onClose,
 }: {
@@ -1314,7 +1343,9 @@ function Head({
   /** Whether its Services show; undefined when it requires none. */
   readonly services: boolean | undefined;
   readonly onServices: (services: boolean) => void;
-  /** Zoom in on it, to its Trail; none where it is no Instance. */
+  /** Whether its Trail is followed: pressed. */
+  readonly trailing: boolean;
+  /** Follow its Trail, or let it go; none where it is no Instance. */
   readonly onTrail?: (() => void) | undefined;
   readonly onClose: () => void;
 }) {
@@ -1378,16 +1409,15 @@ function Head({
           )}
         </div>
       )}
+      {/* Pressed while followed: only it shows, and the Timeline only its moments. */}
       {onTrail && (
-        <button
-          type="button"
-          aria-label={`Show the Trail of ${name}`}
-          title="Its Trail: every moment it started, changed, received or stopped"
-          onClick={onTrail}
-          className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-background/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring touch:size-11"
+        <Switch
+          on={trailing}
+          onChange={onTrail}
+          name={`Follow the Trail of ${name}: every moment it started, changed, received or stopped`}
         >
-          <FootprintsIcon aria-hidden className="size-4" />
-        </button>
+          <FootprintsIcon aria-hidden />
+        </Switch>
       )}
       <button
         type="button"
@@ -1410,9 +1440,8 @@ export function ActorNode({
   dim = false,
   still = false,
   folding = true,
-  selected = false,
-  onSelect,
   onTrail,
+  trailing = false,
   flash,
   onOpen,
   onCenter,
@@ -1433,12 +1462,10 @@ export function ActorNode({
   readonly still?: boolean;
   /** Whether it has a button to fold what is under it. */
   readonly folding?: boolean;
-  /** The card picked: ringed. */
-  readonly selected?: boolean;
-  /** Pressed while small: told here instead of opening. */
-  readonly onSelect?: ((id: string) => void) | undefined;
-  /** Zoom in on it, to its Trail: an Instance's card, open. */
+  /** Follow its Trail, or let it go: an Instance's card, open. */
   readonly onTrail?: ((id: string) => void) | undefined;
+  /** Whether its Trail is followed. */
+  readonly trailing?: boolean;
   /** A new number each time it is reached from its parent's card: it glows once. */
   readonly flash?: number;
   readonly onOpen: (id: string, open: boolean) => void;
@@ -1542,7 +1569,6 @@ export function ActorNode({
           'relative overflow-hidden rounded-xl border bg-card text-card-foreground transition-[border-color] duration-300 motion-reduce:transition-none',
           open ? 'shadow-lg' : 'shadow-xs',
           open ? 'border-foreground/15' : 'border-border',
-          selected && 'ring-2 ring-ring ring-offset-2 ring-offset-background',
         )}
         style={{
           width: open ? OPEN_WIDTH : SMALL.width,
@@ -1581,6 +1607,7 @@ export function ActorNode({
                   uses.some((use) => use.from === null) ? services : undefined
                 }
                 onServices={setServices}
+                trailing={trailing}
                 onTrail={onTrail && (() => onTrail(node.id))}
                 onClose={() => onOpen(node.id, false)}
               />
@@ -1603,11 +1630,8 @@ export function ActorNode({
           ) : (
             <button
               type="button"
-              onClick={() =>
-                onSelect ? onSelect(node.id) : onOpen(node.id, true)
-              }
+              onClick={() => onOpen(node.id, true)}
               aria-expanded={false}
-              aria-pressed={onSelect ? selected : undefined}
               aria-label={`${node.title}${changed ? ', changed at this Step' : ''}`}
               className="flex w-full min-w-0 flex-col gap-1 px-3 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
             >

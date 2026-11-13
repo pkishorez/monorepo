@@ -1,11 +1,10 @@
 import { Effect, Layer, Schema, Stream } from 'effect';
 import { Actor, Command } from '@kestack/kabuki';
-import { Entry, Now, Split, Step } from '../../api/index.ts';
+import { Entry, Now, Split, Step, Trail } from '../../api/index.ts';
 import { KabukiSession } from '../kabuki-session/index.ts';
 import { CanvasLive, Opening } from './actor-canvas/index.ts';
 import { TimelineLive, Steps } from './actor-timeline/index.ts';
 import type { Tick } from './actor-timeline/index.ts';
-import { TrailLive, Zoom } from './actor-trail/index.ts';
 
 /*
  * The Inspector: one Kabuki Session at any Step of its History, read and
@@ -35,9 +34,12 @@ import { TrailLive, Zoom } from './actor-trail/index.ts';
  * 5. View     the app Running, at a Step, over the Timeline; or its
  *             Blueprint, every Actor its root can grow, with no Timeline.
  *             Each keeps its own cards open.
- * 6. Zoom     one Instance zoomed in on, its Trail in place of the canvas,
- *             over the Timeline; a moment picked shows its Step, zoomed
- *             back out, with that Instance's card open.
+ * 6. Trail    one Instance followed through the History, from its card:
+ *             only its card shows, open, and the Timeline only its Trail,
+ *             each moment it started, changed, received or stopped, read
+ *             again as the app changes. Stepping, picking and playing go
+ *             from moment to moment. Its card's Trail pressed again, or
+ *             the card closed, shows the whole tree again.
  */
 
 const Look = Schema.Struct({
@@ -68,8 +70,10 @@ const Model = Schema.Struct({
   printed: Schema.Array(Schema.String),
   /** The Step whose card, opened by looking back at it, the reader closed. */
   closed: Schema.NullOr(Schema.Number),
-  /** The Instance zoomed in on, by Address, its Trail shown; null for the whole tree. */
+  /** The Instance followed, by Address, its Trail shown; null for the whole tree. */
   trail: Schema.NullOr(Schema.String),
+  /** Its Trail, once read. */
+  told: Schema.NullOr(Trail),
   /** Why the Kabuki Session did not answer, last time it was asked. */
   problem: Schema.NullOr(Schema.String),
 });
@@ -97,8 +101,9 @@ export const Inspector = Actor.define('Inspector', {
     Travelled: { travel: Schema.Boolean },
     Opened: { id: Schema.String, open: Schema.Boolean },
     Viewed: { view: Schema.Literals(['running', 'blueprint']) },
+    /** An Instance's Trail pressed: followed, or, followed already, let go. */
     Zoomed: { id: Schema.NullOr(Schema.String) },
-    Landed: { id: Schema.NullOr(Schema.String), step: Step },
+    Trailed: { told: Trail },
   }),
 });
 
@@ -124,6 +129,41 @@ const tickOf = (entry: Entry): typeof Tick.Type => {
     label: `${entry.tag.split('/').at(-1)} → ${short(entry.to)}${said}`,
     tone,
   };
+};
+
+/** The Instance followed, while its Trail shows: only on the app Running. */
+const trailOf = (model: Model) =>
+  model.trail !== null && model.view === 'running' && !model.look.presenting
+    ? model.trail
+    : null;
+
+/** A Trail's moments as the Timeline's ticks: one per entry, init left before the first. */
+const momentsOf = (told: typeof Trail.Type) => {
+  const byEntry = new Map<number, (typeof Trail.Type)['moments'][number]>();
+  for (const moment of told.moments)
+    if (moment.entry) byEntry.set(moment.entry.id, moment);
+  return [...byEntry.values()].map((moment): typeof Tick.Type => ({
+    id: moment.entry!.id,
+    label: `${moment.kind} · ${tickOf(moment.entry!).label}`,
+    tone: moment.kind === 'received' ? 'ignored' : 'took',
+  }));
+};
+
+/** Where the Step shown is among ticks: its own, else the last before it; -1 before the first; null at the Head. */
+const tickAt = (
+  ticks: ReadonlyArray<typeof Tick.Type>,
+  entries: ReadonlyArray<Entry>,
+  shown: Step | null,
+) => {
+  if (shown === null) return null;
+  if (shown === 'init') return -1;
+  const place = new Map(entries.map(({ id }, i) => [id, i]));
+  const here = place.get(shown) ?? -1;
+  let index = -1;
+  ticks.forEach((tick, i) => {
+    if ((place.get(tick.id) ?? Infinity) <= here) index = i;
+  });
+  return index;
 };
 
 /** What the Inspector shows, from its Model: the Step, and the cards open at it. */
@@ -186,6 +226,12 @@ const seek = Command.make('seek', {
     ),
 });
 
+// 6. Trail
+const readTrail = (instance: string, branch: number | null) =>
+  Effect.flatMap(KabukiSession, (session) =>
+    session.trail(branch === null ? { instance } : { instance, branch }),
+  );
+
 const fork = Command.make('fork', {
   args: Schema.Struct({ from: Schema.NullOr(Schema.Number) }),
   run: ({ from }) =>
@@ -216,11 +262,12 @@ export const InspectorLive = Inspector.build({
       printed: [],
       closed: null,
       trail: null,
+      told: null,
       problem: null,
     },
   }),
   provides: {
-    capabilities: [Steps, Opening, Zoom],
+    capabilities: [Steps, Opening],
     layer: (self) =>
       Layer.mergeAll(
         Layer.succeed(Steps, {
@@ -233,10 +280,6 @@ export const InspectorLive = Inspector.build({
           open: (id, open) => self.send({ _tag: 'Opened', id, open }),
           zoom: (id) => self.send({ _tag: 'Zoomed', id }),
         }),
-        Layer.succeed(Zoom, {
-          land: (id, step) => self.send({ _tag: 'Landed', id, step }),
-          out: self.send({ _tag: 'Zoomed', id: null }),
-        }),
       ),
   },
   children: {
@@ -247,34 +290,22 @@ export const InspectorLive = Inspector.build({
         const { at, followed, open } = shownOf(model);
         // 5. View
         const blueprint = model.view === 'blueprint' && !model.look.presenting;
+        // 6. Trail: its card alone, open, brought into view as it starts.
+        const only = trailOf(model);
         return {
           at,
           revision: model.now?.revision ?? 0,
-          opened: blueprint ? model.printed : open,
-          bring:
-            !blueprint && followed && typeof at === 'number'
+          opened: blueprint ? model.printed : only ? [only] : open,
+          bring: only
+            ? { id: only, key: `trail:${only}` }
+            : !blueprint && followed && typeof at === 'number'
               ? { id: followed, key: `step:${at}` }
               : null,
           follow: model.look.presenting,
           blueprint,
+          only,
         };
       },
-    }),
-    // 6. Zoom: keyed by the Instance, so another is read afresh.
-    trail: Actor.child(TrailLive, {
-      each: ({ model }) =>
-        model.trail !== null &&
-        model.now !== null &&
-        !model.look.presenting &&
-        model.view === 'running'
-          ? [model.trail]
-          : [],
-      input: (_, instance) => ({ instance }),
-      props: ({ model }) => ({
-        revision: model.now?.revision ?? 0,
-        at: shownOf(model).at,
-        branch: model.branch,
-      }),
     }),
     timeline: Actor.child(TimelineLive, {
       while: ({ model }) =>
@@ -283,6 +314,18 @@ export const InspectorLive = Inspector.build({
         model.view === 'running',
       props: ({ model }) => {
         const { shown, index, next } = shownOf(model);
+        // 6. Trail: only its moments, the Step shown at the last of them not after it.
+        if (trailOf(model) !== null) {
+          const ticks = model.told ? momentsOf(model.told) : [];
+          return {
+            ticks,
+            at: tickAt(ticks, model.entries, shown),
+            next: [],
+            running: model.now?.running ?? true,
+            travel: model.travel,
+            place: model.look.place,
+          };
+        }
         return {
           ticks: model.entries.map(tickOf),
           at: shown === null ? null : index,
@@ -296,6 +339,26 @@ export const InspectorLive = Inspector.build({
   },
   // 1. Watch: again from the start for each Branch in view.
   workers: {
+    // 6. Trail: read again as the app changes, and on another Branch; gone, let go.
+    trail: {
+      each: ({ model }) => {
+        const only = trailOf(model);
+        return only === null || model.now === null
+          ? []
+          : [`${only}:${model.now.revision}:${model.branch ?? 'head'}`];
+      },
+      run: (self) =>
+        Effect.gen(function* () {
+          const { model } = yield* self.get;
+          if (model.trail === null) return;
+          yield* readTrail(model.trail, model.branch).pipe(
+            Effect.matchEffect({
+              onSuccess: (told) => self.send({ _tag: 'Trailed', told }),
+              onFailure: () => self.send({ _tag: 'Zoomed', id: null }),
+            }),
+          );
+        }),
+    },
     watch: {
       each: ({ model }) => [model.branch === null ? 'head' : `${model.branch}`],
       run: (self, key) =>
@@ -383,9 +446,12 @@ export const InspectorLive = Inspector.build({
       }
       const { followed, at } = shownOf(model);
       const rest = model.opened.filter((one) => one !== id);
+      // Its card closed, the Trail followed is let go too.
+      const letGo = !open && id === trailOf(model);
       return {
         model: {
           ...model,
+          ...(letGo ? { trail: null, told: null } : {}),
           opened: open ? [...rest, id] : rest,
           closed:
             !open && id === followed && typeof at === 'number'
@@ -396,19 +462,26 @@ export const InspectorLive = Inspector.build({
     },
     // 5. View
     Viewed: ({ view }, { model }) => ({ model: { ...model, view } }),
-    // 6. Zoom
-    Zoomed: ({ id }, { model }) => ({ model: { ...model, trail: id } }),
-    Landed: ({ id, step }, { model }) => {
-      const out = {
-        ...model,
-        trail: null,
-        opened: id
-          ? [...model.opened.filter((one) => one !== id), id]
-          : model.opened,
+    // 6. Trail: pressed again, it is let go; another is read afresh.
+    Zoomed: ({ id }, { model }) => {
+      const trail = id !== null && id === model.trail ? null : id;
+      return {
+        model: {
+          ...model,
+          trail,
+          told: trail === model.trail ? model.told : null,
+          // Let go, its card stays open on the whole tree.
+          opened:
+            model.trail !== null && trail === null
+              ? [
+                  ...model.opened.filter((one) => one !== model.trail),
+                  model.trail,
+                ]
+              : model.opened,
+        },
       };
-      return model.travel
-        ? { model: out, command: seek({ step }) }
-        : { model: { ...out, own: step } };
     },
+    Trailed: ({ told }, { model }) =>
+      told.instance === model.trail ? { model: { ...model, told } } : { model },
   },
 });

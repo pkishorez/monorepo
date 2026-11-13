@@ -16,8 +16,8 @@ import { InspectorLive } from '../index.ts';
  * Fork moves the app's Head to it; off, the Inspector looks back on its
  * own. Playing steps through each Step in turn and shows the Head at the
  * last. Where the History splits, an entry picked brings its Branch into
- * view. Zoomed in on one Instance, its Trail shows, and a moment picked
- * Seeks it.
+ * view. Following one Instance's Trail, its card is drawn alone and the
+ * Timeline steps from moment to moment of it.
  */
 
 type Client = KabukiSessionClient;
@@ -317,28 +317,7 @@ describe('the Inspector', () => {
       }),
     ));
 
-  it('keeps how the Blueprint is shown, and lets go of the card picked when the Form changes', () =>
-    run(
-      Effect.gen(function* () {
-        const { app, send } = yield* inspect(true);
-        yield* send('Inspector', { _tag: 'Viewed', view: 'blueprint' });
-        yield* send('Canvas', { _tag: 'Picked', id: 'Counter' });
-        yield* send('Canvas', { _tag: 'Offed', off: 'hide' });
-        expect(find(app, 'Canvas').model).toMatchObject({
-          form: 'whole',
-          off: 'hide',
-          picked: 'Counter',
-        });
-        yield* send('Canvas', { _tag: 'Formed', form: 'steps' });
-        expect(find(app, 'Canvas').model).toMatchObject({
-          form: 'steps',
-          off: 'hide',
-          picked: null,
-        });
-      }),
-    ));
-
-  it("zooms in on an Instance's Trail from its card, in place of the canvas, and back out", () =>
+  it("follows an Instance's Trail from its card: its card alone, the Timeline only its moments, and lets go pressed again", () =>
     run(
       Effect.gen(function* () {
         const { app, nows, asked: all, send } = yield* inspect(true);
@@ -346,69 +325,74 @@ describe('the Inspector', () => {
         expect(find(app, 'Inspector').model).toMatchObject({
           trail: 'Counter/page#1',
         });
-        expect(find(app, 'Trail').props).toEqual({
-          revision: 1,
-          at: null,
-          branch: null,
-        });
         expect(asked(all, 'trail')).toEqual([{ instance: 'Counter/page#1' }]);
-        expect(find(app, 'Trail').model).toMatchObject({
-          instance: 'Counter/page#1',
-          trail: {
-            actor: 'Page',
-            moments: [{ kind: 'started' }, { kind: 'changed' }],
-          },
+        expect(find(app, 'Canvas').props).toMatchObject({
+          only: 'Counter/page#1',
+          opened: ['Counter/page#1'],
         });
-        // The Timeline stays; the Trail is read again as the app changes.
-        expect(find(app, 'Timeline')).toBeDefined();
+        // init is before the first moment, not one of the ticks.
+        expect(find(app, 'Timeline').props).toMatchObject({
+          ticks: [{ id: 3, label: 'changed · Bumped → page#1', tone: 'took' }],
+          at: null,
+          next: [],
+        });
+        // Read again as the app changes.
         yield* Queue.offer(nows, nowOf(2));
         yield* settle;
         expect(asked(all, 'trail')).toHaveLength(2);
-        yield* send('Trail', { _tag: 'Closed' });
-        expect(
-          walk(app.snapshot.root).some((one) => one.actor === 'Trail'),
-        ).toBe(false);
+        // Pressed again: the whole tree, its card still open, every Step.
+        yield* send('Canvas', { _tag: 'Zoomed', id: 'Counter/page#1' });
         expect(find(app, 'Inspector').model).toMatchObject({ trail: null });
+        expect(find(app, 'Canvas').props).toMatchObject({
+          only: null,
+          opened: ['Counter/page#1'],
+        });
+        expect(find(app, 'Timeline').props).toMatchObject({
+          ticks: [{ id: 1 }, { id: 2 }, { id: 3 }],
+        });
         expect(asked(all, 'seek')).toEqual([]);
       }),
     ));
 
-  it('Seeks a moment picked in the app, zoomed back out, its card open', () =>
+  it('steps from moment to moment of the Trail, Seeking each in the app, and lets go as its card closes', () =>
     run(
       Effect.gen(function* () {
         const { app, nows, asked: all, send } = yield* inspect(true);
         yield* send('Canvas', { _tag: 'Zoomed', id: 'Counter/page#1' });
-        yield* send('Trail', { _tag: 'Picked', step: 2, open: true });
-        expect(asked(all, 'seek')).toEqual([{ step: 2 }]);
-        expect(
-          walk(app.snapshot.root).some((one) => one.actor === 'Trail'),
-        ).toBe(false);
-        yield* Queue.offer(nows, nowOf(2, 2));
+        yield* send('Timeline', { _tag: 'Picked', at: 0 });
+        expect(asked(all, 'seek')).toEqual([{ step: 3 }]);
+        yield* Queue.offer(nows, nowOf(2, 3));
         yield* settle;
-        expect(asked(all, 'graph').at(-1)).toEqual({ at: 2 });
+        expect(find(app, 'Timeline').props).toMatchObject({ at: 0 });
         expect(find(app, 'Canvas').props).toMatchObject({
-          at: 2,
-          opened: expect.arrayContaining(['Counter/page#1']),
+          at: 3,
+          only: 'Counter/page#1',
         });
-        // A moment at init travels there too.
-        yield* send('Canvas', { _tag: 'Zoomed', id: 'Counter/page#1' });
-        yield* send('Trail', { _tag: 'Picked', step: 'init', open: true });
-        expect(asked(all, 'seek').at(-1)).toEqual({ step: 'init' });
+        // A Step that is no moment of it shows at the last moment before it: none, before the first.
+        yield* Queue.offer(nows, nowOf(3, 2));
+        yield* settle;
+        expect(find(app, 'Timeline').props).toMatchObject({ at: -1 });
+        yield* send('Canvas', {
+          _tag: 'Opened',
+          id: 'Counter/page#1',
+          open: false,
+        });
+        expect(find(app, 'Inspector').model).toMatchObject({ trail: null });
+        expect(find(app, 'Canvas').props).toMatchObject({ only: null });
       }),
     ));
 
-  it('looks at a moment on its own with Travel the app off, and opens no card for one that stopped it', () =>
+  it('looks at a moment on its own with Travel the app off', () =>
     run(
       Effect.gen(function* () {
         const { app, asked: all, send } = yield* inspect(false);
         yield* send('Canvas', { _tag: 'Zoomed', id: 'Counter/page#1' });
-        yield* send('Trail', { _tag: 'Picked', step: 2, open: false });
+        yield* send('Timeline', { _tag: 'Picked', at: 0 });
         expect(asked(all, 'seek')).toEqual([]);
-        expect(asked(all, 'graph').at(-1)).toEqual({ at: 2 });
-        expect(find(app, 'Timeline').props).toMatchObject({ at: 1 });
+        expect(asked(all, 'graph').at(-1)).toEqual({ at: 3 });
+        expect(find(app, 'Timeline').props).toMatchObject({ at: 0 });
         expect(find(app, 'Inspector').model).toMatchObject({
-          trail: null,
-          opened: [],
+          trail: 'Counter/page#1',
         });
       }),
     ));
