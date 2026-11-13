@@ -12,7 +12,7 @@ import {
   X,
 } from 'lucide-react';
 import { View, useChildren } from '@kestack/kabuki/react';
-import type { Handle, ViewProps } from '@kestack/kabuki/react/view';
+import type { Handle, ViewProps } from '@kestack/kabuki/react/types';
 import { DURATION, DownloadLive, DownloadsLive, STEP } from '../story/index.ts';
 import { Button, EASE, Wide } from './parts.tsx';
 

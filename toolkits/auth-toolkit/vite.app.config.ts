@@ -1,5 +1,4 @@
-import { cloudflare } from '@kestack/kabuki/start/cloudflare';
-import { start } from '@kestack/kabuki/start/vite';
+import { cloudflare, start } from '@kestack/kabuki/start/vite';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig, type PluginOption } from 'vite';

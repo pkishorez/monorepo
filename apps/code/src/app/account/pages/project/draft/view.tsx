@@ -1,6 +1,6 @@
 import { View } from '@kestack/kabuki/react';
 import { Router } from '@kestack/kabuki/routing';
-import type { ViewProps } from '@kestack/kabuki/react/view';
+import type { ViewProps } from '@kestack/kabuki/react/types';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { ArrowUpIcon, CircleAlertIcon } from 'lucide-react';
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';

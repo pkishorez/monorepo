@@ -1,7 +1,7 @@
 import { Effect, Schema } from 'effect';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import { Actor, Address, Blueprint, Runtime, Snapshot } from '../index.ts';
-import type { Instance } from '../index.ts';
+import type { Instance } from '../types.ts';
 import { Counter, run } from './fixtures.ts';
 
 /*

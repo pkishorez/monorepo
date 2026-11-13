@@ -3,7 +3,7 @@ import type { Scope } from 'effect';
 import { TestClock } from 'effect/testing';
 import { describe, expect, it } from 'vitest';
 import { Actor, Address, Runtime, Snapshot } from '../index.ts';
-import type { Instance } from '../index.ts';
+import type { Instance } from '../types.ts';
 import { line, to } from './fixtures.ts';
 
 // A sign-in form that tells its parent who signed in ------------------------------

@@ -18,7 +18,7 @@ import {
   Runtime,
   Snapshot,
 } from '../index.ts';
-import type { Entry, Instance } from '../index.ts';
+import type { Entry, Instance } from '../types.ts';
 
 /* The Actors, Layers and helpers the core tests share. */
 

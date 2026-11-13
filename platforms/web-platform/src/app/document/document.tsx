@@ -1,6 +1,6 @@
 import type { ComponentType, ReactNode } from 'react';
 import { Start } from '@kestack/kabuki/start';
-import type { DocumentProps } from '@kestack/kabuki/start/app';
+import type { DocumentProps } from '@kestack/kabuki/start/types';
 import { Pwa, PwaHead, type PwaPrompts } from '../../pwa/prompts/index.ts';
 import { DEVICE_SCRIPT } from '../../ui/input/device/index.ts';
 import { FontPreload, type createTheme } from '../../ui/theme/index.ts';

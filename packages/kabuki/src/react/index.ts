@@ -1,1 +1,1 @@
-export { Kabuki, View, useChild, useChildren } from './view/index.ts';
+export { Kabuki, View, useChild, useChildren, useLive } from './view/index.ts';

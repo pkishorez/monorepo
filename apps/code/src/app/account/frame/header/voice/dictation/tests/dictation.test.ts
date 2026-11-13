@@ -14,7 +14,8 @@ import {
   CodeClients,
   TranscriptionFailed,
 } from '@kestack/connect/code';
-import { Actor, Command, Runtime, type Instance } from '@kestack/kabuki';
+import { Actor, Command, Runtime } from '@kestack/kabuki';
+import type { Instance } from '@kestack/kabuki/types';
 import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket';
 import { describe, expect, it } from 'vitest';
 import { Connections } from '../../../../../account.ts';

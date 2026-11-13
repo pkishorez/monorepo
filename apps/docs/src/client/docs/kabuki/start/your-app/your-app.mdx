@@ -65,7 +65,7 @@ fills in the parts it owns:
 ```tsx
 // src/document.tsx: any file app.tsx imports
 import { Start } from '@kestack/kabuki/start';
-import type { DocumentProps } from '@kestack/kabuki/start/app';
+import type { DocumentProps } from '@kestack/kabuki/start/types';
 
 export default function Document({ children }: DocumentProps) {
   return (
@@ -150,8 +150,7 @@ Put `start` beside React's plugin, with the platform you serve from:
 ```ts
 // vite.config.ts
 import react from '@vitejs/plugin-react';
-import { cloudflare } from '@kestack/kabuki/start/cloudflare';
-import { start } from '@kestack/kabuki/start/vite';
+import { cloudflare, start } from '@kestack/kabuki/start/vite';
 import { defineConfig } from 'vite';
 
 export default defineConfig({

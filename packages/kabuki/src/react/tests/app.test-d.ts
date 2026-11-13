@@ -1,7 +1,8 @@
 import { Schema } from 'effect';
 import { expectTypeOf } from 'vitest';
 import { Actor } from '../../core/index.ts';
-import type { Runtime, Step } from '../../core/index.ts';
+import type { Runtime } from '../../core/index.ts';
+import type { Step } from '../../core/runtime/index.ts';
 import type { AppRuntime, Attachment } from '../view/index.ts';
 
 /*

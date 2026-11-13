@@ -1,6 +1,7 @@
 import { Effect, Layer, Schema, Stream, SubscriptionRef } from 'effect';
 import type { Scope } from 'effect';
-import { Actor, Runtime, type Instance } from '@kestack/kabuki';
+import { Actor, Runtime } from '@kestack/kabuki';
+import type { Instance } from '@kestack/kabuki/types';
 import { describe, expect, it } from 'vitest';
 import { Preferences, nothing } from '../../../../../../../storage/index.ts';
 import { capabilities, owner, State, TouchLive } from '../actor.ts';

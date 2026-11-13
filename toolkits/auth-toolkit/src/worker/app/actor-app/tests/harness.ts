@@ -2,9 +2,8 @@ import { Effect, Layer } from 'effect';
 import type { Scope } from 'effect';
 import { Runtime } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
-import { Page, Router } from '@kestack/kabuki/routing';
-import { Loading } from '@kestack/kabuki/routing/capabilities';
-import type { Instance } from '@kestack/kabuki/core/data';
+import { Loading, Page, Router } from '@kestack/kabuki/routing';
+import type { Instance } from '@kestack/kabuki/types';
 import {
   Api,
   ApiError,

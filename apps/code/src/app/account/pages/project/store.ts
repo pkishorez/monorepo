@@ -9,7 +9,7 @@ import { Copy, copying, shelf, Storage } from '../../../storage/index.ts';
 import { ModelsRead, Read, readOver, Connections } from '../../account.ts';
 import { reasonOf } from '../../connection/link/index.ts';
 import { Command } from '@kestack/kabuki';
-import type { Self } from '@kestack/kabuki/core/actor';
+import type { Self } from '@kestack/kabuki/types';
 import { refreshSetup } from '../../connection/index.ts';
 import { Replicas } from '@kestack/std-toolkit/replica';
 import { arrival } from '../../connection/records/index.ts';

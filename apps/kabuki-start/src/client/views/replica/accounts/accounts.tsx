@@ -1,6 +1,6 @@
 import { createContext, use, useSyncExternalStore } from 'react';
 import { View, useChildren } from '@kestack/kabuki/react';
-import type { Handle } from '@kestack/kabuki/react/view';
+import type { Handle } from '@kestack/kabuki/react/types';
 import { Pages } from '../../../../shared/pages/index.ts';
 
 /*

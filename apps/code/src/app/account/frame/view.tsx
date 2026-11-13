@@ -1,6 +1,6 @@
 import { View, useChild } from '@kestack/kabuki/react';
 import { useRouter } from '@kestack/kabuki/routing';
-import type { ViewProps } from '@kestack/kabuki/react/view';
+import type { ViewProps } from '@kestack/kabuki/react/types';
 import { AppShell, useAppShell } from '@kestack/web-platform/recipes/frame';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { SettingsIcon } from 'lucide-react';

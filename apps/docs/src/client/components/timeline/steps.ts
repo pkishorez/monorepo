@@ -1,6 +1,6 @@
 import { History } from '@kestack/kabuki';
-import type { Entry } from '@kestack/kabuki';
-import type { AppRuntime } from '@kestack/kabuki/react/view';
+import type { Entry } from '@kestack/kabuki/types';
+import type { AppRuntime } from '@kestack/kabuki/react/types';
 
 /*
  * Steps, counted the way a reader counts them: 0 is the app right after

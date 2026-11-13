@@ -98,7 +98,7 @@ static page has none: it is kept for everyone.
 ```tsx
 // src/document.tsx: any file app.tsx imports
 import { Start } from '@kestack/kabuki/start';
-import type { DocumentProps } from '@kestack/kabuki/start/app';
+import type { DocumentProps } from '@kestack/kabuki/start/types';
 
 export default function Document({ children }: DocumentProps) {
   return (
@@ -265,11 +265,11 @@ src/start/
     protocol/  what the server and the browser agree on: the Page, the Pages, the App Shell,
                the Loader RPC's wire, the brand on Start.app
   server/      the handler, the Loaders' Layers (Start.server), the RPC's answer, the Cache  @kestack/kabuki/start/server
-  client/      hydrating, and the Loading that asks the RPC                                  @kestack/kabuki/start/client
-  platform/    the port each platform fills                                                  @kestack/kabuki/start/platform
-    cloudflare/  Cloudflare Workers                                                          @kestack/kabuki/start/cloudflare
-    nitro/       any host Nitro has a preset for                                             @kestack/kabuki/start/nitro
-  vite/        the plugin                                                                    @kestack/kabuki/start/vite
+  client/      hydrating, for the browser entry the plugin writes                            @kestack/kabuki/start/client
+  platform/    the port each platform fills
+    cloudflare/  Cloudflare Workers: cloudflare() in vite, its serve in server
+    nitro/       any host Nitro has a preset for: nitro() in vite, its serve in server
+  vite/        the plugin, with each platform's adapter                                      @kestack/kabuki/start/vite
 ```
 
 `server`, `client` and `vite` use `app/protocol`, never each other; `server`
@@ -283,14 +283,16 @@ bundle.
 Start's server knows no platform: it is a `Handler`, a `fetch` that takes
 each request with a `Host`, the platform's env and, if it has one, a
 `PageCache`. Each platform's adapter fills that port from its own folder
-under `src/start/platform`, imported from its own subpath, so a build
-carries only the adapter it names. Why is
+under `src/start/platform`. An app names it in `vite.config.ts`, from
+`@kestack/kabuki/start/vite`, and the server's entry the plugin writes
+imports only that adapter's `serve` from `@kestack/kabuki/start/server`, so
+a build carries only the adapter it names. Why is
 [ADR 0033](adr/0033-start-knows-no-platform.md).
 
-| Adapter             | Import                             | Builds for                                                                                                                                  | Hands Start                                                                                                                                                             |
-| ------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `cloudflare()`      | `@kestack/kabuki/start/cloudflare` | one module in its edge form, `workerd` first                                                                                                | the Worker's env and `caches.default`                                                                                                                                   |
-| `nitro({ preset })` | `@kestack/kabuki/start/nitro`      | Nitro's SSR service, wrapped by Nitro's own plugin, `nitro()`, in the preset's server (Node, Bun, Vercel, Netlify, AWS Lambda, Cloudflare…) | the process's env, or the Worker's on a Cloudflare preset, and `caches.default` where there is one; with none, a static page is kept by the CDN, by its `Cache-Control` |
+| Adapter             | Import                       | Builds for                                                                                                                                  | Hands Start                                                                                                                                                             |
+| ------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cloudflare()`      | `@kestack/kabuki/start/vite` | one module in its edge form, `workerd` first                                                                                                | the Worker's env and `caches.default`                                                                                                                                   |
+| `nitro({ preset })` | `@kestack/kabuki/start/vite` | Nitro's SSR service, wrapped by Nitro's own plugin, `nitro()`, in the preset's server (Node, Bun, Vercel, Netlify, AWS Lambda, Cloudflare…) | the process's env, or the Worker's on a Cloudflare preset, and `caches.default` where there is one; with none, a static page is kept by the CDN, by its `Cache-Control` |
 
 An adapter is a `Platform` for the Vite plugin, the conditions the server
 build resolves with and the function its entry wraps the handler in, and

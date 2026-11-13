@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import { Layer } from 'effect';
 import { View } from '@kestack/kabuki/react';
-import type { AppRuntime } from '@kestack/kabuki/react/view';
+import type { AppRuntime } from '@kestack/kabuki/react/types';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { HistoryIcon } from 'lucide-react';
 import {

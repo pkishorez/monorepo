@@ -1,6 +1,6 @@
 import { View, useChild } from '@kestack/kabuki/react';
 import { useRouter } from '@kestack/kabuki/routing';
-import type { ViewProps } from '@kestack/kabuki/react/view';
+import type { ViewProps } from '@kestack/kabuki/react/types';
 import { useEffect } from 'react';
 import type { Route } from '../../../app.ts';
 import { Voice } from './voice/index.ts';

@@ -1,7 +1,6 @@
 import { Schema } from 'effect';
 import { Address, Blueprint, History, Snapshot } from '@kestack/kabuki';
-import type { Entry, Instance } from '@kestack/kabuki';
-import type { AnyActor } from '@kestack/kabuki/core/actor';
+import type { AnyActor, Entry, Instance } from '@kestack/kabuki/types';
 
 /*
  * The app's values as they leave the tab: each through its own Actor's

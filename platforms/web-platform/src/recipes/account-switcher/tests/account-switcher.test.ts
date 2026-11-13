@@ -8,7 +8,7 @@ import {
 } from 'effect';
 import type { Scope } from 'effect';
 import { Actor, Command, Runtime } from '@kestack/kabuki';
-import type { Instance } from '@kestack/kabuki/core/data';
+import type { Instance } from '@kestack/kabuki/types';
 import {
   type Account,
   Accounts,

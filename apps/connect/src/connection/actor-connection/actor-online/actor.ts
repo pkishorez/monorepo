@@ -1,6 +1,6 @@
 import { Duration, Effect, Layer, Schedule, Schema, Stream } from 'effect';
 import { Actor } from '@kestack/kabuki';
-import type { Self } from '@kestack/kabuki/core/actor';
+import type { Self } from '@kestack/kabuki/types';
 import { PluginState } from '@kestack/cli-platform/plugins';
 import {
   addressOf,

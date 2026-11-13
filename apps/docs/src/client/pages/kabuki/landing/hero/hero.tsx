@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { MotionConfig, motion } from 'motion/react';
 import { View } from '@kestack/kabuki/react';
 import { History, Snapshot } from '@kestack/kabuki';
-import type { Instance } from '@kestack/kabuki';
+import type { Instance } from '@kestack/kabuki/types';
 import { CheckIcon, PlusIcon } from 'lucide-react';
 import { FILTERS, ROWS, TodoLive, TodosLive } from './todos.ts';
 

@@ -1,8 +1,8 @@
 import { Effect, Schema } from 'effect';
 import type { Scope } from 'effect';
 import { Actor, Runtime } from '@kestack/kabuki';
-import type { Step } from '@kestack/kabuki';
-import type { AppRuntime } from '@kestack/kabuki/react/view';
+import type { Step } from '@kestack/kabuki/types';
+import type { AppRuntime } from '@kestack/kabuki/react/types';
 
 /* A small app the tests run, and its running app as Kabuki hands it to an Attachment. */
 

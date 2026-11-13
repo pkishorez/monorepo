@@ -49,8 +49,8 @@ from the pages' definitions, so any build can import it and name a Route by
 type. One Router Actor above the pages holds the history and the data of
 every page on screen, and hands each page its own as Props, so a page move
 is one Message and a page is a Child coming and going. It routes in memory
-by default; the browser's history and TanStack Router's are Adapters, each
-its own subpath. How it fits together is in
+by default; the browser's history and TanStack Router's are Adapters,
+`browser()` and `tanstack()`. How it fits together is in
 [docs/routing.md](./docs/routing.md).
 
 Start, in `@kestack/kabuki/start` and its Vite plugin, serves a routed app
@@ -61,7 +61,7 @@ runs a Runtime on the server. An app writes three files: its pages, its app
 with its Document and what it needs in the browser, and its Loaders with what
 they need on the server, as a Layer made once and one made per visitor; the
 plugin writes every entry. Each
-platform is an adapter of its own subpath: Cloudflare Workers, or through
+platform is an adapter the app names in its Vite config: Cloudflare Workers, or through
 Nitro any host it has a preset for, Node, Bun, Vercel and AWS Lambda among them. For what stands in
 front of the app, such as a service worker, Start serves its Pages, each with
 how its first drawing is made, and its App Shell, which the browser draws the
@@ -75,11 +75,13 @@ pages a place in the URL; `@kestack/kabuki/start` serves a routed app. An
 app takes as many as it needs, from the bottom up. A Part's path gives
 only the values an app is made of: `Actor`, `Blueprint`, `Command`,
 `Address`, `History`, `Snapshot`, `Runtime` and `Stopped`;
-`Kabuki`, `View`, `useChild` and `useChildren`; `Page`, `Router`,
-`useRouter` and `Navigation`; `Start`.
-Each folder in a Part is a path of its own that gives its value and every
-type that goes with it, so a type is imported from where it lives:
-`import type { Entry } from '@kestack/kabuki/core/data'`.
+`Kabuki`, `View`, `useChild`, `useChildren` and `useLive`; `Page`,
+`Router`, `useRouter`, `Navigation`, `Loading`, `browser`, `tanstack`,
+`useElementScrollRestoration` and `useKeepScrollAnchor`; `Start`.
+Its types are apart, at the Part's `/types` path, for code that has to name
+one: `import type { Entry } from '@kestack/kabuki/types'`. Start has two
+more paths for what runs on one side only, `/start/server` and
+`/start/vite`. Why is [ADR 0047](./docs/adr/0047-values-and-types-have-separate-paths.md).
 
 Read the language in [CONTEXT.md](./CONTEXT.md), the decisions in
 [docs/adr/](./docs/adr/), and how the History works in
@@ -146,36 +148,6 @@ pnpm add @kestack/kabuki effect react
 | `runtime.keep`     | Sets the Window, how many entries the History keeps; older ones Compact into a Restore. Works running or stopped.                                                                                                                                          |
 | `Stopped`          | What `runtime.send` throws while the Runtime is stopped, adding nothing; and what a Query asked from outside the tree, or an `until` waiting on an Instance, fails with once the Instance has stopped or the Runtime is stopped.                           |
 
-### `@kestack/kabuki/core/actor`
-
-`Actor`, `Blueprint` and `Command`, as `@kestack/kabuki` gives them, with the types an Actor is named and written by: `ActorType`, `AnyActor`, `Self`, `Single`, `Types`, `BlueprintLevel`, `BlueprintState`, `BlueprintChild` and the rest.
-
-| Export         | What it does                                                                             |
-| -------------- | ---------------------------------------------------------------------------------------- |
-| `Actor.define` | As in `@kestack/kabuki`: what an Actor is.                                               |
-| `Actor.child`  | As in `@kestack/kabuki`: one Child of a level.                                           |
-| `Blueprint.at` | As in `@kestack/kabuki`: the Blueprint at a place.                                       |
-| `Command.make` | As in `@kestack/kabuki`: a Command from its name, the Schema of its args and its Effect. |
-
-### `@kestack/kabuki/core/data`
-
-What happened and what is, as plain data and pure functions, read and stepped outside any Runtime, as a devtool or a test does. `Address`, `History` and `Snapshot`, with `Entry`, `From`, `SavedHistory`, `Instance`, `Moment`, `Played`, `Emitted`, `WantedWorker`, `Parsed` and `Segment`.
-
-| Export                                                                                                                                                                                  | What it does             |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
-| `Address.parse`, `Address.parent`, `Address.place`, `Address.within`, `Address.check`                                                                                                   | As in `@kestack/kabuki`. |
-| `History.make`, `History.add`, `History.go`, `History.entry`, `History.line`, `History.children`, `History.tips`, `History.compact`, `History.restored`, `History.save`, `History.load` | As in `@kestack/kabuki`. |
-| `Snapshot.init`, `Snapshot.play`, `Snapshot.replay`, `Snapshot.seek`, `Snapshot.at`, `Snapshot.trail`, `Snapshot.workers`, `Snapshot.isMany`                                            | As in `@kestack/kabuki`. |
-
-### `@kestack/kabuki/core/runtime`
-
-`Runtime` and `Stopped`, with `Step`, `LiveInstance`, `Needs`, `RuntimeOptions`, `RuntimeSettings`, `MessageOf`, `Sent` and `WorkerStatus`.
-
-| Export                           | What it does             |
-| -------------------------------- | ------------------------ |
-| `Runtime.make`, `Runtime.scoped` | As in `@kestack/kabuki`. |
-| `Stopped`                        | As in `@kestack/kabuki`. |
-
 ### `@kestack/kabuki/react`
 
 | Export         | What it does                                                                                                                                                                                                                                                                                                                                                                       |
@@ -187,85 +159,39 @@ What happened and what is, as plain data and pure functions, read and stepped ou
 | `View.preload` | Loads the lazy Views made with these ids, so a browser hydrating a page a server drew never waits on their code.                                                                                                                                                                                                                                                                   |
 | `useChild`     | Reads one Child's Model, State and Props from its parent's View, to draw, or only what an optional selector picks; it can never Send.                                                                                                                                                                                                                                              |
 | `useChildren`  | Reads the Instances of an `each` Child the same way, in order; only the component that calls it re-renders, as they change or as what the selector picks does.                                                                                                                                                                                                                     |
-
-### `@kestack/kabuki/react/view`
-
-`Kabuki`, `View`, `useChild` and `useChildren`, as `@kestack/kabuki/react` gives them, and `useLive`, with `KabukiProps`, `ViewProps`, `ViewOf`, `Handle`, `Root`, `ChildData`, `LazyView`, `AppRuntime`, `Attachment`, `Failure`, `AppSetup`, `AppOptions` and `AppProps`.
-
-| Export                                               | What it does                                                                                                                                   |
-| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Kabuki`                                             | As in `@kestack/kabuki/react`.                                                                                                                 |
-| `View.make`, `View.lazy`, `View.preload`, `View.app` | As in `@kestack/kabuki/react`.                                                                                                                 |
-| `useChild`, `useChildren`                            | As in `@kestack/kabuki/react`.                                                                                                                 |
-| `useLive`                                            | Says whether the app is drawn as it is now, not at a past Step, so an effect that touches the page around it can stay still under Time Travel. |
+| `useLive`      | Says whether the app is drawn as it is now, not at a past Step, so an effect that touches the page around it, like its scroll, can stay still under Time Travel; always outside an app, never on a server.                                                                                                                                                                         |
 
 ### `@kestack/kabuki/routing`
 
-| Export            | What it does                                                                                                                                                                                                                                                                                                                                                                      |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Page.define`     | Says what a page is: an Actor definition with a place in the URL, its params, query, data, Render Mode, Metadata, the definitions of the pages under it, and its own Schemas and Queries.                                                                                                                                                                                         |
-| `page.build`      | Says how a page behaves, as an Actor's `build` takes it, with the build of each page under it in `pages`; a page is drawn with `View.make`.                                                                                                                                                                                                                                       |
-| `Page.notFound`   | What a Loader fails with when its place is not found.                                                                                                                                                                                                                                                                                                                             |
-| `Page.redirect`   | What a Loader fails with to send the app to another of its Routes, or to a whole URL outside it; `{ permanent: true }` makes a server answer `308` rather than `302`.                                                                                                                                                                                                             |
-| `Page.NotFound`   | The Schema of a Loader's not-found failure, to carry it over the wire.                                                                                                                                                                                                                                                                                                            |
-| `Page.Redirect`   | The Schema of a Loader's Redirect, to carry it over the wire.                                                                                                                                                                                                                                                                                                                     |
-| `Page.wholeQuery` | A query field holding the whole query as written, every pair of it, a repeated or undeclared one too: for a page whose query is someone else's to say, as a signed request. Written back whole, the page's other fields over it.                                                                                                                                                  |
-| `Router.define`   | Reads the app's router down from the root page's definition: a constructor per place, the URL both ways, each place's Metadata and Render Mode, every path, the typing of the Loaders, and how the Router behaves in the browser, such as how long a move waits for its data, `delay` (150 ms), and how long a loading screen stays at least once drawn, `minimum` (300 ms).      |
-| `Router.view`     | Puts the Router above the root page's View: it holds the history, every move and every page's data. It gives the Router's View, which `View.app` starts at its root, in memory, with `startAt` and `href`; an app on an Adapter starts it at the URL with `input: () => view.startAt()`. With `scrollRestoration: true` on the router it restores scroll as TanStack Router does. |
-| `Router.Link`     | Draws a plain `<a href>` to a Route, preloading it on hover, once in view, or never, going to an element on the page with `hash`, and leaving every scroll as it is with `resetScroll={false}`; the Router catches a plain click and moves the app.                                                                                                                               |
-| `Router.Retry`    | A button that loads every page on screen again, for a page whose Loader broke.                                                                                                                                                                                                                                                                                                    |
-| `Router.push`     | A Command that moves the app to a Route, as a new entry.                                                                                                                                                                                                                                                                                                                          |
-| `Router.replace`  | A Command that puts a Route in place of the current entry, so Back skips it.                                                                                                                                                                                                                                                                                                      |
-| `Router.back`     | A Command that goes Back.                                                                                                                                                                                                                                                                                                                                                         |
-| `Router.forward`  | A Command that goes Forward.                                                                                                                                                                                                                                                                                                                                                      |
-| `Router.backTo`   | A Command that goes Back when the app came from a Route, and replaces the entry with it otherwise: closing a dialog with a Route of its own.                                                                                                                                                                                                                                      |
-| `Router.reload`   | A Command that loads every page on screen again, as after a save; the pages and their Models stay. `Router.reload({ anew: true })`, when what the data belongs to changed, as the signed-in account: the data shown goes, held and then loading as on a move; with `hold: true`, held until the new data comes, the Command ending once it lands.                                 |
-| `Router.preload`  | A Command that warms the Data cache, and the code of the lazy Views, for a Route.                                                                                                                                                                                                                                                                                                 |
-| `Navigation`      | The Capability the Router Provides to every page, which an Actor under a page that moves the app lists in its Requires.                                                                                                                                                                                                                                                           |
-| `useRouter`       | Reads the Router from a component drawn inside the app: the current Route and URL, the history, the move it holds while it loads as `pending`, the title, Back, Forward, reload and preload; `useRouter<Route>()` types its Routes as the app's.                                                                                                                                  |
-
-### `@kestack/kabuki/routing/page`
-
-`Page`, as `@kestack/kabuki/routing` gives it, with `PageDefinition`, `PageBuild`, `Status`, `Metadata`, `RedirectTo` and the rest of what a page is typed by.
-
-### `@kestack/kabuki/routing/router`
-
-`Router` and `useRouter`, as `@kestack/kabuki/routing` gives them, `useElementScrollRestoration` and `useKeepScrollAnchor`, with `RouterDefinition`, `RouterOptions`, `Preload`, `MoveOptions` and `ReloadOptions`.
-
-| Export                        | What it does                                                                                                                                                             |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `useElementScrollRestoration` | Reads where an element, or the window, was scrolled on the entry drawn, and the anchor it kept, as scroll restoration kept it: for a virtual list that puts itself back. |
-| `useKeepScrollAnchor`         | Keeps where a list that puts itself back is, in its own terms, under the entry drawn; scroll restoration then leaves that list to put itself back.                       |
-
-### `@kestack/kabuki/routing/capabilities`
-
-`Navigation`, as `@kestack/kabuki/routing` gives it, and `Loading`, with `Answer`, `AnyRoute`, `MoveOptions` and `ReloadOptions`.
-
-| Export           | What it does                                                                                                          |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `Loading`        | The Capability the Router uses, if the Layer has it, to load the data of places.                                      |
-| `Loading.memory` | A `Loading` that runs the Loaders in place, for tests, stories and the server.                                        |
-| `Loading.cached` | Puts the Data cache in front of a `Loading`: the last data of each place, shown at once on Back, a link or a preload. |
-
-### `@kestack/kabuki/routing/adapter`
-
-| Export    | What it does                                                                                           |
-| --------- | ------------------------------------------------------------------------------------------------------ |
-| `Adapter` | The service where an app's URL lives, which each adapter below gives: write one for any other history. |
-| `KEY`     | The key the Router keeps in a history entry's state, so Back and Forward land on an entry it knows.    |
-| `keyIn`   | Reads that key from a history entry's state, if the Router wrote one.                                  |
-
-### `@kestack/kabuki/routing/browser`
-
-| Export    | What it does                                                                                                                    |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `browser` | A Layer that puts the app's URL in the browser's own history, for an app that owns the whole site or everything under its base. |
-
-### `@kestack/kabuki/routing/tanstack`
-
-| Export     | What it does                                                                                                                                                 |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `tanstack` | A Layer that puts the app's URL in TanStack Router's history, for an app on a TanStack Start catch-all route; TanStack gets back every URL outside the base. |
+| Export                        | What it does                                                                                                                                                                                                                                                                                                                                                                      |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Page.define`                 | Says what a page is: an Actor definition with a place in the URL, its params, query, data, Render Mode, Metadata, the definitions of the pages under it, and its own Schemas and Queries.                                                                                                                                                                                         |
+| `page.build`                  | Says how a page behaves, as an Actor's `build` takes it, with the build of each page under it in `pages`; a page is drawn with `View.make`.                                                                                                                                                                                                                                       |
+| `Page.notFound`               | What a Loader fails with when its place is not found.                                                                                                                                                                                                                                                                                                                             |
+| `Page.redirect`               | What a Loader fails with to send the app to another of its Routes, or to a whole URL outside it; `{ permanent: true }` makes a server answer `308` rather than `302`.                                                                                                                                                                                                             |
+| `Page.NotFound`               | The Schema of a Loader's not-found failure, to carry it over the wire.                                                                                                                                                                                                                                                                                                            |
+| `Page.Redirect`               | The Schema of a Loader's Redirect, to carry it over the wire.                                                                                                                                                                                                                                                                                                                     |
+| `Page.wholeQuery`             | A query field holding the whole query as written, every pair of it, a repeated or undeclared one too: for a page whose query is someone else's to say, as a signed request. Written back whole, the page's other fields over it.                                                                                                                                                  |
+| `Router.define`               | Reads the app's router down from the root page's definition: a constructor per place, the URL both ways, each place's Metadata and Render Mode, every path, the typing of the Loaders, and how the Router behaves in the browser, such as how long a move waits for its data, `delay` (150 ms), and how long a loading screen stays at least once drawn, `minimum` (300 ms).      |
+| `Router.view`                 | Puts the Router above the root page's View: it holds the history, every move and every page's data. It gives the Router's View, which `View.app` starts at its root, in memory, with `startAt` and `href`; an app on an Adapter starts it at the URL with `input: () => view.startAt()`. With `scrollRestoration: true` on the router it restores scroll as TanStack Router does. |
+| `Router.Link`                 | Draws a plain `<a href>` to a Route, preloading it on hover, once in view, or never, going to an element on the page with `hash`, and leaving every scroll as it is with `resetScroll={false}`; the Router catches a plain click and moves the app.                                                                                                                               |
+| `Router.Retry`                | A button that loads every page on screen again, for a page whose Loader broke.                                                                                                                                                                                                                                                                                                    |
+| `Router.push`                 | A Command that moves the app to a Route, as a new entry.                                                                                                                                                                                                                                                                                                                          |
+| `Router.replace`              | A Command that puts a Route in place of the current entry, so Back skips it.                                                                                                                                                                                                                                                                                                      |
+| `Router.back`                 | A Command that goes Back.                                                                                                                                                                                                                                                                                                                                                         |
+| `Router.forward`              | A Command that goes Forward.                                                                                                                                                                                                                                                                                                                                                      |
+| `Router.backTo`               | A Command that goes Back when the app came from a Route, and replaces the entry with it otherwise: closing a dialog with a Route of its own.                                                                                                                                                                                                                                      |
+| `Router.reload`               | A Command that loads every page on screen again, as after a save; the pages and their Models stay. `Router.reload({ anew: true })`, when what the data belongs to changed, as the signed-in account: the data shown goes, held and then loading as on a move; with `hold: true`, held until the new data comes, the Command ending once it lands.                                 |
+| `Router.preload`              | A Command that warms the Data cache, and the code of the lazy Views, for a Route.                                                                                                                                                                                                                                                                                                 |
+| `browser`                     | A Layer that puts the app's URL in the browser's own history, for an app that owns the whole site or everything under its base; with no such Layer the app routes in memory.                                                                                                                                                                                                      |
+| `tanstack`                    | A Layer that puts the app's URL in TanStack Router's history, for an app on a TanStack Start catch-all route; TanStack gets back every URL outside the base.                                                                                                                                                                                                                      |
+| `useElementScrollRestoration` | Reads where an element, or the window, was scrolled on the entry drawn, and the anchor it kept, as scroll restoration kept it: for a virtual list that puts itself back.                                                                                                                                                                                                          |
+| `useKeepScrollAnchor`         | Keeps where a list that puts itself back is, in its own terms, under the entry drawn; scroll restoration then leaves that list to put itself back.                                                                                                                                                                                                                                |
+| `Navigation`                  | The Capability the Router Provides to every page, which an Actor under a page that moves the app lists in its Requires.                                                                                                                                                                                                                                                           |
+| `useRouter`                   | Reads the Router from a component drawn inside the app: the current Route and URL, the history, the move it holds while it loads as `pending`, the title, Back, Forward, reload and preload; `useRouter<Route>()` types its Routes as the app's.                                                                                                                                  |
+| `Loading`                     | The Capability the Router uses, if the Layer has it, to load the data of places.                                                                                                                                                                                                                                                                                                  |
+| `Loading.memory`              | A `Loading` that runs the Loaders in place, for tests, stories and the server.                                                                                                                                                                                                                                                                                                    |
+| `Loading.cached`              | Puts the Data cache in front of a `Loading`: the last data of each place, shown at once on Back, a link or a preload.                                                                                                                                                                                                                                                             |
 
 ### `@kestack/kabuki/start`
 
@@ -277,53 +203,42 @@ What happened and what is, as plain data and pure functions, read and stepped ou
 | `Start.Scripts`    | Draws, at the end of the Document's `<body>`, the saved History as JSON and the script that hydrates the page.                                                                                          |
 | `Start.useDrawn`   | Reads when and by which build the server drew the page, and whether the component asking was in that drawing or drawn later by the browser.                                                             |
 | `Start.useRuntime` | Reads the app's `AppRuntime` from the Document, as `useRuntime` gives it, for devtools drawn around it; `null` on the server.                                                                           |
-| `Start.pages`      | Where the server answers the Pages as JSON (`Pages`, from `@kestack/kabuki/start/app`): the build, where the App Shell is, and every page with its path, whether it has params, and its Render Mode.    |
-
-### `@kestack/kabuki/start/app`
-
-`Start`, as `@kestack/kabuki/start` gives it, with `DocumentProps`, `Drawn`, `Pages`, `PageInfo`, `StartApp`, `DocumentType` and `Attachment`.
-
-### `@kestack/kabuki/start/platform`
-
-The port each platform's adapter fills, in types only: no runtime value.
-
-### `@kestack/kabuki/start/cloudflare`
-
-| Export       | What it does                                                                                                                      |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| `cloudflare` | Cloudflare Workers, for `start({ platform: cloudflare() })`: the server built as one module in its edge form.                     |
-| `serve`      | Start's handler as a Worker's `fetch`, handed the Worker's env and the Cloudflare Cache: what the server's entry default-exports. |
-
-### `@kestack/kabuki/start/nitro`
-
-| Export  | What it does                                                                                                                                                                                               |
-| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `nitro` | Any Nitro preset, for `start({ platform: nitro({ preset: 'vercel' }) })` beside Nitro's own plain `nitro()` plugin, which it hands the preset; Nitro builds the server for the host and serves the assets. |
-| `serve` | Start's handler as Nitro's SSR entry, handed the Worker's env and the Cloudflare Cache on Cloudflare, and the process's env elsewhere: what the server's entry default-exports.                            |
+| `Start.pages`      | Where the server answers the Pages as JSON (`Pages`, from `@kestack/kabuki/start/types`): the build, where the App Shell is, and every page with its path, whether it has params, and its Render Mode.  |
 
 ### `@kestack/kabuki/start/vite`
 
-| Export  | What it does                                                                                                                                                                                                                                                     |
-| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `start` | The Vite plugin: builds for the platform its adapter names, finds the app's two files by name, writes Start's handler, the server's and the browser's entries, names every lazy View by its module, and serves SSR in dev; works under Alchemy's `Website.Vite`. |
+| Export       | What it does                                                                                                                                                                                                                                                     |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `start`      | The Vite plugin: builds for the platform its adapter names, finds the app's two files by name, writes Start's handler, the server's and the browser's entries, names every lazy View by its module, and serves SSR in dev; works under Alchemy's `Website.Vite`. |
+| `cloudflare` | Cloudflare Workers, for `start({ platform: cloudflare() })`: the server built as one module in its edge form, handed the Worker's env and the Cloudflare Cache.                                                                                                  |
+| `nitro`      | Any Nitro preset, for `start({ platform: nitro({ preset: 'vercel' }) })` beside Nitro's own plain `nitro()` plugin, which it hands the preset; Nitro builds the server for the host and serves the assets.                                                       |
 
 ### `@kestack/kabuki/start/server`
 
-| Export                  | What it does                                                                                                                                                                                                                                    |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `handler`               | Makes Start's handler, which knows no platform, from what the app's two files export: what the plugin's handler module runs; an app calls it only in a test.                                                                                    |
-| `Start.server`          | Takes Loaders that Require nothing alone, or first what they Require on the server, a `layer` made once and a `visitor` made per request, then the Loaders with `.loaders(…)`, checked against both: what `src/loaders.server` default-exports. |
-| `Start.env`             | Reads the platform's env, typed as the app says it is, from `Start.Env`.                                                                                                                                                                        |
-| `Start.Env`             | The service holding the platform's env for this request: a Worker's bindings, or the process's.                                                                                                                                                 |
-| `Start.Request`         | The service holding the request being answered, for the visitor and the dynamic and client Loaders only.                                                                                                                                        |
-| `Start.ResponseHeaders` | The service a dynamic or client Loader, or the visitor, adds headers to its response with, as a refreshed session's `set-cookie`.                                                                                                               |
+| Export                          | What it does                                                                                                                                                                                                                                    |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `handler`                       | Makes Start's handler, which knows no platform, from what the app's two files export: what the plugin's handler module runs; an app calls it only in a test.                                                                                    |
+| `Start.server`                  | Takes Loaders that Require nothing alone, or first what they Require on the server, a `layer` made once and a `visitor` made per request, then the Loaders with `.loaders(…)`, checked against both: what `src/loaders.server` default-exports. |
+| `Start.env`                     | Reads the platform's env, typed as the app says it is, from `Start.Env`.                                                                                                                                                                        |
+| `Start.Env`                     | The service holding the platform's env for this request: a Worker's bindings, or the process's.                                                                                                                                                 |
+| `Start.Request`                 | The service holding the request being answered, for the visitor and the dynamic and client Loaders only.                                                                                                                                        |
+| `Start.ResponseHeaders`         | The service a dynamic or client Loader, or the visitor, adds headers to its response with, as a refreshed session's `set-cookie`.                                                                                                               |
+| `serveCloudflare`, `serveNitro` | Start's handler as the platform's server entry: what the entry the plugin writes default-exports; an app never calls them.                                                                                                                      |
 
-### `@kestack/kabuki/start/client`
+### Types
 
-| Export    | What it does                                                                                                                                                      |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `client`  | Hydrates a page the Worker drew, from the History it saved in it: what the plugin's browser entry runs; an app never calls it.                                    |
-| `loading` | The `Loading` that asks the server for the data of places at `POST /_kabuki/load`, each answered as it comes: what `client` hydrates with, behind the Data cache. |
+Each Part's types are at its own `/types` path, in types only, for code that
+has to name one; the paths above give values alone.
+
+| Path                            | Types                                                                                                                                                                                                                      |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@kestack/kabuki/types`         | `Self`, `Single`, `ActorType`, `AnyActor`, `DefinedOf`, `BlueprintLevel`, `Entry`, `From`, `SavedHistory`, `Instance`, `Moment`, `WantedWorker`, `Step`, `LiveInstance`, `Needs`, `RuntimeOptions`, `Sent`, `WorkerStatus` |
+| `@kestack/kabuki/react/types`   | `ViewProps`, `ViewOf`, `Handle`, `ChildData`, `Root`, `AppRuntime`, `Attachment`, `KabukiProps`                                                                                                                            |
+| `@kestack/kabuki/routing/types` | `Metadata`, `Status`, `Preload`, `MoveOptions`, `ReloadOptions`, `RouterOptions`                                                                                                                                           |
+| `@kestack/kabuki/start/types`   | `DocumentProps`, `Drawn`, `StartApp`, `Pages`, `PageInfo`, `Platform`, `Handler`, `Host`, `PageCache`, `StartOptions`, `NitroOptions`                                                                                      |
+
+`@kestack/kabuki/start/client` is there only for the browser entry the
+plugin writes; an app never imports it.
 
 ## Usage
 
@@ -417,7 +332,7 @@ export const AuthLive = Auth.build({
 - A Worker is a named, scoped Effect given `self`: `send` to its own Instance, `get` and `changes` for its current data, and `now` for the app's Time. Written in the `Checking` block, `check` runs while that State lasts.
 - Provides names the Capabilities a Level gives, `capabilities: [Session]`, beside the one Layer that builds exactly those: one named and not built, or built and not named, does not compile. Only the ones named reach the Children, so the Blueprint knows them with nothing running. The Layer is built each time its Level starts. A Capability that reads the Model reads it through `self`, so it never goes stale. It cancels out what the Children below it need; a need nothing cancels bubbles up to the app's Layer.
 - Requires caps the Actor's own code: a Worker, Command or Provide that reaches for anything else does not compile. Update and init never see Capabilities.
-- A Query is a question code outside the tree asks an Instance. `define` declares it, with what it is asked with and what it answers, `queries: { peers: { args: { room: Schema.String }, result: Schema.Array(Schema.String) } }`, and `build` answers it, `queries: { peers: (self, { room }) => Effect }`: it reads `self` and the Actor's Requires, and never Sends. Its args and answer are checked against their Schemas, and a Query answered but not declared does not compile. Written in a State's block it is askable only in that State, and the live Instance has it on its type only once `_tag` has narrowed to it. Asked of an Instance that has stopped or left the State, it fails with `Stopped`, from `@kestack/kabuki/core/runtime`.
+- A Query is a question code outside the tree asks an Instance. `define` declares it, with what it is asked with and what it answers, `queries: { peers: { args: { room: Schema.String }, result: Schema.Array(Schema.String) } }`, and `build` answers it, `queries: { peers: (self, { room }) => Effect }`: it reads `self` and the Actor's Requires, and never Sends. Its args and answer are checked against their Schemas, and a Query answered but not declared does not compile. Written in a State's block it is askable only in that State, and the live Instance has it on its type only once `_tag` has narrowed to it. Asked of an Instance that has stopped or left the State, it fails with `Stopped`, from `@kestack/kabuki`.
 - Outside code tells an Instance with `send`, which says what became of the Message: `handled`, `ignored` with no rule for it in that State, `queued` behind one being handled, or `refused`. It waits on one with `until`, `yield* session.until((s) => s._tag === 'Running')`, which answers with the Instance narrowed as the test narrows it, from data the History keeps, or fails with `Stopped`. A job that needs outside work and then a change asks a Query, then Sends.
 
 ### A list of Actors, a Command, and a Worker per key
