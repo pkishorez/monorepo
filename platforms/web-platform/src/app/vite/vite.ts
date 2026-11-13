@@ -12,7 +12,7 @@ import {
   isFakeAuth,
   noFakeAuth,
 } from '../dev-auth/index.ts';
-import { noPwa, pwa } from '../../pwa/engine/vite/index.ts';
+import { noPwa, pwa } from '../../pwa/vite/index.ts';
 
 /*
  * A kestack app's Vite plugins, as one:

@@ -2,8 +2,8 @@
 import * as Effect from 'effect/Effect';
 import * as SubscriptionRef from 'effect/SubscriptionRef';
 import * as TestClock from 'effect/testing/TestClock';
-import { Pwa } from '../../src/pwa/engine/page/index.js';
-import type { ClientBuildInfo } from '../../src/pwa/engine/contract/config/index.js';
+import { Pwa } from '../../src/pwa/page/status/client/index.js';
+import type { ClientBuildInfo } from '../../src/pwa/contract/config/index.js';
 
 export const config = (
   overrides: Partial<ClientBuildInfo> = {},
