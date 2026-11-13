@@ -94,7 +94,8 @@ export const parse = (address: string): Parsed | undefined => {
 
 /** Whether `address` is `ancestor` or below it. */
 export const within = (ancestor: string, address: string): boolean =>
-  address === ancestor || address.startsWith(`${ancestor}/`);
+  address.startsWith(ancestor) &&
+  (address.length === ancestor.length || address[ancestor.length] === '/');
 
 /** The segment under `parent` on the way down to `address`, if `address` is below it. */
 export const segmentToward = (
