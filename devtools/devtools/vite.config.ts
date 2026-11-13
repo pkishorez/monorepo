@@ -70,7 +70,8 @@ export default defineConfig({
     // portless assigns PORT and forwards its Host headers during dev.
     port: Number(process.env.PORT ?? process.env.DEVTOOLS_UI_PORT ?? '5173'),
     strictPort: true,
-    allowedHosts: ['.devtools.kishore.computer'],
+    // Any host, so a tunnel (cloudflared, portless) reaches the dev UI.
+    allowedHosts: true,
     proxy: {
       '/health': backendProxy(),
       '/rpc': backendProxy(),

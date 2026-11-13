@@ -249,15 +249,15 @@ How it works:
   Timeline offers each entry that follows it; one picked is shown and its
   Branch comes into view. Back and forward walk the Branch in view. A Step
   the app Seeks off it brings its Branch into view.
-- An open card's footprints button zooms in on its Instance's Trail: every
-  moment it started, changed, received a Message or stopped, oldest first.
-  A moment picked Time Travels the app to its Step, as Travel the app says,
-  and zooms back out to the whole tree with that card open.
+- An open card's footprints switch follows its Instance's Trail: only that
+  card shows, and the Timeline only the moments it started, changed,
+  received a Message or stopped. Back, forward, the track and Play go from
+  moment to moment, Time Travelling the app as Travel the app says. The
+  switch pressed again, or the card closed, shows the whole tree again.
 - Its Blueprint tab draws every Actor the app's root can grow, running or
-  not, each level's Provides as declared: the whole tree, a card pressed
-  keeping the way to it and what is under it in the light; or step by step,
-  a card pressed opening the level under it. What is out of the light is
-  dimmed or hidden; pressed again, a card opens.
+  not, each level's Provides as declared: the whole tree, nothing folded or
+  dimmed. A card pressed opens; one right clicked opens and comes to the
+  middle.
 - `presenting` keeps only the canvas; `timelineAt="top"` puts the Timeline
   over it; `dotted={false}` or `overlay` drops the dots.
 - It is a Kabuki app of its own, never attached to DevTools itself, named

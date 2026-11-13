@@ -2,13 +2,13 @@ import { View } from '@kestack/kabuki/react';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import { CanvasView } from './actor-canvas/index.ts';
 import { TimelineView } from './actor-timeline/index.ts';
-import { TrailView } from './actor-trail/index.ts';
 import { InspectorLive } from './actor.ts';
 
 /*
  * The Inspector drawn: the app Running, the canvas with the Timeline under
  * it or over it, or its Blueprint, one switch above them; filling whatever
- * holds it. Zoomed in on one Instance, its Trail in place of the canvas.
+ * holds it. Following one Instance's Trail, the canvas draws its card alone
+ * and the Timeline only its moments.
  * Presenting, only the canvas. Until the Kabuki Session first answers,
  * that it waits for the app; once it stops, why.
  */
@@ -50,14 +50,7 @@ export const InspectorView = View.make(
             </div>
           )}
           <div className="relative flex min-h-0 flex-1 flex-col">
-            {children.trail[0] ? (
-              <TrailView
-                key={children.trail[0].address}
-                instance={children.trail[0]}
-              />
-            ) : (
-              <CanvasView instance={children.canvas} />
-            )}
+            <CanvasView instance={children.canvas} />
           </div>
           {children.timeline && <TimelineView instance={children.timeline} />}
         </>

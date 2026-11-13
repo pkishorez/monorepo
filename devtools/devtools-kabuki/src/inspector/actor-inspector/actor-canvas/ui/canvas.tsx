@@ -55,7 +55,53 @@ const pathOf = (from: Placed, to: Placed) => {
   return `M ${x1} ${y1} C ${mid} ${y1} ${mid} ${y2} ${x2} ${y2}`;
 };
 
-export function Canvas({
+type Props = Parameters<typeof Drawn>[0] & {
+  /** The Instance whose Trail is followed: only its card is drawn, alone. */
+  readonly only?: string | null;
+};
+
+/**
+ * The canvas, or, while an Instance's Trail is followed, its card alone;
+ * not there at the Step shown, as before it started or once it stopped,
+ * the canvas says so, with the way back to the whole tree.
+ */
+export function Canvas({ only, ...props }: Props) {
+  const alone = useMemo(
+    () =>
+      only ? allOf(props.root).find((node) => node.id === only) : undefined,
+    [only, props.root],
+  );
+  if (!only) return <Drawn {...props} />;
+  if (!alone)
+    return (
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-6 text-center text-sm text-muted-foreground">
+        <p>
+          <span className="font-mono text-foreground">
+            {only.split('/').at(-1)}
+          </span>{' '}
+          is not there at this Step.
+        </p>
+        {props.onTrail && (
+          <button
+            type="button"
+            onClick={() => props.onTrail?.(only)}
+            className="h-8 rounded-full border border-border px-3 text-xs text-foreground outline-none transition-colors duration-150 hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none touch:h-11"
+          >
+            Back to the whole tree
+          </button>
+        )}
+      </div>
+    );
+  return (
+    <Drawn
+      {...props}
+      root={{ ...alone, children: [], condition: null }}
+      trailing={only}
+    />
+  );
+}
+
+function Drawn({
   root,
   opened,
   cards,
@@ -67,9 +113,8 @@ export function Canvas({
   bring,
   unfold,
   folding = true,
-  selected,
-  onSelect,
   onTrail,
+  trailing = null,
   onFold,
   onOpen,
 }: {
@@ -102,12 +147,10 @@ export function Canvas({
   readonly unfold?: (node: GraphNode) => boolean;
   /** Whether the cards have a button to fold what is under them. */
   readonly folding?: boolean;
-  /** The card picked, marked. */
-  readonly selected?: string | null;
-  /** A small card pressed: told here, instead of opening it. */
-  readonly onSelect?: (id: string) => void;
   /** An open card's way to its Trail pressed; none where the cards are no Instances. */
   readonly onTrail?: (id: string) => void;
+  /** The card whose Trail is followed: its switch pressed. */
+  readonly trailing?: string | null;
   readonly onFold?: (id: string, unfold: boolean) => void;
   readonly onOpen: (id: string, open: boolean) => void;
 }) {
@@ -511,15 +554,7 @@ export function Canvas({
               dim={lit !== undefined && !lit.has(one.node.id)}
               folding={folding}
               onTrail={onTrail}
-              selected={selected === one.node.id}
-              {...(onSelect
-                ? {
-                    onSelect: (id: string) => {
-                      hold(id);
-                      onSelect(id);
-                    },
-                  }
-                : {})}
+              trailing={trailing === one.node.id}
               {...(flash?.id === one.node.id ? { flash: flash.count } : {})}
               onOpen={toggle}
               onCenter={center}
