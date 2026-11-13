@@ -7,21 +7,22 @@ import {
   CardTitle,
 } from '#components/card';
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from '#components/sheet';
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '#components/drawer';
 import { type ReactNode, useId } from 'react';
 import { InstallActions, IosSteps } from './install-content.js';
 import { useInstall } from './install.js';
 import { useMediaQuery } from './media-query.js';
 
 /**
- * Bottom sheet on small screens, a corner card on larger ones; manual steps
- * on iOS Safari. Closing it any way counts as a dismissal (30 days).
+ * A Drawer from the bottom on small screens, a corner card on larger ones;
+ * manual steps on iOS Safari. Closing it any way, a swipe down and a tap
+ * outside included, counts as a dismissal (30 days).
  */
 export const InstallPrompt = (props: {
   readonly title?: string;
@@ -47,26 +48,20 @@ export const InstallPrompt = (props: {
 
   if (compact) {
     return (
-      <Sheet open onOpenChange={(open) => !open && dismiss()}>
-        {/* No X: its tap target is under 44px, and the footer's
-            "Not now" / "Got it" already close the sheet. */}
-        <SheetContent
-          side="bottom"
-          showCloseButton={false}
-          className="rounded-t-2xl pb-[env(safe-area-inset-bottom)]"
-        >
-          <SheetHeader>
-            <SheetTitle>{title}</SheetTitle>
-            <SheetDescription>{description}</SheetDescription>
-          </SheetHeader>
+      <Drawer open onOpenChange={(open) => !open && dismiss()}>
+        <DrawerContent className="pb-[env(safe-area-inset-bottom)]">
+          <DrawerHeader>
+            <DrawerTitle>{title}</DrawerTitle>
+            <DrawerDescription>{description}</DrawerDescription>
+          </DrawerHeader>
           {manual && (
-            <div className="px-4">
+            <div className="px-4 pt-4">
               <IosSteps />
             </div>
           )}
-          <SheetFooter>{actions}</SheetFooter>
-        </SheetContent>
-      </Sheet>
+          <DrawerFooter className="pt-4">{actions}</DrawerFooter>
+        </DrawerContent>
+      </Drawer>
     );
   }
 

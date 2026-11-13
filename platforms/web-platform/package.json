@@ -58,10 +58,6 @@
       "types": "./dist/ui/viewers/*/index.d.ts",
       "default": "./dist/ui/viewers/*/index.js"
     },
-    "./ui/form": {
-      "types": "./dist/ui/form/index.d.ts",
-      "default": "./dist/ui/form/index.js"
-    },
     "./ui/input": {
       "types": "./dist/ui/input/index.d.ts",
       "default": "./dist/ui/input/index.js"
@@ -118,7 +114,6 @@
     "@shikijs/langs": "catalog:",
     "@shikijs/themes": "catalog:",
     "@tailwindcss/typography": "catalog:",
-    "@tanstack/react-form": "catalog:",
     "@uiw/codemirror-theme-xcode": "catalog:",
     "@uiw/react-codemirror": "catalog:",
     "@uiw/react-json-view": "catalog:",
@@ -137,7 +132,6 @@
     "remark-gfm": "catalog:",
     "shadcn": "catalog:",
     "shiki": "catalog:",
-    "sonner": "catalog:",
     "tailwind-merge": "catalog:",
     "tailwindcss": "catalog:",
     "tw-animate-css": "catalog:",
