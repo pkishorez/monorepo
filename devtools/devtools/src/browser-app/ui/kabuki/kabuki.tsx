@@ -1,8 +1,7 @@
 import { useRouter } from '@tanstack/react-router';
 import { Layer } from 'effect';
 import { View } from '@kestack/kabuki/react';
-import { Page, Router } from '@kestack/kabuki/routing';
-import { tanstack } from '@kestack/kabuki/routing/tanstack';
+import { Page, Router, tanstack } from '@kestack/kabuki/routing';
 import {
   Kabuki as KabukiPage,
   KabukiLive,

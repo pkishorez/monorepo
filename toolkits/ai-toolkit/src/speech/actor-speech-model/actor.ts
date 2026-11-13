@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
-import type { Self } from '@kestack/kabuki/core/actor';
+import type { Self } from '@kestack/kabuki/types';
 import { SpeechHost, type Fetched } from '../capabilities/index.js';
 
 /*

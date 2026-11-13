@@ -3,7 +3,8 @@ import type { Scope } from 'effect';
 import { TestClock } from 'effect/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Actor, History, Runtime, Snapshot } from '../index.ts';
-import type { Address, Entry, Instance } from '../index.ts';
+import type { Address } from '../index.ts';
+import type { Entry, Instance } from '../types.ts';
 import { line, outcome, to } from './fixtures.ts';
 
 // A list whose rows are handed whether they are selected --------------------------

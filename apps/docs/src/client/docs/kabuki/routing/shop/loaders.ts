@@ -1,6 +1,5 @@
 import { Effect } from 'effect';
-import { Page } from '@kestack/kabuki/routing';
-import { Loading } from '@kestack/kabuki/routing/capabilities';
+import { Loading, Page } from '@kestack/kabuki/routing';
 import { router } from './shop.ts';
 
 const LISTED = [

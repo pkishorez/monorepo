@@ -1,6 +1,12 @@
 import { Address, History, Snapshot } from '@kestack/kabuki';
-import type { Blueprint, Entry, Instance, WorkerStatus } from '@kestack/kabuki';
-import type { AnyActor, BlueprintLevel } from '@kestack/kabuki/core/actor';
+import type { Blueprint } from '@kestack/kabuki';
+import type {
+  AnyActor,
+  BlueprintLevel,
+  Entry,
+  Instance,
+  WorkerStatus,
+} from '@kestack/kabuki/types';
 import type * as Api from '../../api/index.ts';
 import { blueprintOf, nameOf, unknownOf } from './read/blueprint.ts';
 import { unified } from './read/diff.ts';

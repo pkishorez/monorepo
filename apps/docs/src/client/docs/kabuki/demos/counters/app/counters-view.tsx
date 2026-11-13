@@ -1,5 +1,5 @@
 import { View, useChildren } from '@kestack/kabuki/react';
-import type { Handle } from '@kestack/kabuki/react/view';
+import type { Handle } from '@kestack/kabuki/react/types';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { PlusIcon, XIcon } from 'lucide-react';
 import { CounterView } from './counter-view.tsx';

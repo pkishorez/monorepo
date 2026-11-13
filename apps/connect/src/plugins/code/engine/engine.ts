@@ -13,8 +13,7 @@ import {
   Semaphore,
   Stream,
 } from 'effect';
-import { Runtime } from '@kestack/kabuki';
-import { Stopped } from '@kestack/kabuki/core/runtime';
+import { Runtime, Stopped } from '@kestack/kabuki';
 import { nextUlid } from '@kestack/std-toolkit/core';
 import {
   HarnessAccount,

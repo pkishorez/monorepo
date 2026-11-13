@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import type { KeyboardEvent, PointerEvent } from 'react';
-import type { AppRuntime } from '@kestack/kabuki/react/view';
+import type { AppRuntime } from '@kestack/kabuki/react/types';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { ChevronLeftIcon, ChevronRightIcon, RotateCcwIcon } from 'lucide-react';
 import { carryOn, lineOf, showStep, stepOf } from './steps.ts';

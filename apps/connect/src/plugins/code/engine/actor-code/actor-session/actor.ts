@@ -1,6 +1,6 @@
 import { Clock, Data, Effect, Schema, Stream, Struct } from 'effect';
 import { Actor } from '@kestack/kabuki';
-import type { Self } from '@kestack/kabuki/core/actor';
+import type { Self } from '@kestack/kabuki/types';
 import { nextUlid } from '@kestack/std-toolkit/core';
 import {
   AgentQuestionSchema,

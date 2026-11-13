@@ -2,9 +2,8 @@ import { Deferred, Effect, Layer, SubscriptionRef } from 'effect';
 import type { Scope } from 'effect';
 import { Runtime } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
-import { Router } from '@kestack/kabuki/routing';
-import { Loading } from '@kestack/kabuki/routing/capabilities';
-import type { Instance } from '@kestack/kabuki/core/data';
+import { Loading, Router } from '@kestack/kabuki/routing';
+import type { Instance } from '@kestack/kabuki/types';
 import {
   type Account,
   Accounts,

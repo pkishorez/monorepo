@@ -1,7 +1,7 @@
 import { dirname, join } from 'node:path';
 import { Duration, Effect, Queue, Schema, Stream } from 'effect';
 import { Actor } from '@kestack/kabuki';
-import type { Self } from '@kestack/kabuki/core/actor';
+import type { Self } from '@kestack/kabuki/types';
 import {
   type CacheError,
   type DownloadFailed,

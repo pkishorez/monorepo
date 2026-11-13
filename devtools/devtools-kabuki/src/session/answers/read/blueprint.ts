@@ -1,4 +1,5 @@
-import type { Blueprint, BlueprintLevel } from '@kestack/kabuki/core/actor';
+import type { Blueprint } from '@kestack/kabuki';
+import type { BlueprintLevel } from '@kestack/kabuki/types';
 import type * as Api from '../../../api/index.ts';
 import { schemaShape } from './schema.ts';
 

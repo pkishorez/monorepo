@@ -37,7 +37,7 @@ export const nitro = ({ preset }: NitroOptions): Platform => ({
         'default',
       ]
     : ['node', 'import', 'module', 'default'],
-  serve: { from: '@kestack/kabuki/start/nitro', name: 'serve' },
+  serve: { from: '@kestack/kabuki/start/server', name: 'serveNitro' },
   config: { nitro: { preset } },
 });
 

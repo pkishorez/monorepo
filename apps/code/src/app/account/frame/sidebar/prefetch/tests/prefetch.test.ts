@@ -1,7 +1,8 @@
 import { createCollection } from '@tanstack/db';
 import { Effect, Layer, Schema, type Scope } from 'effect';
 import type { Session } from '@kestack/connect/code';
-import { Actor, Address, Runtime, type Instance } from '@kestack/kabuki';
+import { Actor, Address, Runtime } from '@kestack/kabuki';
+import type { Instance } from '@kestack/kabuki/types';
 import { Replicas } from '@kestack/std-toolkit/replica';
 import { describe, expect, it } from 'vitest';
 import { Prefetch } from '../index.ts';

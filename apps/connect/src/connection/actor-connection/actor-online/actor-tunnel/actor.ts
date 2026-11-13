@@ -1,6 +1,6 @@
 import { Clock, Duration, Effect, Fiber, Option, Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
-import type { Self } from '@kestack/kabuki/core/actor';
+import type { Self } from '@kestack/kabuki/types';
 import { TunnelStatus } from '../capabilities/index.js';
 import { Tunnels } from './capabilities/index.js';
 

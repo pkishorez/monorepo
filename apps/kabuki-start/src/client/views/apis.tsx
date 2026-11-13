@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { View } from '@kestack/kabuki/react';
-import type { ViewProps } from '@kestack/kabuki/react/view';
+import type { ViewProps } from '@kestack/kabuki/react/types';
 import { Badge } from '@kestack/web-platform/ui/components/badge';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { CircleCheckIcon, CircleXIcon } from 'lucide-react';

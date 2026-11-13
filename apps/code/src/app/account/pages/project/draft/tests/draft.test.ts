@@ -17,7 +17,8 @@ import {
   SessionNotFound,
   type StartStep,
 } from '@kestack/connect/code';
-import { Actor, Runtime, type Instance } from '@kestack/kabuki';
+import { Actor, Runtime } from '@kestack/kabuki';
+import type { Instance } from '@kestack/kabuki/types';
 import { Navigation } from '@kestack/kabuki/routing';
 import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket';
 import { Accounts, AccountsState } from '@kestack/auth-toolkit/client';

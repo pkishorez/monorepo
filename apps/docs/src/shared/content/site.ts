@@ -1,4 +1,4 @@
-import type { Metadata } from '@kestack/kabuki/routing/page';
+import type { Metadata } from '@kestack/kabuki/routing/types';
 
 /*
  * What the pages say about themselves to search and to a shared link.

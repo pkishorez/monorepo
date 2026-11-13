@@ -1,6 +1,7 @@
 import { Effect, Layer, PubSub, Scope, Stream, SubscriptionRef } from 'effect';
 import type { Session } from '@kestack/connect/code';
-import { Actor, Runtime, type Instance } from '@kestack/kabuki';
+import { Actor, Runtime } from '@kestack/kabuki';
+import type { Instance } from '@kestack/kabuki/types';
 import { Navigation } from '@kestack/kabuki/routing';
 import { describe, expect, it } from 'vitest';
 import { ConnectionFilter } from '../../../../store.ts';

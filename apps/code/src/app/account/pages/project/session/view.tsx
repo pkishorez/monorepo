@@ -7,7 +7,7 @@ import {
   useState,
 } from 'react';
 import { View, useChild } from '@kestack/kabuki/react';
-import type { ViewProps } from '@kestack/kabuki/react/view';
+import type { ViewProps } from '@kestack/kabuki/react/types';
 import { Router } from '@kestack/kabuki/routing';
 import type { Session } from '@kestack/connect/code';
 import { ArrowDownIcon, GitForkIcon, TriangleAlertIcon } from 'lucide-react';

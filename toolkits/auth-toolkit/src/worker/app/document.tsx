@@ -1,5 +1,5 @@
 import { Start } from '@kestack/kabuki/start';
-import type { DocumentProps } from '@kestack/kabuki/start/app';
+import type { DocumentProps } from '@kestack/kabuki/start/types';
 
 // A page brought back from the back-forward cache shows what it was when it
 // left for Google; drawing it fresh asks the Auth Worker again.

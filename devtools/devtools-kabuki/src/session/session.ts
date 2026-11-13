@@ -2,7 +2,7 @@ import { Cause, Effect, Layer } from 'effect';
 import { dual } from 'effect/Function';
 import { RpcTest } from 'effect/rpc';
 import type { Scope } from 'effect';
-import type { AppRuntime, Attachment } from '@kestack/kabuki/react/view';
+import type { AppRuntime, Attachment } from '@kestack/kabuki/react/types';
 import { DEFAULT_ENVIRONMENT, KabukiSessionApi } from '../api/index.ts';
 import type { KabukiSessionClient } from '../api/index.ts';
 import { answers } from './answers/index.ts';

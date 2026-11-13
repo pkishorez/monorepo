@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react';
-import type { Instance } from '@kestack/kabuki';
-import type { AppRuntime } from '@kestack/kabuki/react/view';
+import type { Instance } from '@kestack/kabuki/types';
+import type { AppRuntime } from '@kestack/kabuki/react/types';
 import type { GameLive } from '../app/game/game.ts';
 import type { StageLive } from '../app/stage/stage.ts';
 

@@ -4,7 +4,8 @@ import { TestClock } from 'effect/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { restore } from '../data/play/index.ts';
 import { Actor, History, Runtime, Snapshot } from '../index.ts';
-import type { Address, Entry, Instance, SavedHistory } from '../index.ts';
+import type { Address } from '../index.ts';
+import type { Entry, Instance, SavedHistory } from '../types.ts';
 import { line } from './fixtures.ts';
 
 /*

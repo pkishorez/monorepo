@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { restore } from '../data/play/index.ts';
 import { Actor, Address, History, Runtime, Snapshot } from '../index.ts';
 import type { Types } from '../actor/index.ts';
-import type { Instance } from '../index.ts';
+import type { Instance } from '../types.ts';
 import {
   line,
   outcome,

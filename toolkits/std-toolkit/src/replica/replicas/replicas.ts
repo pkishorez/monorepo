@@ -1,5 +1,5 @@
 import { Actor } from '@kestack/kabuki';
-import type { ActorType } from '@kestack/kabuki/core/actor';
+import type { ActorType } from '@kestack/kabuki/types';
 import { Clock, Context, Deferred, Effect, Layer, Queue, Stream } from 'effect';
 import type { Scope } from 'effect';
 import { nameOf, partsOf, ReplicaError } from '../shape/index.js';

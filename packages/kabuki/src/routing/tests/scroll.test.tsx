@@ -10,7 +10,7 @@ import { Loading } from '../capabilities/index.ts';
 import {
   useElementScrollRestoration,
   useKeepScrollAnchor,
-} from '../router/index.ts';
+} from '../router/scroll/index.ts';
 import { registry } from '../../react/view/registry.ts';
 import { KEY } from '../router/adapter/index.ts';
 import { browser } from '../router/adapter/browser/index.ts';

@@ -2,7 +2,7 @@ import { Effect, Layer, Schema } from 'effect';
 import type { Scope } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { Command, History, Runtime, Snapshot } from '../../core/index.ts';
-import type { Instance } from '../../core/index.ts';
+import type { Instance } from '../../core/data/index.ts';
 import { View } from '../../react/index.ts';
 import { Navigation, Page, Router } from '../index.ts';
 import { Loading } from '../capabilities/index.ts';

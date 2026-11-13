@@ -1,7 +1,7 @@
 import { Effect, Queue, Stream } from 'effect';
 import { Address, History, Snapshot } from '@kestack/kabuki';
 import type { Runtime } from '@kestack/kabuki';
-import type { AppRuntime } from '@kestack/kabuki/react/view';
+import type { AppRuntime } from '@kestack/kabuki/react/types';
 import {
   InstanceNotFound,
   KabukiSessionApi,

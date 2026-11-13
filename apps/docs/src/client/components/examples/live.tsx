@@ -7,7 +7,7 @@ import {
   useSyncExternalStore,
 } from 'react';
 import type { ComponentType, ReactNode } from 'react';
-import type { AppRuntime } from '@kestack/kabuki/react/view';
+import type { AppRuntime } from '@kestack/kabuki/react/types';
 import { Kbd } from '@kestack/web-platform/ui/components/kbd';
 import { KeyboardIcon, PanelBottomIcon, RotateCwIcon } from 'lucide-react';
 import { split } from './files.tsx';

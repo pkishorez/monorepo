@@ -3,7 +3,7 @@ import { TestClock } from 'effect/testing';
 import { describe, expect, it, vi } from 'vitest';
 import { Actor, History, Runtime, Snapshot } from '../index.ts';
 import type { AnyActor } from '../actor/index.ts';
-import type { SavedHistory } from '../index.ts';
+import type { SavedHistory } from '../types.ts';
 import { Counter, run, settle, timed } from './fixtures.ts';
 
 /*

@@ -31,9 +31,9 @@ src/routing/
                   context.tsx: links, hooks, the Metadata in the document;
                   frame.tsx: what it draws around the app
     scroll/       scroll restoration, as TanStack Router's: kept per entry, put back after each move
-    adapter/      the port: where the URL lives                @kestack/kabuki/routing/adapter
-      browser/    the browser's own history                    @kestack/kabuki/routing/browser
-      tanstack/   TanStack Router's history                    @kestack/kabuki/routing/tanstack
+    adapter/      the port: where the URL lives
+      browser/    the browser's own history, browser()
+      tanstack/   TanStack Router's history, tanstack()
 ```
 
 `route` is pure data and depends on nothing else here, so Start reads it
@@ -557,7 +557,7 @@ A move says otherwise for itself, as TanStack's do:
 - `hash`: the element on the page it goes to, `href` ending `#part-5`.
   `hashScrollIntoView` says how it is scrolled into view; `false` leaves it.
 
-`useElementScrollRestoration({ id } | { getElement })`, from `@kestack/kabuki/routing/router`, reads what is kept for
+`useElementScrollRestoration({ id } | { getElement })`, from `@kestack/kabuki/routing`, reads what is kept for
 an element, or the window, on the entry drawn: for a virtual list that puts
 itself back.
 

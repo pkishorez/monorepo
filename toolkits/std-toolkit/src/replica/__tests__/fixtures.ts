@@ -1,6 +1,6 @@
 import { eq, inArray } from '@tanstack/db';
 import { Actor, Address, History, Runtime } from '@kestack/kabuki';
-import type { Runtime as RunningApp } from '@kestack/kabuki/core/runtime';
+import type { Runtime as RunningApp } from '@kestack/kabuki';
 import { Deferred, Effect, Layer, Schema, SubscriptionRef } from 'effect';
 import type { Duration } from 'effect';
 import type { Scope } from 'effect';

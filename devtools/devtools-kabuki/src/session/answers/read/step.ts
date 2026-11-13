@@ -1,6 +1,10 @@
 import { Address, History, Snapshot } from '@kestack/kabuki';
-import type { Entry, Instance, WantedWorker } from '@kestack/kabuki';
-import type { AnyActor } from '@kestack/kabuki/core/actor';
+import type {
+  AnyActor,
+  Entry,
+  Instance,
+  WantedWorker,
+} from '@kestack/kabuki/types';
 
 /*
  * What one Step did, as Kabuki says it, never worked out again here:

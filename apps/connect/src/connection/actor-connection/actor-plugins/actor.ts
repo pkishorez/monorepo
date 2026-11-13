@@ -1,6 +1,6 @@
 import { Effect, Schema, Stream } from 'effect';
 import { Actor } from '@kestack/kabuki';
-import type { Self, Single } from '@kestack/kabuki/core/actor';
+import type { Self, Single } from '@kestack/kabuki/types';
 import {
   pluginFolders,
   socketPath,

@@ -9,8 +9,8 @@ import {
 } from 'effect';
 import { Actor, Command } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
-import type { ActorType } from '@kestack/kabuki/core/actor';
-import type { ViewOf } from '@kestack/kabuki/react/view';
+import type { ActorType } from '@kestack/kabuki/types';
+import type { ViewOf } from '@kestack/kabuki/react/types';
 import { Accounts } from '@kestack/auth-toolkit/client';
 
 import { AccountList } from './list.tsx';

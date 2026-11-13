@@ -2,7 +2,7 @@ import { Effect, Exit, Fiber, Schema, Stream } from 'effect';
 import type { Scope } from 'effect';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Actor, Address, History } from '@kestack/kabuki';
-import type { AppRuntime } from '@kestack/kabuki/react/view';
+import type { AppRuntime } from '@kestack/kabuki/react/types';
 import { Blueprinted, Graph, Node, Trail } from '../../api/index.ts';
 import { inMemory } from '../index.ts';
 import { changesAt, graphAt } from '../answers/views.ts';

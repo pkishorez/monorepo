@@ -167,9 +167,9 @@ app's Layer, keeps it:
 - None, the default: the app routes **in memory**. It starts at its root,
   Back and Forward are Messages, and the browser's URL is never read or
   touched. Good for tests, stories and the shop on this page.
-- `browser()`, from `@kestack/kabuki/routing/browser`: the browser's own
+- `browser()`, from `@kestack/kabuki/routing`: the browser's own
   history, for an app that owns the site.
-- `tanstack()`, from `@kestack/kabuki/routing/tanstack`: TanStack Router's
+- `tanstack()`, from `@kestack/kabuki/routing`: TanStack Router's
   history, for an app on a TanStack Start catch-all route.
 
 ```tsx

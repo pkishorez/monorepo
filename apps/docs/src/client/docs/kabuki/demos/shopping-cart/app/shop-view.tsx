@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View } from '@kestack/kabuki/react';
-import type { Handle } from '@kestack/kabuki/react/view';
+import type { Handle } from '@kestack/kabuki/react/types';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { CircleCheckIcon } from 'lucide-react';
 import type { CartLive } from './cart.ts';

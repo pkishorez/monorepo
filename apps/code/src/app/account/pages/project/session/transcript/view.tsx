@@ -1,5 +1,5 @@
 import { View, useChild, useChildren } from '@kestack/kabuki/react';
-import type { ChildData } from '@kestack/kabuki/react/view';
+import type { ChildData } from '@kestack/kabuki/react/types';
 import { createContext, use, useMemo, type ReactNode } from 'react';
 import type {
   Messages,

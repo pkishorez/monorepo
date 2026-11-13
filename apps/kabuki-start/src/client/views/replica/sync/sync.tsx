@@ -1,6 +1,6 @@
 import { createContext, use } from 'react';
 import { View, useChild, useChildren } from '@kestack/kabuki/react';
-import type { ChildData, Handle } from '@kestack/kabuki/react/view';
+import type { ChildData, Handle } from '@kestack/kabuki/react/types';
 import { Pages } from '../../../../shared/pages/index.ts';
 import { ReplicasAt, useNow } from '../accounts/index.ts';
 

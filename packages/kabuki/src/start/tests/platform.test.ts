@@ -26,8 +26,8 @@ describe('cloudflare', () => {
     const platform = cloudflare();
     expect(platform.conditions[0]).toBe('workerd');
     expect(platform.serve).toEqual({
-      from: '@kestack/kabuki/start/cloudflare',
-      name: 'serve',
+      from: '@kestack/kabuki/start/server',
+      name: 'serveCloudflare',
     });
   });
 
@@ -57,8 +57,8 @@ describe('nitro', () => {
     expect(platform.conditions[0]).toBe('node');
     expect(platform.config).toEqual({ nitro: { preset: 'vercel' } });
     expect(platform.serve).toEqual({
-      from: '@kestack/kabuki/start/nitro',
-      name: 'serve',
+      from: '@kestack/kabuki/start/server',
+      name: 'serveNitro',
     });
   });
 

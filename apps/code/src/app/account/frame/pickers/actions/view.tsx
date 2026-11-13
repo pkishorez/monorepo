@@ -1,6 +1,6 @@
 import { View } from '@kestack/kabuki/react';
 import { useRouter } from '@kestack/kabuki/routing';
-import type { ViewProps } from '@kestack/kabuki/react/view';
+import type { ViewProps } from '@kestack/kabuki/react/types';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { useDevice } from '@kestack/web-platform/ui/input';
 import { EllipsisIcon } from 'lucide-react';

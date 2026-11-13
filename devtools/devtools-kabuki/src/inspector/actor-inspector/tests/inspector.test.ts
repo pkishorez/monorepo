@@ -2,7 +2,7 @@ import { Effect, Layer, Queue, Stream } from 'effect';
 import type { Scope } from 'effect';
 import { TestClock } from 'effect/testing';
 import { Runtime } from '@kestack/kabuki';
-import type { Instance } from '@kestack/kabuki';
+import type { Instance } from '@kestack/kabuki/types';
 import { describe, expect, it } from 'vitest';
 import type * as Api from '../../../api/index.ts';
 import type { KabukiSessionClient } from '../../../api/index.ts';

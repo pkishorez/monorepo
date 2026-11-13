@@ -1,6 +1,6 @@
 import { Effect, Layer, Schema, Stream } from 'effect';
 import { Actor } from '@kestack/kabuki';
-import type { Self } from '@kestack/kabuki/core/actor';
+import type { Self } from '@kestack/kabuki/types';
 import { Plugins, PluginState } from '@kestack/cli-platform/plugins';
 import type { PluginVersion } from '../../cloud/contract/index.js';
 import { ActorOnline } from './actor-online/index.js';

@@ -1,6 +1,6 @@
 import { stat } from 'node:fs/promises';
 import { Duration, Effect, Stream } from 'effect';
-import type { Self } from '@kestack/kabuki/core/actor';
+import type { Self } from '@kestack/kabuki/types';
 import type { Project, ProjectFolder } from '../../../records/index.js';
 import { Store } from '../../capabilities/index.js';
 

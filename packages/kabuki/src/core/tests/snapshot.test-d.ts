@@ -1,7 +1,8 @@
 import { Schema } from 'effect';
 import { expectTypeOf } from 'vitest';
 import { Actor, Runtime, Snapshot } from '../index.ts';
-import type { Address, Instance, Moment, Step } from '../index.ts';
+import type { Address } from '../index.ts';
+import type { Instance, Moment, Step } from '../types.ts';
 
 /*
  * A Snapshot typed by its root's Actor: each Instance's State, Model and

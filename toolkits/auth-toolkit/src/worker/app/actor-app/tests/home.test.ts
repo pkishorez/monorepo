@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import type { Runtime } from '@kestack/kabuki/core/runtime';
+import type { Runtime } from '@kestack/kabuki';
 import { describe, expect, it } from 'vitest';
 import {
   find,

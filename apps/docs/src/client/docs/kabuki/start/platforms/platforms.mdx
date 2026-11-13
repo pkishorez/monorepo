@@ -2,15 +2,16 @@ Start's server knows no platform. It is one `fetch`: a request in, a
 response out. Each request comes with the platform's env and, if the
 platform has one, a cache to keep static pages in.
 
-A platform adapter fills those in for one host. Each adapter has its own
-import path, so your build carries only the one you name. You pick it in
-`vite.config.ts`, and nothing else in your app changes.
+A platform adapter fills those in for one host. You pick it in
+`vite.config.ts`, from `@kestack/kabuki/start/vite` beside the plugin, and
+nothing else in your app changes. Your server build carries only the one you
+name.
 
 ## Cloudflare Workers
 
 ```ts
 // vite.config.ts
-import { cloudflare } from '@kestack/kabuki/start/cloudflare';
+import { cloudflare, start } from '@kestack/kabuki/start/vite';
 
 export default defineConfig({
   plugins: [react(), start({ platform: cloudflare() })],
@@ -43,7 +44,7 @@ Bun, Vercel, Netlify, AWS Lambda, and the rest.
 
 ```ts
 // vite.config.ts
-import { nitro as onNitro } from '@kestack/kabuki/start/nitro';
+import { nitro as onNitro, start } from '@kestack/kabuki/start/vite';
 import { nitro } from 'nitro/vite';
 
 export default defineConfig({
