@@ -9,7 +9,7 @@ const RESOLVED_ID = `\0${VIRTUAL_CLIENT_MODULE_ID}`;
 const PACKAGE = '@kestack/web-platform';
 
 /**
- * Serves `virtual:pwa-toolkit/client` to the client and server environments.
+ * Serves `virtual:web-platform/pwa/client` to the client and server environments.
  * On the server `@kestack/web-platform` stays in Vite's module graph (not
  * externalized) so its import of the virtual module resolves; in the
  * browser it is pre-bundled with its dependencies, the virtual module left
@@ -21,7 +21,7 @@ export const clientModulePlugin = (
 ): Plugin => {
   let version: BuildVersion | undefined;
   return {
-    name: 'pwa-toolkit:client-module',
+    name: '@kestack/web-platform:pwa-client-module',
     enforce: 'pre',
     sharedDuringBuild: true,
     configResolved(resolved) {
@@ -67,12 +67,12 @@ export const clientModulePlugin = (
 };
 
 /**
- * Serves `virtual:pwa-toolkit/client` for an app that is no PWA, so the
+ * Serves `virtual:web-platform/pwa/client` for an app that is no PWA, so the
  * Document's PWA parts still import, find `included` false and draw
  * nothing. No worker, no manifest.
  */
 export const noPwa = (): Plugin => ({
-  name: 'pwa-toolkit:off',
+  name: '@kestack/web-platform:pwa-off',
   enforce: 'pre',
   configEnvironment(name, environment) {
     const consumer =

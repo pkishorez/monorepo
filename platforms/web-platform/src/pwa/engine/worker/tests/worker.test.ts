@@ -1,6 +1,3 @@
-import * as Effect from 'effect/Effect';
-import * as Layer from 'effect/Layer';
-import * as Stream from 'effect/Stream';
 import { describe, expect, it } from 'vitest';
 import {
   BuildId,
@@ -15,7 +12,6 @@ import {
 } from '../../contract/config/index.js';
 import { makeCommand } from '../../contract/commands/index.js';
 import type { StrategyRule } from '../../contract/strategy/index.js';
-import { WorkerHost } from '../../contract/worker-host/index.js';
 import { makeFakeGlobal, settle, sleep, text } from './fake-global.js';
 import { startServiceWorker } from '../worker.js';
 
@@ -46,19 +42,12 @@ const build = (
 
 const start = (
   info: WorkerBuildInfo = build(),
-  options: {
-    active?: boolean;
-    layer?: Layer.Layer<never, never, WorkerHost>;
-  } = {},
+  options: { active?: boolean } = {},
 ) => {
   const fake = makeFakeGlobal({
     active: options.active ?? false,
   });
-  startServiceWorker(
-    fake.global,
-    info,
-    options.layer === undefined ? {} : { layer: options.layer },
-  );
+  startServiceWorker(fake.global, info);
   return fake;
 };
 
@@ -238,6 +227,15 @@ describe('activate', () => {
       [PRECACHE, images, 'someone-else'].sort(),
     );
     expect(fake.calls.claim).toBe(1);
+  });
+
+  it('deletes every cache under the former name, pwa-toolkit', async () => {
+    const fake = start();
+    fake.caches.seed(PRECACHE, { '/a': 'new' });
+    fake.caches.seed('pwa-toolkit:precache:b1', { '/a': 'old' });
+    fake.caches.seed('pwa-toolkit:runtime:images', { '/i.png': 'img' });
+    await settle(fake.dispatch('activate'));
+    expect([...fake.caches.caches.keys()]).toEqual([PRECACHE]);
   });
 });
 
@@ -432,10 +430,10 @@ describe('Runtime Cache', () => {
     counter(fake);
     fake.caches.seed(DATA, {
       '/data/old': new Response('stale', {
-        headers: { 'x-pwa-toolkit-cached-at': String(Date.now() - 120_000) },
+        headers: { 'x-web-platform-cached-at': String(Date.now() - 120_000) },
       }),
       '/data/new': new Response('fresh', {
-        headers: { 'x-pwa-toolkit-cached-at': String(Date.now()) },
+        headers: { 'x-web-platform-cached-at': String(Date.now()) },
       }),
     });
     expect(await text(fake.fetchEvent('/data/old'))).toBe('v1');
@@ -470,34 +468,5 @@ describe('commands', () => {
       [],
     );
     expect(await send(fake, { hello: 'world' })).toEqual([]);
-  });
-});
-
-describe('WorkerHost', () => {
-  it('delivers messages sent before the layer subscribed, but not commands', async () => {
-    const received: Array<unknown> = [];
-    const layer = Layer.effectDiscard(
-      Effect.gen(function* () {
-        const host = yield* WorkerHost;
-        received.push(host.buildId);
-        yield* Effect.forkScoped(
-          Stream.runForEach(host.messages, (event) =>
-            Effect.sync(() => received.push(event.data)),
-          ),
-        );
-      }),
-    );
-    const fake = makeFakeGlobal();
-    startServiceWorker(fake.global, build(), { layer });
-    const early = fake.dispatch('message', { data: { rpc: 1 }, ports: [] });
-    fake.dispatch('message', {
-      data: makeCommand('SKIP_WAITING'),
-      ports: [],
-    });
-    expect(early.lifetimes).toHaveLength(1);
-    await settle(early);
-    fake.dispatch('message', { data: { rpc: 2 }, ports: [] });
-    await sleep(10);
-    expect(received).toEqual(['b2', { rpc: 1 }, { rpc: 2 }]);
   });
 });

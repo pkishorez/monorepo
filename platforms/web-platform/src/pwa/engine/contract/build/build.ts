@@ -20,21 +20,27 @@ export const PrecacheList = Schema.Array(PrecacheEntry);
 export type PrecacheList = typeof PrecacheList.Type;
 
 /** Meta tag the page reads its Build ID from: `<meta name=… content=buildId>`. */
-export const BUILD_ID_META_NAME = 'pwa-toolkit:build-id';
+export const BUILD_ID_META_NAME = 'web-platform:build-id';
 /** Meta tag with the time the build ran, as an ISO 8601 string. */
-export const BUILT_AT_META_NAME = 'pwa-toolkit:built-at';
+export const BUILT_AT_META_NAME = 'web-platform:built-at';
 /** Meta tag with the git commit the build came from. */
-export const COMMIT_META_NAME = 'pwa-toolkit:commit';
+export const COMMIT_META_NAME = 'web-platform:commit';
 
 /** Virtual module the plugin serves to the service worker bundle. */
-export const VIRTUAL_BUILD_MODULE_ID = 'virtual:pwa-toolkit/build';
+export const VIRTUAL_BUILD_MODULE_ID = 'virtual:web-platform/pwa/build';
 /** Virtual module the plugin serves to the client and ssr environments. */
-export const VIRTUAL_CLIENT_MODULE_ID = 'virtual:pwa-toolkit/client';
+export const VIRTUAL_CLIENT_MODULE_ID = 'virtual:web-platform/pwa/client';
 
 export const MANIFEST_URL = '/manifest.webmanifest';
 
-/** Every cache the toolkit owns starts with this; the Kill Switch deletes them all. */
-export const CACHE_PREFIX = 'pwa-toolkit:';
+/** Every cache the PWA owns starts with this; the Kill Switch deletes them all. */
+export const CACHE_PREFIX = 'web-platform:pwa:';
+/**
+ * What the caches started with when this was `@kestack/pwa-toolkit`.
+ * Installed apps still hold some: a version deletes them as it activates,
+ * and so does whatever deletes the PWA's caches.
+ */
+export const FORMER_CACHE_PREFIX = 'pwa-toolkit:';
 const PRECACHE_PREFIX = `${CACHE_PREFIX}precache:`;
 const RUNTIME_PREFIX = `${CACHE_PREFIX}runtime:`;
 
@@ -46,8 +52,11 @@ export const precacheCacheName = (buildId: BuildId): string =>
 export const runtimeCacheName = (cacheName: string): string =>
   `${RUNTIME_PREFIX}${cacheName}`;
 
-export const isToolkitCacheName = (name: string): boolean =>
-  name.startsWith(CACHE_PREFIX);
+/** A cache of the PWA's, under its name today or its former one. */
+export const isPwaCacheName = (name: string): boolean =>
+  name.startsWith(CACHE_PREFIX) || isFormerCacheName(name);
+export const isFormerCacheName = (name: string): boolean =>
+  name.startsWith(FORMER_CACHE_PREFIX);
 export const isPrecacheCacheName = (name: string): boolean =>
   name.startsWith(PRECACHE_PREFIX);
 export const isRuntimeCacheName = (name: string): boolean =>

@@ -56,7 +56,7 @@ const Shortcut = Schema.Struct({
   icons: Schema.optionalKey(Schema.Array(ManifestImage)),
 });
 
-/** The W3C Web App Manifest fields the toolkit understands. */
+/** The W3C Web App Manifest fields the PWA understands. */
 export const WebAppManifest = Schema.Struct({
   id: Schema.optionalKey(Schema.String),
   name: Schema.NonEmptyString,

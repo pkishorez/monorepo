@@ -10,7 +10,7 @@ import type { PwaOptions } from '../../contract/config/index.js';
 import { noPwa, pwa } from '../index.js';
 
 const root = fileURLToPath(new URL('./fixture', import.meta.url));
-const temp = await mkdtemp(join(tmpdir(), 'pwa-toolkit-vite-'));
+const temp = await mkdtemp(join(tmpdir(), 'web-platform-pwa-vite-'));
 afterAll(() => rm(temp, { recursive: true, force: true }));
 
 const app = {
@@ -77,16 +77,16 @@ describe('pwa() build', () => {
       JSON.stringify({
         name: '@kestack/web-platform',
         type: 'module',
-        exports: { './pwa/rpc/client': './client.js' },
+        exports: { './pwa': './client.js' },
       }),
     );
     await writeFile(
       join(packageRoot, 'client.js'),
-      "export { default } from 'virtual:pwa-toolkit/client';",
+      "export { default } from 'virtual:web-platform/pwa/client';",
     );
     await writeFile(
       join(installedRoot, 'server.js'),
-      "export { default } from '@kestack/web-platform/pwa/rpc/client';",
+      "export { default } from '@kestack/web-platform/pwa';",
     );
     await build({
       configFile: false,
@@ -109,7 +109,7 @@ describe('pwa() build', () => {
     await mkdir(offRoot, { recursive: true });
     await writeFile(
       join(offRoot, 'server.js'),
-      "export { default, included } from 'virtual:pwa-toolkit/client';",
+      "export { default, included } from 'virtual:web-platform/pwa/client';",
     );
     const outDir = join(offRoot, 'dist');
     await build({
@@ -208,8 +208,8 @@ describe('pwa() build', () => {
   it('ships the Kill Switch when disabled', async () => {
     const out = await buildFixture('kill', { ...app, enabled: false });
     const script = await out.read('sw.js');
-    expect(script).toContain('pwa-toolkit Kill Switch');
-    expect(script).toContain('"pwa-toolkit:"');
+    expect(script).toContain('web-platform Kill Switch');
+    expect(script).toContain('["web-platform:pwa:","pwa-toolkit:"]');
     expect(await out.read('_headers')).toContain(
       '/sw.js\n  Cache-Control: no-cache',
     );

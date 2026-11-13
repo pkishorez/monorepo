@@ -23,7 +23,7 @@ const appleTouchIconOf = (manifest: WebAppManifest): string | null => {
 };
 
 /**
- * Default export of `virtual:pwa-toolkit/client` for one environment.
+ * Default export of `virtual:web-platform/pwa/client` for one environment.
  * The client environment never knows the Build ID (it builds first); the
  * server environment gets it once the client build has produced it, and
  * `dev` while serving. The build's commit and time go to the server

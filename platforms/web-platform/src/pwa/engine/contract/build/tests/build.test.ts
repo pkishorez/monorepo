@@ -4,7 +4,8 @@ import {
   computeBuildId,
   isPrecacheCacheName,
   isRuntimeCacheName,
-  isToolkitCacheName,
+  isFormerCacheName,
+  isPwaCacheName,
   precacheCacheName,
   runtimeCacheName,
 } from '../index.js';
@@ -48,15 +49,23 @@ describe('computeBuildId', () => {
 describe('cache names', () => {
   const buildId = BuildId.make('abc');
 
-  it('prefixes every toolkit cache', () => {
-    expect(precacheCacheName(buildId)).toBe('pwa-toolkit:precache:abc');
-    expect(runtimeCacheName('images')).toBe('pwa-toolkit:runtime:images');
+  it('prefixes every cache of the PWA', () => {
+    expect(precacheCacheName(buildId)).toBe('web-platform:pwa:precache:abc');
+    expect(runtimeCacheName('images')).toBe('web-platform:pwa:runtime:images');
   });
 
   it('classifies names', () => {
     expect(isPrecacheCacheName(precacheCacheName(buildId))).toBe(true);
     expect(isRuntimeCacheName(runtimeCacheName('images'))).toBe(true);
     expect(isRuntimeCacheName(precacheCacheName(buildId))).toBe(false);
-    expect(isToolkitCacheName('workbox-precache')).toBe(false);
+    expect(isPwaCacheName(precacheCacheName(buildId))).toBe(true);
+    expect(isPwaCacheName('workbox-precache')).toBe(false);
+  });
+
+  it('still knows a cache under the former name', () => {
+    expect(isFormerCacheName('pwa-toolkit:precache:abc')).toBe(true);
+    expect(isPwaCacheName('pwa-toolkit:runtime:images')).toBe(true);
+    expect(isFormerCacheName(precacheCacheName(buildId))).toBe(false);
+    expect(isPrecacheCacheName('pwa-toolkit:precache:abc')).toBe(false);
   });
 });

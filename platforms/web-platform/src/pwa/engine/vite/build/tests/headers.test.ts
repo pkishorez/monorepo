@@ -4,7 +4,7 @@ import { mergeHeaders } from '../headers.js';
 describe('mergeHeaders', () => {
   it('writes no-cache rules when there is no file', () => {
     expect(mergeHeaders(null, ['/sw.js'])).toBe(
-      '# pwa-toolkit: begin\n/sw.js\n  Cache-Control: no-cache\n# pwa-toolkit: end\n',
+      '# web-platform pwa: begin\n/sw.js\n  Cache-Control: no-cache\n# web-platform pwa: end\n',
     );
   });
 
@@ -12,7 +12,9 @@ describe('mergeHeaders', () => {
     const existing =
       '/assets/*\n  Cache-Control: immutable\n/sw.js\n  X-Own: 1';
     const merged = mergeHeaders(existing, ['/sw.js', '/manifest.webmanifest']);
-    expect(merged.startsWith(`${existing}\n# pwa-toolkit: begin\n`)).toBe(true);
+    expect(merged.startsWith(`${existing}\n# web-platform pwa: begin\n`)).toBe(
+      true,
+    );
     expect(merged).toContain(
       '/manifest.webmanifest\n  Cache-Control: no-cache',
     );

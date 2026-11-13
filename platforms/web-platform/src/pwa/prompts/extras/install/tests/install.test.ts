@@ -75,9 +75,9 @@ describe('Install', () => {
   it('forgets a dismissal after 30 days', async () => {
     const days = (n: number) => String(Date.now() - n * 24 * 60 * 60 * 1000);
     browser.navigator['userAgent'] = IOS_SAFARI;
-    browser.storage.set('pwa-toolkit:install-dismissed-at', days(29));
+    browser.storage.set('web-platform:install-dismissed-at', days(29));
     expect(await runInstall(installTag)).toBe('Dismissed');
-    browser.storage.set('pwa-toolkit:install-dismissed-at', days(31));
+    browser.storage.set('web-platform:install-dismissed-at', days(31));
     expect(await runInstall(installTag)).toBe('ManualIos');
   });
 

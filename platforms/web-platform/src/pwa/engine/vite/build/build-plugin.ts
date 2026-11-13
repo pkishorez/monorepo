@@ -16,7 +16,7 @@ import { bundleFiles, overlay, readTree } from './output-files.js';
 import { selectAssets } from '../precache/index.js';
 import { workerScript } from '../worker-bundle/index.js';
 
-const NAME = 'pwa-toolkit:build';
+const NAME = '@kestack/web-platform:pwa-build';
 
 const writeOutput = async (path: string, content: string) => {
   await mkdir(dirname(path), { recursive: true });
@@ -51,7 +51,7 @@ export const buildPlugin = (
       for (const environment of environments) await builder.build(environment);
     }
     const client = builder.environments['client'];
-    if (!client) throw new Error('pwa-toolkit: no client environment');
+    if (!client) throw new Error('web-platform/pwa: no client environment');
     const outDir = resolve(client.config.root, client.config.build.outDir);
     const script = config.enabled
       ? await workerScript({
@@ -79,12 +79,12 @@ export const buildPlugin = (
     const { assets, buildId } = state;
     if (!assets || !buildId) {
       throw new Error(
-        'pwa-toolkit: the client environment produced no Build ID',
+        'web-platform/pwa: the client environment produced no Build ID',
       );
     }
     if (assets.bytes > config.precache.warnAboveBytes) {
       vite.logger.warn(
-        `pwa-toolkit: the Precache is ${(assets.bytes / 1024 / 1024).toFixed(1)} MiB; every install downloads all of it. Narrow it with precache.exclude.`,
+        `web-platform/pwa: the Precache is ${(assets.bytes / 1024 / 1024).toFixed(1)} MiB; every install downloads all of it. Narrow it with precache.exclude.`,
       );
     }
     return {

@@ -1,4 +1,4 @@
-// Stands in for `virtual:pwa-toolkit/build` in unit tests.
+// Stands in for `virtual:web-platform/pwa/build` in unit tests.
 import { BuildId } from '../../src/pwa/engine/contract/build/index.js';
 import {
   resolvePwaConfig,

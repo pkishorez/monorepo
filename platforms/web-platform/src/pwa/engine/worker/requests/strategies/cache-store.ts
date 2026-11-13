@@ -7,7 +7,7 @@ import {
   openCache,
 } from '../../global-scope/index.js';
 
-const CACHED_AT_HEADER = 'x-pwa-toolkit-cached-at';
+const CACHED_AT_HEADER = 'x-web-platform-cached-at';
 
 /** One Runtime Cache with its expiry limits. */
 export interface CacheStore {

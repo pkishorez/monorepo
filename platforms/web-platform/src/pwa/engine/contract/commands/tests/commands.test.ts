@@ -37,7 +37,7 @@ describe('commands', () => {
     ).toBe(true);
     expect(Option.isNone(matchCommand('SKIP_WAITING'))).toBe(true);
     expect(Option.isNone(matchCommand(null))).toBe(true);
-    expect(isCommandEnvelope({ __pwaToolkitRpc: 1 })).toBe(false);
+    expect(isCommandEnvelope({ __other: 1 })).toBe(false);
   });
 
   it('matches replies but not commands as replies', () => {

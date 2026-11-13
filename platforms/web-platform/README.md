@@ -9,8 +9,8 @@ Every kestack web app used to wire the same things by hand: the Document, the Th
 It has four modules, each depending only on the ones before it:
 
 - `ui`: what the user sees and touches: `ui/theme`, `ui/components/*`, `ui/viewers/*`, `ui/form` and `ui/input` (device, gestures, keys, sounds).
-- `pwa`: the app installable, working offline and updated in place. `pwa/vite` builds the worker and manifest, `pwa/worker` runs in it, `pwa/rpc/*` talks to it, and `pwa` is the page's side: `PwaHead`, `Pwa`, the Update and Install Prompts and the extras.
-- `recipes/*`: whole features built from `ui` and `pwa`: the Frame, the Account Switcher, the Vim status line, Local sign-in, Kabuki's Devtools, the Thumb Picker, swipe rows, an image viewer, and the touch layers that keep a Drawer and its field above the on-screen keyboard.
+- `pwa`: the app installable, opening without the network and updated in place. `pwa/vite` builds the worker and manifest, `pwa/worker` runs in the worker, and `pwa` is the page's side: `PwaHead`, `Pwa`, the Update and Install Prompts and the Extras.
+- `recipes/*`: whole features built from `ui`: the Frame, the Account Switcher, the Vim status line, Local sign-in, Kabuki's Devtools, the Thumb Picker, swipe rows, an image viewer, and the touch layers that keep a Drawer and its field above the on-screen keyboard.
 - `app`: putting it together: `app/vite` is the one Vite plugin an app lists, `app/document` the Document it passes to `Start.app`, and `app/alchemy` how it is deployed on its Stages.
 
 Why the Web Platform may break while the Toolkits keep what persists is [ADR 0006](../../docs/adr/0006-platforms-may-break-toolkits-keep-what-persists.md). It ships built `dist/` (from `vp pack`). Terms are in [CONTEXT.md](./CONTEXT.md); the PWA's decisions are in [docs/adr/](./docs/adr/).
@@ -259,6 +259,8 @@ The PWA on the page.
 | `Pwa`                   | Around the app in the Document: registers the worker, shows the Update Prompt while a new version waits, and offers install once.   |
 | `PwaProvider`           | Registers the worker after mount and gives `usePwa` its Status; `Pwa` renders it.                                                   |
 | `pwaHead`               | Head tags: manifest link, Apple icon, and meta tags for the Build ID, build time and commit.                                        |
+| `pwaName`               | The app's name, as `pwa({ name })` gave it to the manifest.                                                                         |
+| `pwaIncluded`           | Whether this build is a PWA: `false` when it was built with `noPwa()`.                                                              |
 | `usePwa`                | The Status with `checkForUpdate` and `applyUpdate` (`Unsupported` before mount), and the page's `version`.                          |
 | `updateToNewest`        | Once per page load, from anywhere: checks for a newer build and applies it once downloaded, so every page reloads into it.          |
 | `clearRuntimeCache`     | Deletes every Runtime Cache; works outside `PwaProvider`, for example in sign-out.                                                  |
@@ -292,24 +294,9 @@ The PWA on the page.
 
 ### `@kestack/web-platform/pwa/worker`
 
-| Export             | What it does                                                                                                      |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| `runServiceWorker` | Starts the worker; call it once at the top of the entry, optionally with a `layer` such as a Worker Server.       |
-| `WorkerHost`       | Service given to that `layer`: the worker's Build ID and a stream of every `message` event that is not a Command. |
-
-### `@kestack/web-platform/pwa/rpc/worker`
-
-| Export               | What it does                                                                                           |
-| -------------------- | ------------------------------------------------------------------------------------------------------ |
-| `WorkerServer.layer` | Serves an Effect `RpcGroup` inside the worker; provide its handlers and pass it to `runServiceWorker`. |
-
-### `@kestack/web-platform/pwa/rpc/client`
-
-| Export               | What it does                                                                              |
-| -------------------- | ----------------------------------------------------------------------------------------- |
-| `WorkerClient.make`  | Scoped Effect that opens this page's Worker Client to the Worker Server.                  |
-| `WorkerClient.layer` | The same client as a Layer under your own service tag.                                    |
-| `VersionSkew`        | Tagged error a call fails with when the worker belongs to another Build ID than the page. |
+| Export             | What it does                                                                                       |
+| ------------------ | -------------------------------------------------------------------------------------------------- |
+| `runServiceWorker` | Starts the worker; an app's own `src/sw.ts` calls it once, at the top, as the built-in entry does. |
 
 ### `@kestack/web-platform/recipes/frame`
 
@@ -317,6 +304,7 @@ The PWA on the page.
 | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `AppShell`                                                     | The Frame: an optional Sidebar, an optional header with title and actions, the page, with `vim` as a floating window, the same in Vim Mode or out of it, with a status line while it is on, and `column` to wrap the header and page in one element; on a narrow screen the Sidebar shows in its `sidebarMode`, `slide` beside the page or `fullscreen` in its place, under a finger. |
 | `useAppShell`                                                  | `open`, `setOpen`, `toggle` and `isMobile`, inside an `AppShell`.                                                                                                                                                                                                                                                                                                                     |
+| `useSidebarWidth`                                              | The Sidebar's width on a wide screen, kept in `localStorage` under a key, with its setter: give both to `AppShell`'s sidebar to let a person resize it by its edge.                                                                                                                                                                                                                   |
 | `SidebarGroup`, `SidebarGroupContent`, `SidebarGroupLabel`     | Labeled groups for custom Sidebar content.                                                                                                                                                                                                                                                                                                                                            |
 | `SidebarMenu`, `SidebarMenuItem`, `SidebarMenuButton`          | Menu rows; a button shuts the Sidebar when tapped on a phone.                                                                                                                                                                                                                                                                                                                         |
 | `SidebarMenuSub`, `SidebarMenuSubItem`, `SidebarMenuSubButton` | Nested menu rows.                                                                                                                                                                                                                                                                                                                                                                     |

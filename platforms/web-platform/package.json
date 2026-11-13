@@ -82,14 +82,6 @@
       "types": "./dist/pwa/engine/worker/index.d.ts",
       "default": "./dist/pwa/engine/worker/index.js"
     },
-    "./pwa/rpc/worker": {
-      "types": "./dist/pwa/engine/worker/rpc/index.d.ts",
-      "default": "./dist/pwa/engine/worker/rpc/index.js"
-    },
-    "./pwa/rpc/client": {
-      "types": "./dist/pwa/engine/page/rpc/index.d.ts",
-      "default": "./dist/pwa/engine/page/rpc/index.js"
-    },
     "./recipes/*": {
       "types": "./dist/recipes/*/index.d.ts",
       "default": "./dist/recipes/*/index.js"

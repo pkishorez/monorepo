@@ -119,7 +119,7 @@ const makeRegisteredStatus = Effect.fnUntraced(function* (
     const reply = yield* sendCommand(waiting, 'SKIP_WAITING');
     if (Option.isNone(reply) || reply.value.type === 'FAILED') {
       yield* Effect.logWarning(
-        'pwa-toolkit: waiting worker did not activate',
+        'web-platform/pwa: waiting worker did not activate',
         reply,
       );
       yield* SubscriptionRef.set(status, PwaStatus.UpdateReady());

@@ -2,11 +2,12 @@ import * as Option from 'effect/Option';
 import * as Schema from 'effect/Schema';
 
 /**
- * FROZEN. The one message a page sends a worker outside Worker RPC: it goes
- * to the waiting worker, a newer build than the page, so every worker
- * version ever shipped must understand these shapes. Never change or remove
- * a field; add a new `type` instead. A worker ignores a `type` it does not
- * know and sends no reply, so senders must time out.
+ * FROZEN. The one message a page sends a worker: it goes to the waiting
+ * worker, a newer build than the page, so every worker version ever shipped
+ * must understand these shapes. Never change or remove a field; add a new
+ * `type` instead. A worker ignores a `type` it does not know and sends no
+ * reply, so senders must time out. The key is frozen too, and so keeps the
+ * name of `@kestack/pwa-toolkit`, which this was.
  */
 export const COMMAND_KEY = '__pwaToolkit';
 const Envelope = { [COMMAND_KEY]: Schema.Literal(1) } as const;

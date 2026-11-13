@@ -27,7 +27,7 @@ const entryChunkOf = (
       if (file.type === 'chunk' && file.isEntry) return file.code;
     }
   }
-  throw new Error('pwa-toolkit: the worker build produced no entry chunk');
+  throw new Error('web-platform/pwa: the worker build produced no entry chunk');
 };
 
 /**

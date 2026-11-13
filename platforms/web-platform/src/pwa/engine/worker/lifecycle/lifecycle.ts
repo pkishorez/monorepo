@@ -1,5 +1,6 @@
 import * as Effect from 'effect/Effect';
 import {
+  isFormerCacheName,
   isRuntimeCacheName,
   runtimeCacheName,
 } from '../../contract/build/index.js';
@@ -32,8 +33,9 @@ export const onInstall = (
   });
 
 /**
- * Deletes other builds' Precaches and Runtime Caches no rule uses any more,
- * then takes control of every open page.
+ * Deletes other builds' Precaches, Runtime Caches no rule uses any more and
+ * every cache under the PWA's former name, then takes control of every open
+ * page.
  */
 export const onActivate = (
   info: WorkerBuildInfo,
@@ -43,6 +45,7 @@ export const onActivate = (
     const kept = keptRuntimeCaches(info.config);
     yield* deleteOtherPrecaches(info.buildId);
     yield* deleteCaches((name) => isRuntimeCacheName(name) && !kept.has(name));
+    yield* deleteCaches(isFormerCacheName);
     yield* attempt(() => scope.claimClients());
   });
 

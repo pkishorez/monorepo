@@ -1,6 +1,6 @@
 # Own service worker engine instead of Workbox, Serwist, or vite-plugin-pwa
 
-The toolkit builds its own service worker: a Vite plugin emits the Precache list from the client bundle and builds the worker as its own environment, and the worker runtime (Precache, Runtime Cache strategies, navigation handling, lifecycle) is written in Effect.
+The PWA builds its own service worker: a Vite plugin emits the Precache list from the client bundle and builds the worker as its own environment, and the worker runtime (Precache, Runtime Cache strategies, navigation handling, lifecycle) is written in Effect.
 
 ## Considered Options
 
@@ -9,4 +9,4 @@ The toolkit builds its own service worker: a Vite plugin emits the Precache list
 
 ## Consequences
 
-The core we own is small: a Precache list, a handful of caching strategies, and a lifecycle state machine. Owning the worker entry is also what lets Worker RPC and Coordinated Reload exist without working around someone else's worker.
+The core we own is small: a Precache list, a handful of caching strategies, and a lifecycle state machine. Owning the worker entry is also what lets Coordinated Reload exist without working around someone else's worker.

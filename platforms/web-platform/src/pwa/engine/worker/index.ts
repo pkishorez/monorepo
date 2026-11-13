@@ -1,1 +1,1 @@
-export { runServiceWorker, WorkerHost } from './worker.js';
+export { runServiceWorker } from './worker.js';

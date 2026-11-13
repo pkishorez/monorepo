@@ -1,4 +1,4 @@
-// Stands in for `virtual:pwa-toolkit/client` in unit tests.
+// Stands in for `virtual:web-platform/pwa/client` in unit tests.
 import type { ClientBuildInfo } from '../../src/pwa/engine/contract/config/index.js';
 
 const info: ClientBuildInfo = {

@@ -9,7 +9,7 @@ import {
   useMemo,
   useState,
 } from 'react';
-import info, { included } from 'virtual:pwa-toolkit/client';
+import info, { included } from 'virtual:web-platform/pwa/client';
 import { useSubscriptionRef } from '../../engine/contract/subscription-ref.js';
 import {
   clearRuntimeCache as clearRuntimeCacheEffect,
@@ -64,7 +64,7 @@ export const PwaProvider = (props: {
         if (toNewest) Effect.runFork(built.updateToNewest);
       },
       (error: unknown) =>
-        console.error('pwa-toolkit: client failed to start', error),
+        console.error('web-platform/pwa: client failed to start', error),
     );
     return () => {
       mounted = false;
@@ -114,7 +114,7 @@ export const clearRuntimeCache = (): Promise<void> =>
 
 /**
  * Head tags for the root route: manifest link, Apple icon, and the meta
- * tags for the Build ID (read by Worker RPC), build time and commit.
+ * tags for the Build ID, build time and commit.
  * Hydration-safe: in the browser they come from the tags the server rendered.
  */
 export const pwaHead = (): HeadTags => headTags(info, pageVersion(info));

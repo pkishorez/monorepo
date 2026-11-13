@@ -1,6 +1,6 @@
 import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
-import { isToolkitCacheName } from '../contract/build/index.js';
+import { isPwaCacheName } from '../contract/build/index.js';
 import type { ClientBuildInfo } from '../contract/config/index.js';
 import { isBrowser } from '../contract/dom-events.js';
 
@@ -11,7 +11,7 @@ const hasServiceWorkerApi = (): boolean =>
  * Registers `swUrl`. `updateViaCache: 'none'` makes every update check hit
  * the network. None when unsupported or refused, and when disabled (Kill
  * Switch, dev without `dev: true`): then any registration of `swUrl` left
- * from an earlier build or dev session is removed, with the toolkit's caches.
+ * from an earlier build or dev session is removed, with the PWA's caches.
  */
 export const register = (
   config: ClientBuildInfo,
@@ -27,7 +27,7 @@ export const register = (
     Effect.map(Option.some),
     Effect.tapError((error) =>
       Effect.logWarning(
-        'pwa-toolkit: service worker registration failed',
+        'web-platform/pwa: service worker registration failed',
         error,
       ),
     ),
@@ -51,12 +51,12 @@ const unregister = (config: ClientBuildInfo): Effect.Effect<void> =>
     if (typeof caches === 'undefined') return;
     const names = await caches.keys();
     await Promise.all(
-      names.filter(isToolkitCacheName).map((name) => caches.delete(name)),
+      names.filter(isPwaCacheName).map((name) => caches.delete(name)),
     );
   }).pipe(
     Effect.catch((error) =>
       Effect.logWarning(
-        'pwa-toolkit: removing the old service worker failed',
+        'web-platform/pwa: removing the old service worker failed',
         error,
       ),
     ),

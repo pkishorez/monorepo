@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-export const DEFAULT_ENTRY_ID = 'virtual:pwa-toolkit/default-entry';
+export const DEFAULT_ENTRY_ID = 'virtual:web-platform/pwa/default-entry';
 
 export const DEFAULT_ENTRY_SOURCE = `import { runServiceWorker } from '@kestack/web-platform/pwa/worker';
 runServiceWorker();
@@ -20,7 +20,7 @@ export const resolveWorkerEntry = (
   if (worker !== null) {
     const path = resolve(root, worker);
     if (!existsSync(path)) {
-      throw new Error(`pwa-toolkit: worker entry not found: ${path}`);
+      throw new Error(`web-platform/pwa: worker entry not found: ${path}`);
     }
     return path;
   }
