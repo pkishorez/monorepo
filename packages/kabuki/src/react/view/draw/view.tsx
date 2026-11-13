@@ -56,6 +56,10 @@ export type Drawable = Omit<ViewProps<AnyActor>, 'root'>;
 /** What Views read the app through, provided by `<Kabuki>` and `View.app`. */
 export interface DrawnApp {
   readonly subscribe: (listener: () => void) => () => void;
+  /** Tells its listener when the Instance at this Address changes, comes or goes; the same function while anything listens there. */
+  readonly subscribeAt: (
+    address: Address<any>,
+  ) => (listener: () => void) => () => void;
   /** The Instance at this Address in the Snapshot drawn now, the same object while it does not change. */
   readonly instance: (address: Address<any>) => Drawable | undefined;
   /** The Instance as first drawn: what a server draws and the client hydrates against. */
@@ -110,7 +114,7 @@ export const make = <A extends AnyActor>(
         `[@kestack/kabuki] ${actor.name}View is drawn outside its app`,
       );
     const live = useSyncExternalStore(
-      drawn.subscribe,
+      drawn.subscribeAt(instance.address),
       () => drawn.instance(instance.address),
       () => drawn.served(instance.address),
     );
