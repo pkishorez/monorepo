@@ -50,7 +50,7 @@ import {
  *             failed, so its page draws that; a place not found makes the
  *             page a `404`, one that broke a `500`.
  * 5. Draw     the Router's init at the Route, its places started from what
- *             they loaded, as a History of one Restore, in the Document; see
+ *             they loaded, as a History that starts from it, in the Document; see
  *             `draw.tsx`. A client place starts loading, and its page draws
  *             its loading screen.
  * 6. Keep     a whole page whose places drawn here are all static, in the

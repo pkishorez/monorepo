@@ -137,7 +137,7 @@ const trailOf = (model: Model) =>
     ? model.trail
     : null;
 
-/** A Trail's moments as the Timeline's ticks: one per entry, init left before the first. */
+/** A Trail's moments as the Timeline's ticks: one per entry, the History's start left before the first. */
 const momentsOf = (told: typeof Trail.Type) => {
   const byEntry = new Map<number, (typeof Trail.Type)['moments'][number]>();
   for (const moment of told.moments)
@@ -156,7 +156,7 @@ const tickAt = (
   shown: Step | null,
 ) => {
   if (shown === null) return null;
-  if (shown === 'init') return -1;
+  if (shown === 'start') return -1;
   const place = new Map(entries.map(({ id }, i) => [id, i]));
   const here = place.get(shown) ?? -1;
   let index = -1;
@@ -170,17 +170,17 @@ const tickAt = (
 export const shownOf = (model: Model) => {
   const { entries, now } = model;
   const app = now?.seeking ?? null;
-  // 4. Present: the Step the app shows, init included.
+  // 4. Present: the Step the app shows, the History's start included.
   if (model.look.presenting)
     return {
       shown: null,
       index: entries.length - 1,
-      at: typeof app === 'number' || app === 'init' ? app : null,
+      at: typeof app === 'number' || app === 'start' ? app : null,
       followed: undefined,
       open: [],
       next: [],
     };
-  // 2. Step: the app's own, or the Inspector's own; init is before the first.
+  // 2. Step: the app's own, or the Inspector's own; the History's start is before the first.
   const shown = model.travel ? app : model.own;
   const index =
     shown === null
@@ -191,7 +191,7 @@ export const shownOf = (model: Model) => {
   const followed =
     shown !== null && step && model.closed !== step.id ? step.to : undefined;
   // Where the Step shown goes on to, if the History goes on from it in more than one way.
-  const here = step?.id ?? ('init' as const);
+  const here = step?.id ?? ('start' as const);
   return {
     shown,
     index,
@@ -424,7 +424,7 @@ export const InspectorLive = Inspector.build({
       const { shown } = shownOf(model);
       return {
         model: { ...model, branch: null },
-        command: fork({ from: shown === 'init' ? null : shown }),
+        command: fork({ from: shown === 'start' ? null : shown }),
       };
     },
     Travelled: ({ travel: on }, { model }) => {

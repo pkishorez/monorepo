@@ -1,18 +1,18 @@
 import type { Effect, Layer, Scope } from 'effect';
 import type { Command } from './command.ts';
-import type { ActorType as Actor, AnyActor, Types } from './define.ts';
+import type { ActorType as Actor, AnyActor, Types } from './actor.ts';
 import type {
   Data,
   IdsOf,
   Only,
   Requires,
-  Self,
   Single,
   Tagged,
-} from './self.ts';
+} from './definition/index.ts';
+import type { Self } from './self.ts';
 
 /*
- * How an Actor is written in its definition's `build`: its Updates,
+ * How an Actor is written in its Shape's `build`: its Updates,
  * Workers, answers to its Queries and Children, level by level, what its
  * needs bubble up as, and what the Actor's type keeps of it.
  */

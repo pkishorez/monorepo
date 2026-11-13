@@ -137,7 +137,7 @@ const model = (app: Runtime) =>
     readonly http: { readonly public: { readonly _tag: string } };
   };
 const switchTo = (app: Runtime, id: string) =>
-  app.send(switcher(app).address, { _tag: 'SwitchTo', id } as never);
+  app.at(switcher(app).address)?.send({ _tag: 'SwitchTo', id } as never);
 
 const opened = Effect.gen(function* () {
   const accounts = yield* fakeAccounts;
@@ -146,7 +146,9 @@ const opened = Effect.gen(function* () {
     layer: Layer.mergeAll(loading, accounts.layer, workers),
   });
   yield* wait(20);
-  app.send(apis(app).address, { _tag: 'Send', api: 'http', level: 'public' });
+  app
+    .at(apis(app).address)
+    ?.send({ _tag: 'Send', api: 'http', level: 'public' });
   yield* wait(20);
   expect(model(app).http.public._tag).toBe('Answered');
   return { app, answer: accounts.answer };

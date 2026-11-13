@@ -101,8 +101,9 @@ Step changed. DevTools keeps a Kabuki Session only while the app runs.
    did: its Message, the Commands it asked for, each Instance added, changed
    or removed, with Model paths before and after.
 5. `devtools kabuki snapshot <name> --path model.items.0 --format text` to
-   read part of the app's state. `--at <id>` (or `--at init`) reads it as it
-   was right after that entry; absent, as it is now. Large values are folded;
+   read part of the app's state. `--at <id>` reads it as it was right after
+   that entry, `--at start` as it was at the History's start, as far back
+   as the app still keeps; absent, as it is now. Large values are folded;
    add `--expand`, or narrow the `--path`.
 
 A wrong name, Step or path fails with what is there instead: the live

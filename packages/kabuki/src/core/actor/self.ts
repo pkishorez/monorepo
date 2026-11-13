@@ -1,34 +1,9 @@
-import type { Context, Effect, Stream } from 'effect';
+import type { Effect, Stream } from 'effect';
+import type { Data } from './definition/index.ts';
 
 /*
- * The words every Actor is written in: a tagged value, the Capabilities it
- * Requires, and what an Instance holds at one moment and gives its own work.
+ * What an Instance gives its own work: its Self.
  */
-
-export type Tagged = { readonly _tag: string };
-
-/** The one State of an Actor declared without States. */
-export type Single = { readonly _tag: 'Single' };
-
-export type AnyKey = Context.Key<any, any>;
-/** The Capabilities an Actor's own code may use. */
-export type Requires = ReadonlyArray<AnyKey>;
-
-export type IdsOf<R extends Requires> = R[number] extends infer K
-  ? K extends Context.Key<infer I, any>
-    ? I
-    : never
-  : never;
-
-export type Only<U, T> = Extract<U, { readonly _tag: T }>;
-
-/** An Instance's data at one moment: its own Model and State, and the Props its parent hands it. */
-export type Data<Model, State, Props = void> = {
-  readonly model: Model;
-  readonly state: State;
-  /** What the parent hands it now. Read only: a change runs none of its rules. */
-  readonly props: Props;
-};
 
 /**
  * What an Instance's own work holds of it: Workers and Provides. Sends go
@@ -42,8 +17,8 @@ export interface Self<Model, State, Msg, Props = void> {
   readonly changes: Stream.Stream<Data<Model, State, Props>>;
   /**
    * The app's Time now, in milliseconds: the clock Messages are stamped
-   * with, carried on from the Head's Time when a Runtime is made, started or
-   * Forked, and standing still while it is stopped. A Worker
+   * with, carried on from its Snapshot's Time when a Runtime is made or
+   * follows one, and standing still while it is stopped. A Worker
    * that waits until a Time in the Model sleeps for `that - now`, so it waits
    * only what is left when it starts again on a resume or a fork.
    */

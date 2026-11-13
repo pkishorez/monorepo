@@ -400,12 +400,11 @@ const make = (options: EngineOptions) =>
     const accounts = yield* HarnessAccounts;
     const replies = yield* Answers;
     const running = yield* Runtime.scoped(Code, {
-      window: 0,
       layer: Layer.succeedContext(services),
     });
     /** Closed as Connect stops, before the Sessions, interrupting a start. */
     const scope = yield* Effect.scope;
-    const root = running.instance({ from: 'rpc' });
+    const root = running.root;
     // The root reads the Store first; the engine is open once it is Ready.
     yield* running.changes.pipe(
       Stream.filter(() => root.state._tag === 'Ready'),

@@ -20,7 +20,11 @@ const timed = <A>(effect: Effect.Effect<A, never, Scope.Scope>) =>
     Effect.scoped(effect).pipe(Effect.provide(TestClock.layer())),
   );
 
-/** The app with a Keyboard pressed by hand, and a way to press it. */
+/**
+ * The app with a Keyboard pressed by hand, a way to press it, and a History
+ * kept beside it: made stopped and started once it is followed, so no
+ * entry is missed.
+ */
 const started = (seed = 'test') =>
   Effect.gen(function* () {
     const keys = yield* PubSub.unbounded<Press>();
@@ -29,11 +33,17 @@ const started = (seed = 'test') =>
         Layer.succeed(Keyboard, { presses: Stream.fromPubSub(keys) }),
         Layer.succeed(Seed, { seed }),
       ),
+      running: false,
     });
+    let history = History.init(app.snapshot);
+    app.subscribe((entries) => {
+      history = History.add(history, entries);
+    });
+    void app.start();
     const press = (key: Press) =>
       PubSub.publish(keys, key).pipe(Effect.andThen(Effect.yieldNow));
     yield* Effect.yieldNow;
-    return { app, press };
+    return { app, press, history: () => history };
   });
 
 /** Started, with a game under way. */
@@ -76,7 +86,7 @@ const grown = (seed?: string) =>
     const playing_ = yield* playing(seed);
     yield* ticks(2);
     for (const x of [7, 8]) {
-      playing_.app.send(GAME, { _tag: 'FoodPlaced', x, y: 6 });
+      playing_.app.at(GAME)?.send({ _tag: 'FoodPlaced', x, y: 6 });
       yield* ticks(1);
     }
     return playing_;
@@ -92,7 +102,7 @@ const bite = (press: (key: Press) => Effect.Effect<void>) =>
   });
 
 const workers = (app: Running, address: Address) =>
-  app.workers(address).map((worker) => worker.name);
+  (app.at(address)?.workers ?? []).map((worker) => worker.name);
 
 describe('Snake', () => {
   it('Space starts a game: the Stage Invokes a Game, Running its Workers', () =>
@@ -137,7 +147,7 @@ describe('Snake', () => {
     timed(
       Effect.gen(function* () {
         const { app } = yield* playing();
-        app.send(GAME, { _tag: 'FoodPlaced', x: 5, y: 6 });
+        app.at(GAME)?.send({ _tag: 'FoodPlaced', x: 5, y: 6 });
         yield* ticks(1);
         expect(game(app)!.model.length).toBe(4);
         expect(app.snapshot.root.model).toMatchObject({ score: 1, best: 1 });
@@ -270,15 +280,15 @@ describe('Snake', () => {
   it('a saved History replays to the same Snapshot', () =>
     timed(
       Effect.gen(function* () {
-        const { app, press } = yield* playing();
+        const { app, press, history } = yield* playing();
         yield* ticks(3);
         yield* press('down');
         yield* ticks(9);
         const saved = JSON.parse(
-          JSON.stringify(History.save(StageLive, app.history)),
+          JSON.stringify(History.save(StageLive, history())),
         );
         const loaded = History.load(StageLive, saved);
-        expect(yield* Snapshot.seek(StageLive, loaded)).toEqual(app.snapshot);
+        expect(yield* History.replay(StageLive, loaded)).toEqual(app.snapshot);
       }),
     ));
 

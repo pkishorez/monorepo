@@ -1,8 +1,7 @@
 import { Effect, Exit } from 'effect';
 import type { Scope } from 'effect';
-import type { Data, Tagged } from '../../actor/index.ts';
-import type { WorkerDefinition } from '../../actor/engine/index.ts';
-import { wanted } from '../../data/play/index.ts';
+import type { Data, Tagged, WorkerDefinition } from '../../actor/index.ts';
+import { wanted } from '../../snapshot/index.ts';
 import { stopped } from './host.ts';
 import type { AnySelf, Own } from './host.ts';
 

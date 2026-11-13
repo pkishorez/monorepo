@@ -11,8 +11,8 @@ import type { Effect } from 'effect';
 export class Steps extends Context.Service<
   Steps,
   {
-    /** Show the Step right after this entry, or init; `null` the Head. */
-    readonly choose: (step: number | 'init' | null) => Effect.Effect<void>;
+    /** Show the Step right after this entry, or the History's start; `null` the Head. */
+    readonly choose: (step: number | 'start' | null) => Effect.Effect<void>;
     /** Show the Step right after this entry, its Branch brought into view. */
     readonly branch: (id: number) => Effect.Effect<void>;
     readonly fork: Effect.Effect<void>;

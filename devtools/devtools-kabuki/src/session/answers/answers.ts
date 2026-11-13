@@ -1,6 +1,7 @@
 import { Effect, Queue, Stream } from 'effect';
 import { Address, History, Snapshot } from '@kestack/kabuki';
 import type { Runtime } from '@kestack/kabuki';
+import type { AnyActor } from '@kestack/kabuki/types';
 import type { AppRuntime } from '@kestack/kabuki/react/types';
 import {
   InstanceNotFound,
@@ -12,7 +13,7 @@ import type * as Api from '../../api/index.ts';
 import { treeOf } from './read/blueprint.ts';
 import { blueprintAt, encodeInstance } from './read/encode.ts';
 import { readPath, summarize } from './read/path.ts';
-import { instancesOf } from './read/step.ts';
+import { instancesOf, marksAt } from './read/step.ts';
 import {
   changeAt,
   changesAt,
@@ -26,14 +27,16 @@ import {
 /*
  * Answers: the Kabuki Session Api, answered from one app as Kabuki hands it
  * to an Attachment. The app has one Runtime, the same through every Seek
- * and Fork; a call made before the app has it waits for it. Kabuki is read
- * only through its public surface: the root's Blueprint, the History and
- * its Branches, Snapshots and Trails, the Runtime's Workers and Addresses.
- * The tab does the work.
+ * and Fork, and keeps its History beside it; a call made before the app
+ * has its Runtime waits for it. Kabuki is read only through its public
+ * surface: the root's Blueprint, the app's History and its Branches, the
+ * Snapshot after any entry, the Runtime's Workers and Addresses. The tab
+ * does the work.
  *
- * 1. Step    which Step a call means: absent, the Head; `'init'`; or an
- *            entry still kept, else StepNotFound saying which are. Which
- *            Branch: the Head's, or the one through an entry.
+ * 1. Step    which Step a call means: absent, the Head; `'start'`, the
+ *            History's start; or an entry still kept, else StepNotFound
+ *            saying which are. Which Branch: the Head's, or the one
+ *            through an entry.
  * 2. Read    who it is, a Branch of its History and where it splits, the
  *            Snapshot, a Step's changes, the graph and a card, each at a
  *            Step; the Blueprint, every Actor the root can grow; and one
@@ -69,9 +72,23 @@ const runtimeOf = (app: AppRuntime): Effect.Effect<Runtime> =>
         }),
   );
 
+/** The app once it runs: its Runtime, its root Actor, and its History as it is now. */
+const running = (app: AppRuntime) =>
+  Effect.map(runtimeOf(app), (runtime) => ({
+    runtime,
+    actor: runtime.actor,
+    history: app.history,
+  }));
+
+/** What an Instance's Workers are doing, as the Runtime says: known only of the Head of a running app. */
+const statusesOf = (runtime: Runtime, at: Api.Step | undefined) =>
+  at === undefined && runtime.running
+    ? (address: string) => runtime.at(address as Address)?.workers ?? []
+    : undefined;
+
 // 1. Step
 const stepNotFound = (history: History, step: Api.Step) => {
-  const line = History.line(history);
+  const line = History.entries(history);
   return new StepNotFound({
     step,
     oldest: line[0]?.id ?? null,
@@ -79,7 +96,7 @@ const stepNotFound = (history: History, step: Api.Step) => {
   });
 };
 
-/** The entry a Step is right after, `null` for init. */
+/** The entry a Step is right after, `null` for the History's start. */
 const resolve = (
   history: History,
   at: Api.Step | undefined,
@@ -89,9 +106,9 @@ const resolve = (
 > => {
   if (at === undefined) {
     const { head } = history;
-    return Effect.succeed({ id: head, step: head ?? 'init' });
+    return Effect.succeed({ id: head, step: head ?? 'start' });
   }
-  if (at === 'init') return Effect.succeed({ id: null, step: at });
+  if (at === 'start') return Effect.succeed({ id: null, step: at });
   return History.entry(history, at)
     ? Effect.succeed({ id: at, step: at })
     : Effect.fail(stepNotFound(history, at));
@@ -110,15 +127,15 @@ const tipOf = (
     return Effect.fail(stepNotFound(history, branch));
   const through = (tip: number | null) =>
     tip !== null &&
-    History.line(history, tip).some((entry) => entry.id === branch);
+    History.entries(history, tip).some((entry) => entry.id === branch);
   if (through(history.head)) return Effect.succeed(history.head);
   const tips = History.tips(history).map((entry) => entry.id);
   return Effect.succeed(tips.reverse().find(through) ?? branch);
 };
 
-/** Where a Branch goes on in more than one way: each Step on it, init too, that something off it follows. */
+/** Where a Branch goes on in more than one way: each Step on it, the History's start too, that something off it follows. */
 const splitsOf = (
-  actor: Runtime['actor'],
+  actor: AnyActor,
   history: History,
   line: ReadonlyArray<{ readonly id: number }>,
 ): ReadonlyArray<Api.Split> =>
@@ -128,7 +145,7 @@ const splitsOf = (
     return next.some((entry) => entry.id !== on)
       ? [
           {
-            at: id ?? ('init' as const),
+            at: id ?? ('start' as const),
             next: next.map((entry) => entryOf(actor, history, entry)),
           },
         ]
@@ -151,9 +168,9 @@ const nowOf = (
   runtime: Runtime,
   revision: number,
 ): Api.Now => ({
-  head: runtime.history.head,
-  size: History.line(runtime.history).length,
-  seeking: app.seeking ? (app.seeking.entry ?? 'init') : null,
+  head: app.history.head,
+  size: History.entries(app.history).length,
+  seeking: app.seeking ? (app.seeking.entry ?? 'start') : null,
   running: runtime.running,
   failure: failureOf(app),
   revision,
@@ -173,9 +190,8 @@ export const answers = (app: AppRuntime, about: About) =>
 
     history: ({ last, since, branch }) =>
       Effect.gen(function* () {
-        const runtime = yield* runtimeOf(app);
-        const { actor, history } = runtime;
-        const line = History.line(history, yield* tipOf(history, branch));
+        const { runtime, actor, history } = yield* running(app);
+        const line = History.entries(history, yield* tipOf(history, branch));
         const after =
           since === undefined ? line : line.filter((entry) => entry.id > since);
         const narrowed =
@@ -193,12 +209,13 @@ export const answers = (app: AppRuntime, about: About) =>
 
     snapshot: ({ at, path = '', expand = false }) =>
       Effect.gen(function* () {
-        const { actor, history } = yield* runtimeOf(app);
+        const { actor, history } = yield* running(app);
         const { id, step } = yield* resolve(history, at);
         const whole = yield* played(history, step, () =>
           encodeInstance(
-            Snapshot.replay(actor, history, id).root,
+            History.snapshot(actor, history, id).root,
             actor.blueprint,
+            marksAt(actor, history, id),
           ),
         );
         const read = readPath(whole, path);
@@ -216,7 +233,7 @@ export const answers = (app: AppRuntime, about: About) =>
 
     changes: ({ step }) =>
       Effect.gen(function* () {
-        const { actor, history } = yield* runtimeOf(app);
+        const { actor, history } = yield* running(app);
         const entry = History.entry(history, step);
         if (!entry) return yield* stepNotFound(history, step);
         const { commands, changes } = yield* played(history, step, () =>
@@ -227,16 +244,10 @@ export const answers = (app: AppRuntime, about: About) =>
 
     graph: ({ at }) =>
       Effect.gen(function* () {
-        const runtime = yield* runtimeOf(app);
-        const { actor, history } = runtime;
+        const { runtime, actor, history } = yield* running(app);
         const { id, step } = yield* resolve(history, at);
-        // What Workers run is known only of the Head of a running app.
-        const statuses =
-          at === undefined && runtime.running
-            ? (address: string) => runtime.workers(address as Address)
-            : undefined;
         const root = yield* played(history, step, () =>
-          graphAt(actor, history, id, statuses),
+          graphAt(actor, history, id, statusesOf(runtime, at)),
         );
         return { at: step, root };
       }),
@@ -248,11 +259,10 @@ export const answers = (app: AppRuntime, about: About) =>
 
     node: ({ instance, at }) =>
       Effect.gen(function* () {
-        const runtime = yield* runtimeOf(app);
-        const { actor, history } = runtime;
+        const { runtime, actor, history } = yield* running(app);
         const { id, step } = yield* resolve(history, at);
         const snapshot = yield* played(history, step, () =>
-          Snapshot.replay(actor, history, id),
+          History.snapshot(actor, history, id),
         );
         const found = Snapshot.at(snapshot, instance as Address);
         if (!found)
@@ -268,13 +278,9 @@ export const answers = (app: AppRuntime, about: About) =>
               changeAt(actor, history, entry, found.address),
             )
           : undefined;
-        const statuses =
-          at === undefined && runtime.running
-            ? (address: string) => runtime.workers(address as Address)
-            : undefined;
         return {
           ...nodeOf(found, print),
-          ...workersAt(found, print, statuses),
+          ...workersAt(found, print, statusesOf(runtime, at)),
           at: step,
           ...(change ? { change } : {}),
         };
@@ -282,15 +288,15 @@ export const answers = (app: AppRuntime, about: About) =>
 
     trail: ({ instance, branch }) =>
       Effect.gen(function* () {
-        const { actor, history } = yield* runtimeOf(app);
+        const { actor, history } = yield* running(app);
         const tip = yield* tipOf(history, branch);
         const address = Address.check(actor, instance);
         if (!address) {
           const { head } = history;
           return yield* new InstanceNotFound({
             instance,
-            at: head ?? 'init',
-            available: instancesOf(Snapshot.replay(actor, history)).map(
+            at: head ?? 'start',
+            available: instancesOf(History.snapshot(actor, history)).map(
               (one) => one.address,
             ),
           });
@@ -343,19 +349,19 @@ export const answers = (app: AppRuntime, about: About) =>
     // 4. Move
     seek: ({ step }) =>
       Effect.gen(function* () {
-        const runtime = yield* runtimeOf(app);
+        const { history } = yield* running(app);
         if (step === null) return app.toHead();
-        if (step === 'init') return app.seek(null);
-        if (!History.entry(runtime.history, step))
-          return yield* stepNotFound(runtime.history, step);
+        if (step === 'start') return app.seek(null);
+        if (!History.entry(history, step))
+          return yield* stepNotFound(history, step);
         app.seek(step);
       }),
 
     fork: ({ from }) =>
       Effect.gen(function* () {
-        const runtime = yield* runtimeOf(app);
-        if (from !== null && !History.entry(runtime.history, from))
-          return yield* stepNotFound(runtime.history, from);
+        const { history } = yield* running(app);
+        if (from !== null && !History.entry(history, from))
+          return yield* stepNotFound(history, from);
         app.fork(from);
       }),
   });

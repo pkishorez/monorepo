@@ -1,10 +1,9 @@
 import { Schema, SchemaAST } from 'effect';
-import type { QuerySchemas } from './define.ts';
-import type { ActorDefinition } from './engine/index.ts';
+import type { ActorDefinition, QuerySchemas } from './definition/index.ts';
 
 /*
  * The Blueprint: what an Actor is and does, as plain data, with nothing
- * running. Made from the engine's definition the first time it is read, and
+ * running. Made from the Actor's Definition the first time it is read, and
  * kept: an Actor that is its own Child below has one Blueprint, so the tree
  * of Blueprints may loop back on itself. Every tool that describes an Actor
  * reads it, never how the engine holds it.

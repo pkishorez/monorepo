@@ -27,8 +27,12 @@ import type { RpcClient, RpcClientError } from 'effect/rpc';
  */
 
 // 1. Words
-/** A Step: right after an entry, by its id, or right after init. */
-export const Step = Schema.Union([Schema.Number, Schema.Literal('init')]);
+/**
+ * A Step: right after an entry, by its id, or `'start'`, the History's
+ * start: right after init, until the History is Compacted, then right
+ * before the oldest entry it keeps.
+ */
+export const Step = Schema.Union([Schema.Number, Schema.Literal('start')]);
 export type Step = typeof Step.Type;
 
 export const Outcome = Schema.Literals(['handled', 'ignored', 'dropped']);
@@ -57,13 +61,12 @@ export const From = Schema.Union([
     kind: Schema.Literal('outside'),
     name: Schema.optionalKey(Schema.String),
   }),
-  Schema.Struct({ kind: Schema.Literal('restore') }),
 ]);
 
 /** One History entry: a Message, the Instance it was for, and what came of it. */
 export const Entry = Schema.Struct({
   id: Schema.Number,
-  /** The entry before it, or `null` right after init. */
+  /** The entry before it, or `null` right after the History's start. */
   parent: Schema.NullOr(Schema.Number),
   /** The Address of the Instance it was Sent to. */
   to: Schema.String,
@@ -419,9 +422,10 @@ export const Node = Schema.Struct({
 export type Node = typeof Node.Type;
 
 /**
- * One moment of an Instance's Trail: the History entry, `null` for init,
- * and what it did to the Instance; its State before and after when it
- * changed, and the Model and Props paths it changed.
+ * One moment of an Instance's Trail: the History entry, `null` for the
+ * History's start, where the Instance was there already, and what it did
+ * to the Instance; its State before and after when it changed, and the
+ * Model and Props paths it changed.
  */
 export const Moment = Schema.Struct({
   entry: Schema.NullOr(Entry),
@@ -535,12 +539,12 @@ export const KabukiSessionApi = RpcGroup.make(
     success: Trail,
     error: Schema.Union([StepNotFound, InstanceNotFound]),
   }),
-  /** Seek a Step in the app itself, init included, on any Branch, Time Travelling it there; `null` draws its Head again. */
+  /** Seek a Step in the app itself, the History's start included, on any Branch, Time Travelling it there; `null` draws its Head again. */
   Rpc.make('seek', {
     payload: { step: Schema.NullOr(Step) },
     error: StepNotFound,
   }),
-  /** Fork the app to an entry (`null`: init): its Head moves there, and the next Message grows a new Branch. */
+  /** Fork the app to an entry (`null`: the History's start): its Head moves there, and the next Message grows a new Branch. */
   Rpc.make('fork', {
     payload: { from: Schema.NullOr(Schema.Number) },
     error: StepNotFound,

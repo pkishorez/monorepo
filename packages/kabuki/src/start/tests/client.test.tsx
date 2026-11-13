@@ -160,7 +160,7 @@ describe('hydrating a page Start drew', () => {
       return (
         <p id="runtime">
           {app?.runtime
-            ? `${app.runtime.running} ${app.runtime.history.entries.length > 0}`
+            ? `${app.runtime.running} ${app.history.start.root.address === app.runtime.snapshot.root.address}`
             : 'none'}
         </p>
       );
@@ -220,7 +220,7 @@ describe('hydrating a page Start drew', () => {
         document: Document,
         attach: [
           (app) => {
-            seen.push(`${code}: ${app.runtime!.history.entries.length > 0}`);
+            seen.push(`${code}: ${app.runtime!.running}`);
             return () => seen.push(`${code}: stopped`);
           },
         ],

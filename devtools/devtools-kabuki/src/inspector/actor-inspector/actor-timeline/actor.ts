@@ -39,7 +39,7 @@ export const Timeline = Actor.define('Timeline', {
   requires: [Steps],
   props: Schema.Struct({
     ticks: Schema.Array(Tick),
-    /** The tick shown; -1 at init, before the first; null at the Head. */
+    /** The tick shown; -1 at the History's start, before the first; null at the Head. */
     at: Schema.NullOr(Schema.Number),
     /** Every entry that follows the Step shown, if more than one Branch goes on from it; else none. */
     next: Schema.Array(Next),

@@ -1,6 +1,5 @@
 import { Data, Deferred, Effect } from 'effect';
-import type { Tagged } from '../../actor/index.ts';
-import type { QueryDefinition } from '../../actor/engine/index.ts';
+import type { QueryDefinition, Tagged } from '../../actor/index.ts';
 import type { Own } from './host.ts';
 
 /*

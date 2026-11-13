@@ -5,7 +5,7 @@ import { PlaylistLive } from '../components/playlist.ts';
 // The Playlist's ids decide its Songs. Watch them come and go.
 export const program = Effect.gen(function* () {
   const app = yield* Runtime.scoped(PlaylistLive);
-  const playlist = app.instance({ from: 'docs' });
+  const playlist = app.root;
   const songs = () => playlist.children.songs;
   const titles = () => songs().map((song) => song.model.title);
   yield* Console.log('ids', playlist.model.ids, titles());

@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import type { Tagged } from './self.ts';
+import type { Tagged } from './definition/index.ts';
 
 /*
  * The Schemas an Actor is defined with, as written: a whole Schema, or only

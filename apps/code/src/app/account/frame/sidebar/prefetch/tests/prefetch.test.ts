@@ -126,7 +126,6 @@ const run = <A>(effect: Effect.Effect<A, unknown, Scope.Scope>) =>
 const start = (layer: Layer.Layer<any>) =>
   Runtime.scoped(OwnerLive as never, {
     layer: layer as never,
-    window: 0,
   }) as Effect.Effect<Runtime, never, Scope.Scope>;
 
 /** Each `MessageIds` Query held: its key, its Connection and session, and its Address. */
@@ -207,12 +206,11 @@ describe('Prefetch', () => {
     await run(
       Effect.gen(function* () {
         const app = yield* start(replicas);
-        const root = app.snapshot.root.address;
         yield* wait();
         expect(keys(app)).toEqual(['a1']);
 
         // Every Connection shown.
-        app.send(root, { _tag: 'Read', connectionIds: ['m1', 'm2'] });
+        app.root.send({ _tag: 'Read', connectionIds: ['m1', 'm2'] });
         yield* wait();
         expect(keys(app)).toEqual(['a1', 'b1', 'b2']);
         expect(held(app).find(({ key }) => key === 'b1')?.props).toEqual({
@@ -221,12 +219,12 @@ describe('Prefetch', () => {
         });
 
         // Only the second.
-        app.send(root, { _tag: 'Read', connectionIds: ['m2'] });
+        app.root.send({ _tag: 'Read', connectionIds: ['m2'] });
         yield* wait();
         expect(keys(app)).toEqual(['b1', 'b2']);
 
         // None, until the sidebar can choose.
-        app.send(root, { _tag: 'Read', connectionIds: [] });
+        app.root.send({ _tag: 'Read', connectionIds: [] });
         yield* wait();
         expect(keys(app)).toEqual([]);
       }),

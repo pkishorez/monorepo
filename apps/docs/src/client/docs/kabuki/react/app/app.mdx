@@ -17,9 +17,9 @@ export const DiceApp = View.app(DiceView, {
 ```
 
 Render `<DiceApp />` and the app runs. The first mount makes its
-**Runtime**, one for the app, running from the start, which holds the
-History and hands every Message to the right Instance. When the last mount goes, the Runtime is let go, and its History
-is kept.
+**Runtime**, one for the app, running from the start. The App keeps a
+**History** beside it: every entry the Runtime plays. When the last mount
+goes, the Runtime is let go, and the History is kept.
 
 `name` is where the History is kept when that happens. It's the root
 Actor's name unless you say otherwise. Mount an App of that name again,
@@ -68,21 +68,30 @@ While a long History is replayed for the first drawing, the App draws its
 on the page, inside the app or not.
 
 ```tsx
-const { runtime, seeking, seek, toHead, fork, stop, start } =
+const { runtime, history, seeking, seek, toHead, fork, stop, start } =
   DiceApp.useRuntime();
 ```
 
-- `runtime` is the app's [Runtime](/kabuki/history): its `history`, the
-  `snapshot` at its Head, and whether it is `running`. It's `null` until
-  the App first mounts, and then always the same one: a Fork moves it, it
-  never replaces it.
-- `seek(entry)` draws the app at a Step: right after that entry, or
-  `init` for `null`. `seeking` is the Step drawn, `{ entry, at, snapshot }`,
-  and `toHead()` goes back to drawing the Head.
+- `runtime` is the app's [Runtime](/kabuki/history): its `snapshot`, its
+  `root` Instance, and whether it is `running`. It's `null` until the App
+  first mounts, and then always the same one: a Fork hands it another
+  Snapshot to follow, it never replaces it.
+- `history` is the app's History: a starting Snapshot, plus every entry
+  the Runtime played after it. It keeps the last 100 entries unless you
+  say. `window` is how many it keeps, and `keep(window)` changes that,
+  `null` for every one.
+- `seek(entry)` draws the app at a Step: right after that entry, or the
+  History's start for `null`. That's a **Seek**. `seeking` is the Step
+  drawn, `{ entry, at, snapshot }`, and `toHead()` goes back to drawing
+  the Head.
 - `stop()` stops every Worker and Command, and the app takes no Message:
-  a click sends nothing until `start()`, which runs again at the Head
-  without running any past Command. `fork(entry)` moves the Head back to an earlier entry,
-  and the next Message grows a new Branch.
+  a click sends nothing until `start()`, which runs again from where it
+  stopped without running any past Command.
+- `fork(entry)` moves the History's Head back to an earlier entry, and the
+  Runtime follows the Snapshot there. The next Message grows a new Branch.
+- `startOver()` starts the app over from init, with a new History. Use it
+  for a reload button: `fork(null)` goes to the History's start, which is
+  init only until the History folds its oldest entries away.
 
 Which entry to Seek next comes from the History:
 `History.entry(history, id).parent` is the one before,
@@ -92,7 +101,7 @@ on this site are built on just that.
 
 A past Step is drawn read only. Every View draws the app as it was, and a
 Message sent from there is dropped. The Runtime stays where it is
-underneath, at its Head.
+underneath.
 
 Most Views need nothing more. But a View that touches the page around the
 app, say it scrolls to the newest row, should hold still while you look
@@ -129,8 +138,8 @@ The App can be drawn before any Runtime exists. Give it a History saved
 before, and it's drawn at that History's Head:
 
 ```tsx
-// Kept earlier, from the running app.
-const saved = History.save(DiceLive, runtime.history);
+// Kept earlier, from the running app: `history` is the one useRuntime gives.
+const saved = History.save(DiceLive, history);
 
 // Drawn later, anywhere: at the saved Head.
 <DiceApp saved={saved} />;
@@ -138,7 +147,7 @@ const saved = History.save(DiceLive, runtime.history);
 
 `History.save` gives plain JSON, so you can keep it anywhere. Until there
 is a Runtime, a Message sent is dropped. Once the App mounts in a browser,
-it makes the Runtime, which carries on from the Head.
+it makes the Runtime from the Snapshot at the Head, and carries on.
 
 That's how a server draws your app: no Runtime, just a History, drawn to
 HTML that the browser carries on from. [Serving](/kabuki/serving) shows
@@ -148,20 +157,21 @@ the whole trip.
 
 `View.app` makes and keeps the Runtime for you. To hold it yourself, make
 one with `Runtime.make` and draw it with `<Kabuki>`, giving it the root's
-View:
+View. `<Kabuki>` draws a Runtime, or a Snapshot:
 
 ```tsx
 const runtime = Runtime.make(DiceLive, { layer: RandomLive });
 
-// The Head: a click is sent to the Runtime.
+// The running app: a click is sent to the Runtime.
 <Kabuki of={runtime} view={DiceView} />;
 
-// A Step, right after entry 3: drawn as it was, and a click does nothing.
-<Kabuki of={runtime.seek(3)} view={DiceView} />;
+// A Snapshot, right after entry 3: drawn as it is, and a click does nothing.
+<Kabuki of={History.snapshot(DiceLive, history, 3)} view={DiceView} />;
 ```
 
-A stopped Runtime is drawn at its Head, and a click does nothing there
-either.
+A Runtime keeps no History. To draw its past, keep one beside it, as the
+[History](/kabuki/history) page shows. A stopped Runtime is drawn as it
+is, and a click does nothing there either.
 
 The Runtime is yours, so you let it go when you're done:
 `runtime.dispose()`.

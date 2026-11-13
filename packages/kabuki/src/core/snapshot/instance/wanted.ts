@@ -1,5 +1,4 @@
-import type { WorkerDefinition } from '../../actor/engine/index.ts';
-import type { Data, Tagged } from '../../actor/index.ts';
+import type { Data, Tagged, WorkerDefinition } from '../../actor/index.ts';
 
 /*
  * The Workers an Instance's data asks for: each Worker's Condition, read

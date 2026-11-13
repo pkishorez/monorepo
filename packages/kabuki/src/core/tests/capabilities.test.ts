@@ -14,7 +14,7 @@ import {
   settle,
   run,
   started,
-  to,
+  send,
 } from './fixtures.ts';
 
 /* Capabilities: what an Actor Requires, and what it Provides to everything below it. */
@@ -26,9 +26,9 @@ describe('Provides', () => {
         built.length = 0;
         const app = yield* started;
         yield* settle;
-        app.send(to(app, 'Auth'), { _tag: 'LoggedIn', user: 'ada' });
+        send(app, 'Auth', { _tag: 'LoggedIn', user: 'ada' });
         yield* settle;
-        app.send(to(app, 'Auth'), { _tag: 'Renamed', user: 'grace' });
+        send(app, 'Auth', { _tag: 'Renamed', user: 'grace' });
         yield* settle;
         expect(built).toEqual(['ada']);
       }),

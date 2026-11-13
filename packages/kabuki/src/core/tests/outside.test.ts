@@ -1,9 +1,9 @@
 import { Effect, Fiber, Schema } from 'effect';
 import { TestClock } from 'effect/testing';
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import { Actor, History, Runtime } from '../index.ts';
+import { Actor } from '../index.ts';
 import type { LiveInstance, Sent } from '../runtime/index.ts';
-import { line, start, stop, timed } from './fixtures.ts';
+import { line, start, stop, timed, historyOf, scoped } from './fixtures.ts';
 
 /*
  * Code outside the tree tells an Instance with `send`, which says what
@@ -60,15 +60,15 @@ describe('send says what became of a Message', () => {
   it('handled by a rule, ignored with none in this State, refused while the Runtime is stopped or let go', () =>
     timed(
       Effect.gen(function* () {
-        const running = yield* Runtime.scoped(DoorLive);
-        const door = running.instance({ from: 'test' });
+        const running = yield* scoped(DoorLive);
+        const door = running.root;
         expect(door.send({ _tag: 'Shut' })).toBe('ignored');
         expect(door.send({ _tag: 'Pushed', by: 'ada' })).toBe('handled');
         expect(door.send({ _tag: 'Pushed', by: 'ada' })).toBe('ignored');
         yield* stop(running);
-        const before = running.history;
+        const before = historyOf(running);
         expect(door.send({ _tag: 'Knocked' })).toBe('refused');
-        expect(running.history).toBe(before);
+        expect(historyOf(running)).toBe(before);
         yield* start(running);
         expect(door.send({ _tag: 'Knocked' })).toBe('handled');
         yield* Effect.promise(() => running.dispose());
@@ -79,8 +79,8 @@ describe('send says what became of a Message', () => {
   it('queued, when Sent while another Message is being handled', () =>
     timed(
       Effect.gen(function* () {
-        const running = yield* Runtime.scoped(DoorLive);
-        const door = running.instance({ from: 'test' });
+        const running = yield* scoped(DoorLive);
+        const door = running.root;
         knock = () => door.send({ _tag: 'Knocked' });
         knocks.length = 0;
         // The Worker starts, and Sends, while `Pushed` is being handled.
@@ -99,8 +99,8 @@ describe('until waits for the data', () => {
   it('answers at once when the test already passes', () =>
     timed(
       Effect.gen(function* () {
-        const running = yield* Runtime.scoped(DoorLive);
-        const door = running.instance({ from: 'test' });
+        const running = yield* scoped(DoorLive);
+        const door = running.root;
         const closed = yield* Effect.orDie(
           door.until((now) => now._tag === 'Closed'),
         );
@@ -111,8 +111,8 @@ describe('until waits for the data', () => {
   it('answers once a Message makes the test pass, narrowed as the test narrows it', () =>
     timed(
       Effect.gen(function* () {
-        const running = yield* Runtime.scoped(DoorLive);
-        const door = running.instance({ from: 'test' });
+        const running = yield* scoped(DoorLive);
+        const door = running.root;
         door.send({ _tag: 'Pushed', by: 'ada' });
         const waiting = yield* Effect.forkChild(
           door.until((now) => now._tag === 'Open'),
@@ -131,10 +131,8 @@ describe('until waits for the data', () => {
   it('fails with Stopped when the Runtime is let go first', () =>
     timed(
       Effect.gen(function* () {
-        const running = yield* Runtime.scoped(DoorLive);
-        const door: LiveInstance<typeof DoorLive> = running.instance({
-          from: 'test',
-        });
+        const running = yield* scoped(DoorLive);
+        const door: LiveInstance<typeof DoorLive> = running.root;
         const waiting = yield* Effect.forkChild(
           door.until((now) => now._tag === 'Open'),
         );
@@ -171,8 +169,8 @@ describe('until waits for the data', () => {
             },
           },
         });
-        const running = yield* Runtime.scoped(Flicker);
-        const flicker = running.instance({ from: 'test' });
+        const running = yield* scoped(Flicker);
+        const flicker = running.root;
         reset = () => flicker.send({ _tag: 'Reset' });
         const waiting = yield* Effect.forkChild(
           flicker.until((now) => now.model.n === 1),
@@ -193,8 +191,8 @@ describe('until waits for the data', () => {
   it('ends with a defect when its test throws, and the app goes on', () =>
     timed(
       Effect.gen(function* () {
-        const running = yield* Runtime.scoped(DoorLive);
-        const door = running.instance({ from: 'test' });
+        const running = yield* scoped(DoorLive);
+        const door = running.root;
         let calls = 0;
         const broken = yield* Effect.forkChild(
           door.until(() => {

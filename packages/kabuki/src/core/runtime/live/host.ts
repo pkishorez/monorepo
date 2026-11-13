@@ -9,7 +9,7 @@ import {
   SubscriptionRef,
 } from 'effect';
 import type { Data, Self, Tagged } from '../../actor/index.ts';
-import type { Address, From, Instance } from '../../data/index.ts';
+import type { Address, From, Instance } from '../../snapshot/index.ts';
 
 /*
  * The Host: what the Runtime gives the Instances it runs, and an Instance's

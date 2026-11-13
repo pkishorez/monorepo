@@ -2,9 +2,10 @@ import { Effect, Schema } from 'effect';
 import type { Scope } from 'effect';
 import { TestClock } from 'effect/testing';
 import { describe, expect, it } from 'vitest';
-import { Actor, Address, Runtime, Snapshot } from '../index.ts';
+import { Actor, Address, History, Snapshot } from '../index.ts';
+import type { Runtime } from '../index.ts';
 import type { Instance } from '../types.ts';
-import { line, to } from './fixtures.ts';
+import { historyOf, line, scoped, seek, send } from './fixtures.ts';
 
 // A sign-in form that tells its parent who signed in ------------------------------
 
@@ -96,9 +97,9 @@ describe('Emits', () => {
   it("become the parent's Message, handled before `send` returns", () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.scoped(GateLive);
-        app.send(LOGIN, { _tag: 'Typed', name: 'ada' });
-        app.send(LOGIN, { _tag: 'Submitted' });
+        const app = yield* scoped(GateLive);
+        send(app, LOGIN, { _tag: 'Typed', name: 'ada' });
+        send(app, LOGIN, { _tag: 'Submitted' });
         expect(app.snapshot.root.state).toEqual({
           _tag: 'Authenticated',
           user: 'ada',
@@ -112,8 +113,8 @@ describe('Emits', () => {
   it('are in the History as the parent’s Message, Sent by the Child', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.scoped(GateLive);
-        app.send(LOGIN, { _tag: 'Submitted' });
+        const app = yield* scoped(GateLive);
+        send(app, LOGIN, { _tag: 'Submitted' });
         const [submitted, loggedIn] = line(app);
         expect(submitted!.message).toEqual({ _tag: 'Submitted' });
         expect(loggedIn!.to).toBe('Gate');
@@ -124,18 +125,27 @@ describe('Emits', () => {
           name: 'SignedIn',
         });
         // Replay hears nothing twice: the parent's Message is its own entry.
-        expect(Snapshot.replay(GateLive, app.history)).toBe(app.snapshot);
+        expect(History.snapshot(GateLive, historyOf(app))).toEqual(
+          app.snapshot,
+        );
+        // The Child's story: there from the start, Sent one Message, and
+        // gone with the parent's.
         expect(
-          Snapshot.trail(GateLive, app.history, LOGIN).map(({ kind }) => kind),
-        ).toEqual(['started', 'received', 'stopped']);
+          line(app)
+            .filter((entry) => entry.to === LOGIN)
+            .map((entry) => entry.message._tag),
+        ).toEqual(['Submitted']);
+        expect(Snapshot.at(seek(app, null), LOGIN)).toBeDefined();
+        expect(Snapshot.at(seek(app, submitted!.id), LOGIN)).toBeDefined();
+        expect(Snapshot.at(seek(app, loggedIn!.id), LOGIN)).toBeUndefined();
       }),
     ));
 
   it('a slot does not turn is not heard', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.scoped(GateLive);
-        app.send(LOGIN, { _tag: 'Cancelled' });
+        const app = yield* scoped(GateLive);
+        send(app, LOGIN, { _tag: 'Cancelled' });
         expect(line(app)).toHaveLength(1);
         expect(app.snapshot.root.state._tag).toBe('Anonymous');
       }),
@@ -144,8 +154,8 @@ describe('Emits', () => {
   it('are handed the key of the Child of `each` that Emitted them', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.scoped(List);
-        app.send(to(app, 'List/rows[a]#1'), { _tag: 'Removing' });
+        const app = yield* scoped(List);
+        send(app, 'List/rows[a]#1', { _tag: 'Removing' });
         expect(app.snapshot.root.model).toEqual({ ids: ['b'], title: '' });
         expect(at(app, 'List/rows[a]#1')).toBeUndefined();
       }),
@@ -158,9 +168,7 @@ describe('Emits', () => {
     });
     const first = Snapshot.init(Bad);
     expect(() =>
-      Snapshot.play(Bad, first, {
-        id: 0,
-        parent: null,
+      Snapshot.next(Bad, first, {
         to: first.root.address,
         message: { _tag: 'Submitted' },
         from: { kind: 'outside' },
@@ -174,8 +182,8 @@ describe('An Update', () => {
   it('gives only the fields of the Model that change', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.scoped(List);
-        app.send(to(app, 'List'), { _tag: 'Retitled', title: 'Mine' });
+        const app = yield* scoped(List);
+        send(app, 'List', { _tag: 'Retitled', title: 'Mine' });
         expect(app.snapshot.root.model).toEqual({
           ids: ['a', 'b'],
           title: 'Mine',
@@ -186,12 +194,13 @@ describe('An Update', () => {
   it('keeps the same Model while no field it gives changes', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.scoped(List);
-        app.send(to(app, 'List'), { _tag: 'Retitled', title: 'Mine' });
+        const app = yield* scoped(List);
+        send(app, 'List', { _tag: 'Retitled', title: 'Mine' });
         const before = app.snapshot.root;
-        app.send(to(app, 'List'), { _tag: 'Retitled', title: 'Mine' });
+        send(app, 'List', { _tag: 'Retitled', title: 'Mine' });
         expect(app.snapshot.root).toBe(before);
-        expect(app.snapshot.entry).toBe(1);
+        // The second Message was played all the same.
+        expect(line(app)).toHaveLength(2);
       }),
     ));
 });

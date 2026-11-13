@@ -1,6 +1,7 @@
 import { Schema } from 'effect';
 import { Address, Blueprint, History, Snapshot } from '@kestack/kabuki';
-import type { AnyActor, Entry, Instance } from '@kestack/kabuki/types';
+import type { AnyActor, HistoryEntry, Instance } from '@kestack/kabuki/types';
+import type { Marks } from './step.ts';
 
 /*
  * The app's values as they leave the tab: each through its own Actor's
@@ -9,7 +10,8 @@ import type { AnyActor, Entry, Instance } from '@kestack/kabuki/types';
  *
  * 1. Value     one value; one that does not fit its Schema goes as it is.
  * 2. Instance  an Instance and every Child under it, each by its own
- *              Actor, found in the root's Blueprint by its Address's place.
+ *              Actor, found in the root's Blueprint by its Address's place,
+ *              with the entries that started and last changed it.
  * 3. Entries   a History's entries, as `History.save` encodes them.
  */
 
@@ -62,38 +64,44 @@ export const encodedData = (
 export const keyOf = (address: string): string | undefined =>
   Address.parse(address as Address).path.at(-1)?.key;
 
-/** An Instance as JSON: its Address, State, Model, Props and Children; not how many times it Invoked each. */
+/**
+ * An Instance as JSON: its Address, State, Model, Props and Children, and
+ * the entries that started and last changed it, as `marks` has them by
+ * Address; not how many times it Invoked each.
+ */
 export const encodeInstance = (
   instance: Instance,
   root: Blueprint,
+  marks: ReadonlyMap<string, Marks>,
 ): Readonly<Record<string, unknown>> => {
   const key = keyOf(instance.address);
+  const { started = null, changed = null } = marks.get(instance.address) ?? {};
   return {
     address: instance.address,
     actor: instance.actor,
     ...(key === undefined ? {} : { key }),
     ...encodedData(instance, blueprintAt(root, instance.address)),
-    started: instance.started,
-    changed: instance.changed,
+    started,
+    changed,
     children: Object.fromEntries(
       Object.entries(instance.children).map(([slot, held]) => [
         slot,
         Snapshot.isMany(held)
-          ? held.map((one) => encodeInstance(one, root))
-          : encodeInstance(held, root),
+          ? held.map((one) => encodeInstance(one, root, marks))
+          : encodeInstance(held, root, marks),
       ]),
     ),
   };
 };
 
 // 3. Entries
-const saved = new WeakMap<object, ReadonlyMap<number, Entry>>();
+const saved = new WeakMap<object, ReadonlyMap<number, HistoryEntry>>();
 
 /** Each entry the History keeps, by id, its Message encoded. */
 export const encodedEntries = (
   actor: AnyActor,
   history: History,
-): ReadonlyMap<number, Entry> => {
+): ReadonlyMap<number, HistoryEntry> => {
   // The same object for the same History.
   const save = History.save(actor, history);
   const kept = saved.get(save);

@@ -1,12 +1,13 @@
 import { Effect, Exit, Fiber, Schema, Stream } from 'effect';
 import type { Scope } from 'effect';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Actor, Address, History } from '@kestack/kabuki';
+import { Actor, Address, History, Snapshot } from '@kestack/kabuki';
 import type { AppRuntime } from '@kestack/kabuki/react/types';
 import { Blueprinted, Graph, Node, Trail } from '../../api/index.ts';
 import { inMemory } from '../index.ts';
-import { changesAt, graphAt } from '../answers/views.ts';
-import { started } from './app.ts';
+import { marksAt } from '../answers/read/step.ts';
+import { changesAt, graphAt, trailOf } from '../answers/views.ts';
+import { Counter, started } from './app.ts';
 
 /* The Kabuki Session Api answered by a running Diary, through the in-memory client. */
 
@@ -81,14 +82,22 @@ describe('answers', () => {
           text: 'second',
         });
         expect(now.summarized).toBe(false);
-        const init = yield* client.snapshot({ at: 'init', path: 'model' });
-        expect(init).toMatchObject({ at: 'init', value: { notes: [] } });
+        const start = yield* client.snapshot({ at: 'start', path: 'model' });
+        expect(start).toMatchObject({ at: 'start', value: { notes: [] } });
+        // Each Instance says which entry started it and which last changed it: `null`, the History's start.
+        const { head } = yield* client.history({});
         const whole = yield* client.snapshot({});
         expect(whole.value).toMatchObject({
           address: 'Diary',
           started: null,
+          changed: head,
           children: {
-            counter: { address: 'Diary/counter#1', model: { count: 0 } },
+            counter: {
+              address: 'Diary/counter#1',
+              model: { count: 0 },
+              started: null,
+              changed: null,
+            },
           },
         });
       }),
@@ -140,7 +149,7 @@ describe('answers', () => {
       }),
     ));
 
-  it('tells what one Step changed, as Kabuki marks it, its values and diff encoded', () =>
+  it('tells what one Step changed, as the Snapshots before and after it say, its values and diff encoded', () =>
     run(
       Effect.gen(function* () {
         const { client } = yield* written;
@@ -201,16 +210,15 @@ describe('answers', () => {
         nap: { while: ({ model }) => model.paused, run: () => Effect.never },
       },
     });
-    let history = History.make({});
+    let history = History.init(Snapshot.init(Uploads));
     const send = (message: { readonly _tag: string; readonly id?: string }) => {
-      const grown = History.add(history, {
+      history = History.add(history, {
         to: Address.check(Uploads, 'Uploads')!,
         message,
         from: { kind: 'outside' },
         at: 0,
       });
-      history = grown.history;
-      return grown.entry;
+      return History.entry(history, history.head!)!;
     };
     send({ _tag: 'Added', id: 'a' });
     const added = send({ _tag: 'Added', id: 'b' });
@@ -228,6 +236,79 @@ describe('answers', () => {
       started: ['nap'],
       stopped: ['upload#a', 'upload#b'],
     });
+  });
+
+  it('tells which Instances a Step started, changed and stopped, from the Snapshots before and after it', () => {
+    const Shelf = Actor.define('Shelf', {
+      model: { ids: Schema.Array(Schema.String) },
+      message: { Added: { id: Schema.String }, Removed: { id: Schema.String } },
+    }).build({
+      init: () => ({ model: { ids: [] } }),
+      children: {
+        rows: Actor.child(Counter, { each: ({ model }) => model.ids }),
+      },
+      on: {
+        Added: ({ id }, { model }) => ({ model: { ids: [...model.ids, id] } }),
+        Removed: ({ id }, { model }) => ({
+          model: { ids: model.ids.filter((kept) => kept !== id) },
+        }),
+      },
+    });
+    const shelf = Address.check(Shelf, 'Shelf')!;
+    let history = History.init(Snapshot.init(Shelf));
+    const send = (to: Address, message: { readonly _tag: string }) => {
+      history = History.add(history, {
+        to,
+        message,
+        from: { kind: 'outside' },
+        at: 0,
+      });
+      return History.entry(history, history.head!)!;
+    };
+    const added = send(shelf, { _tag: 'Added', id: 'a' } as never);
+    const row = History.snapshot(Shelf, history).root.children.rows[0]!.address;
+    const bumped = send(row, { _tag: 'Bumped' });
+    const marks = marksAt(Shelf, history, bumped.id);
+    const removed = send(shelf, { _tag: 'Removed', id: 'a' } as never);
+    const kinds = (entry: typeof added) =>
+      changesAt(Shelf, history, entry).changes.map(({ instance, kind }) => [
+        instance,
+        kind,
+      ]);
+    expect(kinds(added)).toEqual([
+      ['Shelf', 'changed'],
+      [row, 'added'],
+    ]);
+    // A Step that changed only a Child leaves its parent as it was.
+    expect(kinds(bumped)).toEqual([[row, 'changed']]);
+    // So too in a History read back, where no Snapshot is remembered yet.
+    const cold = History.load(Shelf, History.save(Shelf, history));
+    const drawn = graphAt(Shelf, cold, bumped.id);
+    expect(drawn.change).toBeUndefined();
+    expect(drawn.children[0]!.change).toMatchObject({ kind: 'changed' });
+    expect(kinds(removed)).toEqual([
+      ['Shelf', 'changed'],
+      [row, 'removed'],
+    ]);
+    expect(graphAt(Shelf, history, removed.id).gone).toEqual([
+      { slot: 'rows', id: row },
+    ]);
+    // Which entry started each Instance and which last changed it, at a Step.
+    expect([...marks]).toEqual([
+      ['Shelf', { started: null, changed: added.id }],
+      [row, { started: added.id, changed: bumped.id }],
+    ]);
+    // The Child's Trail: a filter over the same History.
+    expect(
+      trailOf(Shelf, history, row).moments.map(({ kind, entry }) => [
+        kind,
+        entry?.id ?? null,
+      ]),
+    ).toEqual([
+      ['started', added.id],
+      ['changed', bumped.id],
+      ['stopped', removed.id],
+    ]);
   });
 
   it('draws the graph at a Step as plain data the Schema takes', () =>
@@ -352,7 +433,7 @@ describe('answers', () => {
       }),
     ));
 
-  it('Seeks a Step in the app, init too, and its Head again, and Forks the same Runtime to an entry', () =>
+  it("Seeks a Step in the app, the History's start too, and its Head again, and Forks the same Runtime to an entry", () =>
     run(
       Effect.gen(function* () {
         const { client, app, runtime } = yield* written;
@@ -360,9 +441,9 @@ describe('answers', () => {
         yield* client.seek({ step: first!.id });
         expect(app.seeking?.entry).toBe(first!.id);
         expect((yield* client.history({})).seeking).toBe(first!.id);
-        yield* client.seek({ step: 'init' });
+        yield* client.seek({ step: 'start' });
         expect(app.seeking).toMatchObject({ entry: null, at: 0 });
-        expect((yield* client.history({})).seeking).toBe('init');
+        expect((yield* client.history({})).seeking).toBe('start');
         yield* client.seek({ step: null });
         expect(app.seeking).toBeNull();
         const gone = failure(yield* Effect.exit(client.seek({ step: 999 })));
@@ -370,7 +451,7 @@ describe('answers', () => {
         yield* client.fork({ from: first!.id });
         yield* settle;
         expect(app.runtime).toBe(runtime);
-        expect(runtime.history.head).toBe(first!.id);
+        expect(app.history.head).toBe(first!.id);
         expect((yield* client.history({})).entries).toHaveLength(1);
       }),
     ));
@@ -413,12 +494,54 @@ describe('answers', () => {
           yield* Effect.exit(client.history({ branch: 999 })),
         );
         expect(gone).toMatchObject({ error: { _tag: 'StepNotFound' } });
-        // Forked back to init, the Head's Branch is empty and goes on two ways.
+        // Forked back to the History's start, the Head's Branch is empty and goes on two ways.
         yield* client.fork({ from: null });
         yield* settle;
         const empty = yield* client.history({});
         expect(empty.entries).toEqual([]);
-        expect(empty.splits).toMatchObject([{ at: 'init' }]);
+        expect(empty.splits).toMatchObject([{ at: 'start' }]);
+      }),
+    ));
+
+  it('reads a History Compacted to its Window: `start` is its start, the app right before the oldest entry kept', () =>
+    run(
+      Effect.gen(function* () {
+        const { client, app } = yield* written;
+        const [first, second] = (yield* client.history({})).entries;
+        app.keep(1);
+        const history = yield* client.history({});
+        expect(history.size).toBe(1);
+        expect(history.entries).toMatchObject([
+          { id: second!.id, parent: null, tag: 'Wrote', outcome: 'handled' },
+        ]);
+        // The entry folded into the start is no Step any more.
+        const gone = failure(
+          yield* Effect.exit(client.snapshot({ at: first!.id })),
+        );
+        expect(gone).toMatchObject({
+          error: {
+            _tag: 'StepNotFound',
+            oldest: second!.id,
+            newest: second!.id,
+          },
+        });
+        const start = yield* client.snapshot({ at: 'start', path: 'model' });
+        expect(start.value).toEqual({
+          notes: [{ at: new Date(5).toISOString(), text: 'first' }],
+        });
+        expect(
+          (yield* client.graph({ at: 'start' })).root.change,
+        ).toBeUndefined();
+        // An Instance there at the start is as the start has it: started by no entry kept.
+        const now = yield* client.snapshot({});
+        expect(now.value).toMatchObject({ started: null, changed: second!.id });
+        const trail = yield* client.trail({ instance: 'Diary' });
+        expect(
+          trail.moments.map(({ kind, entry }) => [kind, entry?.id ?? null]),
+        ).toEqual([
+          ['started', null],
+          ['changed', second!.id],
+        ]);
       }),
     ));
 

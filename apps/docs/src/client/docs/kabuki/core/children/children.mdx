@@ -87,7 +87,7 @@ the Playlist.
 ## Telling the parent
 
 A Child can't Send to its parent. Instead it **Emits**: it says, in its
-Definition, what it may tell its parent, and an Update returns it.
+Shape, what it may tell its parent, and an Update returns it.
 
 ```ts
 const Song = Actor.define('Song', {
@@ -124,6 +124,24 @@ one of them a Message directly, and let another Emit its way out.
 ```
 
 </Run>
+
+A Child written inside a State is there only in that State. So from
+outside, check the parent's `_tag` first. Take the app in the picture
+above, where only a signed-in App holds a Playlist:
+
+```ts
+const root = app.root;
+if (root._tag === 'SignedIn') {
+  root.children.playlist.send({ _tag: 'Added' });
+}
+```
+
+The check narrows `state` and `children` together, so TypeScript knows the
+Playlist is there.
+
+Every Instance also has an `address`, and `app.at(address)` goes straight
+to it. It's the same Instance you'd reach from the root, or `undefined`
+when it has gone.
 
 <Callout title="Remember">
   A parent's State and Model decide which Children exist. Each Child is a full

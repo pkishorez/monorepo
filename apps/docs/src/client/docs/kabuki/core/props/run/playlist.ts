@@ -5,7 +5,7 @@ import { PlaylistLive } from '../components/playlist.ts';
 // The Playlist decides what plays. Each Song reads it from its Props.
 export const program = Effect.gen(function* () {
   const app = yield* Runtime.scoped(PlaylistLive);
-  const playlist = app.instance({ from: 'docs' });
+  const playlist = app.root;
   // What the Playlist holds, and the Prop each Song is handed.
   const both = () => [
     { playing: playlist.model.playing },

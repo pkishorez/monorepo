@@ -7,7 +7,7 @@ import { carryOn, lineOf, showStep, stepOf } from './steps.ts';
 
 /*
  * Every step of the app on one track, like a video's: the left end is the
- * app right after init, the right end is now, and a tick marks each
+ * start of its History, the right end is now, and a tick marks each
  * Message between. Press anywhere on it and drag, with a mouse or a
  * finger, and the app shows the step nearest the pointer, its Message
  * named above the thumb; drag to the right end and it is at the Head
@@ -33,7 +33,7 @@ export function Timeline({ runtime }: { readonly runtime: AppRuntime }) {
     showStep(runtime, Math.max(0, Math.min(step, last)));
   const percent = (step: number) => (last === 0 ? 0 : (step / last) * 100);
   const nameOf = (step: number) =>
-    step === 0 ? 'init' : branch[step - 1]!.message._tag;
+    step === 0 ? 'start' : branch[step - 1]!.message._tag;
 
   /** Shows the step nearest the pointer, if it is not the one shown. */
   const scrub = (event: PointerEvent) => {
@@ -160,7 +160,7 @@ export function Timeline({ runtime }: { readonly runtime: AppRuntime }) {
             size="xs"
             variant="ghost"
             disabled={last === 0}
-            onClick={() => runtime.fork(null)}
+            onClick={() => runtime.startOver()}
           >
             <RotateCcwIcon />
             Start over

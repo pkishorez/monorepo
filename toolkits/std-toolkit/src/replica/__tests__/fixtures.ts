@@ -353,9 +353,24 @@ export const makeWorld = (options: WorldOptions = {}) => {
 
 export type World = ReturnType<typeof makeWorld>;
 
+/** The History kept beside each running app: every Message it played. */
+const histories = new WeakMap<RunningApp<World['Root']>, History>();
+
 /** Starts the world's app on a Store, keeping every Message. */
 export const start = (world: World, store: Layer.Layer<Store>) =>
-  Runtime.scoped(world.Root, { layer: store, window: null });
+  Effect.gen(function* () {
+    // Made stopped, so the entries its work Sends as it starts are kept too.
+    const app = yield* Runtime.scoped(world.Root, {
+      layer: store,
+      running: false,
+    });
+    histories.set(app, History.init(app.snapshot));
+    app.subscribe((entries) =>
+      histories.set(app, History.add(histories.get(app)!, entries)),
+    );
+    yield* Effect.promise(() => app.start());
+    return app;
+  });
 
 /** The page's Address in a running app. */
 export const pageOf = (app: RunningApp<World['Root']>) =>
@@ -433,7 +448,7 @@ type Running = {
 
 /** What the test reads of a running app: the page, Replicas' Model, and each Instance's own. */
 export const read = (app: RunningApp<World['Root']>) => {
-  const root = app.instance({ from: 'test' }) as unknown as {
+  const root = app.root as unknown as {
     readonly children: {
       readonly page: Page;
       readonly replicas: {
@@ -486,7 +501,7 @@ export const expectReady = (model: QueryModel | undefined) => {
 
 /** Every Message the app handled at an Instance whose id starts with `prefix`. */
 export const messagesAt = (app: RunningApp<World['Root']>, prefix: string) =>
-  History.line(app.history)
+  History.entries(histories.get(app)!)
     .filter((entry) => entry.to.startsWith(prefix))
     .map(
       (entry) =>

@@ -41,14 +41,13 @@ const layer = Layer.mergeAll(
 const start = (provided: Layer.Layer<any>) =>
   Runtime.scoped(OwnerLive as never, {
     layer: provided as never,
-    window: 0,
   }) as Effect.Effect<Runtime, never, Scope.Scope>;
 const sidebar = (app: Runtime) =>
   app.snapshot.root.children['sidebar'] as Instance;
 const collapsed = (app: Runtime) =>
   (sidebar(app).model as { collapsed: ReadonlyArray<string> | null }).collapsed;
 const toggle = (app: Runtime, connectionId: string) =>
-  app.send(sidebar(app).address, {
+  app.at(sidebar(app).address)?.send({
     _tag: 'CollapseToggled',
     connectionId,
   } as never);

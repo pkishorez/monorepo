@@ -1,15 +1,16 @@
 import { History } from '@kestack/kabuki';
-import type { Entry } from '@kestack/kabuki/types';
+import type { HistoryEntry } from '@kestack/kabuki/types';
 import type { AppRuntime } from '@kestack/kabuki/react/types';
 
 /*
- * Steps, counted the way a reader counts them: 0 is the app right after
- * init, n is the app right after the nth Message on the Head's Branch.
+ * Steps, counted the way a reader counts them: 0 is the app at the start
+ * of its History, n is the app right after the nth Message on the Head's
+ * Branch.
  */
 
-/** The entries from the first to the Head; none before the app is drawn. */
-export const lineOf = ({ runtime }: AppRuntime): ReadonlyArray<Entry> =>
-  runtime === null ? [] : History.line(runtime.history);
+/** The entries from the start to the Head; none before the app is drawn. */
+export const lineOf = (app: AppRuntime): ReadonlyArray<HistoryEntry> =>
+  app.runtime === null ? [] : History.entries(app.history);
 
 /** The step shown: the last one, the Head, while not Seeking. */
 export const stepOf = (app: AppRuntime): number => {
@@ -22,8 +23,8 @@ export const stepOf = (app: AppRuntime): number => {
       : line.findIndex((entry) => entry.id === seeking.entry) + 1;
 };
 
-/** The entry a step is right after: `null` for init. */
-const entryOf = (line: ReadonlyArray<Entry>, step: number) =>
+/** The entry a step is right after: `null` for the start. */
+const entryOf = (line: ReadonlyArray<HistoryEntry>, step: number) =>
   step <= 0 ? null : line[step - 1]!.id;
 
 /** Seek a step; the last one is the Head. */

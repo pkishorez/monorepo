@@ -1,5 +1,7 @@
 # Code outside the tree reaches live Instances, typed, and Sends with a name
 
+Amended by [ADR 0048](0048-the-runtime-is-a-snapshot-kept-alive.md): the root Instance is `runtime.root`, any Instance is also reached straight at its Address with `runtime.at(address)`, and a Send says it comes from outside with no name unless it gives one.
+
 On a server an app is not drawn: a long-running process starts its Runtime and must still look inside it and act on it. `running.instance({ from })` gives the root Instance, typed by its Actor, and from it every Instance below, narrowed by State as a View's Children are: always there, `undefined` unless `while` holds, or a list by key for `each`. Every read is live, worked out from the Runtime's current Snapshot, and an Instance also reads its Workers; nothing can be written. It can Send to any Instance, and `send` answers only whether the Message arrived, or waits its turn behind one being handled. Every such Send comes from outside, with the name `from` gives it. The past stays where it was: `running.snapshot()` and `history.snapshotAt()`, untyped, and the Inspector.
 
 This sits beside [ADR 0027](0027-a-parent-controls-its-children-only-through-data.md), not against it. A parent still controls its Children only through data. Code outside the tree is a source of facts, as a View is: a Message is something that happened, and the Instance's own Update decides what comes of it, so a reader of the Instance still learns what it does from its Model, State, Props and Messages.

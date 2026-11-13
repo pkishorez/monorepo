@@ -1,4 +1,4 @@
-export { Actor } from './define.ts';
+export { Actor } from './actor.ts';
 export type {
   ActorType,
   AnyActor,
@@ -9,12 +9,11 @@ export type {
   DeclaredOf,
   Defined,
   DefinedOf,
-  QuerySchemas,
   QueryWritten,
   Refused,
   Types,
   Written,
-} from './define.ts';
+} from './actor.ts';
 export type {
   Cases,
   Fields,
@@ -23,7 +22,23 @@ export type {
   TaggedOf,
   TaggedWritten,
 } from './schemas.ts';
-export type { Data, Only, Requires, Self, Single, Tagged } from './self.ts';
+export type { Self } from './self.ts';
+export { RUN } from './definition/index.ts';
+export type {
+  ActorDefinition,
+  Check,
+  Data,
+  Encoding,
+  Only,
+  ProvideDefinition,
+  QueryDefinition,
+  QuerySchemas,
+  Requires,
+  Single,
+  SlotDefinition,
+  Tagged,
+  WorkerDefinition,
+} from './definition/index.ts';
 export type {
   ActorOf,
   AnyChild,

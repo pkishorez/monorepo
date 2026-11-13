@@ -84,9 +84,9 @@ export function Stage({
   );
 }
 
-/** The entries from the first to the Head; none before the app is drawn. */
-const lineOf = ({ runtime }: AppRuntime) =>
-  runtime === null ? [] : Kept.line(runtime.history);
+/** The entries from the start to the Head; none before the app is drawn. */
+const lineOf = (app: AppRuntime) =>
+  app.runtime === null ? [] : Kept.entries(app.history);
 
 // 3. History
 const SHOWN = 36;

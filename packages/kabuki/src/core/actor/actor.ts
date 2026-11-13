@@ -1,4 +1,3 @@
-import type { Data, Requires, Single, Tagged } from './self.ts';
 import type {
   AnyChild,
   Behavior,
@@ -14,12 +13,17 @@ import type {
 import type {
   ActorDefinition,
   Check,
+  Data,
   Encoding,
   ProvideDefinition,
   QueryDefinition,
+  QuerySchemas,
+  Requires,
+  Single,
   SlotDefinition,
+  Tagged,
   WorkerDefinition,
-} from './engine/index.ts';
+} from './definition/index.ts';
 import { blueprintOf } from './blueprint.ts';
 import type { Blueprint } from './blueprint.ts';
 import { Effect, Schema, SchemaAST } from 'effect';
@@ -37,12 +41,6 @@ import type {
  * carries it: its name, its Blueprint, and what its types say. How the
  * engine holds it is kabuki's own.
  */
-
-/** One Query's Schemas, as `define` declares them; one without args has none. */
-export interface QuerySchemas {
-  readonly args?: Schema.Top;
-  readonly result: Schema.Top;
-}
 
 declare const types: unique symbol;
 
@@ -126,9 +124,9 @@ export type Types<A> =
     : never;
 
 /**
- * What an Actor is, as `Actor.define` gives it: its name, and the Schemas
+ * An Actor's Shape, as `Actor.define` gives it: its name, and the Schemas
  * and Requires every type is fixed by. It runs nothing: its own `build`
- * adds how it behaves.
+ * adds how it behaves, and the two together are the Actor's Definition.
  */
 export interface Defined<
   Name extends string,
@@ -147,7 +145,7 @@ export interface Defined<
   readonly '~queries'?: Qs;
 }
 
-/** What `Actor.define` gives: the definition, and its own `build`. */
+/** What `Actor.define` gives: the Shape, and its own `build`. */
 export interface Buildable<
   Name extends string,
   Input,
@@ -173,7 +171,7 @@ export interface Buildable<
   ): BuiltOf<Defined<Name, Input, Props, Model, State, Msg, R, Emits, Qs>, B>;
 }
 
-/** Any Actor's definition, loosely. */
+/** Any Actor's Shape, loosely. */
 export type AnyDefined = Defined<
   string,
   any,
@@ -402,9 +400,9 @@ export type BuiltOf<D, B> =
     : never;
 
 /**
- * The Actor a definition builds: what `definition.build(behavior)` runs.
- * Code that builds from a definition it made itself, as the Router and pages
- * do, calls it directly.
+ * The Actor a Shape builds: what `shape.build(behavior)` runs. Code that
+ * builds from a Shape it made itself, as the Router and pages do, calls it
+ * directly.
  */
 function build(
   definition: Pick<AnyDefined, 'name' | 'shape'>,
@@ -427,7 +425,7 @@ type Block = {
   readonly queries?: Record<string, Function>;
 };
 
-/** The plain definition the engine works from, out of the Schemas and the levels. */
+/** The Definition the engine works from, out of the Schemas and the levels. */
 const definitionOf = (
   name: string,
   shape: Shape<any, any, any, any, any, any, any>,
@@ -714,10 +712,11 @@ const workerOf = (worker: any, state: string | undefined): WorkerDefinition => {
 };
 
 /**
- * An Actor, in two steps. `define` takes what it is: its Schemas and
- * Requires, which fix every type, what it Emits to its parent, and the
- * Queries code outside the tree may ask it, each with what it is asked with
- * and what it answers. The definition's own `build` takes how it behaves.
- * `child` makes each Child a level names, typed by the level it is in.
+ * An Actor, in two steps, which together are its Definition. `define` takes
+ * its Shape: its Schemas and Requires, which fix every type, what it Emits
+ * to its parent, and the Queries code outside the tree may ask it, each
+ * with what it is asked with and what it answers. The Shape's own `build`
+ * takes how it behaves. `child` makes each Child a level names, typed by
+ * the level it is in.
  */
 export const Actor = { define, child };

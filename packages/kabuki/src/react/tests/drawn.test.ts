@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Address, Snapshot } from '../../core/index.ts';
-import type { Instance } from '../../core/data/index.ts';
+import type { Instance } from '../../core/snapshot/index.ts';
 import { makeDrawn } from '../view/drawn.ts';
 
 /* What Views read lets go of an Instance once it is in no Snapshot drawn. */
@@ -9,17 +9,16 @@ const instance = (
   address: string,
   children: Instance['children'] = {},
 ): Instance => ({
+  _tag: 'Single',
   address: address as Address,
   actor: 'A',
   state: { _tag: 'Single' },
   model: {},
-  started: null,
-  changed: null,
   children,
   invoked: {},
 });
 
-const at = (root: Instance): Snapshot => ({ entry: null, root });
+const at = (root: Instance): Snapshot => ({ root, at: 0 });
 
 describe('what Views read', () => {
   it('forgets a keyed Child once it is gone from the Snapshot', () => {

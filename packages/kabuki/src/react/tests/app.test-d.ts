@@ -2,8 +2,7 @@ import { Schema } from 'effect';
 import { expectTypeOf } from 'vitest';
 import { Actor } from '../../core/index.ts';
 import type { Runtime } from '../../core/index.ts';
-import type { Step } from '../../core/runtime/index.ts';
-import type { AppRuntime, Attachment } from '../view/index.ts';
+import type { AppRuntime, Attachment, Step } from '../view/index.ts';
 
 /*
  * An app typed by its root's Actor is an app of any Actor: a tool written

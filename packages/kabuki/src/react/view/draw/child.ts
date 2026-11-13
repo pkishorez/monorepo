@@ -1,6 +1,6 @@
 import { use, useRef, useSyncExternalStore } from 'react';
 import { AppContext } from './view.tsx';
-import type { Address } from '../../../core/data/index.ts';
+import type { Address } from '../../../core/snapshot/index.ts';
 import type { Drawable, DrawnApp, Handle, ViewProps } from './view.tsx';
 
 /**
