@@ -72,11 +72,13 @@ describe('registration', () => {
 });
 
 describe('clearRuntimeCache', () => {
-  it('deletes only Runtime Caches, with no registration needed', async () => {
+  it('deletes only Runtime Caches, the ones under the former name too, with no registration needed', async () => {
     for (const name of [
       'web-platform:pwa:runtime:images',
       'web-platform:pwa:runtime:pages:abc',
       'web-platform:pwa:precache:abc',
+      'pwa-toolkit:runtime:images',
+      'pwa-toolkit:precache:abc',
       'app-cache',
     ]) {
       browser.cacheNames.add(name);
@@ -84,6 +86,7 @@ describe('clearRuntimeCache', () => {
     await Effect.runPromise(clearRuntimeCache);
     expect([...browser.cacheNames]).toEqual([
       'web-platform:pwa:precache:abc',
+      'pwa-toolkit:precache:abc',
       'app-cache',
     ]);
   });

@@ -59,8 +59,10 @@ export const isFormerCacheName = (name: string): boolean =>
   name.startsWith(FORMER_CACHE_PREFIX);
 export const isPrecacheCacheName = (name: string): boolean =>
   name.startsWith(PRECACHE_PREFIX);
+/** A Runtime Cache, under the PWA's name today or its former one: clearing them on sign-out must reach both. */
 export const isRuntimeCacheName = (name: string): boolean =>
-  name.startsWith(RUNTIME_PREFIX);
+  name.startsWith(RUNTIME_PREFIX) ||
+  name.startsWith(`${FORMER_CACHE_PREFIX}runtime:`);
 
 /**
  * Build ID from the Precache list and the worker config. Entry order does not
