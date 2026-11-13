@@ -1,5 +1,5 @@
 import type { ActorDefinition } from '../../actor/index.ts';
-import { parse, segmentToward, within } from '../address/index.ts';
+import { parse, within } from '../address/index.ts';
 import type { Segment } from '../address/index.ts';
 import type { Instance } from './instance.ts';
 
@@ -18,6 +18,8 @@ export interface Step {
   readonly instance: Instance;
   readonly definition: ActorDefinition;
   readonly slot: string;
+  /** Its place in the slot's list, for a Child of an `each`. */
+  readonly index?: number;
 }
 
 /** The Instances from the root down to `address`, with their Actors; none if it is gone. */
@@ -26,16 +28,16 @@ export const pathTo = (
   top: Instance,
   address: string,
 ): ReadonlyArray<Step> | undefined => {
+  if (!within(top.address, address)) return undefined;
   const path: Array<Step> = [{ instance: top, definition: root, slot: '' }];
-  for (let step = path[0]!; step.instance.address !== address;) {
-    const segment = segmentToward(step.instance.address, address);
-    if (segment === undefined) return undefined;
-    const { slot } = segment;
+  for (let step = path[0]!; step.instance.address.length < address.length;) {
+    const found = childToward(step.instance, address);
     const definition =
-      step.definition.children[step.instance.state._tag]?.[slot]?.definition;
-    const child = childToward(step.instance.children[slot], address);
-    if (!definition || !child) return undefined;
-    step = { instance: child, definition, slot };
+      found &&
+      step.definition.children[step.instance.state._tag]?.[found.slot]
+        ?.definition;
+    if (!definition) return undefined;
+    step = { ...found, definition };
     path.push(step);
   }
   return path;
@@ -44,15 +46,13 @@ export const pathTo = (
 /** The tree with the last Instance of `path` replaced by `after`. Every Instance off the path stays the same object. */
 export const replace = (path: ReadonlyArray<Step>, after: Instance): Instance =>
   path.slice(0, -1).reduceRight((child, { instance }, index) => {
-    const { slot } = path[index + 1]!;
+    const { slot, index: at } = path[index + 1]!;
     const held = instance.children[slot]!;
     return {
       ...instance,
       children: {
         ...instance.children,
-        [slot]: isMany(held)
-          ? held.map((kept) => (kept.address === child.address ? child : kept))
-          : child,
+        [slot]: isMany(held) ? listWith(held, at!, child) : child,
       },
     };
   }, after);
@@ -62,14 +62,10 @@ export const instanceAt = (
   top: Instance,
   address: string,
 ): Instance | undefined => {
+  if (!within(top.address, address)) return undefined;
   let instance: Instance | undefined = top;
-  while (instance && instance.address !== address) {
-    const segment = segmentToward(instance.address, address);
-    instance =
-      segment === undefined
-        ? undefined
-        : childToward(instance.children[segment.slot], address);
-  }
+  while (instance && instance.address.length < address.length)
+    instance = childToward(instance, address)?.instance;
   return instance;
 };
 
@@ -108,14 +104,72 @@ export const slotOf = (definition: ActorDefinition, segment: Segment) => {
     : undefined;
 };
 
+/**
+ * The Child of `parent` on the way down to `address`, which is below it:
+ * the next segment of `address` names its slot, and its whole Address ends
+ * there.
+ */
 const childToward = (
-  held: Instance | ReadonlyArray<Instance> | undefined,
+  parent: Instance,
   address: string,
-): Instance | undefined =>
-  held === undefined
-    ? undefined
-    : isMany(held)
-      ? held.find((child) => within(child.address, address))
-      : within(held.address, address)
-        ? held
-        : undefined;
+): Omit<Step, 'definition'> | undefined => {
+  const at = parent.address.length + 1;
+  const slash = address.indexOf('/', at);
+  const end = slash < 0 ? address.length : slash;
+  const segment = address.slice(at, end);
+  const slot = slotIn(segment);
+  if (!Object.hasOwn(parent.children, slot)) return undefined;
+  const held = parent.children[slot]!;
+  if (isMany(held)) {
+    const index = indexOf(held).get(segment);
+    return index === undefined
+      ? undefined
+      : { instance: held[index]!, slot, index };
+  }
+  // Its parent's Address is the start of `address`, so only its own segment is left.
+  return held.address.length === end && held.address.endsWith(segment)
+    ? { instance: held, slot }
+    : undefined;
+};
+
+/** The slot a segment names: `State:slot[key]#n`, the State and the key optional. */
+const slotIn = (segment: string): string => {
+  const start = segment.indexOf(':') + 1;
+  const key = segment.indexOf('[', start);
+  return segment.slice(start, key < 0 ? segment.indexOf('#', start) : key);
+};
+
+/**
+ * Where each Instance of an `each` list is, by the last segment of its
+ * Address. A list never changes, so its index never goes stale; and
+ * `replace` puts a new Instance at the same Address in the same place, so
+ * the copy it makes keeps the same index.
+ */
+const indexes = new WeakMap<ReadonlyArray<Instance>, Map<string, number>>();
+
+const indexOf = (list: ReadonlyArray<Instance>): Map<string, number> => {
+  let index = indexes.get(list);
+  if (!index) {
+    index = new Map(
+      list.map(({ address }, at) => [
+        address.slice(address.lastIndexOf('/') + 1),
+        at,
+      ]),
+    );
+    indexes.set(list, index);
+  }
+  return index;
+};
+
+/** The list with `child` in place `at`, keeping the list's index. */
+const listWith = (
+  list: ReadonlyArray<Instance>,
+  at: number,
+  child: Instance,
+): ReadonlyArray<Instance> => {
+  const copy = list.slice();
+  copy[at] = child;
+  const index = indexes.get(list);
+  if (index) indexes.set(copy, index);
+  return copy;
+};

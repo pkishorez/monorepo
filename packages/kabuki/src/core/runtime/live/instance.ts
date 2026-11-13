@@ -4,7 +4,7 @@ import type {
   ProvideDefinition,
   SlotDefinition,
 } from '../../actor/index.ts';
-import { isMany, within } from '../../snapshot/index.ts';
+import { isMany } from '../../snapshot/index.ts';
 import type { Address, Instance } from '../../snapshot/index.ts';
 import { runCommands } from './errand.ts';
 import { Asked, ask, Stopped } from './query.ts';
@@ -223,7 +223,12 @@ const open = (
   return { scope, services };
 };
 
-/** The Children held in some slots, alive in one Place: they start, follow and stop as the parent's node says. */
+/**
+ * The Children held in some slots, alive in one Place: they start, follow
+ * and stop as the parent's node says. A slot that holds the same object as
+ * before is skipped, and one that holds the same Addresses in the same
+ * places only has the Children that changed follow.
+ */
 const startChildren = (
   host: Host,
   slots: Readonly<Record<string, SlotDefinition>>,
@@ -231,36 +236,66 @@ const startChildren = (
   place: Place,
 ) => {
   const alive = new Map<string, Live>();
-  const held = (parent: Instance) =>
-    Object.keys(slots).flatMap((slot) => {
-      const kids = parent.children[slot];
-      const all = !kids ? [] : isMany(kids) ? kids : [kids];
-      return all.map((kid) => ({ kid, definition: slots[slot]!.definition }));
-    });
-  const add = ({ kid, definition }: ReturnType<typeof held>[number]) =>
-    alive.set(kid.address, start(host, definition, kid, place));
-  held(parent).forEach(add);
+  const names = Object.keys(slots);
+  const kidsIn = (parent: Instance, slot: string): ReadonlyArray<Instance> => {
+    const kids = parent.children[slot];
+    return !kids ? [] : isMany(kids) ? kids : [kids];
+  };
+  const add = (slot: string, kid: Instance) =>
+    alive.set(kid.address, start(host, slots[slot]!.definition, kid, place));
+  for (const slot of names)
+    for (const kid of kidsIn(parent, slot)) add(slot, kid);
+  let current = parent;
 
   return {
     follow: (parent: Instance) => {
-      const next = held(parent);
-      const kept = new Set<string>(next.map(({ kid }) => kid.address));
-      for (const [address, gone] of alive)
-        if (!kept.has(address)) {
-          alive.delete(address);
-          Effect.runFork(gone.stop());
-        }
-      for (const each of next) {
-        const known = alive.get(each.kid.address);
-        if (known) known.follow(each.kid);
-        else add(each);
+      const before = current;
+      current = parent;
+      const moved = names.some(
+        (slot) =>
+          before.children[slot] !== parent.children[slot] &&
+          !sameAddresses(kidsIn(before, slot), kidsIn(parent, slot)),
+      );
+      if (moved) {
+        const kept = new Set<string>(
+          names.flatMap((slot) =>
+            kidsIn(parent, slot).map((kid) => kid.address),
+          ),
+        );
+        for (const [address, gone] of alive)
+          if (!kept.has(address)) {
+            alive.delete(address);
+            Effect.runFork(gone.stop());
+          }
+      }
+      for (const slot of names) {
+        if (before.children[slot] === parent.children[slot]) continue;
+        const was = kidsIn(before, slot);
+        kidsIn(parent, slot).forEach((kid, index) => {
+          if (was[index] === kid) return;
+          const known = alive.get(kid.address);
+          if (known) known.follow(kid);
+          else add(slot, kid);
+        });
       }
     },
-    find: (address: string) =>
-      [...alive].find(([kid]) => within(kid, address))?.[1].find(address),
+    find: (address: string) => {
+      const slash = address.indexOf('/', current.address.length + 1);
+      return alive
+        .get(slash < 0 ? address : address.slice(0, slash))
+        ?.find(address);
+    },
     cancel: () => alive.forEach((kid) => kid.cancel()),
   };
 };
+
+/** Whether two lists of Children hold the same Addresses in the same places. */
+const sameAddresses = (
+  was: ReadonlyArray<Instance>,
+  is: ReadonlyArray<Instance>,
+) =>
+  was.length === is.length &&
+  was.every((kid, index) => kid.address === is[index]!.address);
 
 /** The slots of an Instance's current State written at its top, or in the State itself. */
 const slotsAt = (
