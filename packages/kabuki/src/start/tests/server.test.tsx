@@ -5,7 +5,7 @@ import { Loading } from '../../routing/capabilities/index.ts';
 import { View } from '../../react/index.ts';
 import { Start } from '../app/index.ts';
 import type { Pages } from '../app/index.ts';
-import { loading as loaderRpc } from '../client/index.ts';
+import { loading as loaderRpc } from '../client/rpc.ts';
 import type { Build } from '../app/protocol/index.ts';
 import { Start as Server, handler } from '../server/index.ts';
 import started, { AppView } from './app/src/app.tsx';
