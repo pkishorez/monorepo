@@ -14,7 +14,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from '#components/drawer';
-import { type ReactNode, useId } from 'react';
+import { type ReactNode, useId, useState } from 'react';
 import { InstallActions, IosSteps } from './install-content.js';
 import { useInstall } from './install.js';
 import { useMediaQuery } from './media-query.js';
@@ -31,6 +31,8 @@ export const InstallPrompt = (props: {
   const { state, prompt, dismiss } = useInstall();
   const compact = useMediaQuery('(max-width: 40rem)');
   const titleId = useId();
+  // The Drawer shuts first and is dismissed once it has slid away.
+  const [open, setOpen] = useState(true);
   if (state._tag !== 'Available' && state._tag !== 'ManualIos') return null;
 
   const manual = state._tag === 'ManualIos';
@@ -42,13 +44,17 @@ export const InstallPrompt = (props: {
     <InstallActions
       manual={manual}
       onInstall={() => void prompt()}
-      onDismiss={dismiss}
+      onDismiss={compact ? () => setOpen(false) : dismiss}
     />
   );
 
   if (compact) {
     return (
-      <Drawer open onOpenChange={(open) => !open && dismiss()}>
+      <Drawer
+        open={open}
+        onOpenChange={setOpen}
+        onOpenChangeComplete={(shown) => !shown && dismiss()}
+      >
         <DrawerContent className="pb-[env(safe-area-inset-bottom)]">
           <DrawerHeader>
             <DrawerTitle>{title}</DrawerTitle>
