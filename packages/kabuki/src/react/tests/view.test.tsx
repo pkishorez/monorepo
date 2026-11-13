@@ -1,15 +1,18 @@
 // @vitest-environment jsdom
-import { act, useRef, useState } from 'react';
+import { StrictMode, act, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Root as ReactRoot } from 'react-dom/client';
 import { AnimatePresence, motion } from 'motion/react';
 import { Schema } from 'effect';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { Actor } from '../../core/index.ts';
+import { Actor, Runtime } from '../../core/index.ts';
 import type { Address } from '../../core/index.ts';
 import { View, useChild, useChildren } from '../index.ts';
-import type { Handle, ViewProps } from '../view/index.ts';
+import type { Handle, ViewOf, ViewProps } from '../view/index.ts';
+import { AppContext } from '../view/draw/index.ts';
+import type { DrawnApp } from '../view/draw/index.ts';
+import { makeDrawn } from '../view/drawn.ts';
 import { registry } from '../view/registry.ts';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
@@ -352,6 +355,101 @@ describe('a parent View reading its Children', () => {
     expect(() => {
       act(() => root.render(<Lost />));
     }).toThrow('useChild is used outside its app');
+  });
+});
+
+// Only what changed is read ----------------------------------------------------------
+
+/**
+ * A View of List drawn from a Runtime under StrictMode, counting each
+ * Instance read by its Address, and how many times the drawing follows the
+ * Runtime.
+ */
+const counting = async (view: ViewOf<typeof List>) => {
+  const runtime = Runtime.make(List);
+  let following = 0;
+  const drawn = makeDrawn(
+    () => runtime.snapshot,
+    () => undefined,
+    (address, message) => {
+      runtime.at(address)?.send(message as never);
+    },
+    (listener) => {
+      following++;
+      const unfollow = runtime.subscribe(listener);
+      return () => {
+        following--;
+        unfollow();
+      };
+    },
+  );
+  let reads: Record<string, number> = {};
+  const counted: DrawnApp = {
+    ...drawn,
+    instance: (address) => {
+      reads[address] = (reads[address] ?? 0) + 1;
+      return drawn.instance(address);
+    },
+  };
+  const ListOf = view;
+  await act(async () =>
+    root.render(
+      <StrictMode>
+        <AppContext value={counted}>
+          <ListOf instance={{ address: LIST as Address<typeof List> }} />
+        </AppContext>
+      </StrictMode>,
+    ),
+  );
+  return {
+    runtime,
+    following: () => following,
+    /** Which Instances were read while `run` ran. */
+    read: async (run: () => unknown) => {
+      reads = {};
+      await act(async () => {
+        run();
+      });
+      return reads;
+    },
+  };
+};
+
+describe('only what changed is read', () => {
+  it('a Message to one Instance among many reads that Instance alone', async () => {
+    const { runtime, read } = await counting(ListView);
+    expect(
+      Object.keys(
+        await read(() => sends[row('b')]!({ _tag: 'Bumped' } as never)),
+      ),
+    ).toEqual([row('b')]);
+    expect(
+      Object.keys(await read(() => runtime.root.send({ _tag: 'Added' }))),
+    ).toEqual([LIST, row('n0')]);
+    await runtime.dispose();
+  });
+
+  it('useChildren is not told when an Instance it does not read changes', async () => {
+    const { runtime, read } = await counting(ReadingView);
+    expect(
+      Object.keys(
+        await read(() => sends[HEADER]!({ _tag: 'Clicked' } as never)),
+      ),
+    ).toEqual([HEADER]);
+    expect(
+      Object.keys(
+        await read(() => sends[row('b')]!({ _tag: 'Bumped' } as never)),
+      ).sort(),
+    ).toEqual([row('a'), row('b'), row('c')]);
+    await runtime.dispose();
+  });
+
+  it('follows the Runtime once while a View is drawn, and lets go after the last', async () => {
+    const { runtime, following } = await counting(ReadingView);
+    expect(following()).toBe(1);
+    await act(async () => root.render(null));
+    expect(following()).toBe(0);
+    await runtime.dispose();
   });
 });
 

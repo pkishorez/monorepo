@@ -58,6 +58,39 @@ const usePicked = (select: ((child: never) => unknown) | undefined) => {
   };
 };
 
+/**
+ * Subscribes at every Child read, with a function that stays the same while
+ * they are the same Children, so a list made anew on each render is not
+ * subscribed again.
+ */
+const useSubscribeAt = (
+  drawn: DrawnApp,
+  handles: ReadonlyArray<Handle<unknown>>,
+) => {
+  const memo = useRef<{
+    drawn: DrawnApp;
+    handles: ReadonlyArray<Handle<unknown>>;
+    subscribe: DrawnApp['subscribe'];
+  }>(undefined);
+  const was = memo.current;
+  if (
+    was?.drawn === drawn &&
+    was.handles.length === handles.length &&
+    handles.every((handle, at) => handle.address === was.handles[at]!.address)
+  )
+    return was.subscribe;
+  const subscribe: DrawnApp['subscribe'] = (listener) => {
+    const leave = handles.map((handle) =>
+      drawn.subscribeAt(handle.address)(listener),
+    );
+    return () => {
+      for (const one of leave) one();
+    };
+  };
+  memo.current = { drawn, handles, subscribe };
+  return subscribe;
+};
+
 interface UseChild {
   <A>(handle: Handle<A>): ChildData<A> | undefined;
   <A, S>(handle: Handle<A>, select: (child: ChildData<A>) => S): S | undefined;
@@ -85,7 +118,7 @@ export const useChild: UseChild = (
         : (last.current = next);
     };
   return useSyncExternalStore(
-    drawn.subscribe,
+    drawn.subscribeAt(handle.address),
     from(drawn.instance),
     from(drawn.served),
   ) as never;
@@ -127,7 +160,7 @@ export const useChildren: UseChildren = (
       return (last.current = next);
     };
   return useSyncExternalStore(
-    drawn.subscribe,
+    useSubscribeAt(drawn, handles),
     from(drawn.instance),
     from(drawn.served),
   ) as never;
