@@ -6,11 +6,12 @@ The way to build a kestack app on Kabuki Start in one go: its UI, its PWA, Recip
 
 Every kestack web app used to wire the same things by hand: the Document, the Theme, the PWA, the screens and the deploy. This Package holds them for apps on Kabuki Start, so a new app writes only its pages. Kabuki Start serves the app and knows none of this; the Web Platform is where the choices are made ([ADR 0010](../../docs/adr/0010-kabuki-start-serves-the-web-platform-decides.md)). It replaces `@kestack/ui-toolkit` and `@kestack/pwa-toolkit`.
 
-It has four modules, each depending only on the ones before it:
+It has five modules, each depending only on the ones before it:
 
 - `ui`: what the user sees and touches: `ui/theme`, `ui/input` (device, gestures, keys, sounds), `ui/components/*` and the viewers built from them, `ui/viewers/*`.
 - `pwa`: the app installable, opening without the network and updated in place. `pwa/vite` builds the worker and manifest, `pwa/worker` runs in the worker, and `pwa` is the page's side: `PwaHead`, `Pwa`, the Update and Install Prompts and the Extras.
 - `recipes/*`: whole features built from `ui`: the Frame, the Account Switcher, the Vim status line, Local sign-in, Kabuki's Devtools, the Thumb Picker, swipe rows, an image viewer, and the touch layers that keep a Drawer and its field above the on-screen keyboard.
+- `capabilities/*`: native features as Capabilities, each with a web default an app may replace in its Capacitor Shell, per platform: `capabilities/haptics`, `capabilities/app-info`, and `capabilities/platform`, which tells where the page runs. One build serves the browser and both Shells; Capacitor's code is loaded only inside a Shell.
 - `app`: putting it together: `app/vite` is the one Vite plugin an app lists, `app/document` the Document it passes to `Start.app`, and `app/alchemy` how it is deployed on its Stages.
 
 Why the Web Platform may break while the Toolkits keep what persists is [ADR 0006](../../docs/adr/0006-platforms-may-break-toolkits-keep-what-persists.md). It ships built `dist/` (from `vp pack`). Terms are in [CONTEXT.md](./CONTEXT.md); the PWA's decisions are in [docs/adr/](./docs/adr/).
@@ -34,6 +35,7 @@ An app's stylesheet imports `@kestack/web-platform/ui/theme/global.css`, which a
 - `alchemy` and `@alchemy.run/cloudflare` (optional): the Cloudflare Website and state `./app/alchemy` deploys with.
 - `laymos` (optional): the file diff and change types the diff, git-changes and source-explorer viewers read.
 - `use-effect-ts` (optional): runs `./ui/viewers/source-explorer`'s loaders inside React.
+- `@capacitor/core`, `@capacitor/haptics`, `@capacitor/app` (optional): the plugins the `ios` and `android` versions of `./capabilities/*` load inside a Shell.
 - `@kestack/kabuki` (optional): the Start parts `./app/document`'s Document draws, the Start app `./pwa/vite` builds beside, and the Actor and View `./recipes/account-switcher` is.
 
 ## Exports
@@ -364,6 +366,45 @@ The Dock devtools sit in. Kabuki's Inspector is in [`@kestack/devtools-kabuki/in
 | `visibleOf`          | What can be seen and how much the keyboard hides, from the layout viewport's height and `visualViewport`: the measure `useVisibleViewport` uses.                                                                                                                                                                                          |
 | `overBox`            | How much of a box the keyboard hides, and the room above it: the measure `useKeyboardOver` uses.                                                                                                                                                                                                                                          |
 | `SWIPE_DISMISS`      | How far, 80px, or how fast, 500px/s, a swipe down closes a Drawer: for a sheet of an app's own to dismiss alike.                                                                                                                                                                                                                          |
+
+### `@kestack/web-platform/capabilities/platform`
+
+| Export     | What it does                                                                                                                                      |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `platform` | Where the page runs, `web`, `ios` or `android`, read from the bridge a Capacitor shell puts into the page; a server is `web`.                     |
+| `layerOn`  | A Capability's Layer for an app with a Shell: the platform's own version on that platform, the web default anywhere else or when making it fails. |
+
+### `@kestack/web-platform/capabilities/haptics`
+
+| Export          | What it does                                                                                                                                                        |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Haptics`       | The Haptics Capability: an impact, a notification or a selection tick, each saying whether the device took it; `navigator.vibrate` unless the app provides another. |
+| `Haptics.layer` | Makes Haptics the platform's own in the app's Shell, as `Haptics.layer({ ios })`.                                                                                   |
+
+### `@kestack/web-platform/capabilities/haptics/ios`
+
+| Export | What it does                                                                                                              |
+| ------ | ------------------------------------------------------------------------------------------------------------------------- |
+| `ios`  | Haptics in the iOS Shell, through `@capacitor/haptics`, loaded only when it is made there. Android keeps the web default. |
+
+### `@kestack/web-platform/capabilities/app-info`
+
+| Export          | What it does                                                                                                           |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `AppInfo`       | What the app runs as: its platform, and its Shell's id, name, version and build; by default the platform and no Shell. |
+| `AppInfo.layer` | Adds the Shell's own details on each platform, as `AppInfo.layer({ ios, android })`.                                   |
+
+### `@kestack/web-platform/capabilities/app-info/ios`
+
+| Export | What it does                                                                         |
+| ------ | ------------------------------------------------------------------------------------ |
+| `ios`  | App Info in the iOS Shell, from `@capacitor/app`, loaded only when it is made there. |
+
+### `@kestack/web-platform/capabilities/app-info/android`
+
+| Export    | What it does                                                                             |
+| --------- | ---------------------------------------------------------------------------------------- |
+| `android` | App Info in the Android Shell, from `@capacitor/app`, loaded only when it is made there. |
 
 ### `@kestack/web-platform/app/vite`
 

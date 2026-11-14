@@ -117,3 +117,17 @@ _Avoid_: environment, deployment, target
 **Devtools Dock**:
 Where devtools sit beside a page, opened from one button that never moves: full screen over the page, a bar under it or a panel on its right that push the page aside, or a floating window. Its layout and sizes are kept across reloads. What sits in it is not the Web Platform's: Kabuki's Inspector is @kestack/devtools-kabuki's.
 _Avoid_: drawer, overlay, devtools panel
+
+### Capabilities
+
+**Capability with a web default**:
+A native feature as a Kabuki Capability, made so an app that provides nothing still has one: the web's, from what a browser has. An app provides a Platform's own version beside it, for its Shell there, and the Capability keeps the web's on every other Platform and when making that version fails. A Platform's version loads Capacitor's code only when it is made, so a browser never downloads it. Android's web view has much of what the web's version needs, so a Capability may have no Android version.
+_Avoid_: plugin, bridge, native module, polyfill
+
+**Platform**:
+Where the page runs: `web`, in a browser or on a server, or `ios` or `android`, in the app's Shell there. Read from the bridge the Shell puts into the page before any script, so one build serves all three.
+_Avoid_: OS, device, target, environment
+
+**Shell**:
+The app's native wrapper on iOS or Android: a web view pointed at the live site, with Capacitor's bridge in it. It has an id on the device, a name, a version and a build. A browser has none.
+_Avoid_: wrapper, native app, container, host
