@@ -23,17 +23,15 @@ wait_for() {
   return 1
 }
 
-# Opens the app and points tcp:9222 at its web view's DevTools socket. Every
-# step returns on failure by hand: errexit is off inside `launch || ...`.
+# Opens the app and waits for its web view's DevTools socket. Every step
+# returns on failure by hand: errexit is off inside `launch || ...`.
 launch() {
   adb shell am force-stop "$app" || return 1
   adb shell am start -W -n "$app/.MainActivity" || return 1
   wait_for 30 adb shell pidof "$app" || return 1
   pid=$(adb shell pidof "$app" | tr -d '\r')
   echo "App pid $pid"
-  wait_for 30 sh -c "adb shell cat /proc/net/unix | grep -q webview_devtools_remote_$pid" || return 1
-  adb forward --remove-all || return 1
-  adb forward tcp:9222 "localabstract:webview_devtools_remote_$pid"
+  wait_for 30 sh -c "adb shell cat /proc/net/unix | grep -q webview_devtools_remote_$pid"
 }
 
 adb install -r "$apk"
