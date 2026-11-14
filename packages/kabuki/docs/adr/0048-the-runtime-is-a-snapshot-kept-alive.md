@@ -2,6 +2,8 @@
 
 Supersedes [ADR 0025](0025-the-runtime-starts-from-a-history.md), and the Restore of [ADR 0021](0021-an-app-is-saved-as-its-log-and-drawn-before-it-runs.md) and [ADR 0029](0029-a-window-compacts-the-history-into-a-restore.md). Amends [ADR 0038](0038-code-outside-the-tree-reaches-live-instances.md) and [ADR 0046](0046-outside-code-tells-asks-and-waits.md): how outside code reaches an Instance and names itself.
 
+One Consequence no longer holds: drawing a Snapshot that changes without waking every View is done. Each View, and each `useChild` and `useChildren`, is told at its own Address, only when its Instance changed, came or went. The Snapshot drawn is compared with the one before, skipping every part that is the same object in both, as the live tree does. A Seek, or a Fork to a Snapshot that shares nothing with the one before, still compares the whole tree. No ADR records that; everything else here stands.
+
 The Runtime held a History, a Snapshot and a live tree, and moved all three together. So it Seeked, Forked, Compacted and kept a Window, and nothing could run from a Snapshot alone: a Snapshot entered as a Restore, a Message no Update sees. The Snapshot and the Runtime each seemed to define the other.
 
 Kabuki core is now three things and one add-on, each a folder:
@@ -42,4 +44,4 @@ The data stays the truth ([ADR 0009](0009-the-snapshot-is-the-truth.md)), and an
 - A Send from outside to an Instance that is gone plays no entry, since there is no Instance to Send through. A Send from a Worker or a Command to one that is gone is still played and dropped.
 - A Send from outside says it comes from outside, with no name unless it gives one: `instance.send(message, { kind: 'outside', name })`.
 - A saved Snapshot or History whose start no longer fits the code is refused when loaded, where a Restore that did not fit was skipped. After a hot reload the History's start is the old start read through the new Schemas: init does not run again.
-- The React App draws its first Snapshot before its Runtime is made, as before, and Forks by a restart. Drawing a Snapshot that changes without drawing every View again is a later step.
+- The React App draws its first Snapshot before its Runtime is made, as before, and Forks by a restart. Drawing a Snapshot that changes without drawing every View again was a later step; it is done, as the note at the top says.
