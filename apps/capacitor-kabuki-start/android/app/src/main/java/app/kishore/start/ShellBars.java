@@ -43,7 +43,7 @@ public class ShellBars extends Plugin {
         (function () {
           if (window.__shellBars) return 'already watching';
           if (typeof ShellBarsAndroid === 'undefined') return 'no ShellBarsAndroid';
-          window.__shellBars = true;
+          if (!document.documentElement) return 'no document yet';
           var last = null;
           function themeColor() {
             var metas = document.querySelectorAll('meta[name="theme-color"]');
@@ -71,6 +71,7 @@ public class ShellBars extends Plugin {
             subtree: true, childList: true, attributes: true,
             attributeFilter: ['content', 'media', 'name']
           });
+          window.__shellBars = true;
           report();
           return 'watching';
         })();
@@ -80,26 +81,11 @@ public class ShellBars extends Plugin {
     private int color = Color.parseColor("#0a0a0a");
     private Insets bars = Insets.NONE;
     private String lastReport = "";
+    private WebViewListener watcher;
 
     @Override
     public void load() {
-        WebView webView = getBridge().getWebView();
-        webView.addJavascriptInterface(new Channel(), "ShellBarsAndroid");
-        getBridge().addWebViewListener(
-            new WebViewListener() {
-                // The earliest the page's head is there; and again once it
-                // has loaded, in case the first came too early.
-                @Override
-                public void onPageCommitVisible(WebView view, String url) {
-                    watch(view);
-                }
-
-                @Override
-                public void onPageLoaded(WebView view) {
-                    watch(view);
-                }
-            }
-        );
+        getBridge().getWebView().addJavascriptInterface(new Channel(), "ShellBarsAndroid");
 
         Window window = getActivity().getWindow();
         // Android 15 makes the bars see-through; this keeps 3-button
@@ -120,6 +106,31 @@ public class ShellBars extends Plugin {
             return new WindowInsetsCompat.Builder(insets).setInsets(types, Insets.NONE).build();
         });
         decor.post(this::paint);
+    }
+
+    // Not in load(): Capacitor's Bridge.Builder replaces the bridge's list of
+    // web view listeners after the plugins have loaded, so one added there is
+    // dropped. SystemBars waits for start too.
+    @Override
+    protected void handleOnStart() {
+        super.handleOnStart();
+        if (watcher != null) return;
+        watcher = new WebViewListener() {
+            // The earliest the page's head is there; and again once it has
+            // loaded, in case the first came too early.
+            @Override
+            public void onPageCommitVisible(WebView view, String url) {
+                watch(view);
+            }
+
+            @Override
+            public void onPageLoaded(WebView view) {
+                watch(view);
+            }
+        };
+        getBridge().addWebViewListener(watcher);
+        // The first page may be under way already.
+        watch(getBridge().getWebView());
     }
 
     private void watch(WebView view) {
