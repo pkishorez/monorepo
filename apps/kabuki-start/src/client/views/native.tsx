@@ -7,7 +7,7 @@ import { PageIntro } from '../components/index.ts';
 
 /*
  * What the app runs as, then three haptics to try, each saying whether the
- * device took it. Every value sits alone in an element marked with
+ * device took it, then a Live Activity to start, move on and end. Every value sits alone in an element marked with
  * `data-proof`, so a native build's check reads it as it is shown. With
  * `proof` in the query, `data-proof="done"` says when the page has logged
  * its proof line.
@@ -138,16 +138,81 @@ function Buzzes({
   );
 }
 
+function Live({
+  model,
+  send,
+}: {
+  readonly model: Model;
+  readonly send: Self['send'];
+}) {
+  const { live } = model;
+  const running = live.state === 'running';
+  return (
+    <section
+      aria-label="Live Activity"
+      className="rounded-xl border border-border bg-card"
+    >
+      <header className="space-y-1 border-b border-border px-5 py-4">
+        <h2 className="font-semibold">Live Activity</h2>
+        <p className="text-sm text-muted-foreground">
+          A live card on the Lock Screen and in the Dynamic Island, on iOS.
+        </p>
+      </header>
+      <dl className="divide-y divide-border">
+        <Fact name="Supported" proof="live-supported" value={live.supported} />
+        <Fact name="State" proof="live-state" value={live.state} />
+        <Fact name="Id" proof="live-id" value={live.id ?? 'none'} />
+        <Fact
+          name="Progress"
+          proof="live-progress"
+          value={`${Math.round(live.progress * 100)}%`}
+        />
+      </dl>
+      <div className="flex flex-wrap gap-2 border-t border-border p-5">
+        <Button
+          data-proof="live-start"
+          variant="outline"
+          size="sm"
+          disabled={live.supported !== 'yes' || running}
+          onClick={() => send({ _tag: 'LiveStart' })}
+        >
+          Start
+        </Button>
+        <Button
+          data-proof="live-update"
+          variant="outline"
+          size="sm"
+          disabled={!running || live.progress >= 1}
+          onClick={() => send({ _tag: 'LiveUpdate' })}
+        >
+          Update +25%
+        </Button>
+        <Button
+          data-proof="live-end"
+          variant="outline"
+          size="sm"
+          disabled={!running}
+          onClick={() => send({ _tag: 'LiveEnd' })}
+        >
+          End
+        </Button>
+      </div>
+    </section>
+  );
+}
+
 export const NativeView = View.make(
   Pages.NativeLive,
   ({ root, model, props, send }) => (
     <div {...root} className="space-y-6">
       <PageIntro title="Native">
         The same page in a browser and in the app on iOS and Android. It says
-        what it runs as; buzz each haptic to feel which the device takes.
+        what it runs as; buzz each haptic to feel which the device takes, and
+        start a Live Activity where iOS can show one.
       </PageIntro>
       <RunsAs model={model} />
       <Buzzes model={model} send={send} />
+      <Live model={model} send={send} />
       {props.query.proof !== undefined && (
         <p className="text-sm text-muted-foreground">
           Proof logged:{' '}
