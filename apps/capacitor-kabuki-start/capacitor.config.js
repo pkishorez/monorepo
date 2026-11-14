@@ -26,4 +26,13 @@ module.exports = {
   ios: {
     limitsNavigationsToAppBoundDomains: appBound,
   },
+  // The web view's color before the page draws: the site's dark Theme, its
+  // default, so a launch shows no white flash.
+  backgroundColor: '#0a0a0a',
+  plugins: {
+    // The shell keeps the web view between the system bars itself
+    // (ShellBars.java). SystemBars would hand the bars to a page with
+    // viewport-fit=cover on WebView 140 and later, as this site has.
+    SystemBars: { insetsHandling: 'disable', style: 'DARK' },
+  },
 };
