@@ -3,8 +3,10 @@ import { test } from 'node:test';
 import {
   findProof,
   judge,
+  liveActivityLog,
   nativeHapticsCalls,
   renderSummary,
+  shellReports,
 } from './proof.mjs';
 
 const proof = (overrides = {}) => ({
@@ -17,6 +19,7 @@ const proof = (overrides = {}) => ({
   },
   serviceWorker: 'unsupported',
   haptics: { impact: true, notify: true, selection: true },
+  liveActivity: { supported: true, id: null },
   ...overrides,
 });
 
@@ -109,4 +112,110 @@ test('the summary is a table with one row per check', () => {
   const summary = renderSummary('Native proof — ios', judge('ios', null));
   assert.match(summary, /^## Native proof — ios\n\n❌ Failed\n/);
   assert.match(summary, /\| shell id \| `—` \| ❌ \|/);
+});
+
+const report = (overrides = {}) => ({
+  top: 186,
+  bottom: 102,
+  webViewTop: 186,
+  color: '#ffffff',
+  lightBars: true,
+  ...overrides,
+});
+
+test("reads the shell's reports, skipping a broken one", () => {
+  const output = [
+    `[native-shell] ${JSON.stringify(report({ color: '#0a0a0a' }))}`,
+    '[native-shell] {"top":',
+    `11-14 07:18:01.123 I/ShellBars( 4242): [native-shell] ${JSON.stringify(report())}`,
+  ].join('\n');
+  assert.deepEqual(
+    shellReports(output).map((each) => each.color),
+    ['#0a0a0a', '#ffffff'],
+  );
+});
+
+test("the bars pass in the theme's color, below the clock", () => {
+  const bars = { theme: 'light', report: report(), top: 0.8, bottom: 0.9 };
+  assert.equal(
+    judge('ios', proof(), {
+      nativeCalls: ['impact', 'notification', 'selection'],
+      bars: [bars],
+    }).passed,
+    true,
+  );
+});
+
+test('the bars fail in the wrong color, mostly covered, or with the page under the clock', () => {
+  const ios = (bars) =>
+    judge('ios', proof(), {
+      nativeCalls: ['impact', 'notification', 'selection'],
+      bars: [
+        { theme: 'light', report: report(), top: 0.8, bottom: 0.9, ...bars },
+      ],
+    }).passed;
+  assert.equal(ios({ report: report({ color: '#0a0a0a' }) }), false);
+  assert.equal(ios({ top: 0.3 }), false);
+  assert.equal(ios({ report: report({ webViewTop: 0 }) }), false);
+  assert.equal(ios({ report: undefined }), false);
+  assert.equal(
+    judge('android', proof({ platform: 'android' }), {
+      bars: [
+        {
+          theme: 'dark',
+          report: report({ color: '#0a0a0a' }),
+          top: 0.9,
+          bottom: 0.9,
+          pageColor: '#ffffff',
+        },
+      ],
+    }).passed,
+    false,
+  );
+});
+
+test('a page without the Live Activity field fails', () => {
+  assert.equal(
+    judge('android', proof({ platform: 'android', liveActivity: undefined }))
+      .passed,
+    false,
+  );
+});
+
+const liveOutput = [
+  '⚡️  To Native ->  LiveActivity start 1234',
+  '[live-activity] started 6C1F-AB active',
+  '⚡️  TO JS {"id":"6C1F-AB"}',
+  '[live-activity] background 6C1F-AB active',
+].join('\n');
+
+test("reads the Live Activity plugin's lines", () => {
+  assert.deepEqual(liveActivityLog(liveOutput), {
+    started: [{ id: '6C1F-AB', state: 'active' }],
+    background: [{ id: '6C1F-AB', state: 'active' }],
+  });
+});
+
+test('the Live Activity passes only with an id the plugin started and kept running', () => {
+  const live = (id, log = liveOutput) =>
+    judge('ios', proof(), {
+      nativeCalls: ['impact', 'notification', 'selection'],
+      live: {
+        proof: proof({ liveActivity: { supported: true, id } }),
+        log: liveActivityLog(log),
+      },
+    }).passed;
+  assert.equal(live('6C1F-AB'), true);
+  assert.equal(live(null), false);
+  assert.equal(live('other'), false);
+  assert.equal(
+    live(
+      '6C1F-AB',
+      liveOutput.replace(
+        'background 6C1F-AB active',
+        'background 6C1F-AB ended',
+      ),
+    ),
+    false,
+  );
 });

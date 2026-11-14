@@ -10,11 +10,15 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
+import { decodePng, shareOfColor } from './png.mjs';
 import {
+  THEME_COLORS,
   findProof,
   judge,
+  liveActivityLog,
   nativeHapticsCalls,
   renderSummary,
+  shellReports,
 } from './proof.mjs';
 
 const [platform, out, title = `Native proof — ${platform}`] =
@@ -29,12 +33,41 @@ const read = (name) =>
 const readJson = (name) => (read(name) ? JSON.parse(read(name)) : undefined);
 
 let proof;
-const evidence = {};
+const evidence = { bars: [] };
+
+/** How much of each bar band in `screenshot` is the theme's color. */
+function bars(theme, screenshot, report, pageColor) {
+  const entry = { theme, report, pageColor };
+  if (existsSync(join(out, screenshot)) && report) {
+    const image = decodePng(readFileSync(join(out, screenshot)));
+    const want = THEME_COLORS[theme];
+    entry.top = shareOfColor(image, 0, report.top, want);
+    entry.bottom = shareOfColor(
+      image,
+      image.height - report.bottom,
+      image.height,
+      want,
+    );
+  }
+  evidence.bars.push(entry);
+}
 
 if (platform === 'ios') {
   const output = read('app-output.txt');
   proof = findProof(output);
   evidence.nativeCalls = nativeHapticsCalls(output);
+  // ios.sh opens the page once per theme, and once more with live=1 when
+  // LIVE_ACTIVITY is set.
+  bars('dark', 'ios.png', shellReports(output).at(-1));
+  bars(
+    'light',
+    'ios-light.png',
+    shellReports(read('app-output-light.txt')).at(-1),
+  );
+  if (existsSync(join(out, 'app-output-live.txt'))) {
+    const live = read('app-output-live.txt');
+    evidence.live = { proof: findProof(live), log: liveActivityLog(live) };
+  }
 } else {
   // The page may log before CDP attaches, so logcat is read too.
   const page = readJson('android-proof.json');
@@ -50,6 +83,16 @@ if (platform === 'ios') {
     evidence.vibrator = mentions.length
       ? `${mentions.length} entries name the app; first: ${mentions[0].trim().slice(0, 160)}`
       : 'no entry names the app';
+  }
+  const themes = readJson('android-themes.json') ?? {};
+  for (const theme of ['dark', 'light']) {
+    const seen = themes[theme] ?? {};
+    bars(
+      theme,
+      `android-${theme}.png`,
+      shellReports(seen.shell ?? '').at(-1),
+      seen.background ?? '—',
+    );
   }
   const offline = readJson('offline.json');
   if (offline) evidence.offline = offline.result;

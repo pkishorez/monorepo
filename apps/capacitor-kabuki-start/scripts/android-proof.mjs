@@ -1,4 +1,4 @@
-// Usage: node scripts/android-proof.mjs <proof|offline> <out-dir>
+// Usage: node scripts/android-proof.mjs <proof|themes|offline> <out-dir>
 //
 // Drives the app's web view over the Chrome DevTools Protocol, with
 // Playwright's Android support: it finds the web view's DevTools socket
@@ -8,19 +8,23 @@
 // proof:   waits for the page's proof, reads every data-proof value, clicks
 //          each buzz button (a CDP click is a real touch to the page, which
 //          navigator.vibrate requires) and writes android-proof.json.
+// themes:  opens the page with theme=light, then theme=dark, and after each
+//          proof run takes a screenshot of the device (android-<theme>.png)
+//          with what the page and the shell said, in android-themes.json.
 // offline: reads what the page drew after a relaunch with the network off
 //          and writes offline.json.
 //
 // SHELL_URL is opened again when the first load failed. CDP_ENDPOINT, when
 // set, drives a desktop Chromium instead, to try the script without a
 // device; SHELL_URL then also picks the page.
+import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { _android as android, chromium } from 'playwright-core';
 
 const [mode, out] = process.argv.slice(2);
-if ((mode !== 'proof' && mode !== 'offline') || !out) {
-  console.error('Usage: android-proof.mjs <proof|offline> <out-dir>');
+if (!['proof', 'themes', 'offline'].includes(mode) || !out) {
+  console.error('Usage: android-proof.mjs <proof|themes|offline> <out-dir>');
   process.exit(2);
 }
 const PROOF_TIMEOUT = 60_000;
@@ -122,6 +126,48 @@ async function proof(page) {
   console.log(JSON.stringify(result, null, 2));
 }
 
+async function themes(page) {
+  const seen = {};
+  // Light first, so the app is back on the default when the offline check
+  // opens it again.
+  for (const theme of ['light', 'dark']) {
+    const url = new URL(process.env.SHELL_URL);
+    url.searchParams.set('theme', theme);
+    await page.goto(url.href, { timeout: 30_000 });
+    // The page sets the Theme as the first step of its proof run, which
+    // starts only once the service worker is known: wait for the end.
+    const done = await waitForValue(page, 'done', ['yes'], PROOF_TIMEOUT);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await sleep(1_500);
+    const shown = await page.evaluate(() => {
+      const [r, g, b] = getComputedStyle(document.body)
+        .backgroundColor.match(/\d+/g)
+        .map(Number);
+      return {
+        theme: document.documentElement.dataset.theme,
+        themeColor: document
+          .querySelector('meta[name="theme-color"]')
+          ?.getAttribute('content'),
+        background: `#${[r, g, b].map((n) => n.toString(16).padStart(2, '0')).join('')}`,
+      };
+    });
+    const png = execFileSync('adb', ['exec-out', 'screencap', '-p'], {
+      maxBuffer: 64 * 1024 * 1024,
+    });
+    writeFileSync(join(out, `android-${theme}.png`), png);
+    const shell = execFileSync('adb', ['logcat', '-d', '-s', 'ShellBars:I'], {
+      encoding: 'utf8',
+      maxBuffer: 16 * 1024 * 1024,
+    });
+    seen[theme] = { url: url.href, done, ...shown, shell };
+  }
+  writeFileSync(
+    join(out, 'android-themes.json'),
+    `${JSON.stringify(seen, null, 2)}\n`,
+  );
+  console.log(JSON.stringify(seen, null, 2));
+}
+
 async function offline(page) {
   // The page drew if its own platform field shows up; a network error page
   // has none.
@@ -176,6 +222,7 @@ const { page, close } = await open();
 try {
   console.log(`Attached to ${page.url()}`);
   if (mode === 'proof') await proof(page);
+  else if (mode === 'themes') await themes(page);
   else await offline(page);
 } finally {
   await close();
