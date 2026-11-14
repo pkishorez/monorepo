@@ -13,12 +13,20 @@ Capabilities in [`@kestack/web-platform`](../../platforms/web-platform),
 which reach Capacitor's plugins (`@capacitor/app`, `@capacitor/haptics`)
 when the page runs in a shell, and the web's own APIs when it does not.
 
-`android/` and `ios/` are the native projects `cap add` made, kept as it
-wrote them, except for the `VIBRATE` permission in the Android manifest: on
-Android the site buzzes with the web's `navigator.vibrate`, which the web
-view allows only when the app holds it. `cap sync` rewrites the plugin lists
-(`capacitor.settings.gradle`, `CapApp-SPM/Package.swift`) from
-`node_modules`, as relative paths into pnpm's store, with no pnpm settings.
+`android/` and `ios/` are the native projects `cap add` made, with three
+additions. The `VIBRATE` permission in the Android manifest: on Android the
+site buzzes with the web's `navigator.vibrate`, which the web view allows only
+when the app holds it. The bars: the shell keeps the page between the system
+bars and paints them in its `theme-color` (`ios/App/App/ShellViewController.swift`,
+`android/.../ShellBars.java`), so the site needs no safe-area code. And a
+widget extension, `ios/App/LiveActivityWidget/`, which draws the Live
+Activities the page starts through
+[`@kestack/capacitor-live-activity`](../../packages/capacitor-live-activity).
+`cap sync` rewrites the plugin lists (`capacitor.settings.gradle`,
+`CapApp-SPM/Package.swift`) from `node_modules`, as relative paths into
+pnpm's store, with no pnpm settings; it never touches `App.xcodeproj`, where
+the widget's target is written in. Do not run `cap add ios` again: it would
+set every bundle identifier in the project to the app's, the widget's too.
 
 CI proves it on every pull request that deploys kabuki-start:
 [`native-kabuki-start.yml`](../../.github/workflows/native-kabuki-start.yml)
@@ -70,11 +78,16 @@ pnpm run ios         # cap sync ios, then opens the project in Xcode (macOS)
 
 - In Xcode, add the Apple ID under Settings, Accounts.
 - Select the `App` target, then Signing & Capabilities, and choose your
-  Personal Team. If Xcode says the bundle identifier is taken, change
-  `app.kishore.start` to one of your own.
+  Personal Team. Do the same for the `LiveActivityWidget` target. If Xcode
+  says the bundle identifier is taken, change `app.kishore.start` to one of
+  your own, and the widget's to the same followed by `.LiveActivityWidget`:
+  iOS requires the extension's to start with the app's.
 - Plug in the iPhone, trust the Mac, pick the iPhone as the run destination
   and press Run. iOS 16 and later ask for Developer Mode first (Settings,
   Privacy & Security).
 - On the iPhone, trust the developer under Settings, General, VPN & Device
   Management, then open the app.
 - A free team's app stops opening after 7 days; press Run again to renew it.
+- On iPhone 14 Pro and later, the page's Live Activity shows in the Dynamic
+  Island once the app is in the background; on others, on the Lock Screen.
+  Whether a free team can sign the widget extension is not verified.
