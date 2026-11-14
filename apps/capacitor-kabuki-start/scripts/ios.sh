@@ -75,6 +75,47 @@ stop() {
   kill "$launcher" 2>/dev/null || true
 }
 
+# Usage: device_menu <item>, e.g. device_menu Lock
+# simctl cannot lock the simulator; Simulator.app's Device menu can. The
+# runner image lets osascript drive System Events (Accessibility), not
+# Simulator itself, so the click goes through System Events.
+device_menu() {
+  osascript \
+    -e 'on run argv' \
+    -e 'tell application "System Events"' \
+    -e 'tell process "Simulator"' \
+    -e 'set frontmost to true' \
+    -e 'click menu item (item 1 of argv) of menu 1 of menu bar item "Device" of menu bar 1' \
+    -e 'end tell' \
+    -e 'end tell' \
+    -e 'end run' \
+    "$1"
+}
+
+# Locks the simulator with the Live Activity running and photographs the
+# Lock Screen. Never fails the job: the photo is evidence, not a check.
+lock_screen() {
+  open -a Simulator --args -CurrentDeviceUDID "$udid" || return 0
+  for _ in $(seq 30); do
+    windows=$(osascript -e 'tell application "System Events" to count windows of process "Simulator"' 2>&1 || true)
+    echo "Simulator windows: $windows"
+    [ "$windows" -gt 0 ] 2>/dev/null && break
+    sleep 1
+  done
+  sleep 3
+  osascript -e 'tell application "System Events" to tell process "Simulator" to get name of every menu item of menu 1 of menu bar item "Device" of menu bar 1' \
+    >"$out/simulator-menu.txt" 2>&1 || true
+  echo "Device menu: $(cat "$out/simulator-menu.txt")"
+  for press in 1 2; do
+    device_menu Lock || echo "Lock $press failed"
+    sleep 3
+    xcrun simctl io "$udid" screenshot "$out/ios-lock-$press.png" || true
+  done
+  device_menu Home || echo "Home failed"
+  sleep 3
+  xcrun simctl io "$udid" screenshot "$out/ios-lock-home.png" || true
+}
+
 run app-output.txt 'theme=dark'
 xcrun simctl io "$udid" screenshot "$out/ios.png" || true
 stop
@@ -92,6 +133,7 @@ if [ "${LIVE_ACTIVITY:-}" = true ]; then
   # The island animates in; give it time to settle before the photo.
   sleep 8
   xcrun simctl io "$udid" screenshot "$out/ios-island.png" || true
+  lock_screen
   stop
 fi
 
