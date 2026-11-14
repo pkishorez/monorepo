@@ -89,7 +89,8 @@ if [ "${LIVE_ACTIVITY:-}" = true ]; then
   # Settings in front puts the app in the background; the activity moves to
   # the Dynamic Island.
   xcrun simctl launch "$udid" com.apple.Preferences || true
-  sleep 5
+  # The island animates in; give it time to settle before the photo.
+  sleep 8
   xcrun simctl io "$udid" screenshot "$out/ios-island.png" || true
   stop
 fi
