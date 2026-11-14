@@ -27,7 +27,9 @@ an Android emulator and an iOS simulator (with and without App-Bound
 Domains, which is what gives iOS a service worker for a remote site), and
 fails unless the page proves it ran in the shell. `scripts/` holds what the
 jobs run; the screenshots, logs, the proof and the built apps are the run's
-artifacts.
+artifacts. What the spike learned, with screenshots, is in
+[`docs/findings.md`](docs/findings.md); what it proposes is
+[ADR 0014](../../docs/adr/0014-a-native-app-is-the-web-app-in-a-capacitor-shell.md).
 
 ## Usage
 
