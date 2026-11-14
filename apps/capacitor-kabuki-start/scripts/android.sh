@@ -48,6 +48,9 @@ fi
 adb exec-out screencap -p >"$out/android.png" || true
 adb shell dumpsys vibrator_manager >"$out/vibrator.txt" 2>&1 || true
 
+# The bars in both Themes, after the page's own proof run in each.
+node "$here/android-proof.mjs" themes "$out" || echo "::warning::The themes step failed; see the log."
+
 # The offline check needs a service worker in control; otherwise it would only
 # show Android's error page.
 sw=$(node -p "require('$out/android-proof.json').after['service-worker'] ?? 'unknown'" 2>/dev/null || echo unknown)
@@ -69,4 +72,4 @@ else
 fi
 
 kill $logcat 2>/dev/null || true
-grep -E 'Capacitor|chromium|native-proof' "$out/logcat-all.txt" >"$out/logcat.txt" || true
+grep -E 'Capacitor|chromium|native-proof|native-shell' "$out/logcat-all.txt" >"$out/logcat.txt" || true

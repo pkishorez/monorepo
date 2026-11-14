@@ -5,6 +5,16 @@ export const SHELL_ID = 'app.kishore.start';
 
 const MARK = '[native-proof] ';
 
+/** The site's Theme colors: its background, and its theme-color. */
+export const THEME_COLORS = { dark: '#0a0a0a', light: '#ffffff' };
+
+/**
+ * A screenshot's bar band matches when at least this share of its pixels is
+ * the page's color: the clock, the icons, the Dynamic Island and the home
+ * indicator take the rest.
+ */
+export const BAND_SHARE = 0.6;
+
 /**
  * The last proof line in `text`, parsed, or null. The page writes it with
  * console.log; logcat and the iOS app's output prefix it, so only what follows
@@ -22,6 +32,44 @@ export function findProof(text) {
     }
   }
   return proof;
+}
+
+/**
+ * Every line the shell prints as `[native-shell] {json}` (ShellViewController
+ * on iOS, ShellBars on Android), parsed: where the bars are, in screenshot
+ * pixels, and the color the shell painted them.
+ */
+export function shellReports(text) {
+  const reports = [];
+  for (const line of text.split('\n')) {
+    const at = line.indexOf('[native-shell] ');
+    if (at === -1) continue;
+    try {
+      reports.push(JSON.parse(line.slice(at + 15).trim()));
+    } catch {
+      // A line cut short: skip it.
+    }
+  }
+  return reports;
+}
+
+/**
+ * What the Live Activity plugin printed: `[live-activity] started <id>
+ * <state>` when one starts, and `[live-activity] background <id> <state>` for
+ * each running one when the app goes to the background.
+ */
+export function liveActivityLog(text) {
+  const started = [];
+  const background = [];
+  for (const match of text.matchAll(
+    /\[live-activity\] (started|background) (\S+) (\w+)/g,
+  )) {
+    (match[1] === 'started' ? started : background).push({
+      id: match[2],
+      state: match[3],
+    });
+  }
+  return { started, background };
 }
 
 /**
@@ -84,6 +132,16 @@ export function judge(platform, proof, evidence = {}) {
       add('vibrator service', evidence.vibrator, null);
   }
 
+  // Contract B: the page always says whether it can start a Live Activity.
+  add(
+    'live activity supported',
+    String(proof?.liveActivity?.supported ?? '—'),
+    proof?.liveActivity ? null : false,
+  );
+
+  for (const bars of evidence.bars ?? []) barChecks(add, platform, bars);
+  if (evidence.live) liveChecks(add, evidence.live);
+
   add('service worker', proof?.serviceWorker ?? '—', null);
   if (evidence.serviceWorkerLater !== undefined)
     add('service worker, after the clicks', evidence.serviceWorkerLater, null);
@@ -91,6 +149,60 @@ export function judge(platform, proof, evidence = {}) {
     add('offline relaunch', evidence.offline, null);
 
   return { passed: checks.every((check) => check.ok !== false), checks };
+}
+
+/**
+ * One theme's bars: `theme` asked for, `report` (the shell's last line),
+ * `top` and `bottom` (the share of each band in the page's color), and on
+ * Android `pageColor` (the page's own background, read over CDP).
+ */
+function barChecks(add, platform, { theme, report, top, bottom, pageColor }) {
+  const want = THEME_COLORS[theme];
+  const percent = (share) =>
+    share === undefined ? '—' : `${Math.round(share * 100)}% ${want}`;
+  if (pageColor !== undefined)
+    add(`${theme}: page background`, pageColor, pageColor === want);
+  add(
+    `${theme}: shell's bar color`,
+    report?.color ?? '—',
+    report?.color === want,
+  );
+  add(`${theme}: status bar band`, percent(top), (top ?? 0) >= BAND_SHARE);
+  if ((report?.bottom ?? 0) > 0)
+    add(`${theme}: bottom band`, percent(bottom), (bottom ?? 0) >= BAND_SHARE);
+  if (platform === 'ios')
+    add(
+      `${theme}: web view below the clock`,
+      report
+        ? `web view at ${report.webViewTop}px, safe area ${report.top}px`
+        : '—',
+      report !== undefined && report.top > 0 && report.webViewTop >= report.top,
+    );
+}
+
+/**
+ * The Live Activity run: the page's proof (`proof.liveActivity.id`, returned
+ * by the plugin's start) and the plugin's own lines (`log`).
+ */
+function liveChecks(add, { proof, log }) {
+  const id = proof?.liveActivity?.id ?? null;
+  add(
+    'live activity id (page)',
+    id ?? '—',
+    typeof id === 'string' && id !== '',
+  );
+  const started = log.started.find((entry) => entry.id === id);
+  add(
+    'live activity started (native)',
+    started ? `${started.id} ${started.state}` : 'no line',
+    started !== undefined,
+  );
+  const running = log.background.find((entry) => entry.id === id);
+  add(
+    'live activity running in the background (native)',
+    running ? `${running.id} ${running.state}` : 'no line',
+    running?.state === 'active',
+  );
 }
 
 /** The job summary: a heading, the verdict and one row per check. */
