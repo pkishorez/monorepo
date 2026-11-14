@@ -81,6 +81,8 @@ jobs:
           api-level: 35
           target: google_apis
           arch: x86_64
+          # A phone's screen, not the default 320 by 640.
+          profile: pixel_6
           script: apps/capacitor-kabuki-start/scripts/android.sh "$APK" "$OUT"
 
       - name: Verify the proof

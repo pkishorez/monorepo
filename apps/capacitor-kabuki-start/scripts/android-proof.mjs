@@ -94,6 +94,9 @@ async function proof(page) {
   const after = await readProof(page);
 
   await page.screenshot({ path: join(out, 'webview.png') }).catch(() => {});
+  // The clicks scrolled to the buttons; the device screenshot that follows
+  // should show what the page runs as.
+  await page.evaluate(() => window.scrollTo(0, 0));
   const result = { url: page.url(), done, proofLine, before, clicks, after };
   writeFileSync(
     join(out, 'android-proof.json'),
