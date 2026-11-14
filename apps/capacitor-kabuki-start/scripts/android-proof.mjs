@@ -149,16 +149,22 @@ async function themes(page) {
           .querySelector('meta[name="theme-color"]')
           ?.getAttribute('content'),
         background: `#${[r, g, b].map((n) => n.toString(16).padStart(2, '0')).join('')}`,
+        shellChannel: typeof window.ShellBarsAndroid,
+        shellWatching: window.__shellBars === true,
       };
     });
     const png = execFileSync('adb', ['exec-out', 'screencap', '-p'], {
       maxBuffer: 64 * 1024 * 1024,
     });
     writeFileSync(join(out, `android-${theme}.png`), png);
-    const shell = execFileSync('adb', ['logcat', '-d', '-s', 'ShellBars:I'], {
-      encoding: 'utf8',
-      maxBuffer: 16 * 1024 * 1024,
-    });
+    const shell = execFileSync(
+      'adb',
+      ['logcat', '-d', '-s', 'ShellBars:I', 'Capacitor/Console:*'],
+      {
+        encoding: 'utf8',
+        maxBuffer: 16 * 1024 * 1024,
+      },
+    );
     seen[theme] = { url: url.href, done, ...shown, shell };
   }
   writeFileSync(
