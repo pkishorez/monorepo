@@ -8,13 +8,15 @@ from [run 43548855640](https://github.com/pkishorez/monorepo/actions/runs/435488
 and [run 43546197876](https://github.com/pkishorez/monorepo/actions/runs/43546197876);
 the bars and the Live Activity from
 [run 43561720109](https://github.com/pkishorez/monorepo/actions/runs/43561720109),
-where all three jobs passed, and the Dynamic Island photo from
-[run 43560772240](https://github.com/pkishorez/monorepo/actions/runs/43560772240).
+where all three jobs passed, the Dynamic Island photo from
+[run 43560772240](https://github.com/pkishorez/monorepo/actions/runs/43560772240),
+and the Lock Screen photo from
+[run 43586846851](https://github.com/pkishorez/monorepo/actions/runs/43586846851).
 **Not verified** means nobody has seen it.
 
-| Android, dark                               | Android, light                                | iOS, dark                           | iOS, light                            | Dynamic Island                                                      |
-| ------------------------------------------- | --------------------------------------------- | ----------------------------------- | ------------------------------------- | ------------------------------------------------------------------- |
-| ![Android, dark](findings/android-dark.png) | ![Android, light](findings/android-light.png) | ![iOS, dark](findings/ios-dark.png) | ![iOS, light](findings/ios-light.png) | ![The Live Activity in the island](findings/ios-dynamic-island.png) |
+| Android, dark                               | Android, light                                | iOS, dark                           | iOS, light                            | Dynamic Island                                                      | Lock Screen                                                           |
+| ------------------------------------------- | --------------------------------------------- | ----------------------------------- | ------------------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| ![Android, dark](findings/android-dark.png) | ![Android, light](findings/android-light.png) | ![iOS, dark](findings/ios-dark.png) | ![iOS, light](findings/ios-light.png) | ![The Live Activity in the island](findings/ios-dynamic-island.png) | ![The Live Activity on the Lock Screen](findings/ios-lock-screen.png) |
 
 ## The bars: the shell keeps the page out of them
 
@@ -73,10 +75,30 @@ called `start`, the plugin returned an id, and the app printed
 the second when Settings came to the front: iOS's own list of the app's
 activities still had it, running. The job fails without both. The photo
 shows the compact view in the island: the masks on the left, `40%` on the
-right. The Lock Screen, the expanded view (a long press) and the minimal
-view (two activities at once) were not photographed. In the second photo, in
-run 43561720109, the island was still animating at five seconds; the wait is
-now eight.
+right. In run 43561720109 the island was still animating at five seconds;
+with eight it had settled
+([run 43563034502](https://github.com/pkishorez/monorepo/actions/runs/43563034502)).
+
+The Lock Screen, seen in CI: the card shows the masks, `Kabuki Start`,
+`Proving the Dynamic Island` and the orange bar at 40%, not clipped. Under
+it iOS adds its own question, "Allow Live Activities from Kabuki Start?",
+the first time an app's activity reaches the Lock Screen; nobody answers it
+in CI, and the activity shows all the same.
+
+<img src="findings/ios-lock-screen.png" alt="The Live Activity on the Lock Screen" width="400">
+
+`simctl` cannot lock a simulator, so `ios.sh` clicks Simulator.app's
+Device > Lock with `osascript` through System Events, which the runner
+image allows (it grants `osascript` Accessibility and Apple Events to
+System Events, not to Simulator). The first press leaves the dimmed
+always-on display of an iPhone Pro; the second wakes it to the Lock Screen,
+as the side button does. A third step, Device > Home, unlocked it straight
+to Settings (the simulator has no passcode), so it is not used. It worked on
+the first round and adds about 30 seconds. `verify.mjs` records how much of
+the photo is black or the app's screenshot (12% and 2%) as a finding, never
+a failure: a menu renamed in a new Xcode would lose the photo, not the job.
+The expanded view (a long press, which a menu cannot do) and the minimal
+view (two activities at once) were not photographed.
 
 - [`@kestack/capacitor-live-activity`](../../../packages/capacitor-live-activity)
   is the plugin: Swift only, `isSupported`, `start`, `update`, `end` and
@@ -166,7 +188,9 @@ minutes with all three jobs.
   them, the two paths would differ for one package. Not tried.
 - An Xcode update: the hand-written target is in the format Xcode 15 and
   later write (`objectVersion = 60`); a new Xcode may rewrite it on open.
-  CI pins `macos-26`.
+  CI pins `macos-26`. The Lock Screen photo leans on Simulator.app's menu
+  names (`Device`, `Lock`) and on the runner image's privacy grants to
+  `osascript`.
 - Two contracts are kept by hand: the plugin's Swift and the web side's
   TypeScript types, and the page's proof lines and CI's parsing of them.
 
