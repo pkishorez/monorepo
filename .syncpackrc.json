@@ -5,7 +5,12 @@
     {
       "label": "Unversioned workspace roots",
       "dependencyTypes": ["local"],
-      "packages": ["public-monorepo", "docs", "kabuki-start"],
+      "packages": [
+        "public-monorepo",
+        "docs",
+        "kabuki-start",
+        "capacitor-kabuki-start"
+      ],
       "isIgnored": true
     },
     {
