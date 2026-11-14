@@ -4,8 +4,8 @@ import { TimerLive } from '../components/timer.ts';
 
 // Start the timer, let its Worker tick, then pause it.
 export const program = Effect.gen(function* () {
-  const app = yield* Runtime.start(TimerLive);
-  const timer = app.instance({ from: 'docs' });
+  const app = yield* Runtime.scoped(TimerLive);
+  const timer = app.root;
   const workers = () => timer.workers.map((worker) => worker.name);
   yield* Console.log(timer._tag, 'workers:', workers());
 

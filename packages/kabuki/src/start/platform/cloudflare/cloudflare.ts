@@ -20,7 +20,7 @@ export const cloudflare = (): Platform => ({
     'import',
     'default',
   ],
-  serve: { from: '@kestack/kabuki/start/cloudflare', name: 'serve' },
+  serve: { from: '@kestack/kabuki/start/server', name: 'serveCloudflare' },
 });
 
 /** The Cloudflare Cache of this data center; none outside workerd, as in Node. */

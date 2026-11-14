@@ -1,4 +1,5 @@
 import { Effect, Layer } from 'effect';
+import { History } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { DiceLive, Random } from './dice.ts';
@@ -70,27 +71,26 @@ export const DiceApp = View.app(DiceView, {
 
 // Not part of the app: it reads the running app from beside it.
 function RuntimeBar() {
-  const runtime = DiceApp.useRuntime();
-  const { branch, shown, running } = runtime;
-  const step =
-    shown === null
-      ? branch.length
-      : shown === 'init'
-        ? 0
-        : branch.findIndex((entry) => entry.id === shown) + 1;
+  const app = DiceApp.useRuntime();
+  const { runtime, history, seeking } = app;
+  if (runtime === null) return null;
+  // The entries from the start to the Head, and which Step one is.
+  const line = History.entries(history);
+  const step = (entry: number | null) =>
+    entry === null ? 0 : line.findIndex(({ id }) => id === entry) + 1;
   return (
     <div className="flex items-center gap-3 rounded-lg border border-border px-3 py-1.5">
       <span className="font-mono text-xs text-muted-foreground tabular-nums">
-        {shown === null
-          ? `Step ${step}, ${running ? 'live' : 'stopped'}`
-          : `Step ${step} of ${branch.length}, read only`}
+        {seeking === null
+          ? `Step ${line.length}, ${runtime.running ? 'running' : 'stopped'}`
+          : `Step ${step(seeking.entry)} of ${line.length}, read only`}
       </span>
       <Button
         size="sm"
         variant="ghost"
-        onClick={() => (running ? runtime.stop() : runtime.start())}
+        onClick={() => (runtime.running ? app.stop() : app.start())}
       >
-        {running ? 'Stop' : 'Start'}
+        {runtime.running ? 'Stop' : 'Start'}
       </Button>
     </div>
   );

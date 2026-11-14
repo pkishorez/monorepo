@@ -2,15 +2,15 @@ import { Effect, Option, Schema } from 'effect';
 import type { Scope } from 'effect';
 import { TestClock } from 'effect/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Replay } from '../history/replay.ts';
-import { init, restore } from '../snapshot/engine/index.ts';
-import { Actor, History, Runtime } from '../index.ts';
-import type { SavedHistory } from '../history/index.ts';
-import { Snapshot } from '../snapshot/index.ts';
+import { Actor, History, Runtime, Snapshot } from '../index.ts';
+import type { Address } from '../index.ts';
+import type { Entry, SavedHistory } from '../types.ts';
+import { line, historyOf, scoped } from './fixtures.ts';
 
 /*
- * A saved History: what an app carries on from, and the Restore that puts a
- * saved Snapshot in it.
+ * The History: a plain value that starts from a Snapshot, grown, moved and
+ * read by pure functions, Compacted to a Window, and saved as JSON and
+ * loaded again.
  */
 
 const Counter = Actor.define('Counter', {
@@ -37,216 +37,282 @@ const timed = <A>(effect: Effect.Effect<A, never, Scope.Scope>) =>
     Effect.scoped(effect).pipe(Effect.provide(TestClock.layer())),
   );
 
-const envelope = (message: { readonly _tag: string }, at = 0) => ({
-  destination: 'Counter',
-  message,
-  source: { kind: 'view', instance: 'Counter' } as const,
+/** The Counter right after init: what the Histories here start from, unless said. */
+const START = Snapshot.init(Counter);
+
+const ROOT = START.root.address;
+
+const bumped = (at = 0): Entry => ({
+  to: ROOT,
+  message: { _tag: 'Bumped' },
+  from: { kind: 'outside' },
   at,
 });
+
+const bump = (history: History, at = 0) => History.add(history, bumped(at));
+
+const ids = (entries: ReadonlyArray<{ readonly id: number }>) =>
+  entries.map((entry) => entry.id);
+
+const seekTo = (history: History, entry: number | null = history.head) =>
+  History.snapshot(Counter, history, entry);
+
+const count = (history: History, entry: number | null = history.head) =>
+  seekTo(history, entry).root.model;
 
 /** A History of three Messages, as a Runtime leaves it. */
 const saved = (): Effect.Effect<SavedHistory, never, Scope.Scope> =>
   Effect.gen(function* () {
-    const app = yield* Runtime.start(History.make(Counter));
+    const app = yield* scoped(Counter);
     yield* TestClock.adjust('100 millis');
-    app.send('Counter', { _tag: 'Bumped' });
+    app.root.send({ _tag: 'Bumped' });
     yield* TestClock.adjust('100 millis');
-    app.send('Counter', { _tag: 'Started' });
+    app.root.send({ _tag: 'Started' });
     yield* TestClock.adjust('100 millis');
-    app.send('Counter', { _tag: 'Bumped' });
-    return app.history.save();
+    app.root.send({ _tag: 'Bumped' });
+    return History.save(Counter, historyOf(app));
+  });
+
+/** A Runtime of the Counter carrying on from a History's Head, the History kept beside it as it grows. */
+const carryOn = (from: History) =>
+  Effect.gen(function* () {
+    const kept = { history: from };
+    const app = yield* Runtime.scoped(Counter, {
+      snapshot: History.snapshot(Counter, from),
+      running: false,
+    });
+    app.subscribe((entries) => {
+      kept.history = History.add(kept.history, entries);
+    });
+    void app.start();
+    return { app, kept };
   });
 
 afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('Restore', () => {
-  const first = init(Counter.definition);
-  const at42: Snapshot = {
-    ...first,
-    model: { count: 42 },
-    state: { _tag: 'Busy', since: 7 } as Snapshot['state'],
+describe('a History value', () => {
+  it('grows after its Head, and leaves the History it grew from as it was', () => {
+    const empty = History.init(START);
+    const one = bump(empty);
+    const two = bump(one);
+    expect(History.all(empty)).toEqual([]);
+    expect(empty.head).toBe(null);
+    expect(empty.start).toBe(START);
+    expect(ids(History.all(one))).toEqual([0]);
+    expect(History.all(two).map((e) => [e.id, e.parent])).toEqual([
+      [0, null],
+      [1, 0],
+    ]);
+    expect(two.head).toBe(1);
+    expect(two.start).toBe(START);
+    expect(Object.isFrozen(two)).toBe(true);
+    expect(History.all(two).every((e) => Object.isFrozen(e))).toBe(true);
+    // The entries are shared, never copied.
+    expect(History.all(two)[0]).toBe(History.all(one)[0]);
+  });
+
+  it('adds one entry or a list, in order, its Head at the last', () => {
+    const empty = History.init(START);
+    const three = History.add(empty, [bumped(1), bumped(2), bumped(3)]);
+    expect(History.all(three).map((e) => [e.id, e.parent, e.at])).toEqual([
+      [0, null, 1],
+      [1, 0, 2],
+      [2, 1, 3],
+    ]);
+    expect(three.head).toBe(2);
+    // A list is its entries added one by one.
+    const oneByOne = [1, 2, 3].reduce((h, at) => bump(h, at), empty);
+    expect(History.all(three)).toEqual(History.all(oneByOne));
+    expect(count(three)).toEqual({ count: 3 });
+    // No entry: the same History.
+    expect(History.add(three, [])).toBe(three);
+    // After an entry that already has one after it, a list grows one Branch.
+    const branched = History.add(History.move(three, 0), [
+      bumped(4),
+      bumped(5),
+    ]);
+    expect(ids(History.entries(branched))).toEqual([0, 3, 4]);
+    expect(branched.head).toBe(4);
+    // The History it grew from is untouched.
+    expect(History.all(empty)).toEqual([]);
+    expect(ids(History.all(three))).toEqual([0, 1, 2]);
+  });
+
+  it('branches when it grows from an entry that already has one after it', () => {
+    const three = bump(bump(bump(History.init(START))));
+    const back = History.move(three, 0);
+    expect(back.head).toBe(0);
+    expect(History.all(back)).toHaveLength(3);
+    const branched = bump(back);
+    expect(ids(History.entries(branched))).toEqual([0, 3]);
+    expect(ids(History.children(branched, 0))).toEqual([1, 3]);
+    // The History it branched from is untouched.
+    expect(ids(History.entries(three))).toEqual([0, 1, 2]);
+    expect(ids(History.children(three, 0))).toEqual([1]);
+    // Growing either again keeps them apart.
+    expect(ids(History.entries(bump(three)))).toEqual([0, 1, 2, 3]);
+    expect(ids(History.entries(bump(branched)))).toEqual([0, 3, 4]);
+  });
+
+  it('reads an entry, the line to any entry, and refuses one it does not have', () => {
+    const three = bump(bump(bump(History.init(START))));
+    expect(History.entry(three, 1)?.parent).toBe(0);
+    expect(History.entry(three, 9)).toBeUndefined();
+    expect(ids(History.entries(three, 1))).toEqual([0, 1]);
+    expect(History.entries(three, null)).toEqual([]);
+    expect(() => History.move(three, 9)).toThrow(/no History entry 9/);
+    expect(() => History.entries(three, 9)).toThrow(/no History entry 9/);
+  });
+
+  it('reads every entry on every Branch with `all`, and only the way to one with `entries`', () => {
+    const three = bump(bump(bump(History.init(START))));
+    // With one Branch and the Head at its end, they are the same.
+    expect(History.all(three)).toEqual(History.entries(three));
+    const branched = bump(bump(History.move(three, 0)));
+    expect(ids(History.all(branched))).toEqual([0, 1, 2, 3, 4]);
+    expect(ids(History.entries(branched))).toEqual([0, 3, 4]);
+    expect(ids(History.entries(branched, 2))).toEqual([0, 1, 2]);
+    // Moving the Head changes the way, never what there is.
+    const back = History.move(branched, 1);
+    expect(History.all(back)).toEqual(History.all(branched));
+    expect(ids(History.entries(back))).toEqual([0, 1]);
+    expect(History.entries(History.move(branched, null))).toEqual([]);
+    expect(History.all(History.move(branched, null))).toHaveLength(5);
+    // An older History does not see the entries grown after it.
+    expect(ids(History.all(three))).toEqual([0, 1, 2]);
+  });
+
+  it('names the last entry of every Branch, whichever the Head is on', () => {
+    expect(History.tips(History.init(START))).toEqual([]);
+    const three = bump(bump(bump(History.init(START))));
+    expect(ids(History.tips(three))).toEqual([2]);
+    const branched = bump(bump(History.move(three, 0)));
+    expect(ids(History.tips(branched))).toEqual([2, 4]);
+    const fromStart = bump(History.move(branched, null));
+    expect(ids(History.tips(fromStart))).toEqual([2, 4, 5]);
+    // An older History does not see the entries grown after it.
+    expect(ids(History.tips(three))).toEqual([2]);
+    expect(ids(History.tips(History.move(branched, 1)))).toEqual([2, 4]);
+  });
+
+  it('is made only by init or load: one written by hand is refused, and saved it is plain data', () => {
+    const grown = bump(bump(History.init(START)));
+    const byHand: History = { start: grown.start, head: grown.head };
+    expect(() => History.entries(byHand)).toThrow(/not a History/);
+    expect(() => bump(byHand)).toThrow(/not a History/);
+    expect(() => History.save(Counter, byHand)).toThrow(/not a History/);
+
+    const plain = JSON.parse(JSON.stringify(History.save(Counter, grown)));
+    expect(plain).toEqual({
+      start: JSON.parse(JSON.stringify(Snapshot.save(Counter, START))),
+      entries: JSON.parse(JSON.stringify(History.all(grown))),
+      head: 1,
+    });
+    const loaded = History.load(Counter, plain as SavedHistory);
+    expect(History.entries(loaded)).toEqual(History.entries(grown));
+    expect(loaded.start).toEqual(START);
+    expect(count(loaded)).toEqual({ count: 2 });
+    expect(ids(History.entries(bump(loaded)))).toEqual([0, 1, 2]);
+  });
+
+  it('stays cheap to grow: ten thousand entries in well under a second', () => {
+    let history = History.init(START);
+    const started = performance.now();
+    for (let at = 0; at < 10_000; at++) history = bump(history, at);
+    expect(performance.now() - started).toBeLessThan(1000);
+    expect(history.head).toBe(9_999);
+    expect(count(history)).toEqual({ count: 10_000 });
+  });
+});
+
+describe('a History started from a Snapshot', () => {
+  /** The Counter as it was left some time ago: Busy, at 42. */
+  const left: Snapshot<typeof Counter> = {
+    root: {
+      ...START.root,
+      _tag: 'Busy',
+      model: { count: 42 },
+      state: { _tag: 'Busy', since: 7 },
+    },
+    at: 7,
   };
 
-  it('replaces the whole Snapshot, as a Message to the root', () => {
-    const handled = Snapshot.handle(
-      Counter.definition,
-      first,
-      envelope(restore(at42)),
-    );
-    expect(handled.outcome).toBe('handled');
-    expect(handled.from).toBe('Idle');
-    expect(handled.to).toBe('Busy');
-    expect(handled.snapshot).toBe(at42);
+  it('holds the whole tree it starts from, and plays every entry after it', () => {
+    const history = History.init(left);
+    expect(history.start).toBe(left);
+    expect(history.head).toBe(null);
+    expect(History.all(history)).toEqual([]);
+    expect(History.snapshot(Counter, history)).toBe(left);
+
+    const one = bump(history, 9);
+    expect(History.snapshot(Counter, one)).toEqual({
+      root: { ...left.root, model: { count: 43 } },
+      at: 9,
+    });
+    // The start is the floor: nothing is known of what came before it.
+    expect(History.snapshot(Counter, one, null)).toBe(left);
+    expect(History.entry(one, 0)).toMatchObject({ id: 0, parent: null });
   });
 
-  it('is ignored, with one warning, when the Snapshot no longer matches', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const stale = restore({ ...at42, state: { _tag: 'Gone' } });
-    const once = Snapshot.handle(Counter.definition, first, envelope(stale));
-    const twice = Snapshot.handle(Counter.definition, first, envelope(stale));
-    expect(once.outcome).toBe('ignored');
-    expect(once.snapshot).toBe(first);
-    expect(twice.outcome).toBe('ignored');
-    expect(warn).toHaveBeenCalledTimes(1);
-    expect(warn.mock.calls[0]![0]).toContain('Gone');
-  });
-
-  it('is ignored when a Model does not match its Schema', () => {
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const stale = restore({ ...at42, model: { count: 'many' } });
-    expect(
-      Snapshot.handle(Counter.definition, first, envelope(stale)).outcome,
-    ).toBe('ignored');
-  });
-
-  it('is ignored when a Child is ahead of what its parent has Invoked', () => {
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const Room = Actor.define('Room', {
-      model: Schema.Struct({ guests: Schema.Array(Schema.String) }),
-      message: Schema.TaggedUnion({ Came: { name: Schema.String } }),
-    }).build({
-      init: () => ({ model: { guests: ['ada'] } }),
-      children: {
-        guest: Actor.child(Counter, { each: ({ model }) => model.guests }),
-      },
-      on: {
-        Came: ({ name }, { model }) => ({
-          model: { guests: [...model.guests, name] },
-        }),
-      },
-    });
-    const room = init(Room.definition);
-    const ahead: Snapshot = { ...room, invoked: {} };
-    const stale = Snapshot.handle(Room.definition, room, {
-      ...envelope(restore(ahead)),
-      destination: 'Room',
-    });
-    expect(stale.outcome).toBe('ignored');
-    const fine = Snapshot.handle(Room.definition, room, {
-      ...envelope(restore({ ...room })),
-      destination: 'Room',
-    });
-    expect(fine.outcome).toBe('handled');
-  });
-
-  it('is ignored when a fixed Child its State Invokes is missing', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const Shelf = Actor.define('Shelf', {}).build({
-      children: { counter: Actor.child(Counter) },
-    });
-    const shelf = init(Shelf.definition);
-    const handled = Snapshot.handle(Shelf.definition, shelf, {
-      ...envelope(restore({ ...shelf, children: {} })),
-      destination: 'Shelf',
-    });
-    expect(handled.outcome).toBe('ignored');
-    expect(warn.mock.calls[0]![0]).toContain('holds no such Child');
-  });
-
-  it('is dropped when sent to anything but the root', () => {
-    const handled = Snapshot.handle(Counter.definition, first, {
-      ...envelope(restore(at42)),
-      destination: 'Counter/child#1',
-    });
-    expect(handled.outcome).toBe('dropped');
-  });
-});
-
-describe('Replay.fold', () => {
-  it('gives the Snapshot after a Branch, now, the same as seek', () =>
-    timed(
-      Effect.gen(function* () {
-        const history = History.load(Counter, yield* saved());
-        const folded = Replay.fold(Counter.definition, history.branch());
-        expect(folded).toEqual(yield* history.seek());
-        expect(folded.model).toEqual({ count: 2 });
-        expect(folded.state).toEqual({ _tag: 'Busy', since: 200 });
-      }),
-    ));
-
-  it("plays from init with the root's Input", () => {
-    const From = Actor.define('From', {
-      input: Schema.Struct({ start: Schema.Number }),
-      model: Schema.Struct({ count: Schema.Number }),
-      message: Schema.TaggedUnion({ Bumped: {} }),
-    }).build({
-      init: ({ start }) => ({ model: { count: start } }),
-      on: {
-        Bumped: (_, { model }) => ({ model: { count: model.count + 1 } }),
-      },
-    });
-    const branch = [
-      {
-        ...envelope({ _tag: 'Bumped' }),
-        destination: 'From',
-        id: 0,
-        parent: null,
-      },
-    ];
-    expect(Replay.fold(From.definition, branch, { start: 5 }).model).toEqual({
-      count: 6,
-    });
-  });
-});
-
-describe('History.restored', () => {
-  it('is a History of one Restore right after init', () =>
+  it('is what a Runtime carries on from, with no entry for where it starts', () =>
     timed(
       Effect.gen(function* () {
         const state = yield* saved();
-        const snapshot = Replay.fold(Counter.definition, state.entries);
-        const light = History.restored(Counter, snapshot, 300);
-        expect(light.save().entries).toHaveLength(1);
-        expect(light.head()).toBe(0);
-        expect(light.save().entries[0]).toMatchObject({
+        const snapshot = History.snapshot(
+          Counter,
+          History.load(Counter, state),
+        );
+        const light = History.init(snapshot);
+        expect(History.all(light)).toEqual([]);
+        expect(light.head).toBe(null);
+        expect(light.start).toBe(snapshot);
+        expect(snapshot.at).toBe(300);
+
+        const app = yield* scoped(Counter, { snapshot });
+        expect(app.snapshot).toBe(snapshot);
+        expect(app.now()).toBe(300);
+        expect(historyOf(app).start).toBe(snapshot);
+        expect(line(app)).toHaveLength(0);
+        // The start is the floor: the Snapshot it carried on from, not the Actor's own init.
+        expect(count(historyOf(app), null)).toEqual({ count: 2 });
+        app.root.send({ _tag: 'Done' });
+        expect(app.snapshot.root.state._tag).toBe('Idle');
+        expect(line(app).map((e) => e.message._tag)).toEqual(['Done']);
+        expect(line(app)[0]).toMatchObject({
+          id: 0,
           parent: null,
-          destination: 'Counter',
+          to: 'Counter',
           at: 300,
-          source: { kind: 'restore' },
+          from: { kind: 'outside' },
         });
-        // The entry holds only the Envelope: what came of it is worked out.
-        expect(Object.keys(light.save().entries[0]!).sort()).toEqual([
+        // The entry holds only the Message and where it sits: what came of it is worked out.
+        expect(Object.keys(line(app)[0]!).sort()).toEqual([
           'at',
-          'destination',
+          'from',
           'id',
           'message',
           'parent',
-          'source',
-        ]);
-
-        const app = yield* Runtime.start(light);
-        expect(app.snapshot()).toEqual(snapshot);
-        expect(app.now()).toBe(300);
-        expect(app.history.branch()).toHaveLength(1);
-        // Init is still the floor: before the Restore, the Actor's own init.
-        expect(app.history.snapshotAt(null).model).toEqual({ count: 0 });
-        app.send('Counter', { _tag: 'Done' });
-        expect(app.snapshot().state._tag).toBe('Idle');
-        expect(app.history.branch().map((e) => e.message._tag)).toEqual([
-          '@kestack/kabuki/Restore',
-          'Done',
+          'to',
         ]);
       }),
     ));
 });
 
 describe('a saved History', () => {
-  it('carries on live at its Head, from its Time', () =>
+  it('carries on running at its Head, from its Time', () =>
     timed(
       Effect.gen(function* () {
         const state = yield* saved();
-        const app = yield* Runtime.start(History.load(Counter, state));
-        expect(app.running()).toBe(true);
-        expect(app.history.head()).toBe(2);
+        const { app, kept } = yield* carryOn(History.load(Counter, state));
+        expect(app.running).toBe(true);
+        expect(kept.history.head).toBe(2);
         expect(app.now()).toBe(300);
-        expect(Snapshot.instanceAt(app.snapshot(), 'Counter')?.model).toEqual({
-          count: 2,
-        });
+        expect(app.snapshot.root.model).toEqual({ count: 2 });
         yield* TestClock.adjust('50 millis');
-        app.send('Counter', { _tag: 'Bumped' });
-        expect(app.history.branch().at(-1)).toMatchObject({
+        app.root.send({ _tag: 'Bumped' });
+        expect(History.entries(kept.history).at(-1)).toMatchObject({
           id: 3,
           parent: 2,
           at: 350,
@@ -254,12 +320,43 @@ describe('a saved History', () => {
       }),
     ));
 
-  it('is plain JSON, its entries and its Head, when the encoded side of every Schema is JSON-safe', () =>
+  it('is plain JSON, its start, its entries and its Head, when the encoded side of every Schema is JSON-safe', () =>
     timed(
       Effect.gen(function* () {
         const state = yield* saved();
-        expect(Object.keys(state).sort()).toEqual(['entries', 'head']);
+        expect(Object.keys(state).sort()).toEqual(['entries', 'head', 'start']);
         expect(JSON.parse(JSON.stringify(state))).toEqual(state);
+        expect(state.start).toBe(Snapshot.save(Counter, START));
+      }),
+    ));
+
+  it('saves, Compacts and loads again to the same app, with the same Snapshots', () =>
+    timed(
+      Effect.gen(function* () {
+        let history = History.init(START);
+        for (let at = 1; at <= 6; at++) history = bump(history, at * 10);
+        history = History.move(history, 3);
+        history = bump(history, 99);
+        const compacted = History.compact(Counter, history, 2);
+        expect(ids(History.entries(compacted))).toEqual([3, 6]);
+        // Only what grows from the new start stays: 4 and 5 do.
+        expect(ids(History.all(compacted))).toEqual([3, 4, 5, 6]);
+        expect(compacted.start).toEqual(History.snapshot(Counter, history, 2));
+        const through = JSON.parse(
+          JSON.stringify(History.save(Counter, compacted)),
+        ) as SavedHistory;
+        expect(through.start.root.model).toEqual({ count: 3 });
+        const loaded = History.load(Counter, through, { onMismatch: 'fail' });
+        expect(loaded.head).toBe(6);
+        expect(History.snapshot(Counter, loaded)).toEqual(
+          History.snapshot(Counter, history),
+        );
+        expect(History.snapshot(Counter, loaded, 5)).toEqual(
+          History.snapshot(Counter, history, 5),
+        );
+        expect(History.save(Counter, loaded)).toEqual(through);
+        // It carries on from its ids.
+        expect(bump(loaded).head).toBe(7);
       }),
     ));
 
@@ -285,16 +382,16 @@ describe('a saved History', () => {
     it('so a Date or an Option in a Message comes back through JSON', () =>
       timed(
         Effect.gen(function* () {
-          const app = yield* Runtime.start(History.make(Diary));
-          app.send('Diary', {
+          const app = yield* scoped(Diary);
+          app.root.send({
             _tag: 'Wrote',
             note: { at: new Date(5), text: Option.some('hi') },
           });
-          app.send('Diary', {
+          app.root.send({
             _tag: 'Wrote',
             note: { at: new Date(9), text: Option.none() },
           });
-          const saved = through(app.history.save());
+          const saved = through(History.save(Diary, historyOf(app)));
           expect(saved.entries.map((entry) => entry.message)).toEqual([
             {
               _tag: 'Wrote',
@@ -307,62 +404,71 @@ describe('a saved History', () => {
           ]);
           const loaded = History.load(Diary, saved);
           // In memory, every value is decoded again.
-          expect(loaded.branch()[0]!.message).toEqual(
-            app.history.branch()[0]!.message,
+          expect(History.all(loaded)[0]!.message).toEqual(
+            History.all(historyOf(app))[0]!.message,
           );
-          expect(yield* loaded.seek()).toEqual(app.snapshot());
+          expect(History.snapshot(Diary, loaded)).toEqual(app.snapshot);
           // Saved again, it is the same JSON.
-          expect(through(loaded.save())).toEqual(saved);
+          expect(through(History.save(Diary, loaded))).toEqual(saved);
         }),
       ));
 
-    it("so does a Restore's Snapshot", () =>
-      timed(
-        Effect.gen(function* () {
-          const snapshot: Snapshot = {
-            ...init(Diary.definition),
-            model: { notes: [{ at: new Date(7), text: Option.some('kept') }] },
-          };
-          const saved = through(History.restored(Diary, snapshot, 10).save());
-          const message = saved.entries[0]!.message as unknown as {
-            readonly snapshot: Snapshot;
-          };
-          expect(message.snapshot.model).toEqual({
-            notes: [{ at: new Date(7).toISOString(), text: 'kept' }],
-          });
-          expect(yield* History.load(Diary, saved).seek()).toEqual(snapshot);
-        }),
-      ));
+    it("so does its start's tree", () => {
+      const first = Snapshot.init(Diary);
+      const snapshot: Snapshot<typeof Diary> = {
+        root: {
+          ...first.root,
+          model: { notes: [{ at: new Date(7), text: Option.some('kept') }] },
+        },
+        at: 10,
+      };
+      const saved = through(History.save(Diary, History.init(snapshot)));
+      expect(saved.start.root.model).toEqual({
+        notes: [{ at: new Date(7).toISOString(), text: 'kept' }],
+      });
+      expect(saved.start.at).toBe(10);
+      const loaded = History.load(Diary, saved);
+      expect(loaded.start).toEqual(snapshot);
+      expect(History.snapshot(Diary, loaded).root).toEqual(snapshot.root);
+      // Saved again, it is the same JSON.
+      expect(through(History.save(Diary, loaded))).toEqual(saved);
+    });
   });
 
-  it('keeps a Message for no Instance as it was Sent: it was dropped, so it never plays', () =>
-    timed(
-      Effect.gen(function* () {
-        const app = yield* Runtime.start(History.make(Counter));
-        app.send('Counter/gone#1', { _tag: 'Whatever' });
-        expect(app.history.save().entries[0]!.message).toEqual({
-          _tag: 'Whatever',
-        });
-      }),
-    ));
+  it('keeps a Message for no Instance as it was Sent: it is dropped, so it never plays', () => {
+    const history = History.add(History.init(START), {
+      to: `${ROOT}/gone#1` as Address,
+      message: { _tag: 'Whatever' },
+      from: { kind: 'outside' },
+      at: 0,
+    });
+    expect(History.save(Counter, history).entries[0]!.message).toEqual({
+      _tag: 'Whatever',
+    });
+    expect(History.snapshot(Counter, history).root).toBe(START.root);
+  });
 
   it('never changes once given: the next one is new', () =>
     timed(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(History.make(Counter));
-        app.send('Counter', { _tag: 'Bumped' });
-        const before = app.history.save();
-        expect(app.history.save()).toBe(before);
-        app.send('Counter', { _tag: 'Bumped' });
+        const app = yield* scoped(Counter);
+        app.root.send({ _tag: 'Bumped' });
+        const before = History.save(Counter, historyOf(app));
+        expect(History.save(Counter, historyOf(app))).toBe(before);
+        app.root.send({ _tag: 'Bumped' });
         expect(before.entries).toHaveLength(1);
         expect(before.head).toBe(0);
+        expect(Object.isFrozen(before)).toBe(true);
         expect(Object.isFrozen(before.entries)).toBe(true);
-        expect(app.history.save().entries).toHaveLength(2);
-        expect(app.history.save().entries[0]).toBe(before.entries[0]);
+        const after = History.save(Counter, historyOf(app));
+        expect(after.entries).toHaveLength(2);
+        expect(after.entries[0]).toBe(before.entries[0]);
+        // The start has not moved, so it is saved once.
+        expect(after.start).toBe(before.start);
       }),
     ));
 
-  it('is checked when loaded: a Head or a parent that is no entry fails at once', () =>
+  it('is checked when loaded: a Head or a parent that is no entry, or a start that is no Snapshot, fails at once', () =>
     timed(
       Effect.gen(function* () {
         const state = yield* saved();
@@ -375,153 +481,170 @@ describe('a saved History', () => {
         expect(() => History.load(Counter, { ...state, entries })).toThrow(
           /entry 1 follows 2/,
         );
-      }),
-    ));
-});
-
-describe('the History lock', () => {
-  it('is held until every Runtime on it lets go', () =>
-    timed(
-      Effect.gen(function* () {
-        const history = History.make(Counter);
-        const one = yield* Runtime.start(history);
-        const two = yield* Runtime.start(history);
-        yield* one.stop();
-        yield* one.stop();
-        expect(() => history.moveHead(null)).toThrow(/stop the Runtime/);
-        yield* two.stop();
-        expect(() => history.moveHead(null)).not.toThrow();
+        const start = { ...state.start, at: Number.NaN };
+        expect(() => History.load(Counter, { ...state, start })).toThrow(
+          /the saved Snapshot is corrupt: its Time is NaN/,
+        );
       }),
     ));
 });
 
 describe('a Window', () => {
   const tags = (history: History) =>
-    history.branch().map((entry) => `${entry.id} ${entry.message._tag}`);
-  const count = (history: History, entry: number | null) =>
-    Snapshot.instanceAt(history.snapshotAt(entry), 'Counter')?.model;
+    History.entries(history).map(
+      (entry) => `${entry.id} ${entry.message._tag}`,
+    );
 
-  it('keeps that many entries on the Branch, the oldest a Restore of the Snapshot after it', () =>
+  it("keeps that many entries on the Head's Branch, after a start moved forward to the Snapshot before them", () =>
     timed(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(History.make(Counter, { window: 3 }));
+        const app = yield* scoped(Counter);
         for (let at = 1; at <= 5; at++) {
           yield* TestClock.adjust('100 millis');
-          app.send('Counter', { _tag: 'Bumped' });
+          app.root.send({ _tag: 'Bumped' });
         }
-        expect(tags(app.history)).toEqual([
-          '2 @kestack/kabuki/Restore',
-          '3 Bumped',
-          '4 Bumped',
-        ]);
-        expect(app.history.branch()[0]).toMatchObject({
+        const kept = History.compact(Counter, historyOf(app), 3);
+        expect(tags(kept)).toEqual(['2 Bumped', '3 Bumped', '4 Bumped']);
+        expect(History.entries(kept)[0]).toMatchObject({
           parent: null,
           at: 300,
-          source: { kind: 'restore' },
+          from: { kind: 'outside' },
         });
-        expect(count(app.history, 2)).toEqual({ count: 3 });
-        expect(count(app.history, 4)).toEqual({ count: 5 });
-        expect(count(app.history, null)).toEqual({ count: 0 });
-        expect(app.history.has(1)).toBe(false);
-        expect(Snapshot.instanceAt(app.snapshot(), 'Counter')?.model).toEqual({
-          count: 5,
-        });
+        // The start is the app right after the last entry folded into it.
+        expect(kept.start).toEqual(seekTo(historyOf(app), 1));
+        expect(kept.start.at).toBe(200);
+        expect(count(kept, null)).toEqual({ count: 2 });
+        expect(count(kept, 2)).toEqual({ count: 3 });
+        expect(count(kept, 4)).toEqual({ count: 5 });
+        expect(History.entry(kept, 1)).toBeUndefined();
+        // The app itself is untouched.
+        expect(app.snapshot.root.model).toEqual({ count: 5 });
+        expect(History.snapshot(Counter, kept)).toEqual(app.snapshot);
       }),
     ));
 
-  it('changes while the Runtime runs, and keeping it again changes nothing', () =>
+  it('keeps the ids of the entries it keeps, and leaves the History it folded as it was', () => {
+    let history = History.init(START);
+    for (let at = 1; at <= 5; at++) history = bump(history, at * 100);
+    const kept = History.compact(Counter, history, 2);
+    expect(History.all(kept).map((e) => [e.id, e.parent])).toEqual([
+      [3, null],
+      [4, 3],
+    ]);
+    expect(kept.head).toBe(4);
+    expect(kept.start).toEqual({
+      root: { ...START.root, model: { count: 3 } },
+      at: 300,
+    });
+    // An entry kept is the entry it was, but for the one right after the start.
+    expect(History.entry(kept, 4)).toBe(History.entry(history, 4));
+    expect(History.entry(kept, 3)).toEqual({
+      ...History.entry(history, 3),
+      parent: null,
+    });
+    expect(History.entry(kept, 2)).toBeUndefined();
+    expect(() => History.move(kept, 2)).toThrow(/no History entry 2/);
+    // Every Snapshot still there is the one it was.
+    expect(seekTo(kept, 3)).toEqual(seekTo(history, 3));
+    expect(seekTo(kept, 4)).toEqual(seekTo(history, 4));
+    // It carries on from its ids.
+    expect(bump(kept).head).toBe(5);
+    // The History it folded is as it was.
+    expect(history.start).toBe(START);
+    expect(ids(History.all(history))).toEqual([0, 1, 2, 3, 4]);
+    // A Window no smaller than the Branch folds nothing.
+    expect(History.compact(Counter, history, 5)).toBe(history);
+    expect(History.compact(Counter, history, 9)).toBe(history);
+  });
+
+  it('changes while running, and keeping it again changes nothing', () =>
     timed(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(History.make(Counter));
-        for (let at = 1; at <= 5; at++) app.send('Counter', { _tag: 'Bumped' });
-        expect(app.history.window()).toBe(null);
-        app.history.keep(2);
-        const once = app.history.save();
-        expect(tags(app.history)).toEqual([
-          '3 @kestack/kabuki/Restore',
+        const { app, kept } = yield* carryOn(History.init(START));
+        for (let at = 1; at <= 5; at++) app.root.send({ _tag: 'Bumped' });
+        expect(tags(kept.history)).toHaveLength(5);
+        expect(History.compact(Counter, kept.history, null)).toBe(kept.history);
+        kept.history = History.compact(Counter, kept.history, 2);
+        const once = kept.history;
+        expect(tags(once)).toEqual(['3 Bumped', '4 Bumped']);
+        expect(History.compact(Counter, once, 2)).toBe(once);
+        expect(History.compact(Counter, once, null)).toBe(once);
+        // The Runtime knows nothing of it, and carries on.
+        expect(app.snapshot.root.model).toEqual({ count: 5 });
+        app.root.send({ _tag: 'Bumped' });
+        expect(kept.history.head).toBe(5);
+        expect(tags(kept.history)).toEqual([
+          '3 Bumped',
           '4 Bumped',
+          '5 Bumped',
         ]);
-        app.history.keep(2);
-        expect(app.history.save()).toEqual(once);
-        app.history.keep(null);
-        expect(app.history.save()).toEqual(once);
-        app.send('Counter', { _tag: 'Bumped' });
-        expect(app.history.head()).toBe(5);
-        expect(count(app.history, 5)).toEqual({ count: 6 });
-      }),
-    ));
-
-  it('sweeps every entry that does not grow from the oldest one kept', () =>
-    timed(
-      Effect.gen(function* () {
-        const app = yield* Runtime.start(History.make(Counter));
-        for (let at = 1; at <= 5; at++) app.send('Counter', { _tag: 'Bumped' });
-        yield* app.start(1);
-        app.send('Counter', { _tag: 'Started' });
-        // The Branch 0 1 5: the floor is 1, so 2 to 4 grew from it and stay.
-        app.history.keep(2);
-        expect(app.history.save().entries.map((entry) => entry.id)).toEqual([
-          1, 2, 3, 4, 5,
-        ]);
-        expect(app.history.children(1).map((entry) => entry.id)).toEqual([
-          2, 5,
-        ]);
-        app.history.keep(1);
-        expect(app.history.save().entries.map((entry) => entry.id)).toEqual([
-          5,
-        ]);
-        expect(app.snapshot().state._tag).toBe('Busy');
-      }),
-    ));
-
-  it('saves a History that loads and carries on from its ids', () =>
-    timed(
-      Effect.gen(function* () {
-        const app = yield* Runtime.start(History.make(Counter, { window: 2 }));
-        for (let at = 1; at <= 4; at++) app.send('Counter', { _tag: 'Bumped' });
-        const state = app.history.save();
-        const again = yield* Runtime.start(History.load(Counter, state));
-        expect(Snapshot.instanceAt(again.snapshot(), 'Counter')?.model).toEqual(
-          {
-            count: 4,
-          },
-        );
-        again.send('Counter', { _tag: 'Bumped' });
-        expect(again.history.branch().at(-1)).toMatchObject({
-          id: 4,
-          parent: 3,
-        });
-      }),
-    ));
-
-  it('of 0 keeps no Message, only the app as it is now, as a Runtime started from an Actor does', () =>
-    timed(
-      Effect.gen(function* () {
-        const app = yield* Runtime.start(Counter);
-        expect(app.history.window()).toBe(0);
-        for (let at = 1; at <= 3; at++) app.send('Counter', { _tag: 'Bumped' });
-        expect(tags(app.history)).toEqual(['2 @kestack/kabuki/Restore']);
-        expect(count(app.history, 2)).toEqual({ count: 3 });
-        yield* app.stop();
-        yield* app.start();
-        expect(Snapshot.instanceAt(app.snapshot(), 'Counter')?.model).toEqual({
-          count: 3,
-        });
-        // Each start from init grows one entry, folded at once: none is left behind.
-        for (let at = 1; at <= 3; at++) {
-          yield* app.start(null);
-          app.send('Counter', { _tag: 'Bumped' });
-        }
-        expect(app.history.save().entries).toHaveLength(1);
-        expect(app.history.branch()[0]?.message._tag).toBe(
-          '@kestack/kabuki/Restore',
+        expect(count(kept.history, 5)).toEqual({ count: 6 });
+        expect(History.snapshot(Counter, kept.history)).toEqual(app.snapshot);
+        expect(() => History.compact(Counter, kept.history, -1)).toThrow(
+          /0 entries or more, not -1/,
         );
       }),
     ));
 
-  it('keeps 0 entries or more', () => {
-    expect(() => History.make(Counter, { window: -1 })).toThrow(
+  it('sweeps every entry that does not grow from the new start', () => {
+    let history = History.init(START);
+    for (let at = 1; at <= 5; at++) history = bump(history);
+    history = History.add(History.move(history, 1), {
+      to: ROOT,
+      message: { _tag: 'Started' },
+      from: { kind: 'outside' },
+      at: 0,
+    });
+    // The Branch 0 1 5. Two kept, 1 and 5: the start is right after 0, and 2 to 4 grow from it and stay.
+    const two = History.compact(Counter, history, 2);
+    expect(ids(History.all(two))).toEqual([1, 2, 3, 4, 5]);
+    expect(ids(History.children(two, null))).toEqual([1]);
+    expect(ids(History.children(two, 1))).toEqual([2, 5]);
+    // One kept, 5: the start is right after 1, which 2 grows from as 5 does.
+    const one = History.compact(Counter, history, 1);
+    expect(ids(History.all(one))).toEqual([2, 3, 4, 5]);
+    expect(ids(History.entries(one))).toEqual([5]);
+    expect(ids(History.children(one, null))).toEqual([2, 5]);
+    expect(History.snapshot(Counter, one).root.state._tag).toBe('Busy');
+    expect(History.compact(Counter, one, 1)).toBe(one);
+    // None kept: the start is right after 5, and 2 to 4 do not grow from it.
+    const none = History.compact(Counter, history, 0);
+    expect(History.all(none)).toEqual([]);
+    expect(none.start.root.state._tag).toBe('Busy');
+    // The Branch 0 1 2 3 4, two kept: the start is right after 2, and 5 grew from 1.
+    const other = History.compact(Counter, History.move(history, 4), 2);
+    expect(ids(History.all(other))).toEqual([3, 4]);
+    expect(History.entry(other, 5)).toBeUndefined();
+    expect(ids(History.tips(other))).toEqual([4]);
+  });
+
+  it('of 0 keeps no Message, only the app as it is now', () =>
+    timed(
+      Effect.gen(function* () {
+        const app = yield* scoped(Counter);
+        for (let at = 1; at <= 3; at++) app.root.send({ _tag: 'Bumped' });
+        const kept = History.compact(Counter, historyOf(app), 0);
+        expect(tags(kept)).toEqual([]);
+        expect(History.all(kept)).toEqual([]);
+        expect(kept.head).toBe(null);
+        expect(kept.start).toEqual(app.snapshot);
+        expect(count(kept)).toEqual({ count: 3 });
+        expect(History.compact(Counter, kept, 0)).toBe(kept);
+        const { app: again } = yield* carryOn(
+          History.load(Counter, History.save(Counter, kept)),
+        );
+        expect(again.snapshot.root.model).toEqual({ count: 3 });
+      }),
+    ));
+
+  it('keeps every entry when it is `null`, and 0 entries or more', () => {
+    const history = bump(bump(bump(History.init(START))));
+    expect(History.compact(Counter, history, null)).toBe(history);
+    expect(() => History.compact(Counter, history, -1)).toThrow(
       /0 entries or more, not -1/,
+    );
+    expect(() => History.compact(Counter, history, 1.5)).toThrow(
+      /0 entries or more, not 1.5/,
     );
   });
 });

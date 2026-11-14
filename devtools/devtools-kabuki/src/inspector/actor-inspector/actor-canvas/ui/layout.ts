@@ -23,16 +23,21 @@ export const pathTo = (node: GraphNode, id: string): ReadonlyArray<string> => {
   return [];
 };
 
-/** The Capabilities an Instance provides now: at its top, and in the State it is in. */
-const givesNow = (node: GraphNode): ReadonlyArray<string> => [
-  ...(node.known?.gives.top ?? []),
-  ...(node.state ? (node.known?.gives.state[node.state] ?? []) : []),
+/**
+ * The Capabilities an Actor Provides to one of its Children: at its top,
+ * and in the State the Child is placed in, if any. Where the Child is
+ * placed says it, so the Blueprint, with no State current, knows it too.
+ */
+const givesTo = (node: GraphNode, child: GraphNode): ReadonlyArray<string> => [
+  ...node.blueprint.top.provides,
+  ...(child.within ? (node.blueprint.state[child.within]?.provides ?? []) : []),
 ];
 
 /**
- * The nearest card above `id` that provides the Capability `name` now:
- * the one its code gets it from. None when no Actor in the tree provides
- * it, and the app's Layer, above the root, hands it in.
+ * The nearest card above `id` that provides the Capability `name` where
+ * the way down to `id` is placed: the one its code gets it from. None when
+ * no Actor above provides it, and the app's Layer, above the root, hands
+ * it in.
  */
 export const providerOf = (
   root: GraphNode,
@@ -40,13 +45,13 @@ export const providerOf = (
   name: string,
 ): string | undefined => {
   const byId = new Map(allOf(root).map((node) => [node.id, node]));
-  return pathTo(root, id)
-    .slice(0, -1)
-    .reverse()
-    .find((one) => {
-      const node = byId.get(one);
-      return node !== undefined && givesNow(node).includes(name);
-    });
+  const path = pathTo(root, id);
+  for (let i = path.length - 2; i >= 0; i--) {
+    const node = byId.get(path[i]!);
+    const child = byId.get(path[i + 1]!);
+    if (node && child && givesTo(node, child).includes(name)) return node.id;
+  }
+  return undefined;
 };
 
 export interface Placed extends Rect {

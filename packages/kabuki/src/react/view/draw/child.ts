@@ -1,5 +1,6 @@
 import { use, useRef, useSyncExternalStore } from 'react';
 import { AppContext } from './view.tsx';
+import type { Address } from '../../../core/snapshot/index.ts';
 import type { Drawable, DrawnApp, Handle, ViewProps } from './view.tsx';
 
 /**
@@ -24,8 +25,8 @@ const readOf = (drawn: Drawable | undefined): Read | undefined => {
   if (!drawn) return undefined;
   let read = reads.get(drawn);
   if (!read) {
-    const { _tag, id, model, state, props } = drawn;
-    reads.set(drawn, (read = { _tag, id, model, state, props } as Read));
+    const { _tag, address, model, state, props } = drawn;
+    reads.set(drawn, (read = { _tag, address, model, state, props } as Read));
   }
   return read;
 };
@@ -57,6 +58,39 @@ const usePicked = (select: ((child: never) => unknown) | undefined) => {
   };
 };
 
+/**
+ * Subscribes at every Child read, with a function that stays the same while
+ * they are the same Children, so a list made anew on each render is not
+ * subscribed again.
+ */
+const useSubscribeAt = (
+  drawn: DrawnApp,
+  handles: ReadonlyArray<Handle<unknown>>,
+) => {
+  const memo = useRef<{
+    drawn: DrawnApp;
+    handles: ReadonlyArray<Handle<unknown>>;
+    subscribe: DrawnApp['subscribe'];
+  }>(undefined);
+  const was = memo.current;
+  if (
+    was?.drawn === drawn &&
+    was.handles.length === handles.length &&
+    handles.every((handle, at) => handle.address === was.handles[at]!.address)
+  )
+    return was.subscribe;
+  const subscribe: DrawnApp['subscribe'] = (listener) => {
+    const leave = handles.map((handle) =>
+      drawn.subscribeAt(handle.address)(listener),
+    );
+    return () => {
+      for (const one of leave) one();
+    };
+  };
+  memo.current = { drawn, handles, subscribe };
+  return subscribe;
+};
+
 interface UseChild {
   <A>(handle: Handle<A>): ChildData<A> | undefined;
   <A, S>(handle: Handle<A>, select: (child: ChildData<A>) => S): S | undefined;
@@ -75,13 +109,16 @@ export const useChild: UseChild = (
   const drawn = useDrawn('useChild');
   const pick = usePicked(select);
   const last = useRef<unknown>(undefined);
-  const from = (read: (id: string) => Drawable | undefined) => () => {
-    const child = readOf(read(handle.id));
-    const next = child && pick(child);
-    return Object.is(next, last.current) ? last.current : (last.current = next);
-  };
+  const from =
+    (read: (address: Address<any>) => Drawable | undefined) => () => {
+      const child = readOf(read(handle.address));
+      const next = child && pick(child);
+      return Object.is(next, last.current)
+        ? last.current
+        : (last.current = next);
+    };
   return useSyncExternalStore(
-    drawn.subscribe,
+    drawn.subscribeAt(handle.address),
     from(drawn.instance),
     from(drawn.served),
   ) as never;
@@ -108,21 +145,22 @@ export const useChildren: UseChildren = (
   const drawn = useDrawn('useChildren');
   const pick = usePicked(select);
   const last = useRef<ReadonlyArray<unknown>>([]);
-  const from = (read: (id: string) => Drawable | undefined) => () => {
-    const next = handles.flatMap((handle) => {
-      const child = readOf(read(handle.id));
-      return child ? [pick(child)] : [];
-    });
-    const was = last.current;
-    if (
-      next.length === was.length &&
-      next.every((value, index) => Object.is(value, was[index]))
-    )
-      return was;
-    return (last.current = next);
-  };
+  const from =
+    (read: (address: Address<any>) => Drawable | undefined) => () => {
+      const next = handles.flatMap((handle) => {
+        const child = readOf(read(handle.address));
+        return child ? [pick(child)] : [];
+      });
+      const was = last.current;
+      if (
+        next.length === was.length &&
+        next.every((value, index) => Object.is(value, was[index]))
+      )
+        return was;
+      return (last.current = next);
+    };
   return useSyncExternalStore(
-    drawn.subscribe,
+    useSubscribeAt(drawn, handles),
     from(drawn.instance),
     from(drawn.served),
   ) as never;

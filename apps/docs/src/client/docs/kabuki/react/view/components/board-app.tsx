@@ -35,7 +35,7 @@ const BoardView = View.make(BoardLive, ({ children, root }) => {
   return (
     <div {...root} className="flex w-full max-w-72 flex-col gap-2">
       {children.cards.map((card) => (
-        <CardView key={card.id} instance={card} />
+        <CardView key={card.address} instance={card} />
       ))}
       <p className="text-center font-mono text-xs text-muted-foreground">
         board drawn {draws}×

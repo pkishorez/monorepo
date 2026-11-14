@@ -45,12 +45,15 @@ export const DownloadsLive = Downloads.build({
       }),
     }),
   },
-  provides: (self) =>
-    Layer.succeed(Shelf, {
-      remove: (id) => self.send({ _tag: 'Remove', id }),
-      pause: (id) => self.send({ _tag: 'Pause', id }),
-      resume: (id) => self.send({ _tag: 'Resume', id }),
-    }),
+  provides: {
+    capabilities: [Shelf],
+    layer: (self) =>
+      Layer.succeed(Shelf, {
+        remove: (id) => self.send({ _tag: 'Remove', id }),
+        pause: (id) => self.send({ _tag: 'Pause', id }),
+        resume: (id) => self.send({ _tag: 'Resume', id }),
+      }),
+  },
   on: {
     Add: (_, { model }) => ({
       model: {

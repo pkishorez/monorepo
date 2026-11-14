@@ -4,7 +4,7 @@ import { createRoot, type Root as ReactRoot } from 'react-dom/client';
 import { Effect, Layer, Schema, Stream } from 'effect';
 import { Actor } from '@kestack/kabuki';
 import { View, useChild } from '@kestack/kabuki/react';
-import type { ViewProps } from '@kestack/kabuki/react/view';
+import type { ViewProps } from '@kestack/kabuki/react/types';
 import { undoDepth } from '@codemirror/commands';
 import { EditorView } from '@codemirror/view';
 import { MotionGlobalConfig } from 'motion/react';
@@ -130,11 +130,14 @@ const PageLive = Page.build({
       }),
     }),
   },
-  provides: (self) =>
-    Layer.merge(
-      SkillPicker.owner((name) => self.send({ _tag: 'Picked', name })),
-      Touch.owner(self.send({ _tag: 'Send' })),
-    ),
+  provides: {
+    capabilities: [...SkillPicker.capabilities, ...Touch.capabilities],
+    layer: (self) =>
+      Layer.merge(
+        SkillPicker.owner((name) => self.send({ _tag: 'Picked', name })),
+        Touch.owner(self.send({ _tag: 'Send' })),
+      ),
+  },
   on: {
     Ping: (_, { model }) => ({ model: { ...model, pings: model.pings + 1 } }),
     Dictation: ({ pending }, { model }) => ({ model: { ...model, pending } }),

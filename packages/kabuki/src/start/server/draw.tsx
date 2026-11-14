@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import type { ComponentType, ReactNode } from 'react';
 import { renderToReadableStream } from 'react-dom/server';
 import { History } from '../../core/history/index.ts';
+import { Snapshot } from '../../core/snapshot/index.ts';
 import type { SavedHistory } from '../../core/history/index.ts';
 import type { AnyActor } from '../../core/actor/index.ts';
 import { View } from '../../react/index.ts';
@@ -25,7 +26,8 @@ import type {
 
 /*
  * Drawing one URL, purely: the Router's init at its Route with what the
- * Loaders gave each place, saved as a History of one Restore; the Document drawn
+ * Loaders gave each place, as a Snapshot, saved as a History that starts
+ * from it; the Document drawn
  * around the App drawn from it, every lazy View resolved; then the files of
  * the lazy Views it drew added to the head, each marked with its id so the
  * browser preloads it before it hydrates.
@@ -135,12 +137,10 @@ export const drawer = (
   return {
     /** The app at a Route as a whole HTML page; throws if anything in it fails to draw. */
     page: async (at: At): Promise<string> => {
-      const history = History.make(app.actor, { input: at });
-      const saved = History.restored(
+      const saved = History.save(
         app.actor,
-        history.snapshotAt(null),
-        0,
-      ).save();
+        History.init(Snapshot.init(app.actor, at)),
+      );
       const metadata = app.routes.metadata(at.route, dataOf(at.known));
       const page: Page = {
         entry: build.entry,

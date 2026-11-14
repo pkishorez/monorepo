@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import type { CSSProperties } from 'react';
 import { Layer } from 'effect';
 import { View } from '@kestack/kabuki/react';
-import type { AppRuntime } from '@kestack/kabuki/react/view';
+import type { AppRuntime } from '@kestack/kabuki/react/types';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import { inMemory } from '../session/index.ts';
 import { InspectorView } from './actor-inspector/index.ts';

@@ -11,7 +11,7 @@ import {
   type ContextType,
 } from 'react';
 import type { Availability } from '../../../../../frame/header/voice/index.ts';
-import type { ViewProps } from '@kestack/kabuki/react/view';
+import type { ViewProps } from '@kestack/kabuki/react/types';
 import { type Heard, isOpen, type TouchLive } from './actor.ts';
 import type { Phase, Stop } from './controls/index.ts';
 

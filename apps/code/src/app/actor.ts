@@ -276,7 +276,10 @@ export const AppLive = App.build({
   }),
   pages: { Account: Account.actor },
   // 5. Switcher
-  provides: () => CurrentAccount.layer,
+  provides: {
+    capabilities: CurrentAccount.capabilities,
+    layer: () => CurrentAccount.layer,
+  },
   children: {
     // The Auth Worker's `maxAccounts`: its default, 5.
     account: Actor.child(AccountSwitcherLive, {

@@ -5,7 +5,7 @@ import type { ViewOf } from './view.tsx';
 /*
  * A lazy View: a View whose code is loaded the first time it is drawn,
  * through `React.lazy`, so a heavy page is not in the first bundle. Only the
- * View is lazy: its Actor is not, since Replay and Restore need every
+ * View is lazy: its Actor is not, since Replay and a loaded Snapshot need every
  * Actor's Schemas and Update.
  *
  * 1. Load     once, on `preload()` or on the first draw, whichever is first.

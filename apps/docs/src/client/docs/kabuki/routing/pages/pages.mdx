@@ -67,7 +67,7 @@ is handed Props:
 
 ## Pages under a page
 
-A Page can hold Pages. Its Definition names their Definitions; its Build
+A Page can hold Pages. Its Shape names their Shapes; its Build
 names their Builds, under the same keys.
 
 ```ts
@@ -119,7 +119,7 @@ export const router = Router.define(Shop, {
 });
 ```
 
-It reads Definitions only. It never imports a Build or a View, so any
+It reads Shapes only. It never imports a Build or a View, so any
 Build can import it, as `ProductLive` does above to move the app.
 
 ## Routes are typed values
@@ -184,7 +184,7 @@ too, for one visitor; that's on the [Data](/kabuki/data) page.
 
 ## Try it
 
-Here's the whole shop. The window's address never changes, so the shop
+Here's the whole shop. The window's URL never changes, so the shop
 draws its own bar, and under it the Route the Router holds.
 
 <Live app={ShopApp} url="shop.app" caption="Open the Lamp, then the Chair. The bar shows the URL, and the line at the bottom the Route, written as code makes it. Back and Forward walk the history.">

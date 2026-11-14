@@ -156,9 +156,9 @@ describe('a Plugin kept running by its CLI', () => {
           Effect.gen(function* () {
             const plugin = setup();
             const { hash } = bundle('a');
-            const running = yield* Runtime.start(
+            const running = yield* Runtime.scoped(
               cliOf(plugin, { hash, url: `${base}/a` }),
-              plugin.layer,
+              { layer: plugin.layer },
             );
             yield* eventually(() =>
               expect(last(plugin.reports)).toEqual({ _tag: 'Running', hash }),
@@ -179,7 +179,7 @@ describe('a Plugin kept running by its CLI', () => {
             expect(existsSync(join(plugin.folders.shared, 'started-a'))).toBe(
               true,
             );
-            expect(running.running()).toBe(true);
+            expect(running.running).toBe(true);
           }),
         ),
       ),
@@ -226,16 +226,16 @@ describe('a Plugin kept running by its CLI', () => {
         Effect.scoped(
           Effect.gen(function* () {
             const plugin = setup();
-            const running = yield* Runtime.start(
+            const running = yield* Runtime.scoped(
               cliOf(plugin, { file: fixture('ping-a.mjs') }),
-              plugin.layer,
+              { layer: plugin.layer },
             );
             yield* eventually(() =>
               expect(last(plugin.reports)?._tag).toBe('Running'),
             );
             const before = yield* controlAt(plugin.socket);
             const { pid } = yield* before.status();
-            running.send('Cli', {
+            running.root.send({
               _tag: 'Want',
               wanted: { file: fixture('ping-b.mjs') },
             });
@@ -268,16 +268,16 @@ describe('a Plugin kept running by its CLI', () => {
         Effect.scoped(
           Effect.gen(function* () {
             const plugin = setup();
-            const running = yield* Runtime.start(
+            const running = yield* Runtime.scoped(
               cliOf(plugin, { file: fixture('ping-slow.mjs') }),
-              plugin.layer,
+              { layer: plugin.layer },
             );
             yield* eventually(() =>
               expect(last(plugin.reports)?._tag).toBe('Running'),
             );
             const before = yield* controlAt(plugin.socket);
             const { pid } = yield* before.status();
-            running.send('Cli', {
+            running.root.send({
               _tag: 'Want',
               wanted: { file: fixture('ping-b.mjs') },
             });
@@ -308,7 +308,9 @@ describe('a Plugin kept running by its CLI', () => {
           const url = pathToFileURL(
             join(plugin.folders.cache, 'shelf', 'ping', `${hash}.mjs`),
           ).href;
-          yield* Runtime.start(cliOf(plugin, { hash, url }), plugin.layer);
+          yield* Runtime.scoped(cliOf(plugin, { hash, url }), {
+            layer: plugin.layer,
+          });
           yield* eventually(() =>
             expect(last(plugin.reports)).toMatchObject({
               _tag: 'Crashed',
@@ -339,9 +341,9 @@ describe('a Plugin kept running by its CLI', () => {
                   }),
               }),
             );
-            yield* Runtime.start(
+            yield* Runtime.scoped(
               cliOf(plugin, { file: fixture('crash.mjs') }),
-              layer,
+              { layer },
             );
             yield* eventually(() => expect(startedAt.length).toBe(4));
             const crashed = reports.find((report) => report._tag === 'Crashed');

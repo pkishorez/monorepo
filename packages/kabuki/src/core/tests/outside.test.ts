@@ -1,9 +1,9 @@
 import { Effect, Fiber, Schema } from 'effect';
 import { TestClock } from 'effect/testing';
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import { Actor, History, Runtime } from '../index.ts';
+import { Actor } from '../index.ts';
 import type { LiveInstance, Sent } from '../runtime/index.ts';
-import { timed } from './fixtures.ts';
+import { line, start, stop, timed, historyOf, scoped } from './fixtures.ts';
 
 /*
  * Code outside the tree tells an Instance with `send`, which says what
@@ -57,15 +57,21 @@ const DoorLive = Door.build({
 const knocks: Array<Sent> = [];
 
 describe('send says what became of a Message', () => {
-  it('handled by a rule, ignored with none in this State, refused once stopped', () =>
+  it('handled by a rule, ignored with none in this State, refused while the Runtime is stopped or let go', () =>
     timed(
       Effect.gen(function* () {
-        const running = yield* Runtime.start(DoorLive);
-        const door = running.instance({ from: 'test' });
+        const running = yield* scoped(DoorLive);
+        const door = running.root;
         expect(door.send({ _tag: 'Shut' })).toBe('ignored');
         expect(door.send({ _tag: 'Pushed', by: 'ada' })).toBe('handled');
         expect(door.send({ _tag: 'Pushed', by: 'ada' })).toBe('ignored');
-        yield* running.stop();
+        yield* stop(running);
+        const before = historyOf(running);
+        expect(door.send({ _tag: 'Knocked' })).toBe('refused');
+        expect(historyOf(running)).toBe(before);
+        yield* start(running);
+        expect(door.send({ _tag: 'Knocked' })).toBe('handled');
+        yield* Effect.promise(() => running.dispose());
         expect(door.send({ _tag: 'Knocked' })).toBe('refused');
       }),
     ));
@@ -73,17 +79,18 @@ describe('send says what became of a Message', () => {
   it('queued, when Sent while another Message is being handled', () =>
     timed(
       Effect.gen(function* () {
-        const running = yield* Runtime.start(History.make(DoorLive));
-        const door = running.instance({ from: 'test' });
+        const running = yield* scoped(DoorLive);
+        const door = running.root;
         knock = () => door.send({ _tag: 'Knocked' });
         knocks.length = 0;
         // The Worker starts, and Sends, while `Pushed` is being handled.
         door.send({ _tag: 'Pushed', by: 'ada' });
         knock = undefined;
         expect(knocks).toEqual(['queued']);
-        expect(
-          running.history.branch().map(({ message }) => message._tag),
-        ).toEqual(['Pushed', 'Knocked']);
+        expect(line(running).map(({ message }) => message._tag)).toEqual([
+          'Pushed',
+          'Knocked',
+        ]);
       }),
     ));
 });
@@ -92,8 +99,8 @@ describe('until waits for the data', () => {
   it('answers at once when the test already passes', () =>
     timed(
       Effect.gen(function* () {
-        const running = yield* Runtime.start(DoorLive);
-        const door = running.instance({ from: 'test' });
+        const running = yield* scoped(DoorLive);
+        const door = running.root;
         const closed = yield* Effect.orDie(
           door.until((now) => now._tag === 'Closed'),
         );
@@ -104,8 +111,8 @@ describe('until waits for the data', () => {
   it('answers once a Message makes the test pass, narrowed as the test narrows it', () =>
     timed(
       Effect.gen(function* () {
-        const running = yield* Runtime.start(DoorLive);
-        const door = running.instance({ from: 'test' });
+        const running = yield* scoped(DoorLive);
+        const door = running.root;
         door.send({ _tag: 'Pushed', by: 'ada' });
         const waiting = yield* Effect.forkChild(
           door.until((now) => now._tag === 'Open'),
@@ -121,18 +128,20 @@ describe('until waits for the data', () => {
       }),
     ));
 
-  it('fails with Stopped when the app stops first', () =>
+  it('fails with Stopped when the Runtime is let go first', () =>
     timed(
       Effect.gen(function* () {
-        const running = yield* Runtime.start(DoorLive);
-        const door: LiveInstance<typeof DoorLive> = running.instance({
-          from: 'test',
-        });
+        const running = yield* scoped(DoorLive);
+        const door: LiveInstance<typeof DoorLive> = running.root;
         const waiting = yield* Effect.forkChild(
           door.until((now) => now._tag === 'Open'),
         );
         yield* Effect.yieldNow;
-        yield* running.stop();
+        yield* stop(running);
+        // Stopped, the Instance is still there: it keeps waiting.
+        yield* Effect.yieldNow;
+        expect(waiting.pollUnsafe()).toBeUndefined();
+        yield* Effect.promise(() => running.dispose());
         const failed = yield* Effect.orDie(Effect.flip(Fiber.join(waiting)));
         expect(failed._tag).toBe('Stopped');
         expect(failed.instance).toBe('Door');
@@ -160,8 +169,8 @@ describe('until waits for the data', () => {
             },
           },
         });
-        const running = yield* Runtime.start(History.make(Flicker));
-        const flicker = running.instance({ from: 'test' });
+        const running = yield* scoped(Flicker);
+        const flicker = running.root;
         reset = () => flicker.send({ _tag: 'Reset' });
         const waiting = yield* Effect.forkChild(
           flicker.until((now) => now.model.n === 1),
@@ -169,20 +178,21 @@ describe('until waits for the data', () => {
         yield* Effect.yieldNow;
         flicker.send({ _tag: 'Started' });
         yield* Effect.yieldNow;
-        expect(
-          running.history.branch().map(({ message }) => message._tag),
-        ).toEqual(['Started', 'Reset']);
+        expect(line(running).map(({ message }) => message._tag)).toEqual([
+          'Started',
+          'Reset',
+        ]);
         expect(flicker.model.n).toBe(0);
         const seen = yield* Effect.orDie(Fiber.join(waiting));
-        expect(seen.id).toBe('Flicker');
+        expect(seen.address).toBe('Flicker');
       }),
     ));
 
   it('ends with a defect when its test throws, and the app goes on', () =>
     timed(
       Effect.gen(function* () {
-        const running = yield* Runtime.start(DoorLive);
-        const door = running.instance({ from: 'test' });
+        const running = yield* scoped(DoorLive);
+        const door = running.root;
         let calls = 0;
         const broken = yield* Effect.forkChild(
           door.until(() => {

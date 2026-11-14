@@ -5,7 +5,7 @@ import { EditorView } from '@codemirror/view';
 import { Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
-import type { ViewProps } from '@kestack/kabuki/react/view';
+import type { ViewProps } from '@kestack/kabuki/react/types';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { keys } from '../../../../../frame/commands.ts';
 import * as Picker from '../../../../../../../ui/controls/picker/index.ts';
@@ -129,8 +129,11 @@ const PageLive = Page.build({
       }),
     }),
   },
-  provides: (self) =>
-    SkillPicker.owner((name) => self.send({ _tag: 'Picked', name })),
+  provides: {
+    capabilities: SkillPicker.capabilities,
+    layer: (self) =>
+      SkillPicker.owner((name) => self.send({ _tag: 'Picked', name })),
+  },
   on: {
     Ping: (_, { model }) => ({ model: { ...model, pings: model.pings + 1 } }),
     Dictation: ({ pending }, { model }) => ({ model: { ...model, pending } }),

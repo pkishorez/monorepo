@@ -15,6 +15,7 @@ import {
   run,
   seed,
   start,
+  pageOf,
 } from './fixtures.js';
 
 const list = (store: Layer.Layer<Store>) =>
@@ -368,7 +369,7 @@ describe('Store', () => {
           balance: 7,
         });
         const app = yield* start(world, Idb.idb());
-        app.send('Root/page#1', { _tag: 'Switched', mine: 'idb' });
+        app.at(pageOf(app))?.send({ _tag: 'Switched', mine: 'idb' });
         yield* eventually(() =>
           expect(balances(read(app).mine())).toEqual({ w1: 7 }),
         );

@@ -1,24 +1,31 @@
-import type { Data, Requires, Single, Tagged } from './instance.ts';
 import type {
   AnyChild,
   Behavior,
   DeclaredQueries,
+  Doubled,
   MakeChild,
   OpenOfBehavior,
   Undeclared,
-} from './behavior.ts';
-import type { KidsByState, QueriesByState } from './kept.ts';
+  Unprovided,
+  KidsByState,
+  QueriesByState,
+} from './build.ts';
 import type {
-  Actor as ActorOf,
-  AnyActor,
-  Check,
   ActorDefinition,
+  Check,
+  Data,
   Encoding,
+  ProvideDefinition,
   QueryDefinition,
   QuerySchemas,
+  Requires,
+  Single,
   SlotDefinition,
+  Tagged,
   WorkerDefinition,
-} from './definition.ts';
+} from './definition/index.ts';
+import { blueprintOf } from './blueprint.ts';
+import type { Blueprint } from './blueprint.ts';
 import { Effect, Schema, SchemaAST } from 'effect';
 import { structOf, taggedOf } from './schemas.ts';
 import type {
@@ -29,10 +36,97 @@ import type {
   TaggedWritten,
 } from './schemas.ts';
 
+/*
+ * What an Actor is, as `Actor.define` takes it, and the Actor as its type
+ * carries it: its name, its Blueprint, and what its types say. How the
+ * engine holds it is kabuki's own.
+ */
+
+declare const types: unique symbol;
+
+/** The Actor interface, by a name that does not clash with the `Actor` value. */
+export interface ActorType<
+  out Name extends string,
+  out Input,
+  out Props,
+  out Model,
+  out State extends Tagged,
+  out Msg extends Tagged,
+  out Kids,
+  out Needs,
+  out Qs = {},
+  out Emits = never,
+> {
+  readonly name: Name;
+  /** What it is and does, as plain data: made the first time it is read. */
+  readonly blueprint: Blueprint;
+  /**
+   * How the engine holds it. Kabuki's own: left out of the published types,
+   * so code outside reads the Blueprint.
+   *
+   * @internal
+   */
+  readonly definition: ActorDefinition;
+  readonly [types]?: {
+    readonly input: Input;
+    readonly props: Props;
+    readonly model: Model;
+    readonly state: State;
+    readonly message: Msg;
+    readonly children: Kids;
+    readonly open: Needs;
+    readonly queries: Qs;
+    readonly emits: Emits;
+  };
+}
+
+export type AnyActor = ActorType<
+  string,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any
+>;
+
+/** Everything an Actor's types say, for the Runtime and Views. */
+export type Types<A> =
+  A extends ActorType<
+    any,
+    infer Input,
+    infer Props,
+    infer Model,
+    infer State,
+    infer Msg,
+    infer Kids,
+    infer Needs,
+    infer Qs,
+    infer Emits
+  >
+    ? {
+        input: Input;
+        props: Props;
+        model: Model;
+        state: State;
+        message: Msg;
+        /** Slots per State tag. */
+        children: Kids;
+        open: Needs;
+        /** Queries per State tag. */
+        queries: Qs;
+        /** What it Emits to its parent. */
+        emits: Emits;
+      }
+    : never;
+
 /**
- * What an Actor is, as `Actor.define` gives it: its name, and the Schemas
+ * An Actor's Shape, as `Actor.define` gives it: its name, and the Schemas
  * and Requires every type is fixed by. It runs nothing: its own `build`
- * adds how it behaves.
+ * adds how it behaves, and the two together are the Actor's Definition.
  */
 export interface Defined<
   Name extends string,
@@ -51,7 +145,7 @@ export interface Defined<
   readonly '~queries'?: Qs;
 }
 
-/** What `Actor.define` gives: the definition, and its own `build`. */
+/** What `Actor.define` gives: the Shape, and its own `build`. */
 export interface Buildable<
   Name extends string,
   Input,
@@ -66,17 +160,18 @@ export interface Buildable<
   /**
    * How it behaves, at the top for as long as the Instance lives and under
    * `states` in one block per State for as long as that State lasts: its
-   * Provides, its Children, each made with `Actor.child`, its Updates under
-   * `on`, its Workers, and its answers to its Queries.
+   * Provides, the Capabilities it names and the Layer that builds them, its
+   * Children, each made with `Actor.child` and each slot name used once,
+   * its Updates under `on`, its Workers, and its answers to its Queries.
    */
   build<
     const B extends Behavior<Input, Props, Model, State, Msg, R, Emits, Qs>,
   >(
-    behavior: B & Undeclared<B, Qs>,
+    behavior: B & Undeclared<B, Qs> & Unprovided<B> & Doubled<B>,
   ): BuiltOf<Defined<Name, Input, Props, Model, State, Msg, R, Emits, Qs>, B>;
 }
 
-/** Any Actor's definition, loosely. */
+/** Any Actor's Shape, loosely. */
 export type AnyDefined = Defined<
   string,
   any,
@@ -288,7 +383,7 @@ export type BuiltOf<D, B> =
     infer Emits,
     infer Qs
   >
-    ? ActorOf<
+    ? ActorType<
         Name,
         Input,
         Props,
@@ -305,9 +400,9 @@ export type BuiltOf<D, B> =
     : never;
 
 /**
- * The Actor a definition builds: what `definition.build(behavior)` runs.
- * Code that builds from a definition it made itself, as the Router and pages
- * do, calls it directly.
+ * The Actor a Shape builds: what `shape.build(behavior)` runs. Code that
+ * builds from a Shape it made itself, as the Router and pages do, calls it
+ * directly.
  */
 function build(
   definition: Pick<AnyDefined, 'name' | 'shape'>,
@@ -316,18 +411,21 @@ function build(
   return {
     name: definition.name,
     definition: definitionOf(definition.name, definition.shape, behavior),
+    get blueprint() {
+      return blueprintOf(this.definition);
+    },
   };
 }
 
 type Block = {
-  readonly provides?: Function;
+  readonly provides?: ProvideDefinition;
   readonly children?: Readonly<Record<string, AnyChild>>;
   readonly on?: Record<string, Function>;
   readonly workers?: Record<string, any>;
   readonly queries?: Record<string, Function>;
 };
 
-/** The plain definition the engine works from, out of the Schemas and the levels. */
+/** The Definition the engine works from, out of the Schemas and the levels. */
 const definitionOf = (
   name: string,
   shape: Shape<any, any, any, any, any, any, any>,
@@ -343,11 +441,12 @@ const definitionOf = (
   const blocks = behavior.states ?? {};
   const states = statesOf(shape.state, blocks);
   const top = slots(name, behavior.children);
+  const provides = providesOf(name, behavior.provides, 'at the top');
   const lasting = Object.keys(top);
 
   const children: Record<string, Record<string, SlotDefinition>> = {};
   const update: Record<string, Record<string, Function>> = {};
-  const stateProvides: Record<string, Function | undefined> = {};
+  const stateProvides: Record<string, ProvideDefinition | undefined> = {};
   const workers: Record<string, WorkerDefinition> = {};
   const addWorkers = (from: Block, state: string | undefined) => {
     for (const [worker, written] of Object.entries(from.workers ?? {})) {
@@ -394,11 +493,11 @@ const definitionOf = (
     for (const slot of Object.keys(own))
       if (slot in top)
         throw new Error(
-          `[@kestack/kabuki] ${name}: Child "${slot}" is written at the top and in ${tag}`,
+          `[@kestack/kabuki] ${name}: Child "${slot}" is written at the top and in ${tag}; a slot name is used once per Actor`,
         );
     children[tag] = { ...top, ...own };
     if (block.on) update[tag] = block.on as Record<string, Function>;
-    stateProvides[tag] = block.provides;
+    stateProvides[tag] = providesOf(name, block.provides, `in ${tag}`);
     addWorkers(block, tag);
     addQueries(block, tag);
   }
@@ -454,11 +553,27 @@ const definitionOf = (
     update,
     workers,
     queries,
-    provides: behavior.provides,
+    provides,
     stateProvides,
     children,
     lasting,
   };
+};
+
+/** A level's Provides as written: the Capabilities it names, and the Layer that builds them. */
+const providesOf = (
+  name: string,
+  provides: unknown,
+  where: string,
+): ProvideDefinition | undefined => {
+  if (provides === undefined) return undefined;
+  const { capabilities, layer } = (provides ??
+    {}) as Partial<ProvideDefinition>;
+  if (!Array.isArray(capabilities) || typeof layer !== 'function')
+    throw new Error(
+      `[@kestack/kabuki] ${name}: \`provides\` ${where} names the Capabilities it gives beside the Layer that builds them: \`{ capabilities: [Key], layer: (self) => Layer }\``,
+    );
+  return { capabilities, layer };
 };
 
 /** One Child, as `Actor.child` makes it: its Actor and its options, as written. */
@@ -597,10 +712,11 @@ const workerOf = (worker: any, state: string | undefined): WorkerDefinition => {
 };
 
 /**
- * An Actor, in two steps. `define` takes what it is: its Schemas and
- * Requires, which fix every type, what it Emits to its parent, and the
- * Queries code outside the tree may ask it, each with what it is asked with
- * and what it answers. The definition's own `build` takes how it behaves.
- * `child` makes each Child a level names, typed by the level it is in.
+ * An Actor, in two steps, which together are its Definition. `define` takes
+ * its Shape: its Schemas and Requires, which fix every type, what it Emits
+ * to its parent, and the Queries code outside the tree may ask it, each
+ * with what it is asked with and what it answers. The Shape's own `build`
+ * takes how it behaves. `child` makes each Child a level names, typed by
+ * the level it is in.
  */
 export const Actor = { define, child };

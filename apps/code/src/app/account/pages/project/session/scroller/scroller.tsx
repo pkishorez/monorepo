@@ -1,7 +1,7 @@
 import {
   useElementScrollRestoration,
   useKeepScrollAnchor,
-} from '@kestack/kabuki/routing/router';
+} from '@kestack/kabuki/routing';
 import {
   createContext,
   type ReactNode,

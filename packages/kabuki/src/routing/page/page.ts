@@ -8,6 +8,7 @@ import type {
   Behavior,
   DeclaredOf,
   DeclaredQueries,
+  Doubled,
   Defined,
   KidsByState,
   OpenOfBehavior,
@@ -23,6 +24,7 @@ import type {
   TaggedWritten,
   Types,
   Undeclared,
+  Unprovided,
 } from '../../core/actor/index.ts';
 import { Navigation } from '../capabilities/index.ts';
 import {
@@ -199,7 +201,7 @@ export interface PageBuilder<
       PageDefinition<P, Q, C, D, M, Model, State, Msg, R, Qs>
     >,
   >(
-    behavior: B & Undeclared<B, Qs>,
+    behavior: B & Undeclared<B, Qs> & Unprovided<B> & Doubled<B>,
   ): BuiltPage<
     PageDefinition<P, Q, C, D, M, Model, State, Msg, R, Qs> &
       PageBuilder<P, Q, C, D, M, Model, State, Msg, R, Qs>,

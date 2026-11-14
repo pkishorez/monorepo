@@ -1,124 +1,85 @@
-import type { ActorDefinition, Encoding, Tagged } from '../actor/index.ts';
-import { Snapshot } from '../snapshot/index.ts';
-import { isRestore, restore } from '../snapshot/engine/index.ts';
-import type { Instance } from '../snapshot/index.ts';
-import type { Entry, SavedHistory } from './history.ts';
+import type { ActorDefinition, Tagged } from '../actor/index.ts';
+import { actorFor } from '../snapshot/index.ts';
+import type { SavedSnapshot } from '../snapshot/index.ts';
+import type { HistoryEntry } from './replay.ts';
 
 /*
  * Saved: a History as plain JSON. In memory every value is decoded; saved,
- * each Message, and each Instance of a Restore's Snapshot, is its Actor's
- * Schemas' encoded side. So only that side must be JSON-safe.
+ * its start is a saved Snapshot, and each Message is its Actor's Schema's
+ * encoded side. So only that side must be JSON-safe.
  *
- * 1. Encode  an entry, through the Schemas of the Actor it is for. One that
- *            does not fit is saved as it is: it never plays.
+ * 1. Encode  an entry, through the Schema of the Actor it is for, once per
+ *            entry. One that does not fit is saved as it is: it never plays.
  * 2. Decode  an entry read back. One that no longer fits the code is kept
  *            as it was saved: Replay warns of it and skips it.
  * 3. Check   a saved History's shape before it is read: ids rise, but
  *            need not start at 0 or follow on, once it is Compacted.
  */
 
+/** A History as plain JSON, to keep and load again: its start as a saved Snapshot, and every Message as its Actor's Schema encodes it. */
+export interface SavedHistory {
+  readonly start: SavedSnapshot;
+  /** Oldest first, by id. */
+  readonly entries: ReadonlyArray<HistoryEntry>;
+  readonly head: number | null;
+}
+
+const encoded = new WeakMap<
+  ActorDefinition,
+  WeakMap<HistoryEntry, HistoryEntry>
+>();
+
+const known = (root: ActorDefinition) => {
+  let byEntry = encoded.get(root);
+  if (!byEntry) encoded.set(root, (byEntry = new WeakMap()));
+  return byEntry;
+};
+
 // 1. Encode
-export const encodeEntry = (root: ActorDefinition, entry: Entry): Entry => {
-  const { message } = entry;
-  // A value that does not fit its Schema is saved as it is: it was dropped
-  // live, or Replay skips it, so it never plays.
-  if (isRestore(message))
-    try {
-      return {
-        ...entry,
-        message: restore(convert(root, message.snapshot, 'encode')),
-      };
-    } catch {
-      return entry;
-    }
-  for (const definition of actorsAt(root, entry.destination))
-    try {
-      return {
-        ...entry,
-        message: definition.encoding.message.encode(message) as Tagged,
-      };
-    } catch {}
-  return entry;
+export const encodeEntry = (
+  root: ActorDefinition,
+  entry: HistoryEntry,
+): HistoryEntry => {
+  const cache = known(root);
+  const found = cache.get(entry);
+  if (found) return found;
+  const written = Object.freeze(convert(root, entry, 'encode'));
+  cache.set(entry, written);
+  return written;
 };
 
 // 2. Decode
-export const decodeEntry = (root: ActorDefinition, entry: Entry): Entry => {
-  const { message } = entry;
-  try {
-    if (isRestore(message))
-      return {
-        ...entry,
-        message: restore(convert(root, message.snapshot, 'decode')),
-      };
-  } catch {
-    return entry;
-  }
-  for (const definition of actorsAt(root, entry.destination))
-    try {
-      return {
-        ...entry,
-        message: definition.encoding.message.decode(message) as Tagged,
-      };
-    } catch {}
-  return entry;
-};
-
-/** An Instance and every Child under it, each through its own Actor's Schemas. */
-const convert = (
-  definition: ActorDefinition,
-  instance: Instance,
-  way: keyof Encoding,
-): Instance => {
-  const { model, state, props } = definition.encoding;
-  const next = state[way](instance.state) as Instance['state'];
-  const slots = definition.children[next._tag] ?? {};
-  const child = (slot: string, held: Instance) => {
-    const wanted = slots[slot];
-    if (!wanted) throw new Error(`no Child "${slot}" in ${next._tag}`);
-    return convert(wanted.definition, held, way);
-  };
-  return {
-    ...instance,
-    state: next,
-    model: model[way](instance.model),
-    ...('props' in instance ? { props: props[way](instance.props) } : {}),
-    children: Object.fromEntries(
-      Object.entries(instance.children).map(([slot, held]) => [
-        slot,
-        Snapshot.isMany(held)
-          ? held.map((one) => child(slot, one))
-          : child(slot, held),
-      ]),
-    ),
-  };
+/** An entry read back; saving it again gives the entry it was read from. */
+export const decodeEntry = (
+  root: ActorDefinition,
+  entry: HistoryEntry,
+): HistoryEntry => {
+  const decoded = convert(root, entry, 'decode');
+  if (decoded !== entry) known(root).set(decoded, entry);
+  return decoded;
 };
 
 /**
- * Every Actor an Instance with this ID can be, read from the ID alone: the
- * Actor of the slot at each step down, in any State. Usually one; a slot
- * name written in two States for two Actors gives both.
+ * An entry with its Message through its Actor's Schema. A value that does
+ * not fit is given back as it is: it was dropped live, or Replay skips it,
+ * so it never plays.
  */
-/** The Actors an Instance ID can be one of in this code: none if a slot on its way no longer exists. */
-export const actorsAt = (
+const convert = (
   root: ActorDefinition,
-  id: string,
-): ReadonlyArray<ActorDefinition> => {
-  // The root's name may hold a `/` itself; only what follows it is the path.
-  if (id !== root.name && !id.startsWith(`${root.name}/`)) return [];
-  const steps =
-    id === root.name ? [] : id.slice(root.name.length + 1).split('/');
-  let at: ReadonlyArray<ActorDefinition> = [root];
-  for (const step of steps) {
-    const slot = step.slice(0, step.search(/[[#]/));
-    const next = new Set<ActorDefinition>();
-    for (const definition of at)
-      for (const slots of Object.values(definition.children)) {
-        const found = slots?.[slot]?.definition;
-        if (found) next.add(found);
-      }
-    at = [...next];
+  entry: HistoryEntry,
+  way: 'encode' | 'decode',
+): HistoryEntry => {
+  try {
+    const definition = actorFor(root, entry.to);
+    return definition
+      ? {
+          ...entry,
+          message: definition.encoding.message[way](entry.message) as Tagged,
+        }
+      : entry;
+  } catch {
+    return entry;
   }
-  return at;
 };
 
 // 3. Check

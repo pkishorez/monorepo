@@ -3,8 +3,10 @@
 How a running Kabuki app shows up in DevTools: it connects as a Kabuki
 Session, answers the Kabuki Session Api, and DevTools, its CLI and the
 Inspector read it only through that Api. Kabuki's own words (Snapshot,
-History, Step, Entry, Branch, Head, Instance, Inspector) are defined in
-the [Kabuki context](../../packages/kabuki/CONTEXT.md); DevTools' in the
+History, History entry, Step, Branch, Head, Instance, Address, Runtime,
+Seek, Fork, Time Travel, Timeline, Branch in view, Inspector) are
+defined in the
+[Kabuki context](../../packages/kabuki/CONTEXT.md); DevTools' in the
 [DevTools context](../devtools/CONTEXT.md).
 
 ## Language
@@ -18,8 +20,16 @@ Where a Kabuki Session runs, as DevTools groups them: the one `connect` is given
 _Avoid_: host, origin, stage
 
 **Kabuki Session Api**:
-The Effect RPC group a Kabuki Session answers: who it is, its History, the Snapshot at a Step, what a Step changed, the graph the Inspector draws, one Instance's card, a stream of its changes and of the page it runs in, and travelling or forking the app. The tab computes every answer, since only it has the Actors' code; every value of the app's own is sent as its Actor's Schemas encode it. Served over the socket the app dials, or in memory to the in-page dock.
+The Effect RPC group a Kabuki Session answers: who it is, its History, the Snapshot at a Step, what a Step changed, the graph the Inspector draws, the Blueprint, one Instance's card and its Trail, a stream of its changes and of the page it runs in, any Branch of the History and where it splits, and Seeking a Step in the app or Forking it. The tab computes every answer, since only it has the Actors' code, and reads Kabuki only as any tool does: the root's Blueprint, the app's History and its Branches, the Snapshot after any entry, the Workers the data asks for and the ones its Runtime runs, and Addresses. An Instance is named by its Address; every value of the app's own is sent as its Actor's Schemas encode it. Served over the socket the app dials, or in memory to the in-page dock.
 _Avoid_: protocol, session API, endpoint
+
+**Trail**:
+One Instance's story along a Branch of the History, up to any entry: whether it was there at the History's start, then each History entry that started it, changed its State, Model or Props, was only Sent to it, or stopped it. Kabuki keeps none: the Kabuki Session works it out as a filter over the History, asking each entry on the Branch what it did to the Instance, from the Snapshots right before and right after it. How the Inspector zooms in on one Instance.
+_Avoid_: log, timeline (the Inspector's Timeline is another thing)
+
+**Blueprint**:
+Every Actor an app's root can grow, read from the root's Blueprint, one node per Child slot, named by its place, whether it runs or not: each level's Messages, Workers, Children, Queries and the Capabilities it Provides, which each level declares, and the Actor's Requires. The Inspector's Blueprint tab draws it whole, or a level at a time.
+_Avoid_: static tree, schema, map
 
 **Attachment**:
 A function Kabuki calls with each runtime it starts, which returns how to stop it; given through the app's `attach` option. `connect` given only its options is one.

@@ -4,6 +4,6 @@ When an update is accepted in one tab, the new version activates and every open 
 
 ## Consequences
 
-Version Skew can still happen for a moment during the switch-over, so Worker RPC keeps its build-ID handshake as a safety net rather than a normal path.
+Version Skew can still happen for a moment during the switch-over. Worker RPC kept a build-ID handshake as a safety net for it, until Worker RPC was removed.
 
 Other tabs reload unconditionally, even with unsaved work. That loss is accepted for now to keep the first version simple; a Reload Guard that lets a tab hold off activation is the planned improvement.

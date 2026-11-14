@@ -1,4 +1,4 @@
-import type { SavedHistory } from '@kestack/kabuki/core/history';
+import type { SavedHistory } from '@kestack/kabuki/types';
 
 /*
  * A Story: what an agent tells to answer a question about an app, played
@@ -11,7 +11,7 @@ import type { SavedHistory } from '@kestack/kabuki/core/history';
  *
  * It plays on one of two Histories:
  *
- * 1. Live     none given: the app's own, as it ran in this tab, for a
+ * 1. Own      none given: the app's own, as it ran in this tab, for a
  *             question about the app in use. Each run differs, and a
  *             moment can fall out of its Window.
  * 2. Script   a saved History the Story carries, played the same every

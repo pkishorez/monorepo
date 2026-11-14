@@ -1,9 +1,8 @@
 import { Effect, Layer, PubSub, Stream } from 'effect';
 import type { Scope } from 'effect';
 import { TestClock } from 'effect/testing';
-import { History, Runtime } from '@kestack/kabuki';
-import type { Running } from '@kestack/kabuki/core/runtime';
-import { Snapshot } from '@kestack/kabuki/core/snapshot';
+import { Address, History, Runtime, Snapshot } from '@kestack/kabuki';
+import type { Runtime as Running } from '@kestack/kabuki';
 import { describe, expect, it } from 'vitest';
 import { BACK, FALL, HIT, RECOVER, REWIND, TICK, wrap } from './rules.ts';
 import { Keyboard } from './capabilities/keyboard.ts';
@@ -11,28 +10,40 @@ import { Seed } from './capabilities/seed.ts';
 import type { Press } from './capabilities/keyboard.ts';
 import { StageLive } from './stage/stage.ts';
 
-const GAME = 'Stage/game#1';
+/** An Address written out, checked against the app's Blueprint. */
+const to = (text: string) => Address.check(StageLive, text)!;
+
+const GAME = to('Stage/Playing:game#1');
 
 const timed = <A>(effect: Effect.Effect<A, never, Scope.Scope>) =>
   Effect.runPromise(
     Effect.scoped(effect).pipe(Effect.provide(TestClock.layer())),
   );
 
-/** The app with a Keyboard pressed by hand, and a way to press it. */
+/**
+ * The app with a Keyboard pressed by hand, a way to press it, and a History
+ * kept beside it: made stopped and started once it is followed, so no
+ * entry is missed.
+ */
 const started = (seed = 'test') =>
   Effect.gen(function* () {
     const keys = yield* PubSub.unbounded<Press>();
-    const app = yield* Runtime.start(
-      StageLive,
-      Layer.mergeAll(
+    const app = yield* Runtime.scoped(StageLive, {
+      layer: Layer.mergeAll(
         Layer.succeed(Keyboard, { presses: Stream.fromPubSub(keys) }),
         Layer.succeed(Seed, { seed }),
       ),
-    );
+      running: false,
+    });
+    let history = History.init(app.snapshot);
+    app.subscribe((entries) => {
+      history = History.add(history, entries);
+    });
+    void app.start();
     const press = (key: Press) =>
       PubSub.publish(keys, key).pipe(Effect.andThen(Effect.yieldNow));
     yield* Effect.yieldNow;
-    return { app, press };
+    return { app, press, history: () => history };
   });
 
 /** Started, with a game under way. */
@@ -50,8 +61,8 @@ const after = (millis: number) =>
 /** The whole of a rewind: the bite shown, each cell back, the rest. */
 const REWOUND = HIT + (REWIND - 1) * BACK + RECOVER;
 
-const game = (app: Running<unknown>) =>
-  Snapshot.instanceAt(app.snapshot(), GAME) as
+const game = (app: Running) =>
+  Snapshot.at(app.snapshot, GAME) as
     | undefined
     | {
         state: { _tag: string };
@@ -64,7 +75,7 @@ const game = (app: Running<unknown>) =>
       };
 
 /** The head's cell on the board. */
-const head = (app: Running<unknown>) => {
+const head = (app: Running) => {
   const model = game(app)!.model;
   return wrap(model.track[model.at]!);
 };
@@ -75,7 +86,7 @@ const grown = (seed?: string) =>
     const playing_ = yield* playing(seed);
     yield* ticks(2);
     for (const x of [7, 8]) {
-      playing_.app.send(GAME, { _tag: 'FoodPlaced', x, y: 6 });
+      playing_.app.at(GAME)?.send({ _tag: 'FoodPlaced', x, y: 6 });
       yield* ticks(1);
     }
     return playing_;
@@ -90,21 +101,21 @@ const bite = (press: (key: Press) => Effect.Effect<void>) =>
     }
   });
 
-const workers = (app: Running<unknown>, id: string) =>
-  app.workers(id).map((worker) => worker.name);
+const workers = (app: Running, address: Address) =>
+  (app.at(address)?.workers ?? []).map((worker) => worker.name);
 
 describe('Snake', () => {
   it('Space starts a game: the Stage Invokes a Game, Running its Workers', () =>
     timed(
       Effect.gen(function* () {
         const { app, press } = yield* started();
-        expect(app.snapshot().state).toEqual({ _tag: 'Ready' });
+        expect(app.snapshot.root.state).toEqual({ _tag: 'Ready' });
         yield* press('space');
-        expect(app.snapshot().state).toEqual({ _tag: 'Playing' });
+        expect(app.snapshot.root.state).toEqual({ _tag: 'Playing' });
         expect(workers(app, GAME)).toEqual(
           expect.arrayContaining(['tick', 'steer']),
         );
-        expect(workers(app, 'Stage')).toEqual([]);
+        expect(workers(app, to('Stage'))).toEqual([]);
       }),
     ));
 
@@ -136,10 +147,10 @@ describe('Snake', () => {
     timed(
       Effect.gen(function* () {
         const { app } = yield* playing();
-        app.send(GAME, { _tag: 'FoodPlaced', x: 5, y: 6 });
+        app.at(GAME)?.send({ _tag: 'FoodPlaced', x: 5, y: 6 });
         yield* ticks(1);
         expect(game(app)!.model.length).toBe(4);
-        expect(app.snapshot().model).toMatchObject({ score: 1, best: 1 });
+        expect(app.snapshot.root.model).toMatchObject({ score: 1, best: 1 });
       }),
     ));
 
@@ -149,7 +160,7 @@ describe('Snake', () => {
         const { app } = yield* playing();
         yield* ticks(8);
         expect(head(app)).toEqual({ x: 0, y: 6 });
-        expect(app.snapshot().model).toMatchObject({ lives: 3 });
+        expect(app.snapshot.root.model).toMatchObject({ lives: 3 });
       }),
     ));
 
@@ -162,7 +173,7 @@ describe('Snake', () => {
         // The bite is shown where it happened, and a life is gone.
         const bitten = game(app)!.model.at;
         expect(game(app)!.state).toEqual({ _tag: 'Bitten', back: REWIND });
-        expect(app.snapshot().model).toMatchObject({ lives: 2 });
+        expect(app.snapshot.root.model).toMatchObject({ lives: 2 });
         expect(workers(app, GAME)).toEqual(['controls', 'rewind']);
 
         yield* after(HIT);
@@ -193,20 +204,20 @@ describe('Snake', () => {
         }
         yield* bite(press);
         expect(game(app)!.state).toEqual({ _tag: 'Crashed' });
-        expect(app.snapshot().state).toEqual({ _tag: 'Playing' });
+        expect(app.snapshot.root.state).toEqual({ _tag: 'Playing' });
 
         yield* after(FALL);
-        const over = app.snapshot().state as { _tag: string; body: unknown[] };
+        const over = app.snapshot.root.state;
         expect(over._tag).toBe('Over');
-        expect(over.body).toHaveLength(5);
+        if (over._tag === 'Over') expect(over.body).toHaveLength(5);
         expect(game(app)).toBeUndefined();
         expect(workers(app, GAME)).toEqual([]);
-        expect(workers(app, 'Stage')).toEqual(['start']);
+        expect(workers(app, to('Stage'))).toEqual(['start']);
 
         yield* press('space');
-        expect(app.snapshot().state).toEqual({ _tag: 'Playing' });
+        expect(app.snapshot.root.state).toEqual({ _tag: 'Playing' });
         expect(
-          Snapshot.instanceAt(app.snapshot(), 'Stage/game#2'),
+          Snapshot.at(app.snapshot, to('Stage/Playing:game#2')),
         ).toBeDefined();
       }),
     ));
@@ -262,21 +273,22 @@ describe('Snake', () => {
         yield* bite(press);
         expect(game(app)!.state).toEqual({ _tag: 'Crashed' });
         yield* press('space');
-        expect(app.snapshot().state).toMatchObject({ _tag: 'Over' });
+        expect(app.snapshot.root.state).toMatchObject({ _tag: 'Over' });
       }),
     ));
 
   it('a saved History replays to the same Snapshot', () =>
     timed(
       Effect.gen(function* () {
-        const { app, press } = yield* playing();
+        const { app, press, history } = yield* playing();
         yield* ticks(3);
         yield* press('down');
         yield* ticks(9);
-        const saved = JSON.parse(JSON.stringify(app.history.save()));
-        expect(yield* History.load(StageLive, saved).seek()).toEqual(
-          app.snapshot(),
+        const saved = JSON.parse(
+          JSON.stringify(History.save(StageLive, history())),
         );
+        const loaded = History.load(StageLive, saved);
+        expect(yield* History.replay(StageLive, loaded)).toEqual(app.snapshot);
       }),
     ));
 

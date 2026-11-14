@@ -64,6 +64,10 @@
     {
       "hash": "b9bcb15fecc73414301f307e156a1dc3d75ec498f5fa66ef8ee389e373b98c32",
       "summary": "A new folder is only a folder: createFolder starts no git repository, and CreatedFolder has no gitInitError"
+    },
+    {
+      "hash": "eb0007544d1ad77405475ba7e7bf019add4c799075ace09a81bdff0751981173",
+      "summary": "Moves to Kabuki's new Runtime and Blueprint API"
     }
   ]
 }

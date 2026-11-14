@@ -1,6 +1,6 @@
 import { eq, inArray } from '@tanstack/db';
-import { Actor, History, Runtime } from '@kestack/kabuki';
-import type { Running as RunningApp } from '@kestack/kabuki/core/runtime';
+import { Actor, Address, History, Runtime } from '@kestack/kabuki';
+import type { Runtime as RunningApp } from '@kestack/kabuki';
 import { Deferred, Effect, Layer, Schema, SubscriptionRef } from 'effect';
 import type { Duration } from 'effect';
 import type { Scope } from 'effect';
@@ -320,7 +320,10 @@ export const makeWorld = (options: WorldOptions = {}) => {
   });
 
   const Root = Actor.define('Root', {}).build({
-    provides: () => Replicas.layer,
+    provides: {
+      capabilities: Replicas.capabilities,
+      layer: () => Replicas.layer,
+    },
     children: {
       replicas: Actor.child(Replicas.actor([PocketLive])),
       page: Actor.child(Page),
@@ -350,9 +353,28 @@ export const makeWorld = (options: WorldOptions = {}) => {
 
 export type World = ReturnType<typeof makeWorld>;
 
+/** The History kept beside each running app: every Message it played. */
+const histories = new WeakMap<RunningApp<World['Root']>, History>();
+
 /** Starts the world's app on a Store, keeping every Message. */
 export const start = (world: World, store: Layer.Layer<Store>) =>
-  Runtime.start(History.make(world.Root, { window: null }), store);
+  Effect.gen(function* () {
+    // Made stopped, so the entries its work Sends as it starts are kept too.
+    const app = yield* Runtime.scoped(world.Root, {
+      layer: store,
+      running: false,
+    });
+    histories.set(app, History.init(app.snapshot));
+    app.subscribe((entries) =>
+      histories.set(app, History.add(histories.get(app)!, entries)),
+    );
+    yield* Effect.promise(() => app.start());
+    return app;
+  });
+
+/** The page's Address in a running app. */
+export const pageOf = (app: RunningApp<World['Root']>) =>
+  Address.check(app.actor, 'Root/page#1')!;
 
 /** Waits until the assertion holds, as the app settles. */
 export const eventually = (assertion: () => void, timeout = 2000) =>
@@ -426,7 +448,7 @@ type Running = {
 
 /** What the test reads of a running app: the page, Replicas' Model, and each Instance's own. */
 export const read = (app: RunningApp<World['Root']>) => {
-  const root = app.instance({ from: 'test' }) as unknown as {
+  const root = app.root as unknown as {
     readonly children: {
       readonly page: Page;
       readonly replicas: {
@@ -479,9 +501,8 @@ export const expectReady = (model: QueryModel | undefined) => {
 
 /** Every Message the app handled at an Instance whose id starts with `prefix`. */
 export const messagesAt = (app: RunningApp<World['Root']>, prefix: string) =>
-  app.history
-    .branch()
-    .filter((entry) => entry.destination.startsWith(prefix))
+  History.entries(histories.get(app)!)
+    .filter((entry) => entry.to.startsWith(prefix))
     .map(
       (entry) =>
         entry.message as { readonly _tag: string } & Record<string, unknown>,

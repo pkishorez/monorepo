@@ -31,9 +31,26 @@ export interface Pending<Route extends AnyRoute = AnyRoute> {
   readonly how: 'push' | 'replace' | 'load' | 'back' | 'forward' | 'reload';
 }
 
-/** What the router's View hands everything drawn below it: drawing data, read from the Snapshot shown, and its Sends. */
-export interface Drawing {
+/**
+ * What a link needs of the router: where a Route is, and its Sends. The
+ * same object for as long as the Router's View lives, so a link is never
+ * drawn again by a move or a page's data arriving.
+ */
+export interface Sends {
   readonly href: (route: AnyRoute) => string;
+  readonly go: (by: number) => void;
+  readonly reload: (options?: ReloadOptions) => void;
+  readonly preload: (route: AnyRoute) => void;
+  /** When a link preloads, unless it says. */
+  readonly linkPreload: { readonly mode: Preload; readonly delay: number };
+}
+
+/**
+ * What the router's View hands everything drawn below it: drawing data, read
+ * from the Snapshot shown, and its Sends. A new object only when the data
+ * changes, never because the Router drew again.
+ */
+export interface Drawing extends Sends {
   readonly entries: ReadonlyArray<Entry>;
   readonly at: number;
   readonly move: {
@@ -48,14 +65,10 @@ export interface Drawing {
   readonly pending: Pending | null;
   /** The Metadata the Routes give the current entry, from its params alone. */
   readonly metadata: Metadata;
-  readonly go: (by: number) => void;
-  readonly reload: (options?: ReloadOptions) => void;
-  readonly preload: (route: AnyRoute) => void;
-  /** When a link preloads, unless it says. */
-  readonly linkPreload: { readonly mode: Preload; readonly delay: number };
 }
 
 export const RouterContext = createContext<Drawing | undefined>(undefined);
+export const SendsContext = createContext<Sends | undefined>(undefined);
 
 /** What a link says its push leaves the scroll as: `false`, as it is. */
 const RESET_SCROLL = 'data-reset-scroll';
@@ -92,13 +105,20 @@ export const linkOptions = (link: Element, url: URL): MoveOptions => {
   };
 };
 
+const outside = (what: string) =>
+  new Error(`[@kestack/kabuki/routing] ${what} is drawn outside a Router.view`);
+
 export const useDrawing = (what: string): Drawing => {
   const drawing = use(RouterContext);
-  if (!drawing)
-    throw new Error(
-      `[@kestack/kabuki/routing] ${what} is drawn outside a Router.view`,
-    );
+  if (!drawing) throw outside(what);
   return drawing;
+};
+
+/** The router's Sends alone: what reads only these is never drawn again by a move. */
+const useSends = (what: string): Sends => {
+  const sends = use(SendsContext);
+  if (!sends) throw outside(what);
+  return sends;
 };
 
 /**
@@ -168,7 +188,7 @@ export function Link({
   onTouchStart,
   ...rest
 }: LinkProps) {
-  const drawing = useDrawing('Router.Link');
+  const drawing = useSends('Router.Link');
   const mode = preload ?? drawing.linkPreload.mode;
   const wait = preloadDelay ?? drawing.linkPreload.delay;
   const ref = useRef<HTMLAnchorElement>(null);
@@ -267,7 +287,7 @@ export interface RouterState<Route extends AnyRoute = AnyRoute> {
 }
 
 /**
- * The router, for a component drawn inside a `Router.view`: an address bar, a
+ * The router, for a component drawn inside a `Router.view`: a URL bar, a
  * history list, a retry button. Name the app's Route,
  * `useRouter<Route>()` with `type Route = typeof router.route.Type`, to read
  * its Routes as that type: every Route the Router holds is one of them.
@@ -308,7 +328,7 @@ export function Retry({
   type = 'button',
   ...rest
 }: ButtonHTMLAttributes<HTMLButtonElement>) {
-  const { reload } = useDrawing('Router.Retry');
+  const { reload } = useSends('Router.Retry');
   return (
     <button
       {...rest}

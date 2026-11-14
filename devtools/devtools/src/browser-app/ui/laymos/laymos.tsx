@@ -9,7 +9,7 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from '@kestack/web-platform/ui/components/empty';
-import { toast } from '@kestack/web-platform/ui/components/sonner';
+import { toast } from '@kestack/web-platform/ui/components/toast';
 import { Laymos as AnalysisExplorer } from './analysis-explorer/index.js';
 import {
   DevtoolsClient,
@@ -230,7 +230,9 @@ function useStoryRun(
           Cause.hasInterruptsOnly(cause) || generationRef.current !== generation
             ? Effect.void
             : Effect.sync(() =>
-                toast.error('Could not run Laymos Stories', {
+                toast.add({
+                  type: 'error',
+                  title: 'Could not run Laymos Stories',
                   description: messageOf(Cause.squash(cause)),
                 }),
               ),

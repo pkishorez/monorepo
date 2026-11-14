@@ -27,69 +27,33 @@
       "types": "./dist/core/index.d.ts",
       "default": "./dist/core/index.js"
     },
-    "./core/actor": {
-      "types": "./dist/core/actor/index.d.ts",
-      "default": "./dist/core/actor/index.js"
-    },
-    "./core/command": {
-      "types": "./dist/core/command/index.d.ts",
-      "default": "./dist/core/command/index.js"
-    },
-    "./core/history": {
-      "types": "./dist/core/history/index.d.ts",
-      "default": "./dist/core/history/index.js"
-    },
-    "./core/runtime": {
-      "types": "./dist/core/runtime/index.d.ts",
-      "default": "./dist/core/runtime/index.js"
-    },
-    "./core/snapshot": {
-      "types": "./dist/core/snapshot/index.d.ts",
-      "default": "./dist/core/snapshot/index.js"
+    "./types": {
+      "types": "./dist/core/types.d.ts",
+      "default": "./dist/core/types.js"
     },
     "./react": {
       "types": "./dist/react/index.d.ts",
       "default": "./dist/react/index.js"
     },
-    "./react/view": {
-      "types": "./dist/react/view/index.d.ts",
-      "default": "./dist/react/view/index.js"
+    "./react/types": {
+      "types": "./dist/react/types.d.ts",
+      "default": "./dist/react/types.js"
     },
     "./routing": {
       "types": "./dist/routing/index.d.ts",
       "default": "./dist/routing/index.js"
     },
-    "./routing/page": {
-      "types": "./dist/routing/page/index.d.ts",
-      "default": "./dist/routing/page/index.js"
-    },
-    "./routing/router": {
-      "types": "./dist/routing/router/index.d.ts",
-      "default": "./dist/routing/router/index.js"
-    },
-    "./routing/capabilities": {
-      "types": "./dist/routing/capabilities/index.d.ts",
-      "default": "./dist/routing/capabilities/index.js"
-    },
-    "./routing/adapter": {
-      "types": "./dist/routing/router/adapter/index.d.ts",
-      "default": "./dist/routing/router/adapter/index.js"
-    },
-    "./routing/browser": {
-      "types": "./dist/routing/router/adapter/browser/index.d.ts",
-      "default": "./dist/routing/router/adapter/browser/index.js"
-    },
-    "./routing/tanstack": {
-      "types": "./dist/routing/router/adapter/tanstack/index.d.ts",
-      "default": "./dist/routing/router/adapter/tanstack/index.js"
+    "./routing/types": {
+      "types": "./dist/routing/types.d.ts",
+      "default": "./dist/routing/types.js"
     },
     "./start": {
       "types": "./dist/start/index.d.ts",
       "default": "./dist/start/index.js"
     },
-    "./start/app": {
-      "types": "./dist/start/app/index.d.ts",
-      "default": "./dist/start/app/index.js"
+    "./start/types": {
+      "types": "./dist/start/types.d.ts",
+      "default": "./dist/start/types.js"
     },
     "./start/server": {
       "types": "./dist/start/server/index.d.ts",
@@ -98,18 +62,6 @@
     "./start/client": {
       "types": "./dist/start/client/index.d.ts",
       "default": "./dist/start/client/index.js"
-    },
-    "./start/platform": {
-      "types": "./dist/start/platform/index.d.ts",
-      "default": "./dist/start/platform/index.js"
-    },
-    "./start/cloudflare": {
-      "types": "./dist/start/platform/cloudflare/index.d.ts",
-      "default": "./dist/start/platform/cloudflare/index.js"
-    },
-    "./start/nitro": {
-      "types": "./dist/start/platform/nitro/index.d.ts",
-      "default": "./dist/start/platform/nitro/index.js"
     },
     "./start/vite": {
       "types": "./dist/start/vite/index.d.ts",

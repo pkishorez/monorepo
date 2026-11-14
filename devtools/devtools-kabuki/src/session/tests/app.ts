@@ -1,8 +1,7 @@
 import { Effect, Schema } from 'effect';
 import type { Scope } from 'effect';
-import { Actor, History, Runtime } from '@kestack/kabuki';
-import type { Running } from '@kestack/kabuki/core/runtime';
-import type { AppRuntime } from '@kestack/kabuki/react/view';
+import { Actor, History, Runtime, Snapshot } from '@kestack/kabuki';
+import type { AppRuntime, Step } from '@kestack/kabuki/react/types';
 
 /* A small app the tests run, and its running app as Kabuki hands it to an Attachment. */
 
@@ -30,67 +29,95 @@ export const Diary = Actor.define('Diary', {
   },
 });
 
+type Diary = typeof Diary;
+
 export interface Started {
-  readonly runtime: AppRuntime;
-  readonly running: Running<typeof Diary>;
-  /** Write a note at a Time, in milliseconds. */
+  readonly app: AppRuntime;
+  /** The app's one Runtime, the same through every Seek and Fork. */
+  readonly runtime: Runtime<Diary>;
+  /** Write a note dated `at`, in milliseconds. */
   readonly write: (text: string, at: number) => void;
+  /** Bump the Diary's counter. */
+  readonly bump: () => void;
 }
 
-/** The Diary running, read live as `View.app` hands it to an Attachment. */
+/** The Diary running, its History kept beside its Runtime, read live as `View.app` hands it to an Attachment. */
 export const started: Effect.Effect<Started, never, Scope.Scope> = Effect.gen(
   function* () {
-    const history = History.make(Diary, { window: null });
-    const running = yield* Runtime.start(history);
-    let shown: AppRuntime['shown'] = null;
+    // Made stopped and started once it is followed, so no entry is missed.
+    const runtime = Runtime.make(Diary, { running: false });
+    let history = History.init(runtime.snapshot);
+    let window: number | null = null;
+    let seeking: Step | null = null;
     const listeners = new Set<() => void>();
     const changed = () => {
       for (const listener of listeners) listener();
     };
-    history.subscribe(changed);
-    running.subscribe(changed);
-    const runtime: AppRuntime = {
-      name: history.actor.definition.name,
+    const unfollow = runtime.subscribe((entries) => {
+      history = History.compact(Diary, History.add(history, entries), window);
+      changed();
+    });
+    void runtime.start();
+    yield* Effect.addFinalizer(() =>
+      Effect.promise(() => {
+        unfollow();
+        return runtime.dispose();
+      }),
+    );
+    const app: AppRuntime = {
+      name: Diary.name,
+      runtime,
       get history() {
         return history;
       },
-      get branch() {
-        return history.branch();
+      get window() {
+        return window;
       },
-      get head() {
-        return history.head();
-      },
-      get running() {
-        return running.running();
-      },
-      get shown() {
-        return shown;
-      },
-      failure: null,
-      show: (step) => {
-        shown = step;
+      keep: (next) => {
+        history = History.compact(Diary, history, next);
+        window = next;
         changed();
       },
-      start: (from) => {
-        Effect.runFork(running.start(from));
+      get seeking() {
+        return seeking;
       },
-      stop: () => {
-        Effect.runFork(running.stop());
+      failure: null,
+      seek: (entry) => {
+        const snapshot = History.snapshot(Diary, history, entry);
+        seeking = { entry, at: snapshot.at, snapshot };
+        changed();
       },
-      clear: () => history.clear(),
-      workers: running.workers,
-      provided: running.provided,
-      instance: (options) => running.instance(options),
+      toHead: () => {
+        seeking = null;
+        changed();
+      },
+      fork: (entry) => {
+        seeking = null;
+        history = History.move(history, entry);
+        void runtime.follow(History.snapshot(Diary, history), {
+          restart: true,
+        });
+      },
+      startOver: () => {
+        seeking = null;
+        history = History.init(Snapshot.init(Diary));
+        void runtime.follow(History.snapshot(Diary, history), {
+          restart: true,
+        });
+      },
+      start: () => void runtime.start(),
+      stop: () => void runtime.stop(),
       subscribe: (listener) => {
         listeners.add(listener);
         return () => listeners.delete(listener);
       },
     };
-    const write = (text: string, at: number) =>
-      running.send('Diary', {
-        _tag: 'Wrote',
-        note: { at: new Date(at), text },
-      });
-    return { runtime, running, write };
+    const write = (text: string, at: number) => {
+      runtime.root.send({ _tag: 'Wrote', note: { at: new Date(at), text } });
+    };
+    const bump = () => {
+      runtime.root.children.counter.send({ _tag: 'Bumped' });
+    };
+    return { app, runtime, write, bump };
   },
 );

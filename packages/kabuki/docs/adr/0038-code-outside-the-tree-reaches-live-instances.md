@@ -1,5 +1,7 @@
 # Code outside the tree reaches live Instances, typed, and Sends with a name
 
+Amended by [ADR 0048](0048-the-runtime-is-a-snapshot-kept-alive.md): the root Instance is `runtime.root`, any Instance is also reached straight at its Address with `runtime.at(address)`, and a Send says it comes from outside with no name unless it gives one.
+
 On a server an app is not drawn: a long-running process starts its Runtime and must still look inside it and act on it. `running.instance({ from })` gives the root Instance, typed by its Actor, and from it every Instance below, narrowed by State as a View's Children are: always there, `undefined` unless `while` holds, or a list by key for `each`. Every read is live, worked out from the Runtime's current Snapshot, and an Instance also reads its Workers; nothing can be written. It can Send to any Instance, and `send` answers only whether the Message arrived, or waits its turn behind one being handled. Every such Send comes from outside, with the name `from` gives it. The past stays where it was: `running.snapshot()` and `history.snapshotAt()`, untyped, and the Inspector.
 
 This sits beside [ADR 0027](0027-a-parent-controls-its-children-only-through-data.md), not against it. A parent still controls its Children only through data. Code outside the tree is a source of facts, as a View is: a Message is something that happened, and the Instance's own Update decides what comes of it, so a reader of the Instance still learns what it does from its Model, State, Props and Messages.
@@ -18,3 +20,7 @@ This sits beside [ADR 0027](0027-a-parent-controls-its-children-only-through-dat
 - An Instance reached before the app last started over, by a start or a Restore, is stopped too, even where a new Instance has its ID, as one does after starting from an earlier entry or a Restore of an older Snapshot; code reaches the app again after either.
 - An Instance that has stopped reads as it was when last read, and a Send to it does not arrive: keeping its very last data would mean watching every Instance ever reached, which a server running for weeks cannot afford. A key that comes back is a new Instance with a new ID, so an old one never points at it.
 - TypeScript keeps a narrowing across a `send` or an `await`, though the State may have moved on: read it again.
+
+## Note
+
+Since the Runtime was redesigned, it is `runtime.instance({ from })`, and the past is read with `runtime.seek(id)`, a Step, and `Snapshot.replay`. While the Runtime is stopped, an Instance reached from outside reads, and what it Sends is refused. Every Runtime keeps 100 entries unless its `window` says otherwise, a server included, so a server that wants only the app as it is now gives `window: 0`. An Instance's ID is its Address.

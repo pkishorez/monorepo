@@ -1,11 +1,9 @@
 import { Effect, Layer } from 'effect';
 import type { Scope } from 'effect';
-import { History, Runtime } from '@kestack/kabuki';
+import { Runtime } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
-import { Page, Router } from '@kestack/kabuki/routing';
-import { Loading } from '@kestack/kabuki/routing/capabilities';
-import type { Running } from '@kestack/kabuki/core/runtime';
-import type { Instance } from '@kestack/kabuki/core/snapshot';
+import { Loading, Page, Router } from '@kestack/kabuki/routing';
+import type { Instance } from '@kestack/kabuki/types';
 import {
   Api,
   ApiError,
@@ -296,10 +294,10 @@ export const harness = (
 
   /** The app, opened at `path` as a tab would: its data loads once it runs. */
   const open = (path = '/') =>
-    Runtime.start(
-      History.make(Root.actor, { input: Root.startAt(path) }),
-      Layer.mergeAll(loading, api),
-    );
+    Runtime.scoped(Root.actor, {
+      input: Root.startAt(path),
+      layer: Layer.mergeAll(loading, api),
+    });
 
   return {
     server,
@@ -348,12 +346,12 @@ const walk = (at: Instance): ReadonlyArray<Instance> => [
     ((Array.isArray(child) ? child : [child]) as Array<Instance>).flatMap(walk),
   ),
 ];
-export const find = (app: Running<unknown>, name: string) =>
-  walk(app.snapshot()).find((each) => each.actor === name);
+export const find = (app: Runtime, name: string) =>
+  walk(app.snapshot.root).find((each) => each.actor === name);
 
 /** The data the page `name` shows, if it is Ready. */
 export const shownData = <D = Record<string, any>>(
-  app: Running<unknown>,
+  app: Runtime,
   name: string,
 ) => {
   const status = (
@@ -366,13 +364,13 @@ export const shownData = <D = Record<string, any>>(
 
 /** Sends the page `name` a Message. */
 export const sendTo = (
-  app: Running<unknown>,
+  app: Runtime,
   name: string,
   message: { readonly _tag: string; readonly [field: string]: unknown },
-) => app.send(find(app, name)!.id, message);
+) => app.at(find(app, name)!.address)?.send(message);
 
 /** Sends the Router a Message: `{ _tag: 'Pushed', route }`, `{ _tag: 'Went', by: -1 }`. */
 export const sendRouter = (
-  app: Running<unknown>,
+  app: Runtime,
   message: { readonly _tag: string; readonly [field: string]: unknown },
-) => app.send('Router', message);
+) => app.root.send(message);

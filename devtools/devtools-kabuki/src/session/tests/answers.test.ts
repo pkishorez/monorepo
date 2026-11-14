@@ -1,9 +1,13 @@
 import { Effect, Exit, Fiber, Schema, Stream } from 'effect';
 import type { Scope } from 'effect';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Graph, Node } from '../../api/index.ts';
+import { Actor, Address, History, Snapshot } from '@kestack/kabuki';
+import type { AppRuntime } from '@kestack/kabuki/react/types';
+import { Blueprinted, Graph, Node, Trail } from '../../api/index.ts';
 import { inMemory } from '../index.ts';
-import { started } from './app.ts';
+import { marksAt } from '../answers/read/step.ts';
+import { changesAt, graphAt, trailOf } from '../answers/views.ts';
+import { Counter, started } from './app.ts';
 
 /* The Kabuki Session Api answered by a running Diary, through the in-memory client. */
 
@@ -20,7 +24,7 @@ const written = Effect.gen(function* () {
   app.write('first', 5);
   app.write('second', 9);
   yield* settle;
-  const client = yield* inMemory(app.runtime);
+  const client = yield* inMemory(app.app);
   return { ...app, client };
 });
 
@@ -45,14 +49,16 @@ describe('answers', () => {
         const history = yield* client.history({});
         expect(history.entries).toHaveLength(2);
         expect(history.head).toBe(history.entries[1]!.id);
-        expect(history.shown).toBeNull();
+        expect(history.seeking).toBeNull();
         expect(history.running).toBe(true);
+        expect(history.tips).toEqual([history.head]);
+        expect(history.splits).toEqual([]);
         const [first] = history.entries;
         expect(first).toMatchObject({
           parent: null,
-          destination: 'Diary',
+          to: 'Diary',
           tag: 'Wrote',
-          source: { kind: 'outside' },
+          from: { kind: 'outside' },
           outcome: 'handled',
           message: {
             _tag: 'Wrote',
@@ -76,12 +82,23 @@ describe('answers', () => {
           text: 'second',
         });
         expect(now.summarized).toBe(false);
-        const init = yield* client.snapshot({ at: 'init', path: 'model' });
-        expect(init).toMatchObject({ at: 'init', value: { notes: [] } });
+        const start = yield* client.snapshot({ at: 'start', path: 'model' });
+        expect(start).toMatchObject({ at: 'start', value: { notes: [] } });
+        // Each Instance says which entry started it and which last changed it: `null`, the History's start.
+        const { head } = yield* client.history({});
         const whole = yield* client.snapshot({});
         expect(whole.value).toMatchObject({
-          id: 'Diary',
-          children: { counter: { model: { count: 0 } } },
+          address: 'Diary',
+          started: null,
+          changed: head,
+          children: {
+            counter: {
+              address: 'Diary/counter#1',
+              model: { count: 0 },
+              started: null,
+              changed: null,
+            },
+          },
         });
       }),
     ));
@@ -115,7 +132,7 @@ describe('answers', () => {
         const app = yield* started;
         for (let i = 0; i < 200; i++) app.write(`note ${i} `.repeat(4), i);
         yield* settle;
-        const client = yield* inMemory(app.runtime);
+        const client = yield* inMemory(app.app);
         const folded = yield* client.snapshot({ path: 'model' });
         expect(folded.summarized).toBe(true);
         const { notes } = folded.value as { notes: unknown[] };
@@ -132,7 +149,7 @@ describe('answers', () => {
       }),
     ));
 
-  it('tells what one Step changed, its values and diff encoded', () =>
+  it('tells what one Step changed, as the Snapshots before and after it say, its values and diff encoded', () =>
     run(
       Effect.gen(function* () {
         const { client } = yield* written;
@@ -159,6 +176,141 @@ describe('answers', () => {
       }),
     ));
 
+  it('tells a Step that changed only a Child as that Child, not its parent', () =>
+    run(
+      Effect.gen(function* () {
+        const { client, bump } = yield* written;
+        bump();
+        yield* settle;
+        const { head } = yield* client.history({});
+        const { entry, changes } = yield* client.changes({ step: head! });
+        expect(entry).toMatchObject({ to: 'Diary/counter#1', tag: 'Bumped' });
+        expect(changes).toEqual([
+          expect.objectContaining({
+            instance: 'Diary/counter#1',
+            kind: 'changed',
+            model: [{ path: 'count', from: 0, to: 1 }],
+          }),
+        ]);
+      }),
+    ));
+
+  it('tells which Workers a Step started and stopped, from the data before and after it', () => {
+    const Uploads = Actor.define('Uploads', {
+      model: { ids: Schema.Array(Schema.String), paused: Schema.Boolean },
+      message: { Added: { id: Schema.String }, Paused: {} },
+    }).build({
+      init: () => ({ model: { ids: [], paused: false } }),
+      on: {
+        Added: ({ id }, { model }) => ({ model: { ids: [...model.ids, id] } }),
+        Paused: () => ({ model: { ids: [], paused: true } }),
+      },
+      workers: {
+        upload: { each: ({ model }) => model.ids, run: () => Effect.never },
+        nap: { while: ({ model }) => model.paused, run: () => Effect.never },
+      },
+    });
+    let history = History.init(Snapshot.init(Uploads));
+    const send = (message: { readonly _tag: string; readonly id?: string }) => {
+      history = History.add(history, {
+        to: Address.check(Uploads, 'Uploads')!,
+        message,
+        from: { kind: 'outside' },
+        at: 0,
+      });
+      return History.entry(history, history.head!)!;
+    };
+    send({ _tag: 'Added', id: 'a' });
+    const added = send({ _tag: 'Added', id: 'b' });
+    const paused = send({ _tag: 'Paused' });
+    expect(changesAt(Uploads, history, added).changes).toEqual([
+      expect.objectContaining({ started: ['upload#b'], stopped: [] }),
+    ]);
+    expect(changesAt(Uploads, history, paused).changes).toEqual([
+      expect.objectContaining({
+        started: ['nap'],
+        stopped: ['upload#a', 'upload#b'],
+      }),
+    ]);
+    expect(graphAt(Uploads, history, paused.id).change).toMatchObject({
+      started: ['nap'],
+      stopped: ['upload#a', 'upload#b'],
+    });
+  });
+
+  it('tells which Instances a Step started, changed and stopped, from the Snapshots before and after it', () => {
+    const Shelf = Actor.define('Shelf', {
+      model: { ids: Schema.Array(Schema.String) },
+      message: { Added: { id: Schema.String }, Removed: { id: Schema.String } },
+    }).build({
+      init: () => ({ model: { ids: [] } }),
+      children: {
+        rows: Actor.child(Counter, { each: ({ model }) => model.ids }),
+      },
+      on: {
+        Added: ({ id }, { model }) => ({ model: { ids: [...model.ids, id] } }),
+        Removed: ({ id }, { model }) => ({
+          model: { ids: model.ids.filter((kept) => kept !== id) },
+        }),
+      },
+    });
+    const shelf = Address.check(Shelf, 'Shelf')!;
+    let history = History.init(Snapshot.init(Shelf));
+    const send = (to: Address, message: { readonly _tag: string }) => {
+      history = History.add(history, {
+        to,
+        message,
+        from: { kind: 'outside' },
+        at: 0,
+      });
+      return History.entry(history, history.head!)!;
+    };
+    const added = send(shelf, { _tag: 'Added', id: 'a' } as never);
+    const row = History.snapshot(Shelf, history).root.children.rows[0]!.address;
+    const bumped = send(row, { _tag: 'Bumped' });
+    const marks = marksAt(Shelf, history, bumped.id);
+    const removed = send(shelf, { _tag: 'Removed', id: 'a' } as never);
+    const kinds = (entry: typeof added) =>
+      changesAt(Shelf, history, entry).changes.map(({ instance, kind }) => [
+        instance,
+        kind,
+      ]);
+    expect(kinds(added)).toEqual([
+      ['Shelf', 'changed'],
+      [row, 'added'],
+    ]);
+    // A Step that changed only a Child leaves its parent as it was.
+    expect(kinds(bumped)).toEqual([[row, 'changed']]);
+    // So too in a History read back, where no Snapshot is remembered yet.
+    const cold = History.load(Shelf, History.save(Shelf, history));
+    const drawn = graphAt(Shelf, cold, bumped.id);
+    expect(drawn.change).toBeUndefined();
+    expect(drawn.children[0]!.change).toMatchObject({ kind: 'changed' });
+    expect(kinds(removed)).toEqual([
+      ['Shelf', 'changed'],
+      [row, 'removed'],
+    ]);
+    expect(graphAt(Shelf, history, removed.id).gone).toEqual([
+      { slot: 'rows', id: row },
+    ]);
+    // Which entry started each Instance and which last changed it, at a Step.
+    expect([...marks]).toEqual([
+      ['Shelf', { started: null, changed: added.id }],
+      [row, { started: added.id, changed: bumped.id }],
+    ]);
+    // The Child's Trail: a filter over the same History.
+    expect(
+      trailOf(Shelf, history, row).moments.map(({ kind, entry }) => [
+        kind,
+        entry?.id ?? null,
+      ]),
+    ).toEqual([
+      ['started', added.id],
+      ['changed', bumped.id],
+      ['stopped', removed.id],
+    ]);
+  });
+
   it('draws the graph at a Step as plain data the Schema takes', () =>
     run(
       Effect.gen(function* () {
@@ -179,13 +331,48 @@ describe('answers', () => {
             keyed: false,
           },
         ]);
-        expect(graph.root.touched.map(({ kind }) => kind)).toEqual([
-          'changed',
-          'changed',
-        ]);
+        // At the Head of a Live app, the Runtime says which Workers run.
+        expect(graph.root.workers).toEqual([]);
         const [counter] = graph.root.children;
-        expect(counter).toMatchObject({ actor: 'Counter', title: 'counter' });
+        expect(counter).toMatchObject({
+          id: 'Diary/counter#1',
+          actor: 'Counter',
+          title: 'counter',
+          condition: 'always',
+          within: null,
+        });
+        expect(counter!.change).toBeUndefined();
         const encoded = Schema.encodeSync(Graph)(graph);
+        expect(JSON.parse(JSON.stringify(encoded))).toEqual(encoded);
+      }),
+    ));
+
+  it("reads the Blueprint from the root's: every Actor by its place, no Instance", () =>
+    run(
+      Effect.gen(function* () {
+        const { client } = yield* written;
+        const { root } = yield* client.blueprint();
+        expect(root).toMatchObject({
+          id: 'Diary',
+          actor: 'Diary',
+          title: 'Diary',
+          condition: null,
+          state: null,
+          blueprint: { single: true, requires: [] },
+        });
+        expect(root.key).toBeUndefined();
+        expect(root.change).toBeUndefined();
+        expect(root.blueprint.top.on).toEqual(['Wrote']);
+        expect(root.children).toEqual([
+          expect.objectContaining({
+            id: 'Diary/counter',
+            actor: 'Counter',
+            condition: 'always',
+            within: null,
+            children: [],
+          }),
+        ]);
+        const encoded = Schema.encodeSync(Blueprinted)({ root });
         expect(JSON.parse(JSON.stringify(encoded))).toEqual(encoded);
       }),
     ));
@@ -216,6 +403,13 @@ describe('answers', () => {
       Effect.gen(function* () {
         const { client } = yield* written;
         const node = yield* client.node({ instance: 'Diary' });
+        expect(node).toMatchObject({
+          id: 'Diary',
+          state: { _tag: 'Single' },
+          provides: { top: [], state: [] },
+          workers: [],
+          status: [],
+        });
         expect(node.model).toEqual({
           notes: [
             { at: new Date(5).toISOString(), text: 'first' },
@@ -231,26 +425,214 @@ describe('answers', () => {
           yield* Effect.exit(client.node({ instance: 'Diary/nope' })),
         );
         expect(missing).toMatchObject({
-          error: { _tag: 'InstanceNotFound', available: expect.any(Array) },
+          error: {
+            _tag: 'InstanceNotFound',
+            available: ['Diary', 'Diary/counter#1'],
+          },
         });
       }),
     ));
 
-  it('travels the app to a Step and back, and forks from an entry', () =>
+  it("Seeks a Step in the app, the History's start too, and its Head again, and Forks the same Runtime to an entry", () =>
     run(
       Effect.gen(function* () {
-        const { client, runtime } = yield* written;
+        const { client, app, runtime } = yield* written;
         const [first] = (yield* client.history({})).entries;
-        yield* client.travel({ step: first!.id });
-        expect(runtime.shown).toBe(first!.id);
-        yield* client.travel({ step: null });
-        expect(runtime.shown).toBeNull();
-        const gone = failure(yield* Effect.exit(client.travel({ step: 999 })));
+        yield* client.seek({ step: first!.id });
+        expect(app.seeking?.entry).toBe(first!.id);
+        expect((yield* client.history({})).seeking).toBe(first!.id);
+        yield* client.seek({ step: 'start' });
+        expect(app.seeking).toMatchObject({ entry: null, at: 0 });
+        expect((yield* client.history({})).seeking).toBe('start');
+        yield* client.seek({ step: null });
+        expect(app.seeking).toBeNull();
+        const gone = failure(yield* Effect.exit(client.seek({ step: 999 })));
         expect(gone).toMatchObject({ error: { _tag: 'StepNotFound' } });
         yield* client.fork({ from: first!.id });
         yield* settle;
-        expect(runtime.head).toBe(first!.id);
-        expect(runtime.branch).toHaveLength(1);
+        expect(app.runtime).toBe(runtime);
+        expect(app.history.head).toBe(first!.id);
+        expect((yield* client.history({})).entries).toHaveLength(1);
+      }),
+    ));
+
+  it('reads any Branch, where the one asked for splits, and a Trail along it', () =>
+    run(
+      Effect.gen(function* () {
+        const { client, write } = yield* written;
+        const [first, second] = (yield* client.history({})).entries;
+        yield* client.fork({ from: first!.id });
+        yield* settle;
+        write('third', 12);
+        yield* settle;
+        const head = yield* client.history({});
+        const third = head.entries[1]!;
+        expect(head.entries.map(({ id }) => id)).toEqual([first!.id, third.id]);
+        expect(head.tips).toEqual([second!.id, third.id]);
+        expect(
+          head.splits.map(({ at, next }) => [at, next.map(({ id }) => id)]),
+        ).toEqual([[first!.id, [second!.id, third.id]]]);
+        // The Branch through an entry; the Head's when it passes through it.
+        const old = yield* client.history({ branch: second!.id });
+        expect(old.entries.map(({ id }) => id)).toEqual([
+          first!.id,
+          second!.id,
+        ]);
+        expect(
+          (yield* client.history({ branch: first!.id })).entries.at(-1)?.id,
+        ).toBe(third.id);
+        const trail = yield* client.trail({
+          instance: 'Diary',
+          branch: second!.id,
+        });
+        expect(trail.moments.map(({ entry }) => entry?.id ?? null)).toEqual([
+          null,
+          first!.id,
+          second!.id,
+        ]);
+        const gone = failure(
+          yield* Effect.exit(client.history({ branch: 999 })),
+        );
+        expect(gone).toMatchObject({ error: { _tag: 'StepNotFound' } });
+        // Forked back to the History's start, the Head's Branch is empty and goes on two ways.
+        yield* client.fork({ from: null });
+        yield* settle;
+        const empty = yield* client.history({});
+        expect(empty.entries).toEqual([]);
+        expect(empty.splits).toMatchObject([{ at: 'start' }]);
+      }),
+    ));
+
+  it('reads a History Compacted to its Window: `start` is its start, the app right before the oldest entry kept', () =>
+    run(
+      Effect.gen(function* () {
+        const { client, app } = yield* written;
+        const [first, second] = (yield* client.history({})).entries;
+        app.keep(1);
+        const history = yield* client.history({});
+        expect(history.size).toBe(1);
+        expect(history.entries).toMatchObject([
+          { id: second!.id, parent: null, tag: 'Wrote', outcome: 'handled' },
+        ]);
+        // The entry folded into the start is no Step any more.
+        const gone = failure(
+          yield* Effect.exit(client.snapshot({ at: first!.id })),
+        );
+        expect(gone).toMatchObject({
+          error: {
+            _tag: 'StepNotFound',
+            oldest: second!.id,
+            newest: second!.id,
+          },
+        });
+        const start = yield* client.snapshot({ at: 'start', path: 'model' });
+        expect(start.value).toEqual({
+          notes: [{ at: new Date(5).toISOString(), text: 'first' }],
+        });
+        expect(
+          (yield* client.graph({ at: 'start' })).root.change,
+        ).toBeUndefined();
+        // An Instance there at the start is as the start has it: started by no entry kept.
+        const now = yield* client.snapshot({});
+        expect(now.value).toMatchObject({ started: null, changed: second!.id });
+        const trail = yield* client.trail({ instance: 'Diary' });
+        expect(
+          trail.moments.map(({ kind, entry }) => [kind, entry?.id ?? null]),
+        ).toEqual([
+          ['started', null],
+          ['changed', second!.id],
+        ]);
+      }),
+    ));
+
+  it('says when the app is stopped, and running again', () =>
+    run(
+      Effect.gen(function* () {
+        const { client, runtime } = yield* written;
+        yield* Effect.promise(() => runtime.stop());
+        expect((yield* client.history({})).running).toBe(false);
+        yield* Effect.promise(() => runtime.start());
+        expect((yield* client.history({})).running).toBe(true);
+      }),
+    ));
+
+  it("tells one Instance's Trail: when it started, each entry that changed it, each it only received", () =>
+    run(
+      Effect.gen(function* () {
+        const { client, bump } = yield* written;
+        bump();
+        yield* settle;
+        const diary = yield* client.trail({ instance: 'Diary' });
+        expect(diary.actor).toBe('Diary');
+        expect(
+          diary.moments.map(({ kind, entry }) => [kind, entry?.tag ?? null]),
+        ).toEqual([
+          ['started', null],
+          ['changed', 'Wrote'],
+          ['changed', 'Wrote'],
+        ]);
+        expect(diary.moments[2]).toMatchObject({
+          entry: {
+            to: 'Diary',
+            outcome: 'handled',
+            message: { note: { at: new Date(9).toISOString() } },
+          },
+          model: ['notes.1'],
+          props: [],
+        });
+        const counter = yield* client.trail({ instance: 'Diary/counter#1' });
+        expect(counter.moments.map(({ kind }) => kind)).toEqual([
+          'started',
+          'changed',
+        ]);
+        expect(counter.moments[1]).toMatchObject({ model: ['count'] });
+        const encoded = Schema.encodeSync(Trail)(counter);
+        expect(JSON.parse(JSON.stringify(encoded))).toEqual(encoded);
+      }),
+    ));
+
+  it('tells a Trail empty for an Address no Instance had, and refuses one the Blueprint has no place for', () =>
+    run(
+      Effect.gen(function* () {
+        const { client } = yield* written;
+        const never = yield* client.trail({ instance: 'Diary/counter#2' });
+        expect(never.moments).toEqual([]);
+        const wrong = failure(
+          yield* Effect.exit(client.trail({ instance: 'Diary/nope#1' })),
+        );
+        expect(wrong).toMatchObject({
+          error: {
+            _tag: 'InstanceNotFound',
+            available: ['Diary', 'Diary/counter#1'],
+          },
+        });
+      }),
+    ));
+
+  it('waits for a Runtime the app does not have yet', () =>
+    run(
+      Effect.gen(function* () {
+        const { app } = yield* started;
+        let runtime: AppRuntime['runtime'] = null;
+        const listeners = new Set<() => void>();
+        const later: AppRuntime = {
+          ...app,
+          get runtime() {
+            return runtime;
+          },
+          subscribe: (listener) => {
+            listeners.add(listener);
+            return () => listeners.delete(listener);
+          },
+        };
+        const client = yield* inMemory(later);
+        const asked = yield* client.history({}).pipe(Effect.forkScoped);
+        yield* settle;
+        expect(asked.pollUnsafe()).toBeUndefined();
+        runtime = app.runtime;
+        for (const listener of listeners) listener();
+        const { entries } = yield* Fiber.join(asked);
+        expect(entries).toEqual([]);
       }),
     ));
 

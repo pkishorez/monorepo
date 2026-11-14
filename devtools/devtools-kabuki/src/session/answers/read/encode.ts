@@ -1,70 +1,109 @@
-import type { History } from '@kestack/kabuki';
-import { Snapshot } from '@kestack/kabuki/core/snapshot';
-import type { Instance } from '@kestack/kabuki/core/snapshot';
-import type { ActorDefinition } from '@kestack/kabuki/core/actor';
-import type { Entry } from '@kestack/kabuki/core/history';
+import { Schema } from 'effect';
+import { Address, Blueprint, History, Snapshot } from '@kestack/kabuki';
+import type { AnyActor, HistoryEntry, Instance } from '@kestack/kabuki/types';
+import type { Marks } from './step.ts';
 
 /*
  * The app's values as they leave the tab: each through its own Actor's
- * Schemas, the same encoded side a saved History holds, so they are JSON.
+ * Schemas, as its Blueprint holds them, the same encoded side a saved
+ * History holds, so they are JSON.
  *
  * 1. Value     one value; one that does not fit its Schema goes as it is.
- * 2. Instance  an Instance and every Child under it, each by its own Actor.
- * 3. Entries   a History's entries, from what it saves.
+ * 2. Instance  an Instance and every Child under it, each by its own
+ *              Actor, found in the root's Blueprint by its Address's place,
+ *              with the entries that started and last changed it.
+ * 3. Entries   a History's entries, as `History.save` encodes them.
  */
 
 type Encode = (value: unknown) => unknown;
 
 // 1. Value
-export const encoded = (encode: Encode, value: unknown): unknown => {
+const encoders = new WeakMap<Schema.Top, Encode>();
+
+/** How a Schema encodes a value, made once per Schema. */
+export const encoderOf = (schema: Schema.Top | undefined): Encode => {
+  if (!schema) return (value) => value;
+  const kept = encoders.get(schema);
+  if (kept) return kept;
+  const encode = Schema.encodeUnknownSync(
+    schema as Schema.Codec<unknown, unknown>,
+  );
+  encoders.set(schema, encode);
+  return encode;
+};
+
+export const encoded = (schema: Schema.Top | undefined, value: unknown) => {
   try {
-    return encode(value);
+    return encoderOf(schema)(value);
   } catch {
     return value;
   }
 };
 
 // 2. Instance
-/** An Instance as JSON: its State, Model, Props and Children; not how many times it Invoked each. */
+/** The Blueprint of the Actor an Instance runs: its place in the root's. */
+export const blueprintAt = (
+  root: Blueprint,
+  address: string,
+): Blueprint | undefined =>
+  Blueprint.at(root, Address.place(address as Address));
+
+/** An Instance's State, Model and Props, each by its Actor's Schema. */
+export const encodedData = (
+  instance: Instance,
+  print: Blueprint | undefined,
+) => ({
+  state: encoded(print?.state[instance.state._tag]?.data, instance.state),
+  model: encoded(print?.schemas.model, instance.model),
+  ...('props' in instance
+    ? { props: encoded(print?.schemas.props, instance.props) }
+    : {}),
+});
+
+/** The key it is held under, if any: the end of its Address. */
+export const keyOf = (address: string): string | undefined =>
+  Address.parse(address as Address).path.at(-1)?.key;
+
+/**
+ * An Instance as JSON: its Address, State, Model, Props and Children, and
+ * the entries that started and last changed it, as `marks` has them by
+ * Address; not how many times it Invoked each.
+ */
 export const encodeInstance = (
   instance: Instance,
-  definition: ActorDefinition,
+  root: Blueprint,
+  marks: ReadonlyMap<string, Marks>,
 ): Readonly<Record<string, unknown>> => {
-  const { encoding } = definition;
-  const slots = definition.children[instance.state._tag] ?? {};
-  const child = (slot: string, held: Instance) => {
-    const actor = slots[slot]?.definition;
-    return actor ? encodeInstance(held, actor) : held;
-  };
+  const key = keyOf(instance.address);
+  const { started = null, changed = null } = marks.get(instance.address) ?? {};
   return {
-    id: instance.id,
+    address: instance.address,
     actor: instance.actor,
-    ...(instance.key === undefined ? {} : { key: instance.key }),
-    state: encoded(encoding.state.encode, instance.state),
-    model: encoded(encoding.model.encode, instance.model),
-    ...('props' in instance
-      ? { props: encoded(encoding.props.encode, instance.props) }
-      : {}),
+    ...(key === undefined ? {} : { key }),
+    ...encodedData(instance, blueprintAt(root, instance.address)),
+    started,
+    changed,
     children: Object.fromEntries(
       Object.entries(instance.children).map(([slot, held]) => [
         slot,
         Snapshot.isMany(held)
-          ? held.map((one) => child(slot, one))
-          : child(slot, held),
+          ? held.map((one) => encodeInstance(one, root, marks))
+          : encodeInstance(held, root, marks),
       ]),
     ),
   };
 };
 
 // 3. Entries
-const saved = new WeakMap<object, ReadonlyMap<number, Entry>>();
+const saved = new WeakMap<object, ReadonlyMap<number, HistoryEntry>>();
 
 /** Each entry the History keeps, by id, its Message encoded. */
 export const encodedEntries = (
+  actor: AnyActor,
   history: History,
-): ReadonlyMap<number, Entry> => {
-  // The same object until the History changes.
-  const save = history.save();
+): ReadonlyMap<number, HistoryEntry> => {
+  // The same object for the same History.
+  const save = History.save(actor, history);
   const kept = saved.get(save);
   if (kept) return kept;
   const byId = new Map(save.entries.map((entry) => [entry.id, entry]));

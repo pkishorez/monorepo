@@ -1,11 +1,9 @@
 import { Deferred, Effect, Layer, SubscriptionRef } from 'effect';
 import type { Scope } from 'effect';
-import { History, Runtime } from '@kestack/kabuki';
+import { Runtime } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
-import { Router } from '@kestack/kabuki/routing';
-import { Loading } from '@kestack/kabuki/routing/capabilities';
-import type { Running } from '@kestack/kabuki/core/runtime';
-import type { Instance } from '@kestack/kabuki/core/snapshot';
+import { Loading, Router } from '@kestack/kabuki/routing';
+import type { Instance } from '@kestack/kabuki/types';
 import {
   type Account,
   Accounts,
@@ -310,9 +308,9 @@ const walk = (at: Instance): ReadonlyArray<Instance> => [
     ((Array.isArray(child) ? child : [child]) as Array<Instance>).flatMap(walk),
   ),
 ];
-const all = (app: Running<unknown>, actor: string) =>
-  walk(app.snapshot()).filter((each) => each.actor === actor);
-const find = (app: Running<unknown>, actor: string) => all(app, actor)[0];
+const all = (app: Runtime, actor: string) =>
+  walk(app.snapshot.root).filter((each) => each.actor === actor);
+const find = (app: Runtime, actor: string) => all(app, actor)[0];
 
 type Rows = {
   readonly keys: ReadonlyArray<string>;
@@ -325,14 +323,16 @@ type Rows = {
   }>;
 };
 /** The rows of the `Wallets` Query under `parent`. */
-const walletsUnder = (app: Running<unknown>, parent: string) => {
-  const query = all(app, 'Wallets').find((each) => each.id.includes(parent));
+const walletsUnder = (app: Runtime, parent: string) => {
+  const query = all(app, 'Wallets').find((each) =>
+    each.address.includes(parent),
+  );
   return query?.model as Rows | undefined;
 };
 const names = (rows: Rows | undefined) =>
   (rows?.rows ?? []).map(({ row }) => row.name).sort();
 /** Each running Instance, as Replicas holds it, with its role and Gate from its own State and Model. */
-const instances = (app: Running<unknown>) =>
+const instances = (app: Runtime) =>
   (
     find(app, 'Replicas')!.model as {
       readonly instances: ReadonlyArray<{
@@ -360,7 +360,7 @@ type Window = {
   readonly status: string;
 };
 /** The Windows of `account`'s entries, as its Instance's Model has them. */
-const windows = (app: Running<unknown>, account = 'ada') =>
+const windows = (app: Runtime, account = 'ada') =>
   (
     all(app, 'pocket').find(
       (each) => (each.model as { readonly key: string }).key === account,
@@ -375,7 +375,7 @@ const windows = (app: Running<unknown>, account = 'ada') =>
   )?.collections.find(({ collection }) => collection === 'entries')?.windows ??
   [];
 /** The ids of the entries the Activity shows, if it is placed. */
-const shownEntries = (app: Running<unknown>) => {
+const shownEntries = (app: Runtime) => {
   const query = find(app, 'Entries');
   return query === undefined
     ? undefined
@@ -391,27 +391,32 @@ const opened = (path = '/replica') =>
     worker.entry('ada', 'c1', 'cash');
     worker.entry('ada', 'b1', 'bank');
     const accounts = yield* fakeAccounts;
-    const app = yield* Runtime.start(
-      History.make(Root.actor, { input: Root.startAt(path) }),
-      Layer.mergeAll(
+    const app = yield* Runtime.scoped(Root.actor, {
+      input: Root.startAt(path),
+      layer: Layer.mergeAll(
         loading,
         accounts.layer,
         workers,
         worker.layer,
         Store.memory(),
       ),
-    );
+    });
     return { app, worker, signOut: accounts.signOut };
   });
 
-const switchTo = (app: Running<unknown>, id: string) =>
-  app.send(find(app, 'AccountSwitcher')!.id, { _tag: 'SwitchTo', id } as never);
-const pocket = (app: Running<unknown>) => find(app, 'Pocket')!;
-const ask = (app: Running<unknown>, message: object) =>
-  app.send(pocket(app).id, message as never);
-const show = (app: Running<unknown>, account: string) =>
-  app.send(find(app, 'Replica')!.id, { _tag: 'Show', account } as never);
-const balances = (app: Running<unknown>) =>
+const switchTo = (app: Runtime, id: string) =>
+  app.at(find(app, 'AccountSwitcher')!.address)?.send({
+    _tag: 'SwitchTo',
+    id,
+  } as never);
+const pocket = (app: Runtime) => find(app, 'Pocket')!;
+const ask = (app: Runtime, message: object) =>
+  app.at(pocket(app).address)?.send(message as never);
+const show = (app: Runtime, account: string) =>
+  app
+    .at(find(app, 'Replica')!.address)
+    ?.send({ _tag: 'Show', account } as never);
+const balances = (app: Runtime) =>
   Object.fromEntries(
     (walletsUnder(app, 'pocket')?.rows ?? []).map(({ row }) => [
       row.id,

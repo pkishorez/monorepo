@@ -12,7 +12,7 @@ import {
   X,
 } from 'lucide-react';
 import { View, useChildren } from '@kestack/kabuki/react';
-import type { Handle, ViewProps } from '@kestack/kabuki/react/view';
+import type { Handle, ViewProps } from '@kestack/kabuki/react/types';
 import { DURATION, DownloadLive, DownloadsLive, STEP } from '../story/index.ts';
 import { Button, EASE, Wide } from './parts.tsx';
 
@@ -74,7 +74,7 @@ export const DownloadsView = View.make(
         <AnimatePresence initial={false}>
           {children.files.map((file, index) => (
             <motion.div
-              key={file.id}
+              key={file.address}
               initial={{ opacity: 0, y: index * ROW }}
               animate={{ opacity: 1, y: index * ROW }}
               exit={{ opacity: 0, transition: FADE }}

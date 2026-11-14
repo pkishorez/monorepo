@@ -13,8 +13,7 @@ import {
   Semaphore,
   Stream,
 } from 'effect';
-import { Runtime } from '@kestack/kabuki';
-import { Stopped } from '@kestack/kabuki/core/runtime';
+import { Runtime, Stopped } from '@kestack/kabuki';
 import { nextUlid } from '@kestack/std-toolkit/core';
 import {
   HarnessAccount,
@@ -400,10 +399,12 @@ const make = (options: EngineOptions) =>
     const repos = yield* Git;
     const accounts = yield* HarnessAccounts;
     const replies = yield* Answers;
-    const running = yield* Runtime.start(Code, Layer.succeedContext(services));
+    const running = yield* Runtime.scoped(Code, {
+      layer: Layer.succeedContext(services),
+    });
     /** Closed as Connect stops, before the Sessions, interrupting a start. */
     const scope = yield* Effect.scope;
-    const root = running.instance({ from: 'rpc' });
+    const root = running.root;
     // The root reads the Store first; the engine is open once it is Ready.
     yield* running.changes.pipe(
       Stream.filter(() => root.state._tag === 'Ready'),

@@ -12,10 +12,10 @@ import {
 const wrote: Entry = {
   id: 1,
   parent: null,
-  destination: 'Diary',
+  to: 'Diary',
   message: { _tag: 'Wrote', note: { text: 'first' } },
   tag: 'Wrote',
-  source: { kind: 'view', instance: 'Diary' },
+  from: { kind: 'view', instance: 'Diary' },
   at: 1_000,
   outcome: 'handled',
 };
@@ -23,10 +23,10 @@ const wrote: Entry = {
 const bumped: Entry = {
   id: 2,
   parent: 1,
-  destination: 'Diary/counter',
+  to: 'Diary/counter#1',
   message: { _tag: 'Bumped' },
   tag: 'Bumped',
-  source: { kind: 'worker', instance: 'Diary', name: 'tick', key: 'a' },
+  from: { kind: 'worker', instance: 'Diary', name: 'tick', key: 'a' },
   at: 2_000,
   outcome: 'ignored',
 };
@@ -84,14 +84,16 @@ describe('kabuki output', () => {
       entries: [wrote, bumped],
       head: 2,
       size: 2,
-      shown: null,
+      splits: [],
+      tips: [2],
+      seeking: null,
       running: true,
       failure: null,
     };
     expect(renderHistoryText(history)).toMatchInlineSnapshot(`
-      "head #2 · 2 entries kept · live · running
+      "head #2 · 2 entries kept · drawing the Head · running
       #1  Wrote  → Diary  from view Diary  handled  at 1.00s
-      #2  Bumped  → Diary/counter  from worker Diary/tick#a  ignored  at 2.00s"
+      #2  Bumped  → Diary/counter#1  from worker Diary/tick#a  ignored  at 2.00s"
     `);
   });
 
@@ -107,8 +109,6 @@ describe('kabuki output', () => {
           state: ['Idle', 'Saving'],
           model: [{ path: 'notes.0', to: { text: 'first' } }],
           props: [],
-          started: ['save'],
-          stopped: [],
         },
       ],
     };
@@ -118,21 +118,20 @@ describe('kabuki output', () => {
       commands save
       ~ Diary (Diary)
           state Idle → Saving
-          model notes.0: (none) → {"text":"first"}
-          started save"
+          model notes.0: (none) → {"text":"first"}"
     `);
   });
 
   test('renders a Snapshot under where it was read', () => {
     expect(
       renderSnapshotText({
-        at: 'init',
+        at: 'start',
         path: 'model.notes',
         value: [],
         summarized: true,
       }),
     ).toBe(
-      'at init · path model.notes · summarized: pass --expand for all of it\n[]',
+      'at start · path model.notes · summarized: pass --expand for all of it\n[]',
     );
   });
 });

@@ -13,7 +13,7 @@ A kestack package covering one area of an app (data, AI, RPC, auth), named `@kes
 _Avoid_: kai-toolkit, kui-toolkit, unscoped toolkit names, web-toolkit (now the Web Platform), platform-toolkit (folded into the Web Platform)
 
 **Web Platform**:
-The one way to build a kestack app, `@kestack/web-platform`: a PWA on TanStack Start, with its APIs, the two Backends, the Gate and a Session per Account when auth is configured, the Theme, the opinionated server, and the UI, input, Recipes, gestures and keys to build screens. The web is the only platform; a native app, if one comes, wraps this one. It decides what every app gets without asking; an author who wants none of it uses the Toolkits directly. Replaces the Web Toolkit and the Platform Toolkit.
+The one way to build a kestack app, `@kestack/web-platform`: a PWA on Kabuki Start, with its APIs, the two Backends, the Gate and a Session per Account when auth is configured, the Theme, the opinionated server, and the UI, input, Recipes, gestures and keys to build screens. The web is the only platform; a native app, if one comes, wraps this one. It decides what every app gets without asking; an author who wants none of it uses the Toolkits directly. Replaces the Web Toolkit and the Platform Toolkit.
 _Avoid_: platform (as a kind of package: there is one), web-toolkit, platform-toolkit, ui-toolkit, pwa-toolkit, frontend, framework, starter
 
 **Door**:

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, useState } from 'react';
+import { act, memo, Profiler, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Root as ReactRoot } from 'react-dom/client';
 import { Effect, Layer, Schema } from 'effect';
@@ -361,8 +361,24 @@ describe('a page with data', () => {
   const ShopLive = ShopRoot.build({
     pages: { Front: FrontLive, Item: ItemLive },
   });
+  // A link and a reader outside the page a move swaps: only the Router draws them again.
+  const draws = { link: 0, reader: 0 };
+  const Stay = memo(() => (
+    <Profiler id="stay" onRender={() => void draws.link++}>
+      <Router.Link to={Shop.Front()} id="stay">
+        shop
+      </Router.Link>
+    </Profiler>
+  ));
+  const Where = memo(() => {
+    const { href } = useRouter();
+    draws.reader++;
+    return <output>at {href}</output>;
+  });
   const ShopView = View.make(ShopLive, (self) => (
     <>
+      <Stay />
+      <Where />
       <Progress />
       <From />
       {self.children.Front && <FrontView instance={self.children.Front} />}
@@ -492,6 +508,38 @@ describe('a page with data', () => {
     expect(calls).toEqual([2]);
   });
 
+  it('draws no link again as the Router holds a move and lands it, and the reader once for each', async () => {
+    await drawShop();
+    Object.assign(draws, { link: 0, reader: 0 });
+    await click('#lamp');
+    expect(host.textContent).toContain('moving to /items/2');
+    expect(draws).toEqual({ link: 0, reader: 1 });
+    await act(async () => open());
+    await settle();
+    expect(host.textContent).toContain('at /items/2');
+    expect(draws).toEqual({ link: 0, reader: 2 });
+    await click('#stay');
+    expect(host.textContent).toContain('front');
+    expect(draws).toEqual({ link: 0, reader: 3 });
+  });
+
+  it('draws no link and no reader again as a link preloads and its data comes', async () => {
+    await drawShop();
+    Object.assign(draws, { link: 0, reader: 0 });
+    const lamp = host.querySelector('#lamp')!;
+    await act(
+      async () =>
+        void lamp.dispatchEvent(
+          new MouseEvent('mouseover', { bubbles: true, relatedTarget: null }),
+        ),
+    );
+    await wait(60);
+    await act(async () => open());
+    await settle();
+    expect(calls).toEqual([2]);
+    expect(draws).toEqual({ link: 0, reader: 0 });
+  });
+
   it('a link told not to preload never does', async () => {
     await drawShop();
     const never = host.querySelector('#never')!;
@@ -523,23 +571,32 @@ describe('the Timeline', () => {
     const counts = await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
-          const app = yield* Runtime.start(History.make(Root.actor), browser());
+          // Made stopped and started once it is followed, so no entry is missed.
+          const app = yield* Runtime.scoped(Root.actor, {
+            layer: browser(),
+            running: false,
+          });
+          let timeline = History.init(app.snapshot);
+          app.subscribe((entries) => {
+            timeline = History.add(timeline, entries);
+          });
+          yield* Effect.promise(() => app.start());
           const settled = Effect.promise(
             () => new Promise((done) => setTimeout(done, 10)),
           );
           yield* settled;
-          const before = app.history.branch().length;
-          app.send('Router', {
+          const before = History.entries(timeline).length;
+          app.root.send({
             _tag: 'Pushed',
             route: Routes.Projects.Project({ id: 7 }),
           });
           yield* settled;
-          const pushed = app.history.branch().length - before;
+          const pushed = History.entries(timeline).length - before;
           history.back();
           yield* settled;
           return {
             pushed,
-            back: app.history.branch().length - before - pushed,
+            back: History.entries(timeline).length - before - pushed,
           };
         }),
       ),

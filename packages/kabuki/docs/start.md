@@ -98,7 +98,7 @@ static page has none: it is kept for everyone.
 ```tsx
 // src/document.tsx: any file app.tsx imports
 import { Start } from '@kestack/kabuki/start';
-import type { DocumentProps } from '@kestack/kabuki/start/app';
+import type { DocumentProps } from '@kestack/kabuki/start/types';
 
 export default function Document({ children }: DocumentProps) {
   return (
@@ -135,10 +135,11 @@ was in the drawing and hydrated, or was drawn later by the browser, after a
 move or as part of a client place. It is `null` outside a page Start served,
 as in a test or a story.
 
-`Start.useRuntime()` reads the running app from the Document, for devtools
-drawn around it: what `App.useRuntime()` gives an app drawn with `View.app`,
-its History, the Step shown and how to show another. It is `null` on the
-server, which draws each request from a History of its own and runs none.
+`Start.useRuntime()` reads the app from the Document, for devtools drawn
+around it: what `App.useRuntime()` gives an app drawn with `View.app`, its
+one Runtime, running from the first mount, the Step it Seeks, and how to Seek
+another Step or Fork to one. It is `null` on the server, which draws each
+request from a History of its own and makes no Runtime.
 
 ## One request
 
@@ -147,7 +148,7 @@ GET /blog/hello
   1. read      /blog/hello → Blog › Post { slug: 'hello' }
   2. split     Blog, Blog.Post: static, drawn here
   3. load      Blog() and Blog.Post({ slug }), at once
-  4. start     the Router's init at the Route, with each place's data → a Restore
+  4. start     the Router's init at the Route, with each place's data → a Snapshot
   5. draw      <Document><App saved /></Document>, every lazy View resolved
   6. keep      every place drawn here is static: in the Cache, by build id
 ```
@@ -168,7 +169,7 @@ GET /blog/hello
    and a `500`, logged. The pages above it are drawn as they are.
 4. **Start.** The Router's `startAt(url, known)` is its Input; its init,
    holding each place's data from what its Loader came to, and every page's
-   init under it, is the Snapshot, saved as a History of one Restore.
+   init under it, is the Snapshot, saved as a History that starts from it.
    Nothing runs.
 5. **Draw.** React draws the Document around the App drawn from that History
    and waits for every lazy View, so the HTML is whole. The lazy Views it drew
@@ -188,10 +189,10 @@ GET /blog/hello
 ## In the browser
 
 The client entry reads the saved History from the page, preloads the lazy
-Views the head names, and hydrates the Document with the browser's address,
+Views the head names, and hydrates the Document with the browser's URL,
 the Loader RPC behind the Data cache, and the app's own Layer. Once mounted,
-the Runtime starts at the Restore. A client page, drawn loading, has its
-data loaded by the Router once it starts. The Metadata the server drew is the Router's from
+the app's one Runtime is made from that History's Snapshot, running. A client
+page, drawn loading, has its data loaded by the Router once it starts. The Metadata the server drew is the Router's from
 then on: it writes it after every move, and when a page's data comes.
 
 ## The Loader RPC
@@ -254,7 +255,7 @@ the lazy Views it drew in the head and the browser preloads exactly those
 before it hydrates. A page's lazy View the server did not draw is found by
 its page's build, so it starts loading when a move to it or a preload of it
 starts, and its code and its data arrive together. Actors stay eager: Replay
-and Restore need every Actor.
+and a loaded Snapshot need every Actor.
 
 ## Where the code lives
 
@@ -264,11 +265,11 @@ src/start/
     protocol/  what the server and the browser agree on: the Page, the Pages, the App Shell,
                the Loader RPC's wire, the brand on Start.app
   server/      the handler, the Loaders' Layers (Start.server), the RPC's answer, the Cache  @kestack/kabuki/start/server
-  client/      hydrating, and the Loading that asks the RPC                                  @kestack/kabuki/start/client
-  platform/    the port each platform fills                                                  @kestack/kabuki/start/platform
-    cloudflare/  Cloudflare Workers                                                          @kestack/kabuki/start/cloudflare
-    nitro/       any host Nitro has a preset for                                             @kestack/kabuki/start/nitro
-  vite/        the plugin                                                                    @kestack/kabuki/start/vite
+  client/      hydrating, for the browser entry the plugin writes                            @kestack/kabuki/start/client
+  platform/    the port each platform fills
+    cloudflare/  Cloudflare Workers: cloudflare() in vite, its serve in server
+    nitro/       any host Nitro has a preset for: nitro() in vite, its serve in server
+  vite/        the plugin, with each platform's adapter                                      @kestack/kabuki/start/vite
 ```
 
 `server`, `client` and `vite` use `app/protocol`, never each other; `server`
@@ -282,14 +283,16 @@ bundle.
 Start's server knows no platform: it is a `Handler`, a `fetch` that takes
 each request with a `Host`, the platform's env and, if it has one, a
 `PageCache`. Each platform's adapter fills that port from its own folder
-under `src/start/platform`, imported from its own subpath, so a build
-carries only the adapter it names. Why is
+under `src/start/platform`. An app names it in `vite.config.ts`, from
+`@kestack/kabuki/start/vite`, and the server's entry the plugin writes
+imports only that adapter's `serve` from `@kestack/kabuki/start/server`, so
+a build carries only the adapter it names. Why is
 [ADR 0033](adr/0033-start-knows-no-platform.md).
 
-| Adapter             | Import                             | Builds for                                                                                                                                  | Hands Start                                                                                                                                                             |
-| ------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `cloudflare()`      | `@kestack/kabuki/start/cloudflare` | one module in its edge form, `workerd` first                                                                                                | the Worker's env and `caches.default`                                                                                                                                   |
-| `nitro({ preset })` | `@kestack/kabuki/start/nitro`      | Nitro's SSR service, wrapped by Nitro's own plugin, `nitro()`, in the preset's server (Node, Bun, Vercel, Netlify, AWS Lambda, Cloudflare…) | the process's env, or the Worker's on a Cloudflare preset, and `caches.default` where there is one; with none, a static page is kept by the CDN, by its `Cache-Control` |
+| Adapter             | Import                       | Builds for                                                                                                                                  | Hands Start                                                                                                                                                             |
+| ------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cloudflare()`      | `@kestack/kabuki/start/vite` | one module in its edge form, `workerd` first                                                                                                | the Worker's env and `caches.default`                                                                                                                                   |
+| `nitro({ preset })` | `@kestack/kabuki/start/vite` | Nitro's SSR service, wrapped by Nitro's own plugin, `nitro()`, in the preset's server (Node, Bun, Vercel, Netlify, AWS Lambda, Cloudflare…) | the process's env, or the Worker's on a Cloudflare preset, and `caches.default` where there is one; with none, a static page is kept by the CDN, by its `Cache-Control` |
 
 An adapter is a `Platform` for the Vite plugin, the conditions the server
 build resolves with and the function its entry wraps the handler in, and

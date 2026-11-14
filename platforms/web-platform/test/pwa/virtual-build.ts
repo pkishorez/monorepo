@@ -1,10 +1,10 @@
-// Stands in for `virtual:pwa-toolkit/build` in unit tests.
-import { BuildId } from '../../src/pwa/engine/contract/build/index.js';
+// Stands in for `virtual:web-platform/pwa/build` in unit tests.
+import { BuildId } from '../../src/pwa/contract/build/index.js';
 import {
   resolvePwaConfig,
   type WorkerBuildInfo,
   workerConfigOf,
-} from '../../src/pwa/engine/contract/config/index.js';
+} from '../../src/pwa/contract/config/index.js';
 
 const info: WorkerBuildInfo = {
   buildId: BuildId.make('test-build'),

@@ -1,11 +1,10 @@
 import { Effect, Layer, Schema, Stream, SubscriptionRef } from 'effect';
 import type { Scope } from 'effect';
 import { Actor, Runtime } from '@kestack/kabuki';
-import type { Running } from '@kestack/kabuki/core/runtime';
-import type { Instance } from '@kestack/kabuki/core/snapshot';
+import type { Instance } from '@kestack/kabuki/types';
 import { describe, expect, it } from 'vitest';
 import { Preferences, nothing } from '../../../../../../../storage/index.ts';
-import { owner, State, TouchLive } from '../actor.ts';
+import { capabilities, owner, State, TouchLive } from '../actor.ts';
 
 /*
  * The Touch Draft under a Draft that counts its sends: how it follows
@@ -31,10 +30,13 @@ const Draft = Actor.define('Draft', {
 const draftOf = (leftOpen: boolean, collapses: boolean) =>
   Draft.build({
     init: () => ({ model: { sent: 0, opened: [] } }),
-    provides: (self) =>
-      owner(self.send({ _tag: 'SendAsked' }), (open) =>
-        self.send({ _tag: 'Opened', open }),
-      ),
+    provides: {
+      capabilities,
+      layer: (self) =>
+        owner(self.send({ _tag: 'SendAsked' }), (open) =>
+          self.send({ _tag: 'Opened', open }),
+        ),
+    },
     children: {
       touch: Actor.child(TouchLive, {
         input: () => ({ open: leftOpen, collapses }),
@@ -67,12 +69,11 @@ const worldOf = (leftOpen: boolean, collapses = true) =>
         Stream.map(() => undefined),
       ),
     });
-    const app = (yield* Runtime.start(
-      draftOf(leftOpen, collapses) as never,
-      device as never,
-    )) as Running<unknown>;
+    const app = (yield* Runtime.scoped(draftOf(leftOpen, collapses) as never, {
+      layer: device as never,
+    })) as Runtime;
     yield* settle;
-    const root = () => app.snapshot() as Instance;
+    const root = () => app.snapshot.root as Instance;
     const touch = () => (root().children as { touch: Instance }).touch;
     return {
       state: () => Schema.decodeUnknownSync(State)(touch().state)._tag,
@@ -87,13 +88,15 @@ const worldOf = (leftOpen: boolean, collapses = true) =>
         readonly [k: string]: unknown;
       }) =>
         Effect.andThen(
-          Effect.sync(() => app.send(touch().id, message)),
+          Effect.sync(() => app.at(touch().address)?.send(message)),
           settle,
         ),
       heard: (dictation: string, sendable = true) =>
         Effect.andThen(
           Effect.sync(() =>
-            app.send(touch().id, { _tag: 'Heard', dictation, sendable }),
+            app
+              .at(touch().address)
+              ?.send({ _tag: 'Heard', dictation, sendable }),
           ),
           settle,
         ),

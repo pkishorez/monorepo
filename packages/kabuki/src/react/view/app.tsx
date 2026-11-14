@@ -1,45 +1,49 @@
-// oxlint-disable-next-line no-restricted-imports -- the app's one mount effect: counting mounts starts and stops the Runtime, which lives outside React.
+// oxlint-disable-next-line no-restricted-imports -- the app's one mount effect: counting mounts makes and lets go of the Runtime, which lives outside React.
 import { Suspense, use, useEffect, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
-import { Cause, Effect, Exit, Fiber, Layer, Scope } from 'effect';
+import { Effect, Layer } from 'effect';
+import type { Fiber } from 'effect';
+import { Snapshot } from '../../core/snapshot/index.ts';
 import { History } from '../../core/history/index.ts';
-import type { Entry, SavedHistory } from '../../core/history/index.ts';
+import type { SavedHistory } from '../../core/history/index.ts';
 import { Runtime } from '../../core/runtime/index.ts';
-import type {
-  LiveInstance,
-  Needs,
-  Provided,
-  Running,
-  WorkerStatus,
-} from '../../core/runtime/index.ts';
+import type { Needs } from '../../core/runtime/index.ts';
 import type { AnyActor } from '../../core/actor/index.ts';
-import type { Snapshot } from '../../core/snapshot/index.ts';
 import { makeDrawn } from './drawn.ts';
+import { rootOf } from './kabuki.tsx';
 import { AppContext, LazyContext } from './draw/index.ts';
 import type { DrawnApp, LazyView, ViewOf } from './draw/index.ts';
 import { registry } from './registry.ts';
 
 /*
- * The App: an Actor tree with its Layer, as one React component. It draws
- * the Snapshot at the Step shown, or live, and each View draws its Instance
- * from it.
+ * The App: an Actor tree with its Layer, as one React component that makes
+ * and owns its one Runtime, and keeps the app's History beside it. It draws
+ * the Runtime's Snapshot, or the Step it Seeks, and each View draws its
+ * Instance from that Snapshot.
  *
- * 1. Draw   before it runs, on a server too: the History's Head, replayed
- *           through Suspense when it is longer than one entry. A History
- *           given when drawn (`saved`) is drawn on its own, so a server
- *           draws each request's; the first mount takes it as the app's.
- * 2. Mount  the first mount starts one Runtime on the History; the last
- *           unmount stops it and leaves the History for the next mount of an
- *           app with this name, after a hot reload too. A start, stop or
- *           clear that fails is logged and kept as the app's failure. Each
- *           Attachment is called with the running app at the first mount,
- *           and stopped at the last unmount; one that throws is logged, and
- *           the rest run on.
- * 3. Show   any Step: the Views draw the Snapshot right after it, while
- *           the live app runs on underneath. A Send from the past is
- *           dropped. A Step Compacted away shows the oldest one left.
- * 4. Keep   the History's Window, once changed, in `localStorage` under the
- *           app's name, and start from it after a reload.
+ * 1. Draw    before it runs, on a server too: the History's Head, replayed
+ *            through Suspense when it is longer than one entry. A History
+ *            given when drawn (`saved`) is drawn on its own, so a server
+ *            draws each request's; the first mount takes it as the app's.
+ * 2. Mount   the first mount makes one Runtime from the Snapshot at the
+ *            History's Head, running, and calls each Attachment with the
+ *            app; the last unmount stops them, lets the Runtime go and
+ *            leaves its History for the next mount of an app with this
+ *            name, after a hot reload too. An Attachment that throws is
+ *            logged, and the rest run on.
+ * 3. Record  every entry the Runtime plays, into the History, kept to its
+ *            Window.
+ * 4. Seek    any entry, or the History's start: the Views draw that Step
+ *            while the Runtime stays where it is underneath, and a Send
+ *            from it is dropped, as is one while the Runtime is stopped,
+ *            until they go back to the Head. A Fork moves the History's
+ *            Head to any entry, and the same Runtime follows the Snapshot
+ *            there, its work starting again; starting over gives the app a
+ *            new History from init, which the Runtime follows the same
+ *            way. A Seek, start, stop, Fork or start over that fails is
+ *            logged and kept as the app's failure.
+ * 5. Keep    the Window, once changed, in `localStorage` under the app's
+ *            name, and start from it after a reload.
  */
 
 type Unmet<A, Provided> = [Exclude<Needs<A>, Provided>] extends [never]
@@ -63,9 +67,6 @@ type ProvidedBy<S> = S extends {
   ? Provided
   : never;
 
-/** A Step: right after an entry, or right after init. */
-type Step = number | 'init';
-
 export interface AppOptions {
   /**
    * What the app is called: the History its last mount leaves is picked up
@@ -83,54 +84,82 @@ export interface AppOptions {
   readonly input?: () => unknown;
   /**
    * How many entries its History keeps on the Head's Branch; the last 100
-   * by default, and `null` keeps every one. `history.keep` changes it later, and the change is remembered
-   * in the browser under the app's name, so it outlasts a reload and wins
-   * over this.
+   * by default, and `null` keeps every one. `keep` changes it later, and
+   * the change is remembered in the browser under the app's name, so it
+   * outlasts a reload and wins over this.
    */
   readonly window?: number | null;
   /**
    * What runs beside the app in a browser, such as a devtool: each is called
-   * with the running app when it is first mounted, and what it returns when
-   * the last mount goes, as after a hot reload. Never on a server.
+   * with the app once its Runtime is made at the first mount, and what it
+   * returns when the last mount goes, as after a hot reload. Never on a
+   * server.
    */
   readonly attach?: ReadonlyArray<Attachment>;
 }
 
-/** Something outside the app that runs beside its Runtime: called with the running app, it returns how to stop. */
-export type Attachment<A = AnyActor> = (runtime: AppRuntime<A>) => () => void;
+/** Something outside the app that runs beside its Runtime: called with the app, it returns how to stop. */
+export type Attachment<A = AnyActor> = (app: AppRuntime<A>) => () => void;
 
-/** The running app, for code outside the tree: a timeline, a devtool. */
+/** The app, for code outside the tree: a timeline, a devtool. Always read as it is now. */
 export interface AppRuntime<A = AnyActor> {
   /** What the app is called: `AppOptions.name`, or the root Actor's name. */
   readonly name: string;
-  readonly history: History<A>;
-  /** The current Branch: every entry from the first to the Head. */
-  readonly branch: ReadonlyArray<Entry>;
-  readonly head: number | null;
-  readonly running: boolean;
-  /** The Step the Views show, or `null` for live. */
-  readonly shown: Step | null;
-  readonly show: (step: Step | null) => void;
-  /** Start at the Head, or at an entry (`null`: init), growing a new Branch from it. */
-  readonly start: (from?: number | null) => void;
-  readonly stop: () => void;
-  /** Forget the whole History and go live from init. */
-  readonly clear: () => void;
-  /** What an Instance's Workers are doing now. Empty while stopped. */
-  readonly workers: (instance: string) => ReadonlyArray<WorkerStatus>;
-  /** The Capabilities an Instance provides to everything under it now, by key. Empty while stopped. */
-  readonly provided: (instance: string) => Provided;
-  /** The root Instance, typed and live, Sending from outside named `from`; `null` until the Runtime starts. */
-  readonly instance: (options: {
-    readonly from: string;
-  }) => LiveInstance<A> | null;
-  /** Why the last start, stop or clear failed, also logged; `null` once one succeeds. */
-  readonly failure: Cause.Cause<unknown> | null;
-  /** Calls `listener` whenever anything here changes; returns how to stop. */
-  readonly subscribe: (listener: () => void) => () => void;
+  /**
+   * The app's one Runtime, the same through every Seek and Fork: `null`
+   * until the app is first mounted and drawn, and on a server. Reach any
+   * Instance from its `root`, or straight `at` its Address.
+   */
+  readonly runtime: Runtime<A> | null;
+  /** The app's History: every entry its Runtime played, kept to the Window. */
+  readonly history: History;
+  /** How many entries the History keeps on the Head's Branch, or `null` for every one. */
+  readonly window: number | null;
+  /** Change the Window, and Compact the History to it now. */
+  keep(window: number | null): void;
+  /** The Step the Views draw, or `null` while they draw the Runtime's Snapshot. */
+  readonly seeking: Step<A> | null;
+  /**
+   * Time Travel: draw the app right after an entry (`null`: the History's
+   * start), on any Branch, while the Runtime stays where it is.
+   */
+  seek(entry: number | null): void;
+  /** Stop Seeking: draw the Runtime's Snapshot again. */
+  toHead(): void;
+  /** Move the History's Head to an entry (`null`: its start): the Runtime follows the Snapshot there, its work starting again, and the next Message grows a new Branch. */
+  fork(entry: number | null): void;
+  /**
+   * Start the app over from init, with the root's Input read again: a new
+   * History with no entries, which the Runtime follows, its work starting
+   * again. Where `fork(null)` goes to the History's start, which is init
+   * only until the Window folds the oldest entries away, this always goes
+   * to init.
+   */
+  startOver(): void;
+  /** Run the Runtime again from its Snapshot. */
+  start(): void;
+  /** Stop all the Runtime's work; nothing can be Sent until it starts again. */
+  stop(): void;
+  /** What the last Seek, start, stop, Fork or start over failed at, and why, also logged; `null` once one succeeds. */
+  readonly failure: Failure | null;
+  /** Calls `listener` whenever anything here changes, the Runtime's Snapshot included; returns how to stop. */
+  subscribe(listener: () => void): () => void;
 }
 
-const NO_WORKERS: ReadonlyArray<WorkerStatus> = [];
+/** The app right after one History entry (`null`: the History's start), as plain data: what a Seek draws. */
+export interface Step<A = AnyActor> {
+  readonly entry: number | null;
+  /** Its Time: its Snapshot's. */
+  readonly at: number;
+  readonly snapshot: Snapshot<A>;
+}
+
+/** A Seek, start, stop, Fork or start over that failed. */
+export interface Failure {
+  /** What it could not do, as logged: `start`, `fork from 3`. */
+  readonly what: string;
+  readonly error: unknown;
+}
 
 /**
  * A View as the app: its Actor's tree run on one History, drawn as one
@@ -144,57 +173,65 @@ export const app = <A extends AnyActor, S extends AnySetup = {}>(
   ..._unmet: Unmet<A, ProvidedBy<S>>
 ) => {
   const options: AppOptions = setup ?? {};
-  const layer = (setup?.layer ?? Layer.empty) as Layer.Layer<any, never, never>;
+  const layer = setup?.layer as Layer.Layer<any, never, never> | undefined;
   const actor = view.actor;
   const startFrom = options.input ?? view.input;
   const RootView = view;
-  const name = options.name ?? actor.definition.name;
-  const root = { id: actor.definition.name };
+  const name = options.name ?? actor.name;
+  const root = rootOf(actor);
   const app = {};
 
-  // 4. Keep
+  // 5. Keep
   const windowKey = `@kestack/kabuki:${name}:window`;
   /** The Window this app was left with, else the one it is given. */
-  const keptWindow = () => {
+  const keptWindow = (): number | null => {
     const stored = readStored(windowKey);
-    if (stored === 'all') return { window: null };
+    if (stored === 'all') return null;
     const count = Number(stored);
     if (stored !== undefined && Number.isInteger(count) && count >= 0)
-      return { window: count };
-    return { window: options.window === undefined ? 100 : options.window };
+      return count;
+    return options.window === undefined ? 100 : options.window;
   };
   let written: number | null | undefined;
   const remember = (window: number | null) => {
-    if (written === undefined) written = keptWindow().window;
+    if (written === undefined) written = keptWindow();
     if (window === written) return;
     written = window;
     writeStored(windowKey, window === null ? 'all' : `${window}`);
   };
 
-  const own = () =>
-    options.saved
-      ? History.load(actor, options.saved, keptWindow())
-      : History.make(actor, {
-          ...keptWindow(),
-          ...(startFrom ? { input: startFrom() } : {}),
-        });
-  /** The History an app of this name holds or left, read with this code from the Input it was made with, else its own. */
+  /** A History with no entries, from the root's Input. */
+  const fresh = () =>
+    History.init(Snapshot.init(actor, startFrom ? startFrom() : undefined));
+  /** A saved History read with this code, else a fresh one: one whose start no longer fits the code is warned of and left behind. */
+  const read = (saved: SavedHistory) => {
+    try {
+      return History.load(actor, saved);
+    } catch (error) {
+      console.warn(
+        `[@kestack/kabuki] ${name} starts over: ${(error as Error).message}`,
+      );
+      return fresh();
+    }
+  };
+  const own = () => (options.saved ? read(options.saved) : fresh());
+  /** The History an app of this name holds or left, read with this code, else its own. */
   const adopt = () => {
-    const left = registry.history(name);
-    return left
-      ? History.load(actor, left.save(), {
-          window: left.window(),
-          input: left.input,
-        })
-      : own();
+    const left = registry.left(name);
+    if (!left) return own();
+    if (left.actor === actor) return left.history;
+    return read(History.save(left.actor, left.history));
   };
 
-  /** The drawing of the app's own History: what the Runtime runs and `useRuntime` reads. */
-  let mine: Draw<A> | undefined;
-  let runtime: Running<A> | undefined;
-  let shown: Step | null = null;
-  let past: Snapshot | undefined;
-  let failure: Cause.Cause<unknown> | null = null;
+  /** The drawing of the app's own History: what its Runtime is made on, and the Runtime and Steps it draws after. */
+  let mine: Draw | undefined;
+  let runtime: Runtime<A> | null = null;
+  /** The app's History while its Runtime is made: what it started from, and every entry played since. */
+  let history: History | undefined;
+  /** The Window the History is kept to, once the app has read or changed it. */
+  let keeping: number | null | undefined;
+  let seeking: Step<A> | null = null;
+  let failure: Failure | null = null;
 
   const listeners = new Set<() => void>();
   let seen: Seen | undefined;
@@ -207,91 +244,114 @@ export const app = <A extends AnyActor, S extends AnySetup = {}>(
     return () => listeners.delete(listener);
   };
 
-  /** One History drawn: the app's own, or one given when drawn, which only the app's own Runtime ever runs. */
-  const makeDraw = (history: History<A>): Draw<A> => {
-    const draw: Draw<A> = { history, first: undefined, drawn: undefined! };
-    const live = () =>
-      shown === null ? (runtime?.snapshot() ?? draw.first?.snapshot) : past;
+  /** One History drawn: the app's own, or one given when drawn, which the app's Runtime only ever starts from. */
+  const makeDraw = (history: History, known?: Snapshot): Draw => {
+    const draw: Draw = {
+      history,
+      first: known && { snapshot: known, replaying: fulfilled(known) },
+      drawn: undefined!,
+    };
+    const now = () =>
+      draw === mine
+        ? (seeking?.snapshot ?? runtime?.snapshot ?? draw.first?.snapshot)
+        : draw.first?.snapshot;
     draw.drawn = makeDrawn(
-      () => (draw === mine ? live() : draw.first?.snapshot),
+      now,
       () => draw.first?.snapshot,
-      (id, message) => {
-        if (draw === mine && shown === null)
-          runtime?.send(id, message, { kind: 'view', instance: id });
+      (address, message) => {
+        if (draw === mine && seeking === null)
+          runtime?.at(address)?.send(message as never, {
+            kind: 'view',
+            instance: address,
+          });
       },
       subscribe,
-      () => draw === mine && shown === null,
+      () => draw === mine && seeking === null,
     );
     return draw;
   };
 
-  let unwatch = () => {};
-  const take = (next: Draw<A>) => {
-    unwatch();
-    mine = next;
-    const { history } = next;
-    unwatch = history.subscribe(() => {
-      if (typeof shown === 'number' && !history.has(shown))
-        show(history.branch()[0]?.id ?? 'init');
-      remember(history.window());
-      changed();
-    });
-    return next;
-  };
   const whose = () => mine;
-  const mineOf = () => mine ?? take(makeDraw(adopt()));
-  const historyOf = () => mineOf().history;
+  const mineOf = () => (mine ??= makeDraw(adopt()));
+  /** The app's History as it is now: the one kept beside its Runtime, else the one it draws. */
+  const historyNow = () => history ?? mineOf().history;
+  const windowNow = () => (keeping === undefined ? keptWindow() : keeping);
 
   /** The drawing of a History given when drawn, one per saved History, so a draw that suspends finds it again. */
-  const given = new WeakMap<SavedHistory, Draw<A>>();
+  const given = new WeakMap<SavedHistory, Draw>();
   const givenOf = (saved: SavedHistory) => {
     let draw = given.get(saved);
-    if (!draw)
-      given.set(
-        saved,
-        (draw = makeDraw(History.load(actor, saved, keptWindow()))),
-      );
+    if (!draw) given.set(saved, (draw = makeDraw(read(saved))));
     return draw;
   };
   /** Until the app has a History of its own, a given one is drawn as it is. */
   const takesGiven = (saved: SavedHistory | undefined): saved is SavedHistory =>
-    saved !== undefined && mounts === 0 && !registry.history(name);
+    saved !== undefined && mounts === 0 && !registry.left(name);
 
-  /** What came of a start, stop or clear: an interruption is a newer one taking over, not a failure. */
-  const settled = (what: string) => (exit: Exit.Exit<unknown, unknown>) => {
-    if (Exit.isSuccess(exit)) {
-      if (failure === null) return;
-      failure = null;
-    } else {
-      if (Cause.hasInterruptsOnly(exit.cause)) return;
-      console.error(
-        `[@kestack/kabuki] ${name} could not ${what}:\n${Cause.pretty(exit.cause)}`,
-      );
-      failure = exit.cause;
-    }
+  /** The app's Runtime from now on, followed as it changes. */
+  let unfollow = () => {};
+  const take = (next: Runtime<A> | null) => {
+    unfollow();
+    runtime = next;
+    unfollow = next
+      ? next.subscribe((entries) => {
+          // 3. Record
+          if (history && entries.length > 0)
+            history = History.compact(
+              actor,
+              History.add(history, entries),
+              windowNow(),
+            );
+          changed();
+        })
+      : () => {};
     changed();
+  };
+
+  const fail = (what: string, error: unknown) => {
+    console.error(`[@kestack/kabuki] ${name} could not ${what}:`, error);
+    failure = { what, error };
+    changed();
+  };
+  /** Run a Seek, start, stop or Fork, and keep how it went. */
+  const control = (what: string, run: () => Promise<void> | undefined) => {
+    let running: Promise<void> | undefined;
+    try {
+      running = run();
+    } catch (error) {
+      return fail(what, error);
+    }
+    void Promise.resolve(running).then(
+      () => {
+        if (failure === null) return;
+        failure = null;
+        changed();
+      },
+      (error: unknown) => fail(what, error),
+    );
   };
 
   // 1. Draw
   /**
    * Start replaying a History to its Head, once: what the app draws before
-   * its Runtime starts. Init, or one entry such as a Restore, is drawn at
+   * its Runtime is made. Its start, or one entry after it, is drawn at
    * once; a longer Branch is replayed without blocking the page.
    */
-  const firstDraw = (draw: Draw<A>): FirstDraw => {
+  const firstDraw = (draw: Draw): FirstDraw => {
     if (draw.first) return draw.first;
-    const from = draw.history;
-    const head = from.head();
+    const { history } = draw;
     const first: FirstDraw = { snapshot: undefined, replaying: undefined! };
     first.replaying =
-      head === null || from.branch(head).length <= 1
-        ? fulfilled((first.snapshot = from.snapshotAt(head)))
+      history.head === null || History.entries(history).length <= 1
+        ? fulfilled((first.snapshot = History.snapshot(actor, history)))
         : tracked(
-            Effect.runPromise(from.seek()).then((snapshot) => {
-              first.snapshot = snapshot;
-              changed();
-              return snapshot;
-            }),
+            Effect.runPromise(History.replay(actor, history)).then(
+              (snapshot) => {
+                first.snapshot = snapshot;
+                changed();
+                return snapshot;
+              },
+            ),
           );
     return (draw.first = first);
   };
@@ -299,49 +359,38 @@ export const app = <A extends AnyActor, S extends AnySetup = {}>(
   /**
    * Wait for the first Snapshot: React shows the fallback until it is
    * replayed. Called on every draw, even once replayed or with the Runtime
-   * started, since React wants a draw that suspended on use() to call it
+   * made, since React wants a draw that suspended on use() to call it
    * again; the thenable is fulfilled by then, so it returns at once.
    */
-  const waitForFirstDraw = (draw: Draw<A>) => {
+  const waitForFirstDraw = (draw: Draw) => {
     use(firstDraw(draw).replaying);
   };
 
   // 2. Mount
   let mounts = 0;
   let close = () => {};
-  let detach = () => {};
-  let unsubscribe = () => {};
   const mount = (saved: SavedHistory | undefined) => {
-    if (takesGiven(saved)) take(givenOf(saved));
+    if (takesGiven(saved)) mine = givenOf(saved);
     if (mounts++ === 0) {
-      if (!registry.claim(name, app, historyOf())) {
+      if (!registry.claim(name, app, actor, historyNow)) {
         console.error(
           `[@kestack/kabuki] two apps named ${name} are mounted at once; they cannot share a History`,
         );
-        take(makeDraw(own()));
+        mine = makeDraw(own());
         changed();
       }
-      detach = attach();
       let open = true;
       close = () => {
         open = false;
       };
-      firstDraw(mineOf()).replaying.then(
+      const draw = mineOf();
+      firstDraw(draw).replaying.then(
         () => {
-          if (!open) return;
-          close = host(historyOf(), layer, (exit) => {
-            if (Exit.isSuccess(exit)) {
-              unsubscribe();
-              runtime = exit.value;
-              unsubscribe = exit.value.subscribe(changed);
-              changed();
-            }
-            settled('start')(exit);
-          });
+          if (open) close = run(draw);
         },
         (error: unknown) => {
           console.error(
-            `[@kestack/kabuki] ${name} could not be drawn, so its Runtime did not start`,
+            `[@kestack/kabuki] ${name} could not be drawn, so its Runtime was not made`,
             error,
           );
         },
@@ -350,55 +399,109 @@ export const app = <A extends AnyActor, S extends AnySetup = {}>(
     return () => {
       if (--mounts === 0) {
         registry.release(name, app);
-        detach();
         close();
       }
     };
   };
 
-  // 3. Show
-  let showing: Fiber.Fiber<void> | undefined;
-  const show = (step: Step | null) => {
-    showing?.interruptUnsafe();
-    if (step === null) {
-      shown = null;
-      past = undefined;
-      return changed();
+  /** Make the app's Runtime from what it draws, running, and attach what runs beside it; returns how to let both go. */
+  const run = (draw: Draw): (() => void) => {
+    try {
+      keeping = keptWindow();
+      history = History.compact(actor, draw.history, keeping);
+      // Made stopped and started once it is followed, so no entry is missed.
+      const made: Runtime<A> = Runtime.make(actor, {
+        snapshot: History.snapshot(actor, history),
+        layer,
+        running: false,
+      } as never);
+      take(made);
+      void made.start().catch((error: unknown) => fail('start', error));
+    } catch (error) {
+      history = undefined;
+      fail('start', error);
+      return () => {};
     }
-    showing = Effect.runFork(
-      historyOf()
-        .seek(step === 'init' ? null : step)
-        .pipe(
-          Effect.map((snapshot) => {
-            past = snapshot;
-            shown = step;
-            changed();
-          }),
-        ),
+    const detach = attach();
+    return () => {
+      detach();
+      const last = runtime!;
+      // A next mount draws at once where this one left off.
+      mine = makeDraw(historyNow(), last.snapshot);
+      toHead();
+      take(null);
+      history = undefined;
+      control('stop', () => last.dispose());
+    };
+  };
+
+  // 4. Seek
+  let seeks: Fiber.Fiber<void> | undefined;
+  const seek = (entry: number | null) => {
+    seeks?.interruptUnsafe();
+    seeks = undefined;
+    const from = historyNow();
+    if (entry !== null && !History.entry(from, entry))
+      return fail(
+        `seek ${entry}`,
+        new RangeError(`[@kestack/kabuki] no History entry ${entry}`),
+      );
+    // Replayed without blocking the page; drawn once it is.
+    seeks = Effect.runFork(
+      History.replay(actor, from, entry).pipe(
+        Effect.map((snapshot) => {
+          seeking = { entry, at: snapshot.at, snapshot };
+          if (failure !== null) failure = null;
+          changed();
+        }),
+      ),
     );
   };
 
-  const control = (what: string, effect: Effect.Effect<void> | undefined) => {
-    if (effect) Effect.runFork(effect).addObserver(settled(what));
+  const toHead = () => {
+    seeks?.interruptUnsafe();
+    seeks = undefined;
+    if (seeking === null) return;
+    seeking = null;
+    changed();
   };
-  const start = (from?: number | null) =>
-    control('start', runtime?.start(from));
-  const stop = () => control('stop', runtime?.stop());
-  const clear = () =>
-    control(
-      'clear its History',
-      Effect.gen(function* () {
-        yield* runtime?.stop() ?? Effect.void;
-        historyOf().clear();
-        yield* runtime?.start() ?? Effect.void;
-      }),
-    );
 
-  /** Each Attachment called with the running app; returns how to stop them all. */
+  const fork = (entry: number | null) =>
+    control(`fork from ${entry ?? 'the start'}`, () => {
+      if (!runtime || !history) return undefined;
+      // Throws for an entry the History does not have.
+      const moved = History.move(history, entry);
+      toHead();
+      history = History.compact(actor, moved, windowNow());
+      return runtime.follow(History.snapshot(actor, history), {
+        restart: true,
+      });
+    });
+  const startOver = () =>
+    control('start over', () => {
+      if (!runtime || !history) return undefined;
+      toHead();
+      history = fresh();
+      return runtime.follow(History.snapshot(actor, history), {
+        restart: true,
+      });
+    });
+  const keep = (next: number | null) => {
+    // Throws for a Window that keeps less than nothing.
+    const kept = History.compact(actor, historyNow(), next);
+    keeping = next;
+    remember(next);
+    if (history) history = kept;
+    changed();
+  };
+  const start = () => control('start', () => runtime?.start());
+  const stop = () => control('stop', () => runtime?.stop());
+
+  /** Each Attachment called with the app; returns how to stop them all. */
   const attach = () => {
     const stops = (options.attach ?? []).flatMap((attachment) => {
       try {
-        return [attachment(live)];
+        return [attachment(live as AppRuntime)];
       } catch (error) {
         console.error(
           `[@kestack/kabuki] ${name} could not start an Attachment`,
@@ -421,47 +524,38 @@ export const app = <A extends AnyActor, S extends AnySetup = {}>(
     };
   };
 
-  const read = () =>
-    (seen ??= {
-      head: historyOf().head(),
-      running: runtime?.running() ?? false,
-      shown,
-      failure,
-    });
+  const readNow = () =>
+    (seen ??= { runtime, seeking, failure, history: historyNow() });
 
-  /** The running app, always read as it is now: what an Attachment holds and `useRuntime` returns. */
+  /** The app, always read as it is now: what an Attachment holds and `useRuntime` returns. */
   const live: AppRuntime<A> = {
     name,
+    get runtime() {
+      return runtime;
+    },
     get history() {
-      return historyOf();
+      return historyNow();
     },
-    get branch() {
-      return historyOf().branch(read().head);
+    get window() {
+      return windowNow();
     },
-    get head() {
-      return read().head;
-    },
-    get running() {
-      return read().running;
-    },
-    get shown() {
-      return read().shown;
+    keep,
+    get seeking() {
+      return seeking;
     },
     get failure() {
-      return read().failure;
+      return failure;
     },
-    show,
+    seek,
+    toHead,
+    fork,
+    startOver,
     start,
     stop,
-    clear,
-    workers: (instance) => runtime?.workers(instance) ?? NO_WORKERS,
-    provided: (instance) =>
-      runtime?.provided(instance) ?? { top: [], state: [] },
-    instance: (options) => runtime?.instance(options) ?? null,
     subscribe,
   };
 
-  const Drawn = ({ draw }: { readonly draw: Draw<A> }) => {
+  const Drawn = ({ draw }: { readonly draw: Draw }) => {
     waitForFirstDraw(draw);
     return (
       <AppContext value={draw.drawn}>
@@ -492,7 +586,7 @@ export const app = <A extends AnyActor, S extends AnySetup = {}>(
     displayName: name,
     useRuntime: (): AppRuntime<A> => {
       // Drawn again on each change; the object stays the same, as an Attachment's does.
-      useSyncExternalStore(subscribe, read, read);
+      useSyncExternalStore(subscribe, readNow, readNow);
       return live;
     },
   });
@@ -505,8 +599,8 @@ export interface AppProps {
   /**
    * A History to draw, given when the App is drawn, so a server draws each
    * request's own: drawn at its Head with no Runtime, as `options.saved` is.
-   * The first mount in a browser takes it as the app's History and starts
-   * the Runtime from it, unless an app of this name has one already, as
+   * The first mount in a browser takes it as the app's History and makes
+   * the Runtime on it, unless an app of this name has one already, as
    * after a hot reload. Read once: a later one is not drawn.
    */
   readonly saved?: SavedHistory;
@@ -515,18 +609,18 @@ export interface AppProps {
 }
 
 /** One History, drawn: the app's own, or one given when the App is drawn. */
-interface Draw<A> {
-  readonly history: History<A>;
+interface Draw {
+  readonly history: History;
   first: FirstDraw | undefined;
   drawn: DrawnApp;
 }
 
 /** What useRuntime reads, the same object until something changes. */
 interface Seen {
-  readonly head: number | null;
-  readonly running: boolean;
-  readonly shown: Step | null;
-  readonly failure: Cause.Cause<unknown> | null;
+  readonly runtime: unknown;
+  readonly seeking: unknown;
+  readonly failure: Failure | null;
+  readonly history: History;
 }
 
 /** The History's Head, replayed: the first Snapshot drawn, before any Runtime. */
@@ -553,35 +647,6 @@ const tracked = <T,>(promise: Promise<T>): Thenable<T> => {
       Object.assign(thenable, { status: 'rejected', reason }),
   );
   return thenable;
-};
-
-/**
- * Start the Runtime under one Scope, and say how the start went; a failed
- * one closes the Scope. Returns a function that closes the Scope: every
- * Command and Worker ends, then the Layer.
- */
-const host = <A extends AnyActor>(
-  history: History<A>,
-  layer: Layer.Layer<any, never, never>,
-  onSettled: (exit: Exit.Exit<Running<A>>) => void,
-): (() => void) => {
-  const scope = Scope.makeUnsafe();
-  const starting = Effect.runFork(
-    Runtime.start(history, ...([layer] as never)).pipe(Scope.provide(scope)),
-  );
-  starting.addObserver((exit) => {
-    if (Exit.isFailure(exit)) void Effect.runPromise(Scope.close(scope, exit));
-    onSettled(exit);
-  });
-  // A start still under way is interrupted first, so nothing is built into a
-  // closed Scope (React StrictMode unmounts right after the first mount).
-  return () => {
-    void Effect.runPromise(
-      Fiber.interrupt(starting).pipe(
-        Effect.andThen(Scope.close(scope, Exit.void)),
-      ),
-    );
-  };
 };
 
 /** A value kept in the browser, or nothing: on a server, or where storage is refused. */

@@ -1,5 +1,5 @@
 import { Actor } from '@kestack/kabuki';
-import type { ActorType } from '@kestack/kabuki/core/actor';
+import type { ActorType } from '@kestack/kabuki/types';
 import { Clock, Context, Deferred, Effect, Layer, Queue, Stream } from 'effect';
 import type { Scope } from 'effect';
 import { nameOf, partsOf, ReplicaError } from '../shape/index.js';
@@ -22,8 +22,8 @@ import {
 
 /*
  * Replicas: the one actor that runs the Instances in use, placed once near
- * the root as the Router holds pages. A page Provides `Replicas.layer` and
- * places `Actor.child(Replicas.actor([...]))` among its children; everything
+ * the root as the Router holds pages. A page Provides `Replicas.layer`,
+ * naming `Replicas.capabilities`, and places `Actor.child(Replicas.actor([...]))` among its children; everything
  * below it gets Instances with `Replica.get`.
  *
  * 1. Hold     getting an Instance holds it until the holder's Scope closes:
@@ -212,7 +212,7 @@ const actor = <const B extends ReadonlyArray<Build>>(
 
 /**
  * The Instances in use here, as code gets them: through `Replica.get`. A
- * page Provides `Replicas.layer` and places
+ * page Provides `Replicas.layer`, naming `Replicas.capabilities`, and places
  * `Actor.child(Replicas.actor([...]))` among its children, once, near the
  * root; what runs is in that actor's Model.
  */
@@ -228,6 +228,12 @@ export class Replicas extends Context.Service<
 >()('@kestack/std-toolkit/replica/Replicas') {
   /** The Capability a page Provides. */
   static readonly layer = layer;
+  /** What `Replicas.layer` builds, as the page that Provides it names them: `provides: { capabilities: Replicas.capabilities, layer: () => Replicas.layer }`. */
+  static readonly capabilities: readonly [
+    typeof Replicas,
+    typeof Hosting,
+    typeof Link,
+  ] = [Replicas, Hosting, Link];
   /** The actor the same page places among its children, once, running these Builds: `Actor.child(Replicas.actor([…]))`. */
   static readonly actor = actor;
 }

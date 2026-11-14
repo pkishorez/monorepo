@@ -60,7 +60,7 @@ describe('requires, from A down to D', () => {
     const C = Actor.define('C', { requires: [SC] }).build({
       ...uses(SC),
       children: { d: Actor.child(D) },
-      provides: () => sd,
+      provides: { capabilities: [SD], layer: () => sd },
     });
     const A = Actor.define('A', { requires: [SA] }).build({
       ...uses(SA),
@@ -78,7 +78,7 @@ describe('requires, from A down to D', () => {
     const A = Actor.define('A', { requires: [SA] }).build({
       ...uses(SA),
       children: { b: Actor.child(B), c: Actor.child(C) },
-      provides: () => sd,
+      provides: { capabilities: [SD], layer: () => sd },
     });
     same<Needs<typeof A>, SA | SB | SC>(true);
   });
@@ -87,13 +87,16 @@ describe('requires, from A down to D', () => {
     const InOn = Actor.define('A', { state: St }).build({
       init: () => ({ state: { _tag: 'On' } }),
       states: {
-        On: { children: { b: Actor.child(B) }, provides: () => sb },
+        On: {
+          children: { b: Actor.child(B) },
+          provides: { capabilities: [SB], layer: () => sb },
+        },
       },
     });
     const AtTop = Actor.define('A', { state: St }).build({
       init: () => ({ state: { _tag: 'On' } }),
       children: { b: Actor.child(B) },
-      states: { On: { provides: () => sb } },
+      states: { On: { provides: { capabilities: [SB], layer: () => sb } } },
     });
     same<Needs<typeof InOn>, never>(true);
     same<Needs<typeof AtTop>, SB>(true);
@@ -103,7 +106,7 @@ describe('requires, from A down to D', () => {
     const A = Actor.define('A', { state: St }).build({
       init: () => ({ state: { _tag: 'On' } }),
       states: {
-        On: { provides: () => sb },
+        On: { provides: { capabilities: [SB], layer: () => sb } },
         Off: { children: { b: Actor.child(B) } },
       },
     });
@@ -112,14 +115,14 @@ describe('requires, from A down to D', () => {
 
   it("6. A Provides SD, but A's own Worker cannot use it: Provides points down", () => {
     const Wrong = Actor.define('A', {}).build({
-      provides: () => sd,
+      provides: { capabilities: [SD], layer: () => sd },
       workers: {
         // @ts-expect-error SD is not in A's requires
         work: { run: () => Effect.flatMap(SD, () => Effect.never) },
       },
     });
     const Right = Actor.define('A', { requires: [SD] }).build({
-      provides: () => sd,
+      provides: { capabilities: [SD], layer: () => sd },
       ...uses(SD),
     });
     same<Needs<typeof Right>, SD>(true);
@@ -132,11 +135,14 @@ describe('requires, from A down to D', () => {
       Effect.map(SA, () => ({ d: Effect.void })),
     );
     const Wrong = Actor.define('A', {}).build({
-      // @ts-expect-error building SD needs SA, which A does not require
-      provides: () => fromSA,
+      provides: {
+        capabilities: [SD],
+        // @ts-expect-error building SD needs SA, which A does not require
+        layer: () => fromSA,
+      },
     });
     const Right = Actor.define('A', { requires: [SA] }).build({
-      provides: () => fromSA,
+      provides: { capabilities: [SD], layer: () => fromSA },
       children: { d: Actor.child(D) },
     });
     same<Needs<typeof Right>, SA>(true);
@@ -153,7 +159,7 @@ describe('requires, from A down to D', () => {
       children: { b: Actor.child(B), c: Actor.child(C) },
     });
     // @ts-expect-error SD is still needed by D, and nothing gives it
-    const short: Effect.Effect<unknown, never, never> = Runtime.start(A).pipe(
+    const short: Effect.Effect<unknown, never, never> = Runtime.scoped(A).pipe(
       Effect.provide(
         Layer.mergeAll(
           Layer.succeed(SA, { a: Effect.void }),

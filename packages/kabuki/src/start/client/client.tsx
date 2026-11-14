@@ -27,10 +27,10 @@ import { loading } from './rpc.ts';
  * 2. Preload  the lazy Views the server drew, which it marked in the head, so
  *             hydrating never waits on their code.
  * 3. Hydrate  the Document around the App drawn from that History, with the
- *             address in the browser's history, the Loaders served by the
+ *             URL in the browser's history, the Loaders served by the
  *             Loader RPC behind the Data cache, and the app's own Layer.
- *             Once it is mounted the Runtime starts, and the places drawn
- *             loading, the client ones, load their data.
+ *             Once it is mounted its Runtime is made, running, and the
+ *             places drawn loading, the client ones, load their data.
  * 4. Redraw   with new code, after a hot reload: the new App carries on from
  *             the History the old one leaves, replayed with the new code.
  *
@@ -78,7 +78,7 @@ export const client = async (exported: StartApp): Promise<Hydrated> => {
         Loading.cached(app.routes, loading(app.routes)),
         layer ?? (Layer.empty as unknown as Layer.Layer<any>),
       ) as never,
-      // On the browser's Adapter, so it starts at the browser's address.
+      // On the browser's Adapter, so it starts at the browser's URL.
       input: () => app.startAt(),
       ...(name && { name }),
       ...(attach && { attach }),

@@ -1,9 +1,8 @@
 import { createCollection } from '@tanstack/db';
 import { Effect, Layer, Schema, type Scope } from 'effect';
 import type { Session } from '@kestack/connect/code';
-import { Actor, Runtime } from '@kestack/kabuki';
-import type { Running } from '@kestack/kabuki/core/runtime';
-import type { Instance } from '@kestack/kabuki/core/snapshot';
+import { Actor, Address, Runtime } from '@kestack/kabuki';
+import type { Instance } from '@kestack/kabuki/types';
 import { Replicas } from '@kestack/std-toolkit/replica';
 import { describe, expect, it } from 'vitest';
 import { Prefetch } from '../index.ts';
@@ -125,20 +124,22 @@ const run = <A>(effect: Effect.Effect<A, unknown, Scope.Scope>) =>
   Effect.runPromise(Effect.scoped(effect) as Effect.Effect<A>);
 
 const start = (layer: Layer.Layer<any>) =>
-  Runtime.start(OwnerLive as never, layer as never) as Effect.Effect<
-    Running<unknown>,
-    never,
-    Scope.Scope
-  >;
+  Runtime.scoped(OwnerLive as never, {
+    layer: layer as never,
+  }) as Effect.Effect<Runtime, never, Scope.Scope>;
 
-/** Each `MessageIds` Query held: its key, its Connection and session, and its Instance id. */
-const held = (app: Running<unknown>) => {
-  const prefetch = app.snapshot().children['prefetch'] as Instance;
+/** Each `MessageIds` Query held: its key, its Connection and session, and its Address. */
+const held = (app: Runtime) => {
+  const prefetch = app.snapshot.root.children['prefetch'] as Instance;
   return ((prefetch.children['messages'] ?? []) as ReadonlyArray<Instance>).map(
-    ({ id, key, props }) => ({ id, key, props }),
+    ({ address, props }) => ({
+      address,
+      key: Address.parse(address).path.at(-1)?.key,
+      props,
+    }),
   );
 };
-const keys = (app: Running<unknown>) =>
+const keys = (app: Runtime) =>
   held(app)
     .map(({ key }) => key)
     .sort();
@@ -157,7 +158,7 @@ describe('Prefetch', () => {
         yield* wait();
         expect(held(app)).toEqual([
           {
-            id: expect.any(String),
+            address: expect.any(String),
             key: 's1',
             props: { connectionId: 'm1', sessionId: 's1' },
           },
@@ -174,13 +175,13 @@ describe('Prefetch', () => {
       Effect.gen(function* () {
         const app = yield* start(replicas);
         yield* wait();
-        const first = held(app)[0]!.id;
+        const first = held(app)[0]!.address;
 
         sessions.write({ type: 'insert', value: session('s2') });
         yield* wait();
         expect(keys(app)).toEqual(['s1', 's2']);
         // The one already held is the same Query: its Window stays open.
-        expect(held(app).find(({ key }) => key === 's1')?.id).toBe(first);
+        expect(held(app).find(({ key }) => key === 's1')?.address).toBe(first);
 
         sessions.write({
           type: 'update',
@@ -205,12 +206,11 @@ describe('Prefetch', () => {
     await run(
       Effect.gen(function* () {
         const app = yield* start(replicas);
-        const root = app.snapshot().id;
         yield* wait();
         expect(keys(app)).toEqual(['a1']);
 
         // Every Connection shown.
-        app.send(root, { _tag: 'Read', connectionIds: ['m1', 'm2'] });
+        app.root.send({ _tag: 'Read', connectionIds: ['m1', 'm2'] });
         yield* wait();
         expect(keys(app)).toEqual(['a1', 'b1', 'b2']);
         expect(held(app).find(({ key }) => key === 'b1')?.props).toEqual({
@@ -219,12 +219,12 @@ describe('Prefetch', () => {
         });
 
         // Only the second.
-        app.send(root, { _tag: 'Read', connectionIds: ['m2'] });
+        app.root.send({ _tag: 'Read', connectionIds: ['m2'] });
         yield* wait();
         expect(keys(app)).toEqual(['b1', 'b2']);
 
         // None, until the sidebar can choose.
-        app.send(root, { _tag: 'Read', connectionIds: [] });
+        app.root.send({ _tag: 'Read', connectionIds: [] });
         yield* wait();
         expect(keys(app)).toEqual([]);
       }),
@@ -257,7 +257,7 @@ describe('Prefetch', () => {
           value: message('c', 's1', 'again'),
         });
         yield* wait();
-        const prefetch = app.snapshot().children['prefetch'] as Instance;
+        const prefetch = app.snapshot.root.children['prefetch'] as Instance;
         const [query] = prefetch.children[
           'messages'
         ] as ReadonlyArray<Instance>;

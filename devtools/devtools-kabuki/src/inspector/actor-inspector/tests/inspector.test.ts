@@ -1,9 +1,8 @@
 import { Effect, Layer, Queue, Stream } from 'effect';
 import type { Scope } from 'effect';
 import { TestClock } from 'effect/testing';
-import { History, Runtime } from '@kestack/kabuki';
-import type { Running } from '@kestack/kabuki/core/runtime';
-import type { Instance } from '@kestack/kabuki/core/snapshot';
+import { Runtime } from '@kestack/kabuki';
+import type { Instance } from '@kestack/kabuki/types';
 import { describe, expect, it } from 'vitest';
 import type * as Api from '../../../api/index.ts';
 import type { KabukiSessionClient } from '../../../api/index.ts';
@@ -13,20 +12,23 @@ import { InspectorLive } from '../index.ts';
 /*
  * The Inspector on a Kabuki Session stood in for: it shows where the app
  * is as it is told, draws the Step shown, and moves the app only through
- * the Api. With Travel the app on, picking a Step travels the app and Fork
- * carries on from it; off, the Inspector looks back on its own. Playing
- * steps through each Step in turn and goes live at the last.
+ * the Api. With Travel the app on, picking a Step Seeks it in the app and
+ * Fork moves the app's Head to it; off, the Inspector looks back on its
+ * own. Playing steps through each Step in turn and shows the Head at the
+ * last. Where the History splits, an entry picked brings its Branch into
+ * view. Following one Instance's Trail, its card is drawn alone and the
+ * Timeline steps from moment to moment of it.
  */
 
 type Client = KabukiSessionClient;
 
-const entry = (id: number, destination = 'Counter'): Api.Entry => ({
+const entry = (id: number, to = 'Counter'): Api.Entry => ({
   id,
   parent: id === 1 ? null : id - 1,
-  destination,
+  to,
   message: { _tag: 'Bumped' },
   tag: 'Bumped',
-  source: { kind: 'view', instance: destination },
+  from: { kind: 'view', instance: to },
   at: id,
   outcome: 'handled',
 });
@@ -37,7 +39,6 @@ const root: Api.GraphNode = {
   actor: 'Counter',
   blueprint: {
     name: 'Counter',
-    states: ['Single'],
     single: true,
     requires: [],
     top: {
@@ -45,7 +46,7 @@ const root: Api.GraphNode = {
       workers: [],
       children: [],
       queries: [],
-      provides: false,
+      provides: [],
     },
     state: {},
   },
@@ -54,19 +55,18 @@ const root: Api.GraphNode = {
   within: null,
   state: 'Single',
   workers: [],
-  touched: [],
   gone: [],
   children: [],
 };
 
 const nowOf = (
   revision: number,
-  shown: Api.Step | null = null,
+  seeking: Api.Step | null = null,
   head = 3,
 ): Api.Now => ({
   head,
   size: head,
-  shown,
+  seeking,
   running: true,
   failure: null,
   revision,
@@ -77,6 +77,8 @@ const session = Effect.gen(function* () {
   const nows = yield* Queue.unbounded<Api.Now>();
   const asked: Array<readonly [string, unknown]> = [];
   const entries = [entry(1), entry(2), entry(3, 'Counter/page#1')];
+  // Another Branch, from 1: 4 after it.
+  const other = { ...entry(4), parent: 1 };
   const ask = <A>(name: string, payload: unknown, answer: A) =>
     Effect.sync(() => {
       asked.push([name, payload]);
@@ -86,12 +88,14 @@ const session = Effect.gen(function* () {
   // stand-in answers the one way the Inspector calls them.
   const layer = Layer.mock(KabukiSession)({
     watch: (() => Stream.fromQueue(nows)) as unknown as Client['watch'],
-    history: (() =>
-      Effect.succeed({
-        entries,
+    history: ((payload: { readonly branch?: number }) =>
+      ask('history', payload, {
+        entries: payload.branch === 4 ? [entries[0]!, other] : entries,
+        splits: [{ at: 1, next: [entries[1]!, other] }],
+        tips: [3, 4],
         head: 3,
         size: 3,
-        shown: null,
+        seeking: null,
         running: true,
         failure: null,
       })) as unknown as Client['history'],
@@ -100,6 +104,8 @@ const session = Effect.gen(function* () {
         at: payload.at ?? 3,
         root,
       })) as unknown as Client['graph'],
+    blueprint: (() =>
+      ask('blueprint', undefined, { root })) as unknown as Client['blueprint'],
     node: ((payload: { readonly instance: string }) =>
       ask('node', payload, {
         id: payload.instance,
@@ -112,8 +118,17 @@ const session = Effect.gen(function* () {
         provides: { top: [], state: [] },
         schemas: { states: {}, messages: {} },
       })) as unknown as Client['node'],
-    travel: ((payload: unknown) =>
-      ask('travel', payload, undefined)) as unknown as Client['travel'],
+    trail: ((payload: { readonly instance: string }) =>
+      ask('trail', payload, {
+        instance: payload.instance,
+        actor: 'Page',
+        moments: [
+          { entry: null, kind: 'started', model: [], props: [] },
+          { entry: entries[2]!, kind: 'changed', model: ['count'], props: [] },
+        ],
+      } satisfies Api.Trail)) as unknown as Client['trail'],
+    seek: ((payload: unknown) =>
+      ask('seek', payload, undefined)) as unknown as Client['seek'],
     fork: ((payload: unknown) =>
       ask('fork', payload, undefined)) as unknown as Client['fork'],
   });
@@ -127,8 +142,11 @@ const walk = (at: Instance): ReadonlyArray<Instance> => [
   ),
 ];
 
-const find = (app: Running<unknown>, actor: string) =>
-  walk(app.snapshot()).find((one) => one.actor === actor)!;
+// oxlint-disable-next-line typescript/no-explicit-any -- any Runtime the test makes
+type App = Runtime<any>;
+
+const find = (app: App, actor: string) =>
+  walk(app.snapshot.root).find((one) => one.actor === actor)!;
 
 const settle = Effect.gen(function* () {
   for (let at = 0; at < 30; at++) yield* Effect.yieldNow;
@@ -143,18 +161,17 @@ const run = <A>(effect: Effect.Effect<A, never, Scope.Scope>) =>
 const inspect = (travel: boolean) =>
   Effect.gen(function* () {
     const { layer, nows, asked } = yield* session;
-    const app = (yield* Runtime.start(
-      History.make(InspectorLive, {
-        window: null,
-        input: { travel, look: { presenting: false, place: 'bottom' } },
-      }),
+    const app: App = yield* Runtime.scoped(InspectorLive, {
+      input: { travel, look: { presenting: false, place: 'bottom' } },
       layer,
-    )) as unknown as Running<unknown>;
+    });
     yield* Queue.offer(nows, nowOf(1));
     yield* settle;
     const send = (actor: string, message: unknown) =>
       Effect.andThen(
-        Effect.sync(() => app.send(find(app, actor).id, message as never)),
+        Effect.sync(() =>
+          app.at(find(app, actor).address)?.send(message as never),
+        ),
         settle,
       );
     return { app, nows, asked, send };
@@ -189,12 +206,12 @@ describe('the Inspector', () => {
       }),
     ));
 
-  it('travels the app to a Step picked, and draws it once the app shows it', () =>
+  it('Seeks a Step picked in the app, and draws it once the app Seeks it', () =>
     run(
       Effect.gen(function* () {
         const { app, nows, asked: all, send } = yield* inspect(true);
         yield* send('Timeline', { _tag: 'Picked', at: 2 });
-        expect(asked(all, 'travel')).toEqual([{ step: 3 }]);
+        expect(asked(all, 'seek')).toEqual([{ step: 3 }]);
         yield* Queue.offer(nows, nowOf(2, 3));
         yield* settle;
         expect(asked(all, 'graph').at(-1)).toEqual({ at: 3 });
@@ -210,13 +227,13 @@ describe('the Inspector', () => {
       }),
     ));
 
-  it('draws init, not live, while the app shows init, and forks from it', () =>
+  it("draws the History's start, not the Head, while the app Seeks it, and forks from it", () =>
     run(
       Effect.gen(function* () {
         const { app, nows, asked: all, send } = yield* inspect(true);
-        yield* Queue.offer(nows, nowOf(2, 'init'));
+        yield* Queue.offer(nows, nowOf(2, 'start'));
         yield* settle;
-        expect(asked(all, 'graph').at(-1)).toEqual({ at: 'init' });
+        expect(asked(all, 'graph').at(-1)).toEqual({ at: 'start' });
         expect(find(app, 'Timeline').props).toMatchObject({ at: -1 });
         yield* send('Timeline', { _tag: 'Forked' });
         expect(asked(all, 'fork')).toEqual([{ from: null }]);
@@ -239,11 +256,11 @@ describe('the Inspector', () => {
       Effect.gen(function* () {
         const { app, asked: all, send } = yield* inspect(false);
         yield* send('Timeline', { _tag: 'Picked', at: 0 });
-        expect(asked(all, 'travel')).toEqual([]);
+        expect(asked(all, 'seek')).toEqual([]);
         expect(asked(all, 'graph').at(-1)).toEqual({ at: 1 });
         expect(find(app, 'Timeline').props).toMatchObject({ at: 0 });
         yield* send('Timeline', { _tag: 'Travelled', travel: true });
-        expect(asked(all, 'travel')).toEqual([{ step: 1 }]);
+        expect(asked(all, 'seek')).toEqual([{ step: 1 }]);
       }),
     ));
 
@@ -266,22 +283,182 @@ describe('the Inspector', () => {
       }),
     ));
 
-  it('plays each Step in turn, from the first, and goes live at the last', () =>
+  it('switches to the Blueprint, with no Timeline and cards of its own, and back', () =>
+    run(
+      Effect.gen(function* () {
+        const { app, nows, asked: all, send } = yield* inspect(true);
+        yield* send('Canvas', { _tag: 'Opened', id: 'Counter', open: true });
+        yield* send('Inspector', { _tag: 'Viewed', view: 'blueprint' });
+        expect(
+          walk(app.snapshot.root).some((one) => one.actor === 'Timeline'),
+        ).toBe(false);
+        expect(find(app, 'Canvas').props).toMatchObject({
+          blueprint: true,
+          opened: [],
+        });
+        expect(find(app, 'Canvas').model).toMatchObject({
+          print: { id: 'Counter' },
+        });
+        // A Blueprint card is no Instance: opening it reads nothing.
+        yield* send('Canvas', { _tag: 'Opened', id: 'Counter', open: true });
+        expect(find(app, 'Canvas').props).toMatchObject({
+          opened: ['Counter'],
+        });
+        expect(asked(all, 'node')).toHaveLength(1);
+        // Read once: it holds only what the Actors declare.
+        yield* Queue.offer(nows, nowOf(2));
+        yield* settle;
+        expect(asked(all, 'blueprint')).toHaveLength(1);
+        yield* send('Inspector', { _tag: 'Viewed', view: 'running' });
+        expect(find(app, 'Timeline')).toBeDefined();
+        expect(find(app, 'Canvas').props).toMatchObject({
+          blueprint: false,
+          opened: ['Counter'],
+        });
+      }),
+    ));
+
+  it("follows an Instance's Trail from its card: its card alone, the Timeline only its moments, and lets go pressed again", () =>
+    run(
+      Effect.gen(function* () {
+        const { app, nows, asked: all, send } = yield* inspect(true);
+        yield* send('Canvas', { _tag: 'Zoomed', id: 'Counter/page#1' });
+        expect(find(app, 'Inspector').model).toMatchObject({
+          trail: 'Counter/page#1',
+        });
+        expect(asked(all, 'trail')).toEqual([{ instance: 'Counter/page#1' }]);
+        expect(find(app, 'Canvas').props).toMatchObject({
+          only: 'Counter/page#1',
+          opened: ['Counter/page#1'],
+        });
+        // The History's start is before the first moment, not one of the ticks.
+        expect(find(app, 'Timeline').props).toMatchObject({
+          ticks: [{ id: 3, label: 'changed · Bumped → page#1', tone: 'took' }],
+          at: null,
+          next: [],
+        });
+        // Read again as the app changes.
+        yield* Queue.offer(nows, nowOf(2));
+        yield* settle;
+        expect(asked(all, 'trail')).toHaveLength(2);
+        // Pressed again: the whole tree, its card still open, every Step.
+        yield* send('Canvas', { _tag: 'Zoomed', id: 'Counter/page#1' });
+        expect(find(app, 'Inspector').model).toMatchObject({ trail: null });
+        expect(find(app, 'Canvas').props).toMatchObject({
+          only: null,
+          opened: ['Counter/page#1'],
+        });
+        expect(find(app, 'Timeline').props).toMatchObject({
+          ticks: [{ id: 1 }, { id: 2 }, { id: 3 }],
+        });
+        expect(asked(all, 'seek')).toEqual([]);
+      }),
+    ));
+
+  it('steps from moment to moment of the Trail, Seeking each in the app, and lets go as its card closes', () =>
+    run(
+      Effect.gen(function* () {
+        const { app, nows, asked: all, send } = yield* inspect(true);
+        yield* send('Canvas', { _tag: 'Zoomed', id: 'Counter/page#1' });
+        yield* send('Timeline', { _tag: 'Picked', at: 0 });
+        expect(asked(all, 'seek')).toEqual([{ step: 3 }]);
+        yield* Queue.offer(nows, nowOf(2, 3));
+        yield* settle;
+        expect(find(app, 'Timeline').props).toMatchObject({ at: 0 });
+        expect(find(app, 'Canvas').props).toMatchObject({
+          at: 3,
+          only: 'Counter/page#1',
+        });
+        // A Step that is no moment of it shows at the last moment before it: none, before the first.
+        yield* Queue.offer(nows, nowOf(3, 2));
+        yield* settle;
+        expect(find(app, 'Timeline').props).toMatchObject({ at: -1 });
+        yield* send('Canvas', {
+          _tag: 'Opened',
+          id: 'Counter/page#1',
+          open: false,
+        });
+        expect(find(app, 'Inspector').model).toMatchObject({ trail: null });
+        expect(find(app, 'Canvas').props).toMatchObject({ only: null });
+      }),
+    ));
+
+  it('looks at a moment on its own with Travel the app off', () =>
+    run(
+      Effect.gen(function* () {
+        const { app, asked: all, send } = yield* inspect(false);
+        yield* send('Canvas', { _tag: 'Zoomed', id: 'Counter/page#1' });
+        yield* send('Timeline', { _tag: 'Picked', at: 0 });
+        expect(asked(all, 'seek')).toEqual([]);
+        expect(asked(all, 'graph').at(-1)).toEqual({ at: 3 });
+        expect(find(app, 'Timeline').props).toMatchObject({ at: 0 });
+        expect(find(app, 'Inspector').model).toMatchObject({
+          trail: 'Counter/page#1',
+        });
+      }),
+    ));
+
+  it('plays each Step in turn, from the first, and shows the Head at the last', () =>
     run(
       Effect.gen(function* () {
         const { nows, asked: all, send } = yield* inspect(true);
         yield* send('Timeline', { _tag: 'Played', playing: true });
-        expect(asked(all, 'travel')).toEqual([{ step: 1 }]);
+        expect(asked(all, 'seek')).toEqual([{ step: 1 }]);
         yield* Queue.offer(nows, nowOf(2, 1));
         yield* settle;
         yield* TestClock.adjust('1400 millis');
         yield* settle;
-        expect(asked(all, 'travel').at(-1)).toEqual({ step: 2 });
+        expect(asked(all, 'seek').at(-1)).toEqual({ step: 2 });
         yield* Queue.offer(nows, nowOf(3, 2));
         yield* settle;
         yield* TestClock.adjust('1400 millis');
         yield* settle;
-        expect(asked(all, 'travel').at(-1)).toEqual({ step: null });
+        expect(asked(all, 'seek').at(-1)).toEqual({ step: null });
+      }),
+    ));
+  it('offers each way on where the History splits, and brings a Branch picked into view', () =>
+    run(
+      Effect.gen(function* () {
+        const { app, nows, asked: all, send } = yield* inspect(true);
+        yield* send('Timeline', { _tag: 'Picked', at: 0 });
+        yield* Queue.offer(nows, nowOf(2, 1));
+        yield* settle;
+        expect(find(app, 'Timeline').props).toMatchObject({
+          at: 0,
+          next: [
+            { id: 2, on: true },
+            { id: 4, on: false },
+          ],
+        });
+        yield* send('Timeline', { _tag: 'Branched', id: 4 });
+        expect(asked(all, 'seek').at(-1)).toEqual({ step: 4 });
+        expect(find(app, 'Inspector').model).toMatchObject({ branch: 4 });
+        // Watched again for that Branch.
+        yield* Queue.offer(nows, nowOf(3, 4));
+        yield* settle;
+        expect(asked(all, 'history').at(-1)).toEqual({ branch: 4 });
+        expect(find(app, 'Timeline').props).toMatchObject({
+          ticks: [{ id: 1 }, { id: 4 }],
+          at: 1,
+        });
+        // Forked there, the app's Head is: its Branch is the Head's.
+        yield* send('Timeline', { _tag: 'Forked' });
+        expect(asked(all, 'fork')).toEqual([{ from: 4 }]);
+        expect(find(app, 'Inspector').model).toMatchObject({ branch: null });
+      }),
+    ));
+
+  it('brings into view the Branch of a Step the app Seeks off the one in view', () =>
+    run(
+      Effect.gen(function* () {
+        const { app, nows, asked: all } = yield* inspect(true);
+        yield* Queue.offer(nows, nowOf(2, 4));
+        yield* settle;
+        expect(find(app, 'Inspector').model).toMatchObject({ branch: 4 });
+        yield* Queue.offer(nows, nowOf(3, 4));
+        yield* settle;
+        expect(asked(all, 'history').at(-1)).toEqual({ branch: 4 });
+        expect(find(app, 'Timeline').props).toMatchObject({ at: 1 });
       }),
     ));
 });

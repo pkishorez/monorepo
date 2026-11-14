@@ -13,7 +13,7 @@ import { Track } from './track.tsx';
  * The timeline at the foot of the Devtools, in one row: the controls, the
  * track of every Step, or every Scene in a Story, marked by what came of
  * it (./track.tsx), where it is, the mode's own controls, and the way back to
- * live. Narrow, as a phone or a side panel, the track takes a row of its
+ * the Head. Narrow, as a phone or a side panel, the track takes a row of its
  * own above the rest: it goes by its own width, not the screen's.
  *
  * A Step's mark says one thing, what came of its Message: in the text's
@@ -43,19 +43,19 @@ export function Timeline({
   onAt,
   playing,
   onPlaying,
-  live,
+  head,
   extra,
   place = 'bottom',
 }: {
   readonly ticks: ReadonlyArray<Tick>;
-  /** The tick shown; -1 at init, before the first; null while live. */
+  /** The tick shown; -1 at the History's start, before the first; null at the Head. */
   readonly at: number | null;
   readonly onAt: (at: number | null) => void;
   readonly playing: boolean;
   readonly onPlaying: (playing: boolean) => void;
-  /** Whether there is a live app to go back to, and whether it is shown. */
-  readonly live?: { readonly shown: boolean };
-  /** Controls of the mode's own, before the way back to live. */
+  /** Whether there is a Head to go back to, whether it is shown, and whether the app runs there. */
+  readonly head?: { readonly shown: boolean; readonly running: boolean };
+  /** Controls of the mode's own, before the way back to the Head. */
   readonly extra?: ReactNode;
   /** Under the canvas, or over it, right under the app it travels. */
   readonly place?: 'top' | 'bottom';
@@ -63,7 +63,7 @@ export function Timeline({
   const last = ticks.length - 1;
   const index = at ?? last;
   const go = (to: number) => onAt(Math.max(0, Math.min(last, to)));
-  // As wide as `init` at least.
+  // As wide as `start` at least.
   const digits = Math.max(2, String(Math.max(1, ticks.length)).length);
   return (
     <footer
@@ -148,18 +148,25 @@ export function Timeline({
           style={{ minWidth: `${digits * 2 + 1}ch` }}
         >
           {index < 0
-            ? 'init'
+            ? 'start'
             : ticks.length > 0
               ? `${index + 1}/${ticks.length}`
               : '0/0'}
         </span>
         {extra}
-        {live && (
-          // Both are the same size: going live or back never moves the row.
-          <div className="flex h-8 w-20 shrink-0 items-center justify-end touch:h-11">
-            {live.shown ? (
-              <span className="rounded-full bg-running/10 px-2.5 py-1 text-xs font-medium text-running">
-                Live
+        {head && (
+          // Both are the same size: going to the Head or back never moves the row.
+          <div className="flex h-8 w-24 shrink-0 items-center justify-end touch:h-11">
+            {head.shown ? (
+              <span
+                className={cn(
+                  'rounded-full px-2.5 py-1 text-xs font-medium',
+                  head.running
+                    ? 'bg-running/10 text-running'
+                    : 'bg-muted text-muted-foreground',
+                )}
+              >
+                {head.running ? 'Running' : 'Stopped'}
               </span>
             ) : (
               <Button
@@ -172,7 +179,7 @@ export function Timeline({
                 }}
                 className="h-7 rounded-full touch:h-11"
               >
-                Go live
+                Go to Head
               </Button>
             )}
           </div>

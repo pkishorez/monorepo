@@ -13,8 +13,8 @@ const Demo = View.app(AppView, { name: 'opening-an-app' });
 /**
  * Opening an app, running in a browser window like any app. How it works
  * inside, its tree of Actors and every Message, is in the devtools beside
- * it: the button in the corner, or Ctrl+/. A Step shown there stays shown
- * when they close, until going live.
+ * it: the button in the corner, or Ctrl+/. A Step picked there stays shown
+ * when they close, until going back to the Head.
  */
 export function OpeningAnApp({
   actions,
@@ -23,14 +23,14 @@ export function OpeningAnApp({
   readonly actions?: ReactNode;
 }) {
   const runtime = Demo.useRuntime();
-  const { shown, clear } = runtime;
+  const { seeking, startOver } = runtime;
   const [device, setDevice] = useState<Device>('desktop');
 
   return (
     <DevtoolsDock
       storageKey="opening-an-app:devtools"
       status={
-        shown !== null && (
+        seeking !== null && (
           <span
             title="Showing a past Step"
             className="block size-2 rounded-full bg-amber-500 ring-2 ring-background"
@@ -55,8 +55,8 @@ export function OpeningAnApp({
           {actions}
         </header>
         <div className="flex min-h-0 flex-1 items-center justify-center px-6 pb-20 max-sm:p-0">
-          <Browser device={device} address="opening-an.app" onReload={clear}>
-            <PastContext value={shown !== null}>
+          <Browser device={device} url="opening-an.app" onReload={startOver}>
+            <PastContext value={seeking !== null}>
               <Demo />
             </PastContext>
           </Browser>

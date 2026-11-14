@@ -1,71 +1,115 @@
-import type { History } from '@kestack/kabuki';
-import { Snapshot } from '@kestack/kabuki/core/snapshot';
-import type { Instance } from '@kestack/kabuki/core/snapshot';
-import type { ActorDefinition } from '@kestack/kabuki/core/actor';
-import type { Entry } from '@kestack/kabuki/core/history';
+import { Address, History, Snapshot } from '@kestack/kabuki';
+import type { Blueprint } from '@kestack/kabuki';
+import type {
+  AnyActor,
+  BlueprintLevel,
+  HistoryEntry,
+  Instance,
+  WorkerStatus,
+} from '@kestack/kabuki/types';
 import type * as Api from '../../api/index.ts';
-import type { Blueprint } from './read/blueprint.ts';
+import { blueprintOf, nameOf, unknownOf } from './read/blueprint.ts';
 import { unified } from './read/diff.ts';
-import { encoded, encodedEntries } from './read/encode.ts';
-import type { GraphNode } from './read/graph.ts';
-import { casesOf, schemaShape } from './read/schema.ts';
-import type { Field } from './read/schema.ts';
+import {
+  blueprintAt,
+  encoded,
+  encodedData,
+  encodedEntries,
+  keyOf,
+} from './read/encode.ts';
+import { fieldsOf, schemaShape } from './read/schema.ts';
 import {
   changesOf,
-  nodesOf,
+  movesOf,
   pathsChanged,
+  playedOf,
+  statesOf,
   valueAt,
-  walk,
-} from './read/steps.ts';
-import type { Change, LiveNode } from './read/steps.ts';
+  workersChanged,
+} from './read/step.ts';
+import type { Change } from './read/step.ts';
+import { momentsOf } from './read/trail.ts';
 
 /*
  * What `read` works out, as the Api says it: plain JSON, every value of
- * the app's own encoded by its Actor.
+ * the app's own encoded by its Actor's Schemas, as its Blueprint holds
+ * them. Kabuki is read only through its public surface: the root's
+ * Blueprint, the History and the Snapshot after any of its entries, the
+ * Workers the data asks for, and the Runtime's Workers.
  *
- * 1. Entry   a History entry, its Message encoded.
+ * 1. Entry   a History entry, its Message encoded, and what came of it.
  * 2. Change  what a Step did to each Instance, its values and diffs
  *            compared on the encoded side.
- * 3. Graph   the canvas's tree, each definition read into its Blueprint.
+ * 3. Graph   the canvas's tree at a Step, each Instance with its Blueprint.
  * 4. Node    one Instance's card: its data, its change, its Schemas.
+ * 5. Trail   one Instance's story along a Branch, each moment with its
+ *            entry.
  */
 
+/** What an Instance's Workers are doing now; absent where nothing runs or it is not known. */
+export type Statuses = (address: string) => ReadonlyArray<WorkerStatus>;
+
 // 1. Entry
-export const entryOf = (history: History, entry: Entry): Api.Entry => {
-  const saved = encodedEntries(history).get(entry.id) ?? entry;
+export const entryOf = (
+  actor: AnyActor,
+  history: History,
+  entry: HistoryEntry,
+): Api.Entry => {
+  const saved = encodedEntries(actor, history).get(entry.id) ?? entry;
   return {
     id: entry.id,
     parent: entry.parent,
-    destination: entry.destination,
+    to: entry.to,
     message: saved.message,
     tag: entry.message._tag,
-    source: entry.source,
+    from: entry.from,
     at: entry.at,
-    outcome: history.outcome(entry.id),
+    outcome: playedOf(actor, history, entry).outcome,
   };
 };
 
 // 2. Change
-/** Every Instance in a Snapshot with the definition it runs, by id. */
-const byId = (
-  snapshot: Snapshot | undefined,
-  root: ActorDefinition,
-): ReadonlyMap<string, LiveNode> =>
-  new Map(
-    snapshot
-      ? nodesOf(walk(snapshot, root)).map((node) => [node.instance.id, node])
-      : [],
-  );
-
 const valuesOf = (
-  encode: (value: unknown) => unknown,
+  schema: Parameters<typeof encoded>[0],
   before: unknown,
   after: unknown,
 ) => {
-  const from = encoded(encode, before);
-  const to = encoded(encode, after);
+  const from = encoded(schema, before);
+  const to = encoded(schema, after);
+  return { from, to, paths: pathsChanged(from, to) };
+};
+
+/** The Model and Props paths a change changed, compared on the encoded side. */
+const pathsOf = (print: Blueprint | undefined, change: Change) => {
+  const { before, after } = change;
+  if (change.kind !== 'changed' || !before || !after)
+    return { model: undefined, props: undefined };
   return {
-    values: pathsChanged(from, to).map((path) => {
+    model: valuesOf(print?.schemas.model, before.model, after.model),
+    props: valuesOf(print?.schemas.props, before.props, after.props),
+  };
+};
+
+const instanceChangeOf = (
+  actor: AnyActor,
+  [before, after]: readonly [Snapshot | undefined, Snapshot],
+  address: string,
+  change: Change,
+): Api.InstanceChange => {
+  const base = {
+    instance: address,
+    kind: change.kind,
+    actor: (change.after ?? change.before)!.actor,
+    ...statesOf(change.before, change.after),
+    ...workersChanged(actor, before, after, address),
+  };
+  const { model, props } = pathsOf(
+    blueprintAt(actor.blueprint, address),
+    change,
+  );
+  if (!model || !props) return { ...base, model: [], props: [] };
+  const each = ({ from, to, paths }: typeof model) =>
+    paths.map((path) => {
       const was = valueAt(from, path);
       const is = valueAt(to, path);
       // JSON has no undefined: a side the path is not on is left out.
@@ -74,173 +118,248 @@ const valuesOf = (
         ...(was === undefined ? {} : { from: was }),
         ...(is === undefined ? {} : { to: is }),
       };
-    }),
-    diff: unified(from, to),
-  };
-};
-
-const changeOf = (
-  id: string,
-  change: Change,
-  before: LiveNode | undefined,
-  after: LiveNode | undefined,
-): Api.InstanceChange => {
-  const base = {
-    instance: id,
-    kind: change.kind,
-    actor: change.actor,
-    ...(change.state ? { state: change.state } : {}),
-    started: change.started,
-    stopped: change.stopped,
-  };
-  if (change.kind !== 'changed' || !before || !after)
-    return { ...base, model: [], props: [] };
-  const { encoding } = after.definition;
-  const model = valuesOf(
-    encoding.model.encode,
-    before.instance.model,
-    after.instance.model,
-  );
-  const props = valuesOf(
-    encoding.props.encode,
-    before.instance.props,
-    after.instance.props,
-  );
+    });
   return {
     ...base,
-    model: model.values,
-    props: props.values,
-    diff: { model: model.diff, props: props.diff },
+    model: each(model),
+    props: each(props),
+    diff: {
+      model: unified(model.from, model.to),
+      props: unified(props.from, props.to),
+    },
   };
 };
 
-/** What one entry did: the Commands its rule asked for, and each Instance it changed. */
+/** What one entry did: the Commands its Update asked for, and each Instance it started, changed or stopped. */
 export const changesAt = (
+  actor: AnyActor,
   history: History,
-  entry: Entry,
+  entry: HistoryEntry,
 ): {
   readonly commands: ReadonlyArray<string>;
   readonly changes: ReadonlyArray<Api.InstanceChange>;
 } => {
-  const root = history.actor.definition;
-  const before = history.snapshotAt(entry.parent);
-  const after = history.snapshotAt(entry.id);
-  const was = byId(before, root);
-  const is = byId(after, root);
+  const { commands, before, after } = playedOf(actor, history, entry);
   return {
-    // Its rules played again, as they are pure.
-    commands: Snapshot.handle(root, before, entry).commands.map((command) =>
-      String((command as { readonly name?: unknown }).name ?? 'command'),
-    ),
-    changes: [...changesOf(before, after, root)].map(([id, change]) =>
-      changeOf(id, change, was.get(id), is.get(id)),
+    commands,
+    changes: [...changesOf(before, after)].map(([address, change]) =>
+      instanceChangeOf(actor, [before, after], address, change),
     ),
   };
 };
 
 // 3. Graph
-const blueprintOf = (print: Blueprint): Api.GraphNode['blueprint'] => {
-  const level = (one: Blueprint['top']) => ({
-    on: one.on,
-    workers: one.workers,
-    children: one.children.map((slot) => ({
-      name: slot.name,
-      actor: slot.actor.name,
-      condition: slot.condition,
-      keyed: slot.keyed,
-    })),
-    queries: one.queries,
-    provides: one.provides,
-  });
-  return {
-    name: print.name,
-    states: print.states,
-    single: print.single,
-    requires: print.requires,
-    top: level(print.top),
-    state: Object.fromEntries(
-      Object.entries(print.state).map(([tag, one]) => [tag, level(one)]),
-    ),
-  };
+/** A page's key is its params; one with none says nothing. */
+const keyText = (key: string | undefined) =>
+  key && key !== '[]' && key !== '{}' ? ` #${key}` : '';
+
+/** Its Workers and the keys each runs for, as the Runtime says; none where that is not known. */
+const workersOf = (
+  print: Blueprint | undefined,
+  instance: Instance,
+  statuses: Statuses | undefined,
+): ReadonlyArray<typeof Api.WorkerNow.Type> => {
+  if (!print || !statuses) return [];
+  const now = statuses(instance.address);
+  return [
+    ...print.top.workers,
+    ...(print.state[instance.state._tag]?.workers ?? []),
+  ].map(({ name }) => ({
+    name,
+    keys: now
+      .filter((one) => one.name === name && one.status === 'running')
+      .map((one) => one.key),
+  }));
 };
 
-export const graphOf = (node: GraphNode): Api.GraphNode => ({
-  id: node.id,
-  title: node.title,
-  actor: node.print.name,
-  blueprint: blueprintOf(node.print),
-  condition: node.condition,
-  keyed: node.keyed,
-  within: node.within,
-  state: node.state,
-  ...(node.instance?.key === undefined ? {} : { key: node.instance.key }),
-  workers: node.workers ?? [],
-  ...(node.change
-    ? {
-        change: {
-          kind: node.change.kind,
-          ...(node.change.state ? { state: node.change.state } : {}),
-          model: node.change.model,
-          props: node.change.props,
-          started: node.change.started,
-          stopped: node.change.stopped,
-        },
-      }
-    : {}),
-  ...(node.known
-    ? {
-        known: {
-          moves: node.known.moves,
-          ran: Object.fromEntries(
-            [...node.known.ran].map(([worker, states]) => [
-              worker,
-              [...states],
-            ]),
-          ),
-          gives: node.known.gives,
-        },
-      }
-    : {}),
-  touched: (node.touched ?? []).map((touch) => ({
-    entry: touch.entry,
-    message: touch.message,
-    own: touch.own,
-    kind: touch.change.kind,
-  })),
-  gone: node.gone ?? [],
-  ...(node.took ? { took: node.took } : {}),
-  children: node.children.map(graphOf),
-});
+const childrenOf = (instance: Instance): ReadonlyArray<Instance> =>
+  Object.values(instance.children).flatMap((held) =>
+    Snapshot.isMany(held) ? held : [held],
+  );
+
+/** The app at the Step after `id` (`null`: the History's start), as the canvas draws it. Throws for an entry not kept. */
+export const graphAt = (
+  actor: AnyActor,
+  history: History,
+  id: number | null,
+  statuses?: Statuses,
+): Api.GraphNode => {
+  const root = actor.blueprint;
+  // Found by its id, so an entry a Fork left behind is read too.
+  const entry = id === null ? undefined : History.entry(history, id);
+  const took = entry && { to: entry.to, ...playedOf(actor, history, entry) };
+  const before = took?.before;
+  const after = took?.after ?? History.snapshot(actor, history, id);
+  const changes = changesOf(before, after);
+  const moves = movesOf(actor, history);
+  // A Child gone is no longer in the tree: its parent's card names it.
+  const gone = new Map<string, Array<{ slot: string; id: string }>>();
+  for (const [address, change] of changes) {
+    const parent = Address.parent(address as Address);
+    if (change.kind !== 'removed' || parent === undefined) continue;
+    const slot = Address.parse(address as Address).path.at(-1)!.slot;
+    gone.set(parent, [...(gone.get(parent) ?? []), { slot, id: address }]);
+  }
+
+  const nodeOf = (
+    instance: Instance,
+    print: Blueprint | undefined,
+    slot: {
+      readonly name: string;
+      readonly state: string | undefined;
+      readonly child: BlueprintLevel['children'][string] | undefined;
+    } | null,
+  ): Api.GraphNode => {
+    const { address } = instance;
+    const key = keyOf(address);
+    const change = changes.get(address);
+    const paths = change ? pathsOf(print, change) : undefined;
+    const known = moves.get(instance.actor);
+    return {
+      id: address,
+      title: slot ? `${slot.name}${keyText(key)}` : instance.actor,
+      actor: instance.actor,
+      blueprint: print ? blueprintOf(print) : unknownOf(instance.actor),
+      condition: slot?.child?.kind ?? null,
+      keyed: slot?.child?.keyed ?? false,
+      within: slot?.state ?? null,
+      state: instance.state._tag,
+      ...(key === undefined ? {} : { key }),
+      workers: workersOf(print, instance, statuses),
+      ...(change
+        ? {
+            change: {
+              kind: change.kind,
+              ...statesOf(change.before, change.after),
+              model: paths?.model?.paths ?? [],
+              props: paths?.props?.paths ?? [],
+              ...workersChanged(actor, before, after, address),
+            },
+          }
+        : {}),
+      ...(known ? { known: { moves: known } } : {}),
+      gone: gone.get(address) ?? [],
+      ...(took?.to === address
+        ? {
+            took: {
+              message: entry!.message._tag,
+              commands: took.commands,
+              outcome: took.outcome,
+            },
+          }
+        : {}),
+      children: childrenOf(instance).map((child) => {
+        const segment = Address.parse(child.address).path.at(-1)!;
+        const level: BlueprintLevel | undefined = segment.state
+          ? print?.state[segment.state]
+          : print?.top;
+        const found = level?.children[segment.slot];
+        return nodeOf(child, found?.blueprint, {
+          name: segment.slot,
+          state: segment.state,
+          child: found,
+        });
+      }),
+    };
+  };
+  return nodeOf(after.root, root, null);
+};
 
 // 4. Node
-const casesRecord = (
-  cases: ReadonlyMap<string, ReadonlyArray<Field>>,
-): Readonly<Record<string, ReadonlyArray<Field>>> => Object.fromEntries(cases);
+/** The fields a tagged case carries besides `_tag`. */
+const carried = (schema: Parameters<typeof schemaShape>[0]) =>
+  fieldsOf(schemaShape(schema)).filter(({ name }) => name !== '_tag');
 
-/** The Instance's data at a Step, and what its Schemas say it holds. */
+/** The Instance's data at a Step, what its Schemas say it holds, and what it Provides. */
 export const nodeOf = (
   instance: Instance,
-  definition: ActorDefinition,
-  workers: Api.GraphNode['workers'],
-): Omit<Api.Node, 'at' | 'status' | 'provides' | 'change'> => {
-  const { encoding, schemas } = definition;
-  const model = schemaShape(schemas.model);
-  const props = schemaShape(schemas.props);
+  print: Blueprint | undefined,
+): Omit<Api.Node, 'at' | 'workers' | 'status' | 'change'> => {
+  const key = keyOf(instance.address);
+  const model = schemaShape(print?.schemas.model);
+  const props = schemaShape(print?.schemas.props);
+  const levels = print ? [print.top, ...Object.values(print.state)] : [];
   return {
-    id: instance.id,
-    actor: definition.name,
-    ...(instance.key === undefined ? {} : { key: instance.key }),
-    state: encoded(encoding.state.encode, instance.state),
-    model: encoded(encoding.model.encode, instance.model),
-    ...('props' in instance
-      ? { props: encoded(encoding.props.encode, instance.props) }
-      : {}),
-    workers,
+    id: instance.address,
+    actor: instance.actor,
+    ...(key === undefined ? {} : { key }),
+    ...encodedData(instance, print),
+    provides: {
+      top: print?.top.provides.map(nameOf) ?? [],
+      state: print?.state[instance.state._tag]?.provides.map(nameOf) ?? [],
+    },
     schemas: {
       ...(model ? { model } : {}),
       ...(props ? { props } : {}),
-      states: casesRecord(casesOf(schemas.state)),
-      messages: casesRecord(casesOf(schemas.message)),
+      states: Object.fromEntries(
+        Object.entries(print?.state ?? {}).map(([tag, level]) => [
+          tag,
+          carried(level.data),
+        ]),
+      ),
+      messages: Object.fromEntries(
+        levels.flatMap((level) =>
+          Object.entries(level.on).map(([tag, schema]) => [
+            tag,
+            carried(schema),
+          ]),
+        ),
+      ),
     },
+  };
+};
+
+/** Its Workers at the Step, and what each is doing, as the Runtime says. */
+export const workersAt = (
+  instance: Instance,
+  print: Blueprint | undefined,
+  statuses: Statuses | undefined,
+) => ({
+  workers: workersOf(print, instance, statuses),
+  status: statuses ? [...statuses(instance.address)] : [],
+});
+
+/** What the Step after `entry` did to one Instance, if anything. */
+export const changeAt = (
+  actor: AnyActor,
+  history: History,
+  entry: HistoryEntry,
+  address: string,
+): Api.InstanceChange | undefined => {
+  const { before, after } = playedOf(actor, history, entry);
+  const change = changesOf(before, after).get(address);
+  return change && instanceChangeOf(actor, [before, after], address, change);
+};
+
+// 5. Trail
+/** One Instance's Trail along the Branch up to an entry, the Head by default, each moment with its entry. */
+export const trailOf = (
+  actor: AnyActor,
+  history: History,
+  address: Address,
+  upTo: number | null = history.head,
+): Api.Trail => {
+  const print = blueprintAt(actor.blueprint, address);
+  const moments = momentsOf(actor, history, address, upTo);
+  const name =
+    print?.name ??
+    moments.find((one) => one.after ?? one.before)?.after?.actor ??
+    '';
+  return {
+    instance: address,
+    actor: name,
+    moments: moments.map(({ entry, kind, before, after }) => {
+      const paths =
+        kind === 'changed' && before && after
+          ? pathsOf(print, { kind: 'changed', before, after })
+          : undefined;
+      return {
+        entry: entry ? entryOf(actor, history, entry) : null,
+        kind,
+        ...statesOf(before, after),
+        model: paths?.model?.paths ?? [],
+        props: paths?.props?.paths ?? [],
+      };
+    }),
   };
 };

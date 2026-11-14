@@ -7,7 +7,7 @@ import {
   useSyncExternalStore,
 } from 'react';
 import type { ComponentType, ReactNode } from 'react';
-import type { AppRuntime } from '@kestack/kabuki/react/view';
+import type { AppRuntime } from '@kestack/kabuki/react/types';
 import { Kbd } from '@kestack/web-platform/ui/components/kbd';
 import { KeyboardIcon, PanelBottomIcon, RotateCwIcon } from 'lucide-react';
 import { split } from './files.tsx';
@@ -18,7 +18,7 @@ import { split } from './files.tsx';
  * code, all the same height, so switching moves nothing. The app stays
  * mounted under another tab, so it keeps running. The devtools sit under
  * the app, closed until the reader opens them from the window's bar, or
- * open from the start on a page about going back in time. Showing a past
+ * open from the start on a page about going back in time. Seeking a past
  * Step makes the app read only. The devtools load apart from the page, so
  * the app is ready before they are.
  *
@@ -29,7 +29,8 @@ import { split } from './files.tsx';
  *
  * A whole site, laid out by its own width, fills the window edge to edge
  * instead of sitting in the middle of it, and can be reloaded from its
- * tab: the app starts over, its History cleared.
+ * tab: the app Forks to the start of its History, which is init until its
+ * Window folds the oldest entries away, and carries on from there.
  */
 
 /** What `View.app` makes: the app, and a way to read its Runtime. */
@@ -70,7 +71,7 @@ export function Live({
 }: {
   /** What `View.app` makes. */
   readonly app: LiveApp;
-  /** The address on the app's tab; without one, the tab says Output. */
+  /** The URL on the app's tab; without one, the tab says Output. */
   readonly url?: string;
   /** A line under the window on what to try. */
   readonly caption?: string;
@@ -234,7 +235,7 @@ function ReadOnlyInPast({
   readonly className: string;
   readonly children: ReactNode;
 }) {
-  const past = App.useRuntime().shown !== null;
+  const past = App.useRuntime().seeking !== null;
   return (
     <div inert={past} className={className}>
       {children}
@@ -243,11 +244,11 @@ function ReadOnlyInPast({
 }
 
 function Reload({ app: App }: { readonly app: LiveApp }) {
-  const { clear } = App.useRuntime();
+  const { startOver } = App.useRuntime();
   return (
     <button
       type="button"
-      onClick={clear}
+      onClick={startOver}
       aria-label="Reload: start the app over"
       title="Reload: start the app over"
       className="-ml-2 grid size-10 shrink-0 place-items-center text-muted-foreground transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
@@ -258,8 +259,8 @@ function Reload({ app: App }: { readonly app: LiveApp }) {
 }
 
 /**
- * Opens and closes the devtools. Closing them goes back to the present:
- * a past Step left on show would keep the app inert, with nothing on
+ * Opens and closes the devtools. Closing them goes back to the Head:
+ * a past Step left in view would keep the app inert, with nothing on
  * screen to bring it back.
  */
 function DevtoolsToggle({
@@ -271,13 +272,13 @@ function DevtoolsToggle({
   readonly open: boolean;
   readonly setOpen: (open: boolean) => void;
 }) {
-  const { shown, show } = App.useRuntime();
+  const { seeking, toHead } = App.useRuntime();
   return (
     <button
       type="button"
       aria-pressed={open}
       onClick={() => {
-        if (open && shown !== null) show(null);
+        if (open && seeking !== null) toHead();
         setOpen(!open);
       }}
       className="flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground transition-colors duration-150 hover:bg-background hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring aria-pressed:bg-background aria-pressed:text-foreground"

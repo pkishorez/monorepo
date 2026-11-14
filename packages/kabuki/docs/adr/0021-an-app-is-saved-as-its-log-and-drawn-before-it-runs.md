@@ -1,6 +1,6 @@
 # An app is saved as its Log, and drawn before it runs
 
-Partly superseded by [ADR 0025](0025-the-runtime-starts-from-a-history.md): an app is saved as its History, `history.save()`, its entries and its Head only, not a `RuntimeState`; whether it runs and what it shows are not saved. Each value in it is its Schema's encoded side, so plain JSON when that side is JSON-safe. Drawing before it runs stands.
+Partly superseded by [ADR 0025](0025-the-runtime-starts-from-a-history.md): an app is saved as its History, `history.save()`, its entries and its Head only, not a `RuntimeState`; whether it runs and what it shows are not saved. Each value in it is its Schema's encoded side, so plain JSON when that side is JSON-safe. Drawing before it runs stands. [ADR 0048](0048-the-runtime-is-a-snapshot-kept-alive.md) removes the Restore: the lighter save is the Snapshot itself.
 
 The one thing an app is saved as, given back to, and drawn from before any Runtime exists is its Log, a `RuntimeState`: the entries, the Head, whether it was running and what it was showing. A lighter save is still a Log: one Restore, a Message to the root that replaces the whole Snapshot with a saved one, right after init. `toReact` draws the Log's Step on the first render, with no Log synchronously from init, with a Log through Suspense so a long Branch Replays without freezing the page, and a server or a static build renders the same HTML the client hydrates. The Runtime starts only in a browser, after that first draw, and carries on as the Log says. When the last mount closes, the Log is left in a registry on `globalThis` under the app's name, so the next mount of that name, the same component or a new one from a hot reload, Replays it through whatever code is current.
 
@@ -21,3 +21,7 @@ The reason is that Replay already is the whole story of loading an app: init, th
 - A Send before the Runtime starts is dropped, like one to a stopped app.
 - `Source.kind` gains `restore`. `Replay.fold` and `Replay.restored` are exported; the Runtime takes a `replay` to share what was played for the first draw.
 - Where the Log is stored between page loads is the app's business; the package only guarantees `RuntimeState`, Messages included, is plain JSON.
+
+## Note
+
+Since the Runtime was redesigned, an app is saved with `History.save(actor, history)`, and `useRuntime()` no longer reads a History before the Runtime exists: its `runtime` is `null` until the first mount and on a server. Drawing before it runs stands.

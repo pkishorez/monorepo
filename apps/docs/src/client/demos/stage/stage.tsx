@@ -2,7 +2,8 @@
 // eslint-disable-next-line no-restricted-imports
 import { useEffect } from 'react';
 import type { ReactNode } from 'react';
-import type { AppRuntime } from '@kestack/kabuki/react/view';
+import { History as Kept } from '@kestack/kabuki';
+import type { AppRuntime } from '@kestack/kabuki/react/types';
 import { KabukiInspector } from '@kestack/devtools-kabuki/inspector';
 
 /*
@@ -13,7 +14,7 @@ import { KabukiInspector } from '@kestack/devtools-kabuki/inspector';
  * 1. Frame     a phone-shaped column inside the safe area, clear of a
  *              player's controls at the top and the bottom.
  * 2. Keys      ← a Step back, → a Step on, F forks from the Step shown,
- *              L goes live.
+ *              L goes back to the latest, the Head.
  * 3. History   a tick per Step, the one shown standing taller, and where
  *              it stands in words.
  */
@@ -22,45 +23,41 @@ export function Stage({
   past,
   children,
 }: {
-  /** The running app: `App.useRuntime()`. */
+  /** The running app: `App.useRuntime()`, of any Actor. */
   readonly runtime: AppRuntime;
   /** A past Step is shown: the app cannot be pressed. */
   readonly past: boolean;
   /** The app itself. */
   readonly children: ReactNode;
 }) {
-  const { branch, shown } = runtime;
+  const { seeking } = runtime;
+  const branch = lineOf(runtime);
   const at =
-    shown === null
+    seeking === null
       ? branch.length
-      : shown === 'init'
+      : seeking.entry === null
         ? 0
-        : branch.findIndex((entry) => entry.id === shown) + 1;
+        : branch.findIndex((entry) => entry.id === seeking.entry) + 1;
 
   // 2. Keys
   useEffect(() => {
     const showAt = (index: number) =>
-      runtime.show(
-        index >= branch.length
-          ? null
-          : index <= 0
-            ? 'init'
-            : branch[index - 1]!.id,
-      );
+      index >= branch.length
+        ? runtime.toHead()
+        : runtime.seek(index <= 0 ? null : branch[index - 1]!.id);
     const onKey = (event: KeyboardEvent) => {
       if (event.target instanceof HTMLInputElement) return;
       if (event.key === 'ArrowLeft') showAt(at - 1);
       else if (event.key === 'ArrowRight') showAt(at + 1);
-      else if (event.key === 'l') runtime.show(null);
-      else if (event.key === 'f' && shown !== null) {
-        runtime.start(shown === 'init' ? null : shown);
-        runtime.show(null);
-      } else return;
+      else if (event.key === 'l') runtime.toHead();
+      else if (event.key === 'f' && seeking !== null)
+        runtime.fork(seeking.entry);
+      else return;
       event.preventDefault();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [runtime, branch, shown, at]);
+  }, [runtime, branch, seeking, at]);
 
   // 1. Frame
   return (
@@ -87,6 +84,10 @@ export function Stage({
   );
 }
 
+/** The entries from the start to the Head; none before the app is drawn. */
+const lineOf = (app: AppRuntime) =>
+  app.runtime === null ? [] : Kept.entries(app.history);
+
 // 3. History
 const SHOWN = 36;
 
@@ -97,8 +98,8 @@ function History({
   readonly runtime: AppRuntime;
   readonly at: number;
 }) {
-  const { branch, shown } = runtime;
-  const live = shown === null;
+  const atHead = runtime.seeking === null;
+  const branch = lineOf(runtime);
   const total = branch.length;
   const first = Math.max(0, total + 1 - SHOWN);
   const ticks = Array.from({ length: total + 1 - first }, (_, i) => first + i);
@@ -125,13 +126,13 @@ function History({
         <span
           className="size-2 rounded-full"
           style={{
-            backgroundColor: live
+            backgroundColor: atHead
               ? 'oklch(0.72 0.17 150)'
               : 'color-mix(in oklab, var(--color-foreground) 30%, transparent)',
           }}
         />
-        {live ? (
-          'Live'
+        {atHead ? (
+          'Running'
         ) : (
           <span className="text-muted-foreground">
             Step {at} of {total}

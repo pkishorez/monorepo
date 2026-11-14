@@ -2,7 +2,7 @@ import { createServer } from 'node:http';
 import { connect } from 'node:net';
 import type { AddressInfo } from 'node:net';
 import type { Plugin } from 'vite';
-import { cloudflare } from '@kestack/kabuki/start/cloudflare';
+import { cloudflare } from '@kestack/kabuki/start/vite';
 import { describe, expect, it } from 'vitest';
 import { app } from '../index.ts';
 
@@ -21,15 +21,15 @@ describe('app()', () => {
   it('is Tailwind, React, Start and the PWA, with the Web Platform bundled for the server', () => {
     const plugins = names({ name: 'App', platform: cloudflare() });
     expect(plugins).toContain('@kestack/web-platform:app');
-    expect(plugins.some((name) => name.startsWith('pwa-toolkit:'))).toBe(true);
-    expect(plugins).not.toContain('pwa-toolkit:off');
+    expect(plugins).toContain('@kestack/web-platform:pwa-build');
+    expect(plugins).not.toContain('@kestack/web-platform:pwa-off');
   });
 
   it('is no PWA with pwa: false', () => {
     const plugins = names({ name: 'App', platform: cloudflare(), pwa: false });
-    expect(plugins.filter((name) => name.startsWith('pwa-toolkit:'))).toEqual([
-      'pwa-toolkit:off',
-    ]);
+    expect(
+      plugins.filter((name) => name.startsWith('@kestack/web-platform:pwa-')),
+    ).toEqual(['@kestack/web-platform:pwa-off']);
   });
 
   it('bundles the Web Platform for the server and gives workerd debug’s browser build', () => {

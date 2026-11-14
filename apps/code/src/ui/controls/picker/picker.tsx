@@ -41,16 +41,16 @@ import { Touch } from './shape/touch.tsx';
  * Surface too.
  */
 
-/** A Picker, from its Steps: its actor and View, and the Layer its owner Provides. */
+/** A Picker, from its Steps: its actor and View, the Layer its owner Provides, and what that Layer builds. */
 export const make = <const Name extends string, P>(
   name: Name,
   spec: Spec<P>,
 ) => {
-  const { Live, owner } = build(name, spec);
+  const { Live, owner, capabilities } = build(name, spec);
   const PickerView = View.make(Live, ({ model, props, send }) => (
     <List spec={spec} model={model} props={props} send={send} />
   ));
-  return { Live, View: PickerView, owner };
+  return { Live, View: PickerView, owner, capabilities };
 };
 
 /** How a Picker was opened, for an owner's Model. */

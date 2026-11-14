@@ -5,32 +5,191 @@ import {
   TravelPicture,
 } from './components/timeline-pictures.tsx';
 
-Every live app on this site has a Devtools button in its bar. Open it,
-and there's a timeline: drag it back, and the app goes back with it. This page is about
-how that works. The short answer: you get it for free.
-
-## Every Message is kept
-
-Remember the rule from the start: the only way anything changes is a
-Message. So if kabuki keeps every Message, in order, it has the whole story
-of your app. That story is the **History**.
+Every running app on this site has a Devtools button in its bar. Open it,
+and there's a timeline: drag it back, and the app goes back with it. This
+page is about how that works. The short answer: your app is plain data, and
+so is everything that happened to it.
 
 <Picture caption="Each Painted Message adds a dot. The ring goes back to Step 2, and the sketch is drawn as it was there.">
   <TravelPicture />
 </Picture>
 
-You don't write anything to get it. The sketch pad below is an Actor like
-any other, with a Model, two Messages and two Updates. kabuki keeps its
-Messages on its own.
+## The app is a Snapshot
+
+Everything an Actor holds is data: its Model, its State, its Props. Put
+every Instance together and you have the whole app as one plain value. That
+value is a **Snapshot**.
+
+```ts
+const snapshot = Snapshot.init(SketchLive);
+
+snapshot.root; // the root Instance, with every Instance under it
+snapshot.at; // the app's Time, in milliseconds: 0 right after init
+```
+
+`Snapshot.init` is the app right after `init`. It needs only your
+Definition, and the root's Input if it takes one. Nothing runs.
+
+`root` is the root Instance, with every Instance under it in its
+`children`. Each Instance has its `address`, `state`, `model` and `props`.
+It also has `_tag`, its State's tag, so one check tells you which State it
+is in.
+
+Remember the rule from the start: the only way anything changes is a
+Message. So a Message takes one Snapshot to the next:
+
+```ts
+const played = Snapshot.next(SketchLive, snapshot, entry);
+
+played.snapshot; // the Snapshot right after the entry
+played.outcome; // 'handled', 'ignored', or 'dropped': its Instance is gone
+```
+
+An `entry` is one Message as it is played: the `message`, the Instance it
+goes `to`, who it is `from`, and its Time, `at`. `Snapshot.next` runs the
+Update, and gives back the next Snapshot and what came of the Message.
+
+It's a pure function. The Snapshot you hand it isn't changed, and the same
+entry after the same Snapshot always gives the same answer. It runs no
+Command: it only says which ones the Update asked for.
+
+`to` names an Instance by its **Address**. An Address is a path from the
+root:
+
+```ts
+'App/Inside:downloads#2/files[3]#1';
+```
+
+Read it left to right. The root is `App`. Under it is its `downloads`
+Child, written in the `Inside` State, started for the second time. Under
+that is the `files` Child with the key `3`, started once. The same
+Messages always give the same Addresses, and a Child started again gets a
+new one. So a Message for an Instance that has gone is dropped, never
+handed to the one that took its place.
+
+`Snapshot.at(snapshot, address)` picks one Instance out of a Snapshot.
+
+## The Runtime keeps it alive
+
+A Snapshot does nothing on its own. A **Runtime** is a Snapshot kept
+alive. It holds one, plays every Message sent into the next one, and runs
+the work the data asks for: its Workers, its Commands and what its Actors
+Provide.
+
+```ts
+const runtime = Runtime.make(SketchLive, {
+  snapshot, // the Snapshot to run from: right after init, unless you say
+  input, // the root's Input, for init: read only when there's no snapshot
+  layer, // what the tree Requires
+});
+```
+
+Each one can be left out, except a `layer` when the tree Requires
+something. The Runtime is **running** from the moment it's made.
+`runtime.snapshot` is the data now, and `runtime.running` says whether it
+runs.
+
+You've used the rest on every page so far. `runtime.root` is the root
+Instance, live: it always reads the data as it is now, and it can `send`.
+`runtime.at(address)` is the live Instance at an Address, or `undefined`
+when it isn't in the tree now.
+
+```ts
+runtime.root.send({ _tag: 'Painted', cell: 0 }); // 'handled'
+runtime.at(address)?.send({ _tag: 'Painted', cell: 1 });
+```
+
+`stop()` stops all the work, and Time stands still. A stopped Runtime
+takes no Messages: `send` says `'refused'`, and nothing changes. `start()`
+runs again from the Snapshot: the Workers start from its data, and no past
+Command runs again.
+
+You can also hand a Runtime another Snapshot, and it becomes that one:
+
+```ts
+await runtime.follow(snapshot);
+await runtime.follow(snapshot, { restart: true });
+```
+
+By default it changes only what differs. A Worker both Snapshots ask for,
+at the same Address, keeps running, untouched. With `restart`, all work
+stops and starts again from the new data. Either way no Command runs, Time
+carries on from the Snapshot's, and it's still the same Runtime.
+
+Let it go with `runtime.dispose()` when you're done. In Effect code,
+`Runtime.scoped` makes the same Runtime and lets it go when its Scope
+closes.
+
+## Every Message is kept
+
+The Runtime holds what the app is now. It keeps no record of how it got
+there. That record is the **History**: a starting Snapshot, plus the
+entries played after it.
+
+The History is an add-on. You keep one beside the Runtime:
+
+```ts
+const runtime = Runtime.make(SketchLive, { running: false });
+let history = History.init(runtime.snapshot);
+runtime.subscribe((entries) => {
+  history = History.add(history, entries);
+});
+void runtime.start();
+```
+
+`subscribe` calls you with the entries the Runtime played since the last
+call. `History.add` writes them after the **Head**, the entry the next one
+goes after. A History is a plain value: `add` gives back a new one, and
+the old one stays as it was.
+
+Why make the Runtime stopped? Work can send a Message as it starts. With
+`running: false` you subscribe first and start after, so you miss no
+entry.
+
+Each Message is kept as one **History entry**: the entry the Runtime
+played, with an `id`, and its `parent`, the entry before it.
+
+In React you write none of this. The [App](/kabuki/app) keeps a History
+beside its Runtime for you. That's the timeline in the Devtools.
 
 ## Going back is playing again
 
 Updates are pure. The same Model and the same Message always give the same
-answer. So to see the app as it was after any Message, kabuki starts from
-`init` and plays the Messages again, up to that point. That's a **Replay**.
+answer. So to see the app as it was after any entry, the History starts
+from its starting Snapshot and plays the entries again, up to that point.
+That's a **Replay**.
 
-Showing a past moment this way is **Time Travel**. The live app keeps
-running underneath, and the past is read only: you can look, but nothing
+```ts
+History.snapshot(SketchLive, history, 9); // the Snapshot right after entry 9
+History.snapshot(SketchLive, history, null); // the one it starts from
+History.snapshot(SketchLive, history); // the one at its Head
+```
+
+The app right after an entry is a **Step**. Step 2 is the app right after
+the second entry. What you get back is plain data, and only a look: the
+Runtime stays where it is, and nothing changes. `History.replay` does the
+same as an Effect that yields to the page as it plays, so a long History
+never freezes it.
+
+Where to look next is the History's to say:
+
+- `History.entries(history)` is every entry from the start up to the
+  Head, oldest first. Hand it an id to stop at another entry.
+- `History.entry(history, id).parent` is the entry before.
+- `History.children(history, id)` are the ones that follow it, more than
+  one where the story split.
+- `History.tips(history)` is the last entry of every Branch.
+- `History.all(history)` is every entry, on every Branch.
+
+They're plain lists, so you filter them like any other. Here is the story
+of one Instance:
+
+```ts
+History.entries(history).filter((entry) => entry.to === address);
+```
+
+Drawing the app at a past Snapshot is **Time Travel**. The Runtime stays
+where it is underneath, and the past is read only: you can look, but nothing
 can be sent from there.
 
 This is why Workers live outside Updates. A Replay plays only Messages and
@@ -38,20 +197,52 @@ Updates, so no request is sent twice and no timer fires twice.
 
 ## Carrying on from the past
 
-You can also go back and carry on from there. The new Messages grow a new
-**Branch** beside the old one, like a branch in git. Nothing is lost.
+You can also go back and carry on from there. That's a **Fork**. Move the
+History's Head to that entry, and have the Runtime follow the Snapshot
+there:
+
+```ts
+history = History.move(history, 3); // null goes back to the start
+const snapshot = History.snapshot(SketchLive, history);
+await runtime.follow(snapshot, { restart: true });
+```
+
+`restart` stops the work that belonged to the data you left, and starts it
+again from that entry's data. The next Message grows a new **Branch**
+beside the old one, like a branch in git. Nothing is lost.
+
+A Fork runs no Command again. A Command belongs to the Message that asked
+for it, and that Message has already happened. So work that must go on
+while a State lasts, like a timer or a socket, is a Worker: it starts
+again from the data at the Fork.
 
 <Picture caption="Back at Step 2, the app carries on. A new line grows beside the old one, and the old one stays.">
   <BranchPicture />
 </Picture>
 
+## Keeping it short
+
+A History grows with every Message. Its **Window** is how many entries it
+keeps on the Head's Branch, and `History.compact` folds the rest away:
+
+```ts
+history = History.compact(SketchLive, history, 100);
+```
+
+The last 100 entries stay, with their ids. The start moves forward to the
+Snapshot right before the oldest one kept. What the older Messages did is
+kept only as that Snapshot, and a Branch that doesn't grow from it is gone.
+
+A Window of `0` keeps no entry, only the app as it is now. `null` keeps
+every one.
+
 ## Run it
 
-The History is a value you can hold. Make one with `History.make`, start
-the app on it, and send a few Messages. Then move back: `app.start(entry)`
-stops the app, moves the Head to that entry, and starts again there.
+Keep a History beside the sketch's Runtime, and send it a few Messages.
+Read what was kept with `History.entries`. Then look at the Snapshot right
+after the first entry, and Fork to it.
 
-<Run program={program} caption="Three Messages are kept. Starting again from the first replays it: the rose cell is gone. The new Painted grows beside the old Picked, and the History now holds four entries.">
+<Run program={program} caption="Three Messages are kept. The Snapshot after the first is the app before the rose. The Head moves there, and the same Runtime follows and carries on. The new Painted grows beside the old Picked, and the History now holds four entries.">
 
 ```ts file=./run/sketch.ts
 
@@ -61,13 +252,25 @@ stops the app, moves the Head to that entry, and starts again there.
 
 ## Saving is easy, too
 
-Since the app is its Messages, saving the app is saving its History.
-`history.save()` gives plain JSON. Hand it back with `View.app(…, { saved
-})`, and the app carries on from where it was, even after a reload.
+It's all plain data, so it all saves as plain JSON.
 
-The History is yours to read, too. `App.useRuntime()` gives you the
-Messages, a way to show any moment, and a way to carry on from one. The
-Devtools on this site are built on just that.
+- `Snapshot.save(SketchLive, snapshot)` is the app as it is now.
+- `History.save(SketchLive, history)` is the History: its start, every
+  entry, and its Head.
+
+`Snapshot.load` and `History.load` read them back with your code as it is
+now. A Snapshot that no longer fits that code throws, and says why. So
+does a History whose start no longer fits. An entry that no longer fits is
+kept, and a Replay warns and skips it.
+
+Run a loaded Snapshot with `Runtime.make(SketchLive, { snapshot })`. Or
+hand a saved History to `View.app(…, { saved })`, and the app carries on
+from where it was, even after a reload.
+
+The History is yours to read in React, too. `App.useRuntime()` gives you
+the Runtime, the History the App keeps beside it, a way to look at any
+entry, and a way to Fork to one. The Devtools on this site are built on
+just that.
 
 ## Try it
 
@@ -88,9 +291,17 @@ different.
 </Live>
 
 <Callout title="Remember">
-  Your app is its Messages. Keep them, and you can rebuild any moment.
+  Your app is a Snapshot. Keep the Messages that changed it, and you can rebuild
+  any moment.
 </Callout>
 
-That's all of core: an Actor, its States and Workers, Children with their
-Props and Capabilities, and the History of it all. None of it needed a
-screen. Next, how React draws it: [View](/kabuki/view).
+That's all of core. kabuki has three things and one add-on. The
+**Definition** is your code: what can exist. The **Snapshot** is what
+exists now, as plain data. The **Runtime** is a Snapshot kept alive. The
+**History** is the add-on: a starting Snapshot plus the entries played
+after it.
+
+Everything flows one way. The Definition and the History give a Snapshot,
+and the Snapshot says what work runs. The only thing that comes back is a
+Message. None of it needed a screen. Next, how React draws it:
+[View](/kabuki/view).

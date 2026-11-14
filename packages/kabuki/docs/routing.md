@@ -31,9 +31,9 @@ src/routing/
                   context.tsx: links, hooks, the Metadata in the document;
                   frame.tsx: what it draws around the app
     scroll/       scroll restoration, as TanStack Router's: kept per entry, put back after each move
-    adapter/      the port: where the address lives            @kestack/kabuki/routing/adapter
-      browser/    the browser's own history                    @kestack/kabuki/routing/browser
-      tanstack/   TanStack Router's history                    @kestack/kabuki/routing/tanstack
+    adapter/      the port: where the URL lives
+      browser/    the browser's own history, browser()
+      tanstack/   TanStack Router's history, tanstack()
 ```
 
 `route` is pure data and depends on nothing else here, so Start reads it
@@ -280,7 +280,7 @@ Router.define(App, {
 ```
 
 A server answers a `308` to the Route's URL, with the query it had. In the
-browser the address is replaced, so Back never returns to the old URL.
+browser the URL is replaced, so Back never returns to the old one.
 
 **In a Loader**, for a place this visitor may not see, or that has moved:
 
@@ -325,7 +325,7 @@ export default router.loaders({
 A request-scoped Layer makes `Session.viewer` run once for the whole page.
 
 **The query.** A Route holds only the query its pages read. A URL with more,
-like `?utm_source=`, is left in the address as it is, so a script on the
+like `?utm_source=`, is left in the URL as it is, so a script on the
 page can read it, and Back returns to it as the browser kept it; every move
 the app makes writes its Route alone. A server keeps the query on a router
 redirect's `308`; a redirect the browser follows writes its Route alone.
@@ -477,7 +477,7 @@ does the same from an Update. A move during a preload joins it, and one
 after it shows the copy as its Stale time says. With no Data cache, from
 `Loading.cached`, only the code is preloaded.
 
-### The Adapter: where the address lives
+### The Adapter: where the URL lives
 
 With no Adapter in the Layer, the app routes in memory: it starts at its root,
 Back and Forward are `Went` Messages, and the URL is never read or touched.
@@ -493,19 +493,24 @@ View.app(AppRoot, {
 });
 ```
 
-With an Adapter, the Router writes each move to the address with a Command,
-stamping each history entry with a key, and a Worker hears the address: a
+With an Adapter, the Router writes each move to the URL with a Command,
+stamping each history entry with a key, and a Worker hears the URL: a
 Back lands on an entry the Router knows. A redirect, or a URL that is not how
 its Route is written, is replaced. `startAt(url, known)` is the Router's
 Input at a URL with what its pages start from: what a server draws from, and
 how an app is drawn at the right page from the first frame. With no URL it
 is the browser's: an app on an Adapter gives it as `View.app`'s `input`, as
 Start's client does, since only an app whose Layer holds an Adapter owns the
-address.
+URL.
 
-Commands never run during Time Travel, so the address stays live: a past
-Step is a drawing. Nothing fetches either: each page's data is in the
-Router's Model, and a fetched answer is in the Message that brought it.
+Time Travel draws a Step, where nothing runs, so the URL stays where the
+Head is: a past Step is a drawing, and the Runtime stays where it is
+underneath. Nothing fetches either: each page's data is in the Router's
+Model, and a fetched answer is in the Message that brought it. A Fork runs no
+Command, so no move is written or gone again: the Worker that hears the URL
+starts again with the Router's data, and puts the browser on the Fork's
+entry, going Back or Forward to it if the browser kept it, else replacing
+the one shown.
 
 ## Scroll
 
@@ -552,7 +557,7 @@ A move says otherwise for itself, as TanStack's do:
 - `hash`: the element on the page it goes to, `href` ending `#part-5`.
   `hashScrollIntoView` says how it is scrolled into view; `false` leaves it.
 
-`useElementScrollRestoration({ id } | { getElement })`, from `@kestack/kabuki/routing/router`, reads what is kept for
+`useElementScrollRestoration({ id } | { getElement })`, from `@kestack/kabuki/routing`, reads what is kept for
 an element, or the window, on the entry drawn: for a virtual list that puts
 itself back.
 
@@ -584,7 +589,7 @@ the route Kabuki is drawn on. An app that animates a page out, as
 1. `Router.Link` drew `<a href="/projects/4/tasks/a">`. The Router's View catches the plain click and Sends `Pushed`.
 2. The project's key did not change, so only the task is new. The Router holds the move and asks for the task's data.
 3. It comes in 80ms: the move lands with the task's data `Ready` in the Router's Model, the project keeps its Model and its Workers, and its `pages` follow its Props: the task page is made, handed its data as `status`.
-4. With an Adapter, the `write the address` Command pushes the URL; the Router writes the task's Metadata once it is drawn.
+4. With an Adapter, the `write the URL` Command pushes the URL; the Router writes the task's Metadata once it is drawn.
 
 ## Guards
 
@@ -601,4 +606,4 @@ Capability.
 - Blocking a move, as over unsaved changes.
 - Moving focus on a move, for a screen reader, as scroll is put back.
 - Starting a `client` page's data request from the document's head, before the code loads.
-- One routed app per page: two Routers on one page would both write the address.
+- One routed app per page: two Routers on one page would both write the URL.

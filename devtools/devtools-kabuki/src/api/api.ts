@@ -7,13 +7,16 @@ import type { RpcClient, RpcClientError } from 'effect/rpc';
  * itself. The tab computes; every answer is a result, as plain JSON, and
  * every value of the app's own is its Actor's Schemas' encoded side.
  *
- * 1. Words     Step, Entry, the Snapshot, the graph the canvas draws, one
- *              Instance's card, as Schemas.
+ * 1. Words     Step, Entry, the Snapshot, the graph the canvas draws, the
+ *              Blueprint, one Instance's card and its Trail, as Schemas.
+ *              An Instance is named by its Address; a card of the
+ *              Blueprint by its place.
  * 2. Errors    a Step no longer kept, a path or an Instance not there,
  *              each saying what is there instead.
- * 3. Methods   read the History, the Snapshot, a Step's changes, the graph
- *              and a card; watch for changes, and the page as it moves;
- *              travel and fork the app.
+ * 3. Methods   read the History, a Branch at a time, the Snapshot, a
+ *              Step's changes, the graph, the Blueprint, a card and an
+ *              Instance's Trail; watch for changes, and the page as it
+ *              moves; Seek a Step in the app, and Fork it.
  * 4. Wire      the path a Kabuki Session dials, the query it dials with,
  *              and the serialization both sides speak.
  *
@@ -24,14 +27,18 @@ import type { RpcClient, RpcClientError } from 'effect/rpc';
  */
 
 // 1. Words
-/** A Step: right after an entry, by its id, or right after init. */
-export const Step = Schema.Union([Schema.Number, Schema.Literal('init')]);
+/**
+ * A Step: right after an entry, by its id, or `'start'`, the History's
+ * start: right after init, until the History is Compacted, then right
+ * before the oldest entry it keeps.
+ */
+export const Step = Schema.Union([Schema.Number, Schema.Literal('start')]);
 export type Step = typeof Step.Type;
 
 export const Outcome = Schema.Literals(['handled', 'ignored', 'dropped']);
 
-/** Who Sent a Message, as Kabuki's `Source`. */
-export const Source = Schema.Union([
+/** Who Sent a Message, as Kabuki's `From`. */
+export const From = Schema.Union([
   Schema.Struct({ kind: Schema.Literal('view'), instance: Schema.String }),
   Schema.Struct({
     kind: Schema.Literal('command'),
@@ -44,7 +51,7 @@ export const Source = Schema.Union([
     name: Schema.String,
     key: Schema.optionalKey(Schema.String),
   }),
-  Schema.Struct({ kind: Schema.Literal('provide'), instance: Schema.String }),
+  Schema.Struct({ kind: Schema.Literal('provides'), instance: Schema.String }),
   Schema.Struct({
     kind: Schema.Literal('emit'),
     instance: Schema.String,
@@ -54,20 +61,20 @@ export const Source = Schema.Union([
     kind: Schema.Literal('outside'),
     name: Schema.optionalKey(Schema.String),
   }),
-  Schema.Struct({ kind: Schema.Literal('restore') }),
 ]);
 
 /** One History entry: a Message, the Instance it was for, and what came of it. */
 export const Entry = Schema.Struct({
   id: Schema.Number,
-  /** The entry before it, or `null` right after init. */
+  /** The entry before it, or `null` right after the History's start. */
   parent: Schema.NullOr(Schema.Number),
-  destination: Schema.String,
+  /** The Address of the Instance it was Sent to. */
+  to: Schema.String,
   /** The Message, as its Actor's Schema encodes it. */
   message: Schema.Unknown,
   /** The Message's `_tag`. */
   tag: Schema.String,
-  source: Source,
+  from: From,
   /** Its Time, in milliseconds. */
   at: Schema.Number,
   outcome: Outcome,
@@ -85,27 +92,43 @@ export const Info = Schema.Struct({
 });
 export type Info = typeof Info.Type;
 
-/** Where the app is: its Head, and the Step it shows. */
+/** Where the app is: its Head, and the Step it Seeks. */
 export const Now = Schema.Struct({
   head: Schema.NullOr(Schema.Number),
   /** How many entries the Head's Branch keeps. */
   size: Schema.Number,
-  /** The Step the app shows, travelled to; `null` while live. */
-  shown: Schema.NullOr(Step),
+  /** The Step the app Seeks, drawn in place of its Head; `null` while it draws its Head. */
+  seeking: Schema.NullOr(Step),
+  /** Whether the app's Runtime is running, or stopped. */
   running: Schema.Boolean,
-  /** Why the app's last start, stop or clear failed; `null` once one succeeds. */
+  /** Why the app's last Seek, start, stop or Fork failed; `null` once one succeeds. */
   failure: Schema.NullOr(Schema.String),
   /** Counts every change heard since watching began, a Worker's too, so equal values still say something moved. */
   revision: Schema.Number,
 });
 export type Now = typeof Now.Type;
 
+/**
+ * A Step on a Branch that the History goes on from in more than one way:
+ * more than one entry follows it, or the Branch ends there while others go
+ * on. Every entry that follows it, oldest first.
+ */
+export const Split = Schema.Struct({
+  at: Step,
+  next: Schema.Array(Entry),
+});
+export type Split = typeof Split.Type;
+
 export const History = Schema.Struct({
-  /** The Head's Branch, oldest first, as narrowed. */
+  /** The Branch asked for, the Head's unless said, oldest first, as narrowed. */
   entries: Schema.Array(Entry),
+  /** Where the Branch asked for goes on in more than one way, oldest first; never narrowed. */
+  splits: Schema.Array(Split),
+  /** The last entry of every Branch, oldest first. */
+  tips: Schema.Array(Schema.Number),
   head: Schema.NullOr(Schema.Number),
   size: Schema.Number,
-  shown: Schema.NullOr(Step),
+  seeking: Schema.NullOr(Step),
   running: Schema.Boolean,
   failure: Schema.NullOr(Schema.String),
 });
@@ -139,8 +162,12 @@ export const DiffRow = Schema.Union([
 
 export const ChangeKind = Schema.Literals(['added', 'removed', 'changed']);
 
-/** What a Step did to one Instance; values encoded. */
+/**
+ * What a Step did to one Instance, as the Snapshots before and after it
+ * say: started by it, changed by it, or gone after it; values encoded.
+ */
 export const InstanceChange = Schema.Struct({
+  /** Its Address. */
   instance: Schema.String,
   kind: ChangeKind,
   actor: Schema.String,
@@ -148,8 +175,9 @@ export const InstanceChange = Schema.Struct({
   /** Each Model path that changed, `·` for the whole of it. */
   model: Schema.Array(ValueChange),
   props: Schema.Array(ValueChange),
-  /** Workers started and stopped, `name` or `name#key`. */
+  /** The Workers its data asks for after the Step and not before, `name` or `name#key`. */
   started: Schema.Array(Schema.String),
+  /** The Workers its data asks for before the Step and not after. */
   stopped: Schema.Array(Schema.String),
   /** Its Model and Props before and after, as unified diffs; for a changed Instance. */
   diff: Schema.optionalKey(
@@ -163,7 +191,7 @@ export type InstanceChange = typeof InstanceChange.Type;
 
 export const Changes = Schema.Struct({
   entry: Entry,
-  /** The Commands its rule asked for, by name. */
+  /** The Commands its Update asked for, by name. */
   commands: Schema.Array(Schema.String),
   changes: Schema.Array(InstanceChange),
 });
@@ -173,6 +201,7 @@ export const Condition = Schema.Literals(['always', 'while', 'each']);
 
 /** One level of a Blueprint: the top, or one State's block. */
 export const Level = Schema.Struct({
+  /** The Messages it has an Update for. */
   on: Schema.Array(Schema.String),
   workers: Schema.Array(
     Schema.Struct({ name: Schema.String, condition: Condition }),
@@ -194,16 +223,19 @@ export const Level = Schema.Struct({
       result: Schema.suspend(() => Shape),
     }),
   ),
-  provides: Schema.Boolean,
+  /** The Capabilities it Provides to everything below it, by name. */
+  provides: Schema.Array(Schema.String),
 });
 
-/** What an Actor is, read from its definition alone. */
+/** What an Actor is, as Kabuki's Blueprint says, with nothing running. */
 export const Blueprint = Schema.Struct({
   name: Schema.String,
-  states: Schema.Array(Schema.String),
+  /** Whether it has no States of its own: its one State is `Single`. */
   single: Schema.Boolean,
+  /** The Capabilities its own code may use, by name. */
   requires: Schema.Array(Schema.String),
   top: Level,
+  /** Each State's level, by tag: every State it can be in, in order. */
   state: Schema.Record(Schema.String, Level),
 });
 
@@ -213,7 +245,11 @@ export const WorkerNow = Schema.Struct({
   keys: Schema.Array(Schema.String),
 });
 
-/** What the app was seen to do with an Actor. */
+/**
+ * What the app was seen to do with an Actor, along the Head's Branch:
+ * which Message took it from which State to which, read from the
+ * Snapshots before and after each entry.
+ */
 export const Known = Schema.Struct({
   moves: Schema.Array(
     Schema.Struct({
@@ -223,16 +259,11 @@ export const Known = Schema.Struct({
       count: Schema.Number,
     }),
   ),
-  /** Each Worker, by the States it has run in. */
-  ran: Schema.Record(Schema.String, Schema.Array(Schema.String)),
-  gives: Schema.Struct({
-    top: Schema.Array(Schema.String),
-    state: Schema.Record(Schema.String, Schema.Array(Schema.String)),
-  }),
 });
 
-/** One card on the canvas: an Instance at the Step, with its Blueprint and what is learned of it. */
+/** One card on the canvas: an Instance at the Step, with its Blueprint and what is known of it. */
 export interface GraphNode {
+  /** Its Address; in the Blueprint, its place. */
   readonly id: string;
   /** Its slot in its parent, with its key; the Actor's name at the root. */
   readonly title: string;
@@ -245,6 +276,7 @@ export interface GraphNode {
   readonly within: string | null;
   readonly state: string | null;
   readonly key?: string;
+  /** Its Workers and the keys each runs for: known only at the Head of a Live app, else none. */
   readonly workers: ReadonlyArray<typeof WorkerNow.Type>;
   /** What the Step did to it: paths only; `node` has the values. */
   readonly change?: {
@@ -252,17 +284,11 @@ export interface GraphNode {
     readonly state?: readonly [string, string];
     readonly model: ReadonlyArray<string>;
     readonly props: ReadonlyArray<string>;
+    /** Workers it started and stopped, `name` or `name#key`. */
     readonly started: ReadonlyArray<string>;
     readonly stopped: ReadonlyArray<string>;
   };
   readonly known?: typeof Known.Type;
-  /** Every Step that changed it. */
-  readonly touched: ReadonlyArray<{
-    readonly entry: number;
-    readonly message: string;
-    readonly own: boolean;
-    readonly kind: typeof ChangeKind.Type;
-  }>;
   /** Its Children the Step stopped, by slot. */
   readonly gone: ReadonlyArray<{ readonly slot: string; readonly id: string }>;
   /** The Message the Step was for it, and the Commands that asked. */
@@ -296,14 +322,6 @@ export const GraphNode: Schema.Codec<GraphNode> = Schema.Struct({
     }),
   ),
   known: Schema.optionalKey(Known),
-  touched: Schema.Array(
-    Schema.Struct({
-      entry: Schema.Number,
-      message: Schema.String,
-      own: Schema.Boolean,
-      kind: ChangeKind,
-    }),
-  ),
   gone: Schema.Array(Schema.Struct({ slot: Schema.String, id: Schema.String })),
   took: Schema.optionalKey(
     Schema.Struct({
@@ -317,6 +335,14 @@ export const GraphNode: Schema.Codec<GraphNode> = Schema.Struct({
 
 export const Graph = Schema.Struct({ at: Step, root: GraphNode });
 export type Graph = typeof Graph.Type;
+
+/**
+ * Every Actor the app's root can grow, read from the root's Blueprint, one
+ * node per Child slot, each by its place, running or not: no Instance, Step
+ * or change in it. Each level's Provides are declared, so they are there.
+ */
+export const Blueprinted = Schema.Struct({ root: GraphNode });
+export type Blueprinted = typeof Blueprinted.Type;
 
 /** A Schema as a card draws it: fields and their types. */
 export type Shape =
@@ -360,6 +386,7 @@ export const Field: Schema.Codec<Field> = Schema.Struct({
 
 /** What a card shows for one Instance at a Step; values encoded. */
 export const Node = Schema.Struct({
+  /** Its Address. */
   id: Schema.String,
   actor: Schema.String,
   at: Step,
@@ -367,7 +394,7 @@ export const Node = Schema.Struct({
   state: Schema.Unknown,
   model: Schema.Unknown,
   props: Schema.optionalKey(Schema.Unknown),
-  /** Its Workers at the Step, read from its data. */
+  /** Its Workers and the keys each runs for; none unless the Step is the Head of a Live app. */
   workers: Schema.Array(WorkerNow),
   /** What its Workers are doing now; empty unless the Step is the live one. */
   status: Schema.Array(
@@ -377,7 +404,7 @@ export const Node = Schema.Struct({
       status: Schema.Literals(['running', 'finished', 'failed']),
     }),
   ),
-  /** The Capabilities it provides now, by key; empty unless the Step is the live one. */
+  /** The Capabilities it Provides at the Step, by name: at its top, and in the State it is in. */
   provides: Schema.Struct({
     top: Schema.Array(Schema.String),
     state: Schema.Array(Schema.String),
@@ -393,6 +420,30 @@ export const Node = Schema.Struct({
   }),
 });
 export type Node = typeof Node.Type;
+
+/**
+ * One moment of an Instance's Trail: the History entry, `null` for the
+ * History's start, where the Instance was there already, and what it did
+ * to the Instance; its State before and after when it changed, and the
+ * Model and Props paths it changed.
+ */
+export const Moment = Schema.Struct({
+  entry: Schema.NullOr(Entry),
+  kind: Schema.Literals(['started', 'changed', 'received', 'stopped']),
+  state: Schema.optionalKey(Schema.Tuple([Schema.String, Schema.String])),
+  model: Schema.Array(Schema.String),
+  props: Schema.Array(Schema.String),
+});
+export type Moment = typeof Moment.Type;
+
+/** One Instance's Trail along a Branch, oldest first. */
+export const Trail = Schema.Struct({
+  instance: Schema.String,
+  /** Its Actor, by name. */
+  actor: Schema.String,
+  moments: Schema.Array(Moment),
+});
+export type Trail = typeof Trail.Type;
 
 // 2. Errors
 export class StepNotFound extends Schema.TaggedError<StepNotFound>()(
@@ -421,7 +472,7 @@ export class InstanceNotFound extends Schema.TaggedError<InstanceNotFound>()(
   {
     instance: Schema.String,
     at: Step,
-    /** Every Instance at the Step, by id. */
+    /** Every Instance at the Step, by Address. */
     available: Schema.Array(Schema.String),
   },
 ) {}
@@ -430,20 +481,25 @@ export class InstanceNotFound extends Schema.TaggedError<InstanceNotFound>()(
 /** Absent: the Head, as the app is now. */
 const at = Schema.optionalKey(Step);
 
+/** An entry on the Branch meant: the Head's, if it passes through it, else the newest that does. Absent: the Head's. */
+const branch = Schema.optionalKey(Schema.Number);
+
 export const KabukiSessionApi = RpcGroup.make(
   /** Who the Kabuki Session is. */
   Rpc.make('info', { success: Info }),
   /** DevTools gives the Kabuki Session its final name; the app keeps it for this tab. */
   Rpc.make('named', { payload: { name: Schema.String } }),
-  /** The Head's Branch: the `last` few entries, or those after `since`. */
+  /** A Branch, the Head's unless said: the `last` few entries, or those after `since`. */
   Rpc.make('history', {
     payload: {
       last: Schema.optionalKey(Schema.Number),
       since: Schema.optionalKey(Schema.Number),
+      branch,
     },
     success: History,
+    error: StepNotFound,
   }),
-  /** Where the app is now, then again after every change: History, Head, Step shown, Workers. */
+  /** Where the app is now, then again after every change: History, Head, Step Seeked, Workers. */
   Rpc.make('watch', { success: Now, stream: true }),
   /** The page the app runs in now, then again each time it moves to another. */
   Rpc.make('page', { success: Schema.String, stream: true }),
@@ -463,24 +519,32 @@ export const KabukiSessionApi = RpcGroup.make(
     success: Changes,
     error: StepNotFound,
   }),
-  /** What the canvas draws at a Step: every Instance, its Blueprint, and what is learned. No layout. */
+  /** What the canvas draws at a Step: every Instance, its Blueprint, and what is known. No layout. */
   Rpc.make('graph', {
     payload: { at },
     success: Graph,
     error: StepNotFound,
   }),
-  /** What a card shows for one Instance at a Step. */
+  /** Every Actor the app's root can grow, from its Blueprint, whether it runs or not. */
+  Rpc.make('blueprint', { success: Blueprinted }),
+  /** What a card shows for one Instance, by Address, at a Step. */
   Rpc.make('node', {
     payload: { instance: Schema.String, at },
     success: Node,
     error: Schema.Union([StepNotFound, InstanceNotFound]),
   }),
-  /** Show a Step in the app itself, or go live again with `null`. */
-  Rpc.make('travel', {
+  /** One Instance's Trail, by Address, along a Branch, the Head's unless said: when it started, each entry Sent to it or that changed it, and when it stopped. */
+  Rpc.make('trail', {
+    payload: { instance: Schema.String, branch },
+    success: Trail,
+    error: Schema.Union([StepNotFound, InstanceNotFound]),
+  }),
+  /** Seek a Step in the app itself, the History's start included, on any Branch, Time Travelling it there; `null` draws its Head again. */
+  Rpc.make('seek', {
     payload: { step: Schema.NullOr(Step) },
     error: StepNotFound,
   }),
-  /** Carry on from an entry (`null`: init) on a new Branch, live. */
+  /** Fork the app to an entry (`null`: the History's start): its Head moves there, and the next Message grows a new Branch. */
   Rpc.make('fork', {
     payload: { from: Schema.NullOr(Schema.Number) },
     error: StepNotFound,

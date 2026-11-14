@@ -6,7 +6,7 @@ import {
   type QueryResult,
 } from '@tanstack/db';
 import { Actor } from '@kestack/kabuki';
-import type { ActorType } from '@kestack/kabuki/core/actor';
+import type { ActorType } from '@kestack/kabuki/types';
 import { Effect, Option, Queue, Schema, Stream } from 'effect';
 import type { Scope } from 'effect';
 import { CaughtUp, Holding, NeverSynced, readsOf } from '../replicas/index.js';

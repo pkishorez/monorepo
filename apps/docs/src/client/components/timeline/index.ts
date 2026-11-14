@@ -1,2 +1,2 @@
 export { Timeline } from './timeline.tsx';
-export { carryOn, showStep, stepOf } from './steps.ts';
+export { carryOn, lineOf, showStep, stepOf } from './steps.ts';

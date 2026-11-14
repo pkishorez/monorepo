@@ -2,202 +2,199 @@
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
   "storiesPath": "stories",
-  "ignoredPaths": [
-    "src/cosmos.decorator.tsx",
-    "src/pwa/engine/vite/tests/fixture"
-  ],
+  "ignoredPaths": ["src/cosmos.decorator.tsx", "src/pwa/vite/tests/fixture"],
   "fileModules": [
-    "src/pwa/engine/contract/dom-events.ts",
-    "src/pwa/engine/contract/subscription-ref.ts",
-    "src/pwa/engine/vite/vite.ts",
-    "src/ui/components/accordion.tsx",
-    "src/ui/components/alert-dialog.tsx",
-    "src/ui/components/alert.tsx",
-    "src/ui/components/aspect-ratio.tsx",
-    "src/ui/components/attachment.tsx",
-    "src/ui/components/avatar.tsx",
-    "src/ui/components/badge.tsx",
-    "src/ui/components/breadcrumb.tsx",
-    "src/ui/components/bubble.tsx",
-    "src/ui/components/button-group.tsx",
-    "src/ui/components/button.tsx",
-    "src/ui/components/calendar.tsx",
-    "src/ui/components/card.tsx",
-    "src/ui/components/carousel.tsx",
-    "src/ui/components/chart.tsx",
-    "src/ui/components/checkbox.tsx",
-    "src/ui/components/collapsible.tsx",
-    "src/ui/components/combobox.tsx",
-    "src/ui/components/command.tsx",
-    "src/ui/components/context-menu.tsx",
-    "src/ui/components/dialog.tsx",
-    "src/ui/components/direction.tsx",
-    "src/ui/components/drawer.tsx",
-    "src/ui/components/dropdown-menu.tsx",
-    "src/ui/components/empty.tsx",
-    "src/ui/components/field.tsx",
-    "src/ui/components/file-tree.tsx",
-    "src/ui/components/google-button.tsx",
-    "src/ui/components/hooks/use-element-width.ts",
-    "src/ui/components/hooks/use-mobile.ts",
-    "src/ui/components/hooks/use-scroll.ts",
-    "src/ui/components/hover-card.tsx",
-    "src/ui/components/input-group.tsx",
-    "src/ui/components/input-otp.tsx",
-    "src/ui/components/input.tsx",
-    "src/ui/components/item.tsx",
-    "src/ui/components/kbd.tsx",
-    "src/ui/components/kit/class-names.ts",
-    "src/ui/components/kit/scroll-styles.ts",
-    "src/ui/components/kit/shadow-dom.tsx",
-    "src/ui/components/label.tsx",
-    "src/ui/components/marker.tsx",
-    "src/ui/components/menubar.tsx",
-    "src/ui/components/message-scroller.tsx",
-    "src/ui/components/message.tsx",
-    "src/ui/components/native-select.tsx",
-    "src/ui/components/navigation-menu.tsx",
-    "src/ui/components/pagination.tsx",
-    "src/ui/components/popover.tsx",
-    "src/ui/components/progress.tsx",
-    "src/ui/components/questionnaire.tsx",
-    "src/ui/components/radio-group.tsx",
-    "src/ui/components/resizable.tsx",
-    "src/ui/components/scroll-area.tsx",
-    "src/ui/components/select.tsx",
-    "src/ui/components/separator.tsx",
-    "src/ui/components/sheet.tsx",
-    "src/ui/components/skeleton.tsx",
-    "src/ui/components/slider.tsx",
-    "src/ui/components/sonner.tsx",
-    "src/ui/components/spinner.tsx",
-    "src/ui/components/switch.tsx",
-    "src/ui/components/table.tsx",
-    "src/ui/components/tabs.tsx",
-    "src/ui/components/textarea.tsx",
-    "src/ui/components/toast.tsx",
-    "src/ui/components/toggle-group.tsx",
-    "src/ui/components/toggle.tsx",
-    "src/ui/components/tooltip.tsx",
+    "src/pwa/page/kit/dom-events.ts",
+    "src/pwa/page/kit/subscription-ref.ts",
+    "src/pwa/vite/vite.ts",
+    "src/ui/components/primitives/accordion.tsx",
+    "src/ui/components/primitives/alert-dialog.tsx",
+    "src/ui/components/primitives/alert.tsx",
+    "src/ui/components/primitives/aspect-ratio.tsx",
+    "src/ui/components/primitives/attachment.tsx",
+    "src/ui/components/primitives/avatar.tsx",
+    "src/ui/components/primitives/badge.tsx",
+    "src/ui/components/primitives/breadcrumb.tsx",
+    "src/ui/components/primitives/bubble.tsx",
+    "src/ui/components/primitives/button-group.tsx",
+    "src/ui/components/primitives/button.tsx",
+    "src/ui/components/primitives/calendar.tsx",
+    "src/ui/components/primitives/card.tsx",
+    "src/ui/components/primitives/carousel.tsx",
+    "src/ui/components/primitives/chart.tsx",
+    "src/ui/components/primitives/checkbox.tsx",
+    "src/ui/components/primitives/collapsible.tsx",
+    "src/ui/components/primitives/combobox.tsx",
+    "src/ui/components/primitives/command.tsx",
+    "src/ui/components/primitives/context-menu.tsx",
+    "src/ui/components/primitives/dialog.tsx",
+    "src/ui/components/primitives/direction.tsx",
+    "src/ui/components/primitives/drawer.tsx",
+    "src/ui/components/primitives/dropdown-menu.tsx",
+    "src/ui/components/primitives/empty.tsx",
+    "src/ui/components/primitives/field.tsx",
+    "src/ui/components/primitives/google-button.tsx",
+    "src/ui/components/primitives/hooks/use-element-width.ts",
+    "src/ui/components/primitives/hooks/use-mobile.ts",
+    "src/ui/components/primitives/hooks/use-scroll.ts",
+    "src/ui/components/primitives/hover-card.tsx",
+    "src/ui/components/primitives/input-group.tsx",
+    "src/ui/components/primitives/input-otp.tsx",
+    "src/ui/components/primitives/input.tsx",
+    "src/ui/components/primitives/item.tsx",
+    "src/ui/components/primitives/kbd.tsx",
+    "src/ui/components/primitives/kit/class-names.ts",
+    "src/ui/components/primitives/kit/scroll-styles.ts",
+    "src/ui/components/primitives/kit/shadow-dom.tsx",
+    "src/ui/components/primitives/label.tsx",
+    "src/ui/components/primitives/marker.tsx",
+    "src/ui/components/primitives/menubar.tsx",
+    "src/ui/components/primitives/message-scroller.tsx",
+    "src/ui/components/primitives/message.tsx",
+    "src/ui/components/primitives/native-select.tsx",
+    "src/ui/components/primitives/navigation-menu.tsx",
+    "src/ui/components/primitives/pagination.tsx",
+    "src/ui/components/primitives/popover.tsx",
+    "src/ui/components/primitives/progress.tsx",
+    "src/ui/components/primitives/questionnaire.tsx",
+    "src/ui/components/primitives/radio-group.tsx",
+    "src/ui/components/primitives/resizable.tsx",
+    "src/ui/components/primitives/scroll-area.tsx",
+    "src/ui/components/primitives/select.tsx",
+    "src/ui/components/primitives/separator.tsx",
+    "src/ui/components/primitives/skeleton.tsx",
+    "src/ui/components/primitives/slider.tsx",
+    "src/ui/components/primitives/spinner.tsx",
+    "src/ui/components/primitives/switch.tsx",
+    "src/ui/components/primitives/table.tsx",
+    "src/ui/components/primitives/tabs.tsx",
+    "src/ui/components/primitives/textarea.tsx",
+    "src/ui/components/primitives/toast.tsx",
+    "src/ui/components/primitives/toggle-group.tsx",
+    "src/ui/components/primitives/toggle.tsx",
+    "src/ui/components/primitives/tooltip.tsx",
     "src/ui/theme/model.ts"
   ],
   "rules": {
-    "src/app/document": [
-      "src/pwa/prompts",
-      "src/ui/input/device",
-      "src/ui/theme"
-    ],
-    "src/app/vite": ["src/pwa/engine/vite", "src/app/dev-auth"],
     "src/app/alchemy": ["src/app/dev-auth"],
-    "src/pwa/engine/contract/config": [
-      "src/pwa/engine/contract/build",
-      "src/pwa/engine/contract/manifest",
-      "src/pwa/engine/contract/strategy",
+    "src/app/document": ["src/pwa/page", "src/ui/input/device", "src/ui/theme"],
+    "src/app/vite": ["src/pwa/vite", "src/app/dev-auth"],
+    "src/pwa/contract/config": [
+      "src/pwa/contract/build",
       "src/ui/theme/model.ts"
     ],
-    "src/pwa/engine/contract/handshake": ["src/pwa/engine/contract/build"],
-    "src/pwa/engine/contract/worker-host": ["src/pwa/engine/contract/build"],
-    "src/pwa/engine/page": ["src/pwa/engine/contract"],
-    "src/pwa/engine/page/status": ["src/pwa/engine/page/commands"],
-    "src/pwa/engine/vite": [
-      "src/pwa/engine/contract/build",
-      "src/pwa/engine/contract/config",
-      "src/pwa/engine/contract/manifest"
+    "src/pwa/page": [
+      "src/pwa/contract/build",
+      "src/pwa/contract/commands",
+      "src/pwa/contract/config",
+      "src/ui/components/primitives"
     ],
-    "src/pwa/engine/vite/build": [
-      "src/pwa/engine/vite/precache",
-      "src/pwa/engine/vite/worker-bundle"
+    "src/pwa/page/extras": ["src/pwa/page/kit"],
+    "src/pwa/page/extras/display-mode": ["src/pwa/page/extras/lazy-service"],
+    "src/pwa/page/extras/install": [
+      "src/pwa/page/extras/display-mode",
+      "src/pwa/page/extras/lazy-service"
     ],
-    "src/pwa/engine/vite/client-module": ["src/pwa/engine/vite/build"],
-    "src/pwa/engine/vite/dev": ["src/pwa/engine/vite/worker-bundle"],
-    "src/pwa/engine/vite/vite.ts": [
-      "src/pwa/engine/vite/build",
-      "src/pwa/engine/vite/client-module",
-      "src/pwa/engine/vite/dev"
+    "src/pwa/page/extras/online": ["src/pwa/page/extras/lazy-service"],
+    "src/pwa/page/extras/storage": ["src/pwa/page/extras/lazy-service"],
+    "src/pwa/page/status": ["src/pwa/page/head", "src/pwa/page/kit"],
+    "src/pwa/vite": ["src/pwa/contract/build", "src/pwa/contract/config"],
+    "src/pwa/vite/build": ["src/pwa/vite/worker-bundle"],
+    "src/pwa/vite/client-module": ["src/pwa/vite/build"],
+    "src/pwa/vite/dev": ["src/pwa/vite/worker-bundle"],
+    "src/pwa/vite/vite.ts": [
+      "src/pwa/vite/build",
+      "src/pwa/vite/client-module",
+      "src/pwa/vite/dev"
     ],
-    "src/pwa/engine/worker": [
-      "src/pwa/engine/contract/build",
-      "src/pwa/engine/contract/commands",
-      "src/pwa/engine/contract/config",
-      "src/pwa/engine/contract/handshake",
-      "src/pwa/engine/contract/strategy",
-      "src/pwa/engine/contract/worker-host"
+    "src/pwa/worker": [
+      "src/pwa/contract/build",
+      "src/pwa/contract/commands",
+      "src/pwa/contract/config"
     ],
-    "src/pwa/engine/worker/commands": ["src/pwa/engine/worker/global-scope"],
-    "src/pwa/engine/worker/lifecycle": [
-      "src/pwa/engine/worker/global-scope",
-      "src/pwa/engine/worker/precache"
+    "src/pwa/worker/lifecycle": [
+      "src/pwa/worker/global-scope",
+      "src/pwa/worker/precache"
     ],
-    "src/pwa/engine/worker/precache": ["src/pwa/engine/worker/global-scope"],
-    "src/pwa/engine/worker/requests": [
-      "src/pwa/engine/worker/global-scope",
-      "src/pwa/engine/worker/precache"
+    "src/pwa/worker/precache": ["src/pwa/worker/global-scope"],
+    "src/pwa/worker/requests": [
+      "src/pwa/worker/global-scope",
+      "src/pwa/worker/precache"
     ],
-    "src/pwa/prompts/extras": [
-      "src/pwa/engine/contract/dom-events.ts",
-      "src/pwa/engine/contract/subscription-ref.ts",
-      "src/ui/components"
-    ],
-    "src/pwa/prompts/extras/display-mode": [
-      "src/pwa/prompts/extras/lazy-service"
-    ],
-    "src/pwa/prompts/extras/install": [
-      "src/pwa/prompts/extras/display-mode",
-      "src/pwa/prompts/extras/lazy-service"
-    ],
-    "src/pwa/prompts/extras/online": ["src/pwa/prompts/extras/lazy-service"],
-    "src/pwa/prompts/extras/storage": ["src/pwa/prompts/extras/lazy-service"],
-    "src/pwa/prompts/status": [
-      "src/pwa/engine/contract/build",
-      "src/pwa/engine/contract/config",
-      "src/pwa/engine/contract/subscription-ref.ts",
-      "src/pwa/engine/page",
-      "src/pwa/prompts/splash",
-      "src/ui/components"
-    ],
-    "src/recipes": ["src/ui/components", "src/ui/input"],
+    "src/recipes": ["src/ui/components/primitives", "src/ui/input"],
     "src/recipes/frame/sidebar": ["src/recipes/frame/frame"],
     "src/recipes/image-viewer": ["src/recipes/touch-layers"],
-    "src/ui/components/alert-dialog.tsx": ["src/ui/components/button.tsx"],
-    "src/ui/components/attachment.tsx": ["src/ui/components/button.tsx"],
-    "src/ui/components/button-group.tsx": ["src/ui/components/separator.tsx"],
-    "src/ui/components/calendar.tsx": ["src/ui/components/button.tsx"],
-    "src/ui/components/carousel.tsx": ["src/ui/components/button.tsx"],
-    "src/ui/components/combobox.tsx": [
-      "src/ui/components/button.tsx",
-      "src/ui/components/input-group.tsx"
+    "src/ui/components/primitives/alert-dialog.tsx": [
+      "src/ui/components/primitives/button.tsx"
     ],
-    "src/ui/components/command.tsx": [
-      "src/ui/components/dialog.tsx",
-      "src/ui/components/input-group.tsx"
+    "src/ui/components/primitives/attachment.tsx": [
+      "src/ui/components/primitives/button.tsx"
     ],
-    "src/ui/components/dialog.tsx": ["src/ui/components/button.tsx"],
-    "src/ui/components/field.tsx": [
-      "src/ui/components/label.tsx",
-      "src/ui/components/separator.tsx"
+    "src/ui/components/primitives/button-group.tsx": [
+      "src/ui/components/primitives/separator.tsx"
     ],
-    "src/ui/components/file-tree.tsx": [
-      "src/ui/components/button.tsx",
-      "src/ui/components/kit/class-names.ts",
-      "src/ui/components/scroll-area.tsx"
+    "src/ui/components/primitives/calendar.tsx": [
+      "src/ui/components/primitives/button.tsx"
     ],
-    "src/ui/components/input-group.tsx": [
-      "src/ui/components/button.tsx",
-      "src/ui/components/input.tsx",
-      "src/ui/components/textarea.tsx"
+    "src/ui/components/primitives/carousel.tsx": [
+      "src/ui/components/primitives/button.tsx"
     ],
-    "src/ui/components/item.tsx": ["src/ui/components/separator.tsx"],
-    "src/ui/components/kit/scroll-styles.ts": [
-      "src/ui/components/kit/class-names.ts"
+    "src/ui/components/primitives/combobox.tsx": [
+      "src/ui/components/primitives/button.tsx",
+      "src/ui/components/primitives/input-group.tsx"
     ],
-    "src/ui/components/menubar.tsx": ["src/ui/components/dropdown-menu.tsx"],
-    "src/ui/components/message-scroller.tsx": ["src/ui/components/button.tsx"],
-    "src/ui/components/pagination.tsx": ["src/ui/components/button.tsx"],
-    "src/ui/components/questionnaire.tsx": ["src/ui/components/button.tsx"],
-    "src/ui/components/sheet.tsx": ["src/ui/components/button.tsx"],
-    "src/ui/components/toast.tsx": ["src/ui/components/button.tsx"],
-    "src/ui/components/toggle-group.tsx": ["src/ui/components/toggle.tsx"],
-    "src/ui/form": ["src/ui/components"],
+    "src/ui/components/primitives/command.tsx": [
+      "src/ui/components/primitives/dialog.tsx",
+      "src/ui/components/primitives/input-group.tsx"
+    ],
+    "src/ui/components/primitives/dialog.tsx": [
+      "src/ui/components/primitives/button.tsx"
+    ],
+    "src/ui/components/primitives/field.tsx": [
+      "src/ui/components/primitives/label.tsx",
+      "src/ui/components/primitives/separator.tsx"
+    ],
+    "src/ui/components/primitives/input-group.tsx": [
+      "src/ui/components/primitives/button.tsx",
+      "src/ui/components/primitives/input.tsx",
+      "src/ui/components/primitives/textarea.tsx"
+    ],
+    "src/ui/components/primitives/item.tsx": [
+      "src/ui/components/primitives/separator.tsx"
+    ],
+    "src/ui/components/primitives/kit/scroll-styles.ts": [
+      "src/ui/components/primitives/kit/class-names.ts"
+    ],
+    "src/ui/components/primitives/menubar.tsx": [
+      "src/ui/components/primitives/dropdown-menu.tsx"
+    ],
+    "src/ui/components/primitives/message-scroller.tsx": [
+      "src/ui/components/primitives/button.tsx"
+    ],
+    "src/ui/components/primitives/pagination.tsx": [
+      "src/ui/components/primitives/button.tsx"
+    ],
+    "src/ui/components/primitives/questionnaire.tsx": [
+      "src/ui/components/primitives/button.tsx"
+    ],
+    "src/ui/components/primitives/toast.tsx": [
+      "src/ui/components/primitives/button.tsx"
+    ],
+    "src/ui/components/primitives/toggle-group.tsx": [
+      "src/ui/components/primitives/toggle.tsx"
+    ],
+    "src/ui/components/viewers": ["src/ui/components/primitives"],
+    "src/ui/components/viewers/diff-viewer": [
+      "src/ui/components/viewers/source-viewer"
+    ],
+    "src/ui/components/viewers/markdown-viewer": [
+      "src/ui/components/viewers/source-viewer"
+    ],
+    "src/ui/components/viewers/source-explorer": [
+      "src/ui/components/viewers/diff-viewer",
+      "src/ui/components/viewers/file-tree",
+      "src/ui/components/viewers/source-viewer"
+    ],
     "src/ui/input/gesture/patterns": ["src/ui/input/gesture/recognizers"],
     "src/ui/input/gesture/patterns/sidebar": ["src/ui/input/gesture/zones"],
     "src/ui/input/gesture/recognizers": ["src/ui/input/gesture/zones"],
@@ -205,16 +202,8 @@
       "src/ui/input/gesture/zones/touch-input"
     ],
     "src/ui/input/keys": [
-      "src/ui/components/kbd.tsx",
-      "src/ui/components/kit/class-names.ts"
-    ],
-    "src/ui/viewers": ["src/ui/components"],
-    "src/ui/viewers/diff-viewer": ["src/ui/viewers/source-viewer"],
-    "src/ui/viewers/markdown-viewer": ["src/ui/viewers/source-viewer"],
-    "src/ui/viewers/source-explorer": [
-      "src/ui/viewers/diff-viewer",
-      "src/ui/viewers/file-tree",
-      "src/ui/viewers/source-viewer"
+      "src/ui/components/primitives/kbd.tsx",
+      "src/ui/components/primitives/kit/class-names.ts"
     ]
   }
 }

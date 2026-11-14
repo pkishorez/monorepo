@@ -1,12 +1,12 @@
 import { Context, Effect, Layer, Schema } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
-import { init, restore } from '../snapshot/engine/index.ts';
-import { Actor, History, Runtime } from '../index.ts';
+import { Actor, Address, History, Runtime, Snapshot } from '../index.ts';
 import type { Types } from '../actor/index.ts';
-import type { Running } from '../runtime/index.ts';
-import { Snapshot } from '../snapshot/index.ts';
-import type { Instance } from '../snapshot/index.ts';
+import type { Instance } from '../types.ts';
 import {
+  line,
+  outcome,
+  to,
   Login,
   Auth,
   settle,
@@ -16,6 +16,9 @@ import {
   Counter,
   Board,
   heard,
+  historyOf,
+  scoped,
+  send,
 } from './fixtures.ts';
 
 /* One Actor alive: its States, its Children, keyed or written at the top, as Messages move it. */
@@ -26,86 +29,85 @@ describe('a tree of Actors', () => {
       Effect.gen(function* () {
         const app = yield* started;
         yield* settle;
-        expect(app.snapshot().state._tag).toBe('Anonymous');
-        expect(Object.keys(app.snapshot().children)).toEqual(['login']);
+        expect(app.snapshot.root.state._tag).toBe('Anonymous');
+        expect(Object.keys(app.snapshot.root.children)).toEqual(['login']);
 
-        app.send('Auth/login#1', { _tag: 'Typed', name: 'ada' });
-        app.send('Auth/login#1', { _tag: 'Submitted' });
+        send(app, 'Auth/Anonymous:login#1', {
+          _tag: 'Typed',
+          name: 'ada',
+        });
+        send(app, 'Auth/Anonymous:login#1', { _tag: 'Submitted' });
         yield* settle;
-        expect(app.snapshot().state).toEqual({
+        expect(app.snapshot.root.state).toEqual({
           _tag: 'Authenticated',
           user: 'ada',
         });
 
-        app.send('Auth/todos#1', { _tag: 'Added', text: 'write tests' });
-        expect(at(app, 'Auth/todos#1').model).toEqual({
+        send(app, 'Auth/Authenticated:todos#1', {
+          _tag: 'Added',
+          text: 'write tests',
+        });
+        expect(at(app, 'Auth/Authenticated:todos#1').model).toEqual({
           items: ['write tests'],
         });
 
-        app.send('Auth/todos#1', { _tag: 'Quit' });
+        send(app, 'Auth/Authenticated:todos#1', { _tag: 'Quit' });
         yield* settle;
-        expect(app.snapshot().state._tag).toBe('Anonymous');
-        app.send('Auth/todos#1', { _tag: 'Added', text: 'too late' });
+        expect(app.snapshot.root.state._tag).toBe('Anonymous');
+        // Its Instance gone, a Send from outside is refused, and plays no entry.
+        expect(
+          send(app, 'Auth/Authenticated:todos#1', {
+            _tag: 'Added',
+            text: 'too late',
+          }),
+        ).toBe('refused');
 
         // What came of each entry is worked out, never kept in the History.
-        const tagAt = (entry: number | null, id: string) =>
-          Snapshot.instanceAt(app.history.snapshotAt(entry), id)?.state._tag ??
-          '';
+        const tagAt = (entry: number | null, address: string) =>
+          Snapshot.at(
+            History.snapshot(Auth, historyOf(app), entry),
+            address as never,
+          )?.state._tag ?? '';
         expect(
-          app.history
-            .branch()
-            .map(
-              (e) =>
-                `${e.destination} ${e.message._tag} ${app.history.outcome(e.id)} ${tagAt(e.parent, e.destination)}→${tagAt(e.id, e.destination)}`,
-            ),
+          line(app).map(
+            (e) =>
+              `${e.to} ${e.message._tag} ${outcome(app, e.id)} ${tagAt(e.parent, e.to)}→${tagAt(e.id, e.to)}`,
+          ),
         ).toEqual([
           'Auth CheckedSession handled Checking→Anonymous',
-          'Auth/login#1 Typed handled Single→Single',
-          'Auth/login#1 Submitted handled Single→Single',
+          'Auth/Anonymous:login#1 Typed handled Single→Single',
+          'Auth/Anonymous:login#1 Submitted handled Single→Single',
           'Auth LoggedIn handled Anonymous→Authenticated',
-          'Auth/todos#1 Added handled Single→Single',
-          'Auth/todos#1 Quit handled Single→Single',
+          'Auth/Authenticated:todos#1 Added handled Single→Single',
+          'Auth/Authenticated:todos#1 Quit handled Single→Single',
           'Auth LoggedOut handled Authenticated→Anonymous',
-          'Auth/todos#1 Added dropped →',
         ]);
-        // A Request's Source is the Command that made it, in another Instance.
+        // A Capability's function Sends from the Command that called it, in another Instance.
         expect(
-          app.history
-            .branch()
-            .map(({ source }) =>
-              source.kind === 'command' || source.kind === 'worker'
-                ? `${source.kind} ${source.instance} ${source.name}`
-                : source.kind,
-            ),
+          line(app).map(({ from }) =>
+            from.kind === 'command' || from.kind === 'worker'
+              ? `${from.kind} ${from.instance} ${from.name}`
+              : from.kind,
+          ),
         ).toEqual([
           'worker Auth check',
           'outside',
           'outside',
-          'command Auth/login#1 signIn',
+          'command Auth/Anonymous:login#1 signIn',
           'outside',
           'outside',
-          'command Auth/todos#1 logOut',
-          'outside',
+          'command Auth/Authenticated:todos#1 logOut',
         ]);
         // Any entry's Snapshot, played again, is the one the app had live.
-        expect(app.history.snapshotAt(app.history.head())).toEqual(
-          app.snapshot(),
+        const again = History.load(Auth, History.save(Auth, historyOf(app)));
+        expect(History.snapshot(Auth, again)).toEqual(app.snapshot);
+        expect(History.snapshot(Auth, again, null).root.state._tag).toBe(
+          'Checking',
         );
-        expect(app.history.snapshotAt(null).state._tag).toBe('Checking');
-        // Invoked again, login gets a new ID.
-        expect(Object.values(app.snapshot().children)).toMatchObject([
-          { id: 'Auth/login#2' },
+        // Invoked again, login gets a new Address.
+        expect(Object.values(app.snapshot.root.children)).toMatchObject([
+          { address: 'Auth/Anonymous:login#2' },
         ]);
-
-        // A cleared History forgets every Branch, and the app goes live from init.
-        yield* app.stop();
-        app.history.clear();
-        yield* app.start();
-        yield* settle;
-        expect(app.history.save().entries.map((e) => e.message._tag)).toEqual([
-          'CheckedSession',
-        ]);
-        expect(app.snapshot().state._tag).toBe('Anonymous');
       }),
     ));
 
@@ -123,30 +125,40 @@ describe('a tree of Actors', () => {
       Effect.gen(function* () {
         const app = yield* started;
         yield* settle;
-        app.send('Auth', { _tag: 'LoggedOut' });
-        expect(app.history.outcome(app.history.branch().at(-1)!.id)).toBe(
-          'ignored',
-        );
+        send(app, 'Auth', { _tag: 'LoggedOut' });
+        expect(outcome(app, line(app).at(-1)!.id)).toBe('ignored');
       }),
     ));
 
-  it('checks every Message against its Schema, and throws at the Send before anything changes', () =>
+  it('checks every Message against its Schema, and refuses it at the Send before anything changes', () =>
     run(
       Effect.gen(function* () {
         const app = yield* started;
         yield* settle;
-        const before = app.snapshot();
-        const entries = app.history.branch().length;
-        expect(() =>
-          app.send('Auth', { _tag: 'Renamed', user: 42 as never }),
-        ).toThrow(/Auth: Message "Renamed" does not match its Schema/);
-        expect(() => app.send('Auth', { _tag: 'Nope' })).toThrow(
+        const before = app.snapshot;
+        const entries = line(app).length;
+        expect(send(app, 'Auth', { _tag: 'Renamed', user: 42 as never })).toBe(
+          'refused',
+        );
+        expect(send(app, 'Auth', { _tag: 'Nope' })).toBe('refused');
+        expect(app.snapshot).toBe(before);
+        // Played as data, the same Messages throw, saying why.
+        const played = (message: { readonly _tag: string }) =>
+          Snapshot.next(Auth, before, {
+            to: before.root.address,
+            message,
+            from: { kind: 'outside' },
+            at: 0,
+          });
+        expect(() => played({ _tag: 'Renamed', user: 42 } as never)).toThrow(
+          /Auth: Message "Renamed" does not match its Schema/,
+        );
+        expect(() => played({ _tag: 'Nope' })).toThrow(
           /Auth: Message "Nope" does not match its Schema/,
         );
-        expect(app.snapshot()).toBe(before);
-        expect(app.history.branch()).toHaveLength(entries);
-        app.send('Auth', { _tag: 'LoggedOut' });
-        expect(app.history.branch()).toHaveLength(entries + 1);
+        expect(line(app)).toHaveLength(entries);
+        send(app, 'Auth', { _tag: 'LoggedOut' });
+        expect(line(app)).toHaveLength(entries + 1);
       }),
     ));
 
@@ -179,12 +191,12 @@ describe('a tree of Actors', () => {
         Shut: () => ({ state: { _tag: 'Closed' } as never }),
       },
     });
-    const first = init(Sheet.definition);
+    const first = Snapshot.init(Sheet);
     const sent = (message: Types<typeof Sheet>['message']) =>
-      Snapshot.handle(Sheet.definition, first, {
-        destination: 'Sheet',
+      Snapshot.next(Sheet, first, {
+        to: first.root.address,
         message,
-        source: { kind: 'view', instance: 'Sheet' },
+        from: { kind: 'view', instance: first.root.address },
         at: 0,
       });
 
@@ -195,28 +207,28 @@ describe('a tree of Actors', () => {
     expect(() => sent({ _tag: 'Shut' })).toThrow(
       /Sheet: the State the Update for "Shut" in Open gave Sheet does not match its Schema/,
     );
-    expect(() => init(Row.definition, { text: 7 })).toThrow(
+    expect(() => Snapshot.init(Row, { text: 7 as never })).toThrow(
       /Row: the Input of Row does not match its Schema/,
     );
     const Bad = Actor.define('Bad', {
       state: Schema.TaggedUnion({ On: {} }),
     }).build({ init: () => ({ state: { _tag: 'Off' } as never }) });
-    expect(() => init(Bad.definition)).toThrow(
+    expect(() => Snapshot.init(Bad)).toThrow(
       /Bad: the State init gave Bad does not match its Schema/,
     );
 
-    // Live, a bad Update changes nothing and throws at the Send.
+    // Running, a bad Update changes nothing and throws at the Send.
     return run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(History.make(Sheet));
-        const before = app.snapshot();
-        expect(() => app.send('Sheet', { _tag: 'Counted', by: 2 })).toThrow(
+        const app = yield* scoped(Sheet);
+        const before = app.snapshot.root;
+        expect(() => send(app, 'Sheet', { _tag: 'Counted', by: 2 })).toThrow(
           /the Model the Update for "Counted"/,
         );
-        expect(app.snapshot()).toBe(before);
-        expect(app.history.branch()).toHaveLength(0);
-        app.send('Sheet', { _tag: 'Counted', by: 1 });
-        expect(app.history.branch()).toHaveLength(1);
+        expect(app.snapshot.root).toBe(before);
+        expect(line(app)).toHaveLength(0);
+        send(app, 'Sheet', { _tag: 'Counted', by: 1 });
+        expect(line(app)).toHaveLength(1);
       }),
     );
   });
@@ -224,10 +236,10 @@ describe('a tree of Actors', () => {
   it('keeps every Instance off the changed path the same object', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(History.make(Board));
-        const before = app.snapshot();
-        app.send('Board/left#1', { _tag: 'Bumped' });
-        const after = app.snapshot();
+        const app = yield* scoped(Board);
+        const before = app.snapshot.root;
+        send(app, 'Board/left#1', { _tag: 'Bumped' });
+        const after = app.snapshot.root;
         expect(after).not.toBe(before);
         expect(after.children['right']).toBe(before.children['right']);
         expect(after.children['left']).not.toBe(before.children['left']);
@@ -278,24 +290,26 @@ describe('keyed Children', () => {
     },
   });
 
-  const rows = (app: Running<unknown>) =>
-    app.snapshot().children['rows'] as ReadonlyArray<Instance>;
+  const rows = (app: Runtime<any>) =>
+    app.snapshot.root.children['rows'] as ReadonlyArray<Instance>;
 
   it('follow the Model by key, each starting from its Input', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(History.make(List));
-        app.send('List', { _tag: 'Added', text: '' });
-        app.send('List', { _tag: 'Added', text: '' });
-        expect(rows(app).map((row) => [row.id, row.model])).toEqual([
+        const app = yield* scoped(List);
+        send(app, 'List', { _tag: 'Added', text: '' });
+        send(app, 'List', { _tag: 'Added', text: '' });
+        expect(rows(app).map((row) => [row.address, row.model])).toEqual([
           ['List/rows[0]#1', { text: '#0', done: false }],
           ['List/rows[1]#1', { text: '#1', done: false }],
         ]);
 
-        app.send('List/rows[1]#1', { _tag: 'Toggled' });
+        send(app, 'List/rows[1]#1', { _tag: 'Toggled' });
         const toggled = rows(app)[1];
-        app.send('List', { _tag: 'Reversed' });
-        expect(rows(app).map((row) => row.key)).toEqual(['1', '0']);
+        send(app, 'List', { _tag: 'Reversed' });
+        expect(
+          rows(app).map((row) => Address.parse(row.address).path[0]!.key),
+        ).toEqual(['1', '0']);
         expect(rows(app)[0]).toBe(toggled);
       }),
     ));
@@ -303,15 +317,17 @@ describe('keyed Children', () => {
   it('a key Invoked again is a new Instance', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(History.make(List));
-        app.send('List', { _tag: 'Added', text: '' });
-        app.send('List/rows[0]#1', { _tag: 'Toggled' });
-        app.send('List', { _tag: 'Removed', id: '0' });
+        const app = yield* scoped(List);
+        send(app, 'List', { _tag: 'Added', text: '' });
+        send(app, 'List/rows[0]#1', { _tag: 'Toggled' });
+        send(app, 'List', { _tag: 'Removed', id: '0' });
         expect(rows(app)).toEqual([]);
-        app.send('List/rows[0]#1', { _tag: 'Toggled' });
-        expect(app.history.outcome(app.history.branch().at(-1)!.id)).toBe(
-          'dropped',
+        // The row gone, nothing is there to Send to: no entry is played.
+        const before = historyOf(app);
+        expect(send(app, 'List/rows[0]#1', { _tag: 'Toggled' })).toBe(
+          'refused',
         );
+        expect(historyOf(app)).toBe(before);
       }),
     ));
 
@@ -349,57 +365,72 @@ describe('a Child written with `while`', () => {
     on: { Switched: (_, { model }) => ({ model: { lit: !model.lit } }) },
   });
 
-  const restored = (snapshot: Instance) =>
-    Snapshot.handle(Room.definition, init(Room.definition), {
-      destination: 'Room',
-      message: restore(snapshot),
-      source: { kind: 'restore' },
-      at: 0,
-    }).outcome;
-
   it('exists only while its test holds, a fresh Instance each time', () =>
     run(
       Effect.gen(function* () {
         heard.length = 0;
-        const app = yield* Runtime.start(History.make(Room));
-        expect(app.snapshot().children).toEqual({});
+        const app = yield* scoped(Room);
+        expect(app.snapshot.root.children).toEqual({});
 
-        app.send('Room', { _tag: 'Switched' });
+        send(app, 'Room', { _tag: 'Switched' });
         yield* settle;
-        expect(Object.keys(app.snapshot().children).sort()).toEqual([
+        expect(Object.keys(app.snapshot.root.children).sort()).toEqual([
           'counter',
           'light',
         ]);
-        app.send('Room/counter#1', { _tag: 'Bumped' });
+        send(app, 'Room/counter#1', { _tag: 'Bumped' });
         expect(at(app, 'Room/counter#1').model).toEqual({ count: 1 });
 
-        app.send('Room', { _tag: 'Switched' });
+        send(app, 'Room', { _tag: 'Switched' });
         yield* settle;
-        expect(app.snapshot().children).toEqual({});
+        expect(app.snapshot.root.children).toEqual({});
         expect(heard).toEqual(['glow stopped']);
 
-        app.send('Room', { _tag: 'Switched' });
+        send(app, 'Room', { _tag: 'Switched' });
         expect(at(app, 'Room/counter#2').model).toEqual({ count: 0 });
-        app.send('Room/counter#1', { _tag: 'Bumped' });
-        expect(app.history.outcome(app.history.branch().at(-1)!.id)).toBe(
-          'dropped',
-        );
+        // The first one is gone for good: nothing is there to Send to.
+        const before = historyOf(app);
+        expect(send(app, 'Room/counter#1', { _tag: 'Bumped' })).toBe('refused');
+        expect(historyOf(app)).toBe(before);
       }),
     ));
 
-  it('is restored, saved and loaded whether it is there or not', () =>
+  it('is followed, saved and loaded whether it is there or not', () =>
     run(
       Effect.gen(function* () {
-        const live = yield* Runtime.start(History.make(Room));
-        expect(restored(live.snapshot())).toBe('handled');
-        live.send('Room', { _tag: 'Switched' });
-        expect(restored(live.snapshot())).toBe('handled');
-        live.send('Room', { _tag: 'Switched' });
+        const live = yield* scoped(Room);
+        const other = yield* scoped(Room);
+        /** Another Runtime follows the Snapshot, and it is saved and loaded as it is. */
+        const carried = Effect.gen(function* () {
+          yield* Effect.promise(() => other.follow(live.snapshot));
+          expect(other.snapshot).toBe(live.snapshot);
+          expect(
+            Snapshot.load(Room, Snapshot.save(Room, live.snapshot)),
+          ).toEqual(live.snapshot);
+        });
+        const light = to(live, 'Room/light#1');
 
-        const loaded = yield* Runtime.start(
-          History.load(Room, live.history.save()),
-        );
-        expect(loaded.snapshot()).toEqual(live.snapshot());
+        // Not there.
+        yield* carried;
+        expect(other.at(light)).toBeUndefined();
+        // There: the Runtime that followed runs its work.
+        send(live, 'Room', { _tag: 'Switched' });
+        yield* carried;
+        expect(other.at(light)?.workers).toEqual([
+          { name: 'glow', key: '', status: 'running' },
+        ]);
+        // Gone again.
+        send(live, 'Room', { _tag: 'Switched' });
+        yield* carried;
+        expect(other.at(light)).toBeUndefined();
+
+        const loaded = yield* scoped(Room, {
+          snapshot: History.snapshot(
+            Room,
+            History.load(Room, History.save(Room, historyOf(live))),
+          ),
+        });
+        expect(loaded.snapshot).toEqual(live.snapshot);
       }),
     ));
 
@@ -434,27 +465,30 @@ describe('a single Child written with a `key`', () => {
   it('is one Instance, Invoked again when its key changes', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(History.make(Tab));
-        expect(app.snapshot().children).toEqual({});
+        const app = yield* scoped(Tab);
+        expect(app.snapshot.root.children).toEqual({});
 
-        app.send('Tab', { _tag: 'Opened', name: 'a' });
-        app.send('Tab/page[a]#1', { _tag: 'Bumped' });
+        send(app, 'Tab', { _tag: 'Opened', name: 'a' });
+        send(app, 'Tab/page[a]#1', { _tag: 'Bumped' });
         expect(at(app, 'Tab/page[a]#1').model).toEqual({ count: 1 });
 
         // The same key keeps it.
-        app.send('Tab', { _tag: 'Opened', name: 'a' });
+        send(app, 'Tab', { _tag: 'Opened', name: 'a' });
         expect(at(app, 'Tab/page[a]#1').model).toEqual({ count: 1 });
 
         // A new key is a fresh Instance in its place.
-        app.send('Tab', { _tag: 'Opened', name: 'b' });
-        const held = app.snapshot().children['page'] as Instance;
-        expect(held.id).toBe('Tab/page[b]#1');
+        send(app, 'Tab', { _tag: 'Opened', name: 'b' });
+        const held = app.snapshot.root.children['page'] as Instance;
+        expect(held.address).toBe('Tab/page[b]#1');
         expect(held.model).toEqual({ count: 0 });
 
-        const loaded = yield* Runtime.start(
-          History.load(Tab, app.history.save()),
-        );
-        expect(loaded.snapshot()).toEqual(app.snapshot());
+        const loaded = yield* scoped(Tab, {
+          snapshot: History.snapshot(
+            Tab,
+            History.load(Tab, History.save(Tab, historyOf(app))),
+          ),
+        });
+        expect(loaded.snapshot).toEqual(app.snapshot);
       }),
     ));
 });
@@ -492,10 +526,13 @@ describe('written at the top or in a State', () => {
     message: Schema.TaggedUnion({ Toggle: {}, Hush: {} }),
   }).build({
     init: () => ({ model: { loud: true }, state: { _tag: 'Open' } }),
-    provides: () =>
-      Layer.succeed(Clock2, {
-        tick: Effect.sync(() => heard.push('tick')),
-      }),
+    provides: {
+      capabilities: [Clock2],
+      layer: () =>
+        Layer.succeed(Clock2, {
+          tick: Effect.sync(() => heard.push('tick')),
+        }),
+    },
     children: { ticker: Actor.child(Ticker) },
     on: { Hush: (_, { model }) => ({ model: { ...model, loud: false } }) },
     states: {
@@ -520,25 +557,28 @@ describe('written at the top or in a State', () => {
     run(
       Effect.gen(function* () {
         heard.length = 0;
-        const app = yield* Runtime.start(History.make(Door));
+        const app = yield* scoped(Door);
         yield* settle;
         expect(heard).toEqual(['tick']);
-        expect(Object.keys(app.snapshot().children).sort()).toEqual([
+        expect(Object.keys(app.snapshot.root.children).sort()).toEqual([
           'guest',
           'ticker',
         ]);
 
-        app.send('Door/ticker#1', { _tag: 'Ticked' });
-        app.send('Door', { _tag: 'Toggle' });
-        app.send('Door', { _tag: 'Toggle' });
+        send(app, 'Door/ticker#1', { _tag: 'Ticked' });
+        send(app, 'Door', { _tag: 'Toggle' });
+        send(app, 'Door', { _tag: 'Toggle' });
         yield* settle;
 
         expect(at(app, 'Door/ticker#1').model).toEqual({ ticks: 1 });
-        expect(at(app, 'Door/guest#2')).toBeDefined();
+        expect(at(app, 'Door/Open:guest#2')).toBeDefined();
         expect(heard).toEqual(['tick', 'creak stopped']);
-        expect(app.history.snapshotAt(app.history.head())).toEqual(
-          app.snapshot(),
-        );
+        expect(
+          History.snapshot(
+            Door,
+            History.load(Door, History.save(Door, historyOf(app))),
+          ),
+        ).toEqual(app.snapshot);
       }),
     ));
 
@@ -546,10 +586,12 @@ describe('written at the top or in a State', () => {
     run(
       Effect.gen(function* () {
         heard.length = 0;
-        const app = yield* Runtime.start(History.make(Door));
+        const app = yield* scoped(Door);
         yield* settle;
-        expect(app.workers('Door').map((w) => w.name)).toEqual(['creak']);
-        app.send('Door', { _tag: 'Hush' });
+        expect(
+          (app.at(to(app, 'Door'))?.workers ?? []).map((w) => w.name),
+        ).toEqual(['creak']);
+        send(app, 'Door', { _tag: 'Hush' });
         yield* settle;
         expect(heard).toEqual(['tick', 'creak stopped']);
         expect(Door.definition.workers['creak']).toMatchObject({
@@ -573,6 +615,7 @@ describe('written at the top or in a State', () => {
       }).build({
         init: () => ({ state: { _tag: 'A' } }),
         children: { kid: Actor.child(Counter) },
+        // @ts-expect-error a slot name is used once per Actor
         states: { A: { children: { kid: Actor.child(Counter) } } },
       }),
     ).toThrow('Child "kid" is written at the top and in A');

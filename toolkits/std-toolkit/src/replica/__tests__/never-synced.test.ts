@@ -128,7 +128,10 @@ describe('a Query across Instances', () => {
         ),
   });
   const Root = Actor.define('Root', {}).build({
-    provides: () => Replicas.layer,
+    provides: {
+      capabilities: Replicas.capabilities,
+      layer: () => Replicas.layer,
+    },
     children: {
       replicas: Actor.child(Replicas.actor([PocketLive])),
       both: Actor.child(Both, { props: () => ({}) }),
@@ -139,10 +142,10 @@ describe('a Query across Instances', () => {
     run(
       Effect.gen(function* () {
         backend.put(Wallet, { id: 'w1', account: 'a', name: 'w1', balance: 1 });
-        const app = yield* Runtime.start(Root, Store.memory());
+        const app = yield* Runtime.scoped(Root, { layer: Store.memory() });
         const both = () =>
           (
-            app.instance({ from: 'test' }).children.both as unknown as {
+            app.root.children.both as unknown as {
               readonly model: Omit<QueryModel, 'rows'> & {
                 readonly rows: ReadonlyArray<{
                   readonly row: { readonly id: string; readonly owner: string };

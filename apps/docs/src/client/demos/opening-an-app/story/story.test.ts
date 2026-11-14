@@ -1,9 +1,8 @@
 import { Effect } from 'effect';
 import type { Scope } from 'effect';
 import { TestClock } from 'effect/testing';
-import { History, Runtime } from '@kestack/kabuki';
-import type { Running } from '@kestack/kabuki/core/runtime';
-import { Snapshot } from '@kestack/kabuki/core/snapshot';
+import { Address, History, Runtime, Snapshot } from '@kestack/kabuki';
+import type { Runtime as Running } from '@kestack/kabuki';
 import { describe, expect, it } from 'vitest';
 import { AppLive, DURATION } from './index.ts';
 
@@ -12,20 +11,47 @@ const timed = <A>(effect: Effect.Effect<A, never, Scope.Scope>) =>
     Effect.scoped(effect).pipe(Effect.provide(TestClock.layer())),
   );
 
-const at = (app: Running<unknown>, id: string) =>
-  Snapshot.instanceAt(app.snapshot(), id);
+/** An Address written out, checked against the app's Blueprint. */
+const to = (text: string) => Address.check(AppLive, text)!;
 
-const workers = (app: Running<unknown>, id: string) =>
-  app.workers(id).map((worker) => worker.name);
+const at = (app: Running, address: string) =>
+  Snapshot.at(app.snapshot, to(address));
+
+const workers = (app: Running, address: string) =>
+  (app.at(to(address))?.workers ?? []).map((worker) => worker.name);
+
+/** Send a Message to the Instance at an Address, from outside the tree. */
+const send = (app: Running, address: string, message: { _tag: string }) =>
+  app.at(to(address))?.send(message);
+
+/** The History kept beside each Runtime `opened` made. */
+const kept = new WeakMap<Running, { history: History }>();
+
+/**
+ * The app, with a History kept beside it: made stopped and started once
+ * it is followed, so no entry is missed.
+ */
+const opened = Effect.gen(function* () {
+  const app = yield* Runtime.scoped(AppLive, { running: false });
+  const beside = { history: History.init(app.snapshot) };
+  kept.set(app, beside);
+  app.subscribe((entries) => {
+    beside.history = History.add(beside.history, entries);
+  });
+  void app.start();
+  return app;
+});
+
+/** Every entry the app played, in order. */
+const played = (app: Running) => History.entries(kept.get(app)!.history);
 
 /** Every Message's tag, in order. */
-const tags = (app: Running<unknown>) =>
-  app.history.branch().map((entry) => entry.message._tag);
+const tags = (app: Running) => played(app).map((entry) => entry.message._tag);
 
 const signedIn = Effect.gen(function* () {
-  const app = yield* Runtime.start(History.make(AppLive));
-  app.send('App', { _tag: 'Succeed' });
-  app.send('App', { _tag: 'SignIn' });
+  const app = yield* opened;
+  send(app, 'App', { _tag: 'Succeed' });
+  send(app, 'App', { _tag: 'SignIn' });
   yield* TestClock.adjust('1200 millis');
   return app;
 });
@@ -34,7 +60,7 @@ describe('Opening an app', () => {
   it('Booting loads each asset with a Worker, then signs out on its own', () =>
     timed(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(History.make(AppLive));
+        const app = yield* opened;
         expect(workers(app, 'App')).toEqual(['load assets']);
         yield* TestClock.adjust('4800 millis');
         expect(tags(app)).toEqual([
@@ -42,7 +68,7 @@ describe('Opening an app', () => {
           'AssetLoaded',
           'AssetLoaded',
         ]);
-        expect(app.snapshot().state).toEqual({
+        expect(app.snapshot.root.state).toEqual({
           _tag: 'SignedOut',
           signingIn: false,
         });
@@ -53,16 +79,19 @@ describe('Opening an app', () => {
   it('Fail leaves Booting, which stops the Worker; Retry starts it from nothing', () =>
     timed(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(History.make(AppLive));
+        const app = yield* opened;
         yield* TestClock.adjust('1600 millis');
-        app.send('App', { _tag: 'Fail' });
+        send(app, 'App', { _tag: 'Fail' });
         expect(workers(app, 'App')).toEqual([]);
         yield* TestClock.adjust('5 seconds');
         expect(tags(app)).toEqual(['AssetLoaded', 'Fail']);
 
-        app.send('App', { _tag: 'Retry' });
-        expect(app.snapshot().model).toEqual({ attempts: 2 });
-        expect(app.snapshot().state).toEqual({ _tag: 'Booting', loaded: [] });
+        send(app, 'App', { _tag: 'Retry' });
+        expect(app.snapshot.root.model).toEqual({ attempts: 2 });
+        expect(app.snapshot.root.state).toEqual({
+          _tag: 'Booting',
+          loaded: [],
+        });
         expect(workers(app, 'App')).toEqual(['load assets']);
       }),
     ));
@@ -71,14 +100,17 @@ describe('Opening an app', () => {
     timed(
       Effect.gen(function* () {
         const app = yield* signedIn;
-        expect(app.snapshot().state).toEqual({ _tag: 'Inside', name: 'Ada' });
-        expect(app.history.branch().at(-1)!.source).toEqual({
+        expect(app.snapshot.root.state).toEqual({
+          _tag: 'Inside',
+          name: 'Ada',
+        });
+        expect(played(app).at(-1)!.from).toEqual({
           kind: 'command',
           instance: 'App',
           name: 'sign in',
         });
-        expect(at(app, 'App/home#1')?.props).toEqual({ name: 'Ada' });
-        expect(workers(app, 'App/home#1')).toEqual(['heartbeat']);
+        expect(at(app, 'App/Inside:home#1')?.props).toEqual({ name: 'Ada' });
+        expect(workers(app, 'App/Inside:home#1')).toEqual(['heartbeat']);
       }),
     ));
 
@@ -86,12 +118,17 @@ describe('Opening an app', () => {
     timed(
       Effect.gen(function* () {
         const app = yield* signedIn;
-        app.send('App/home#1', { _tag: 'ToggleSync' });
-        expect(workers(app, 'App/home#1')).toEqual(['heartbeat', 'sync']);
+        send(app, 'App/Inside:home#1', { _tag: 'ToggleSync' });
+        expect(workers(app, 'App/Inside:home#1')).toEqual([
+          'heartbeat',
+          'sync',
+        ]);
         yield* TestClock.adjust('4 seconds');
-        app.send('App/home#1', { _tag: 'ToggleSync' });
-        expect(workers(app, 'App/home#1')).toEqual(['heartbeat']);
-        expect(at(app, 'App/home#1')?.model).toMatchObject({ synced: 2 });
+        send(app, 'App/Inside:home#1', { _tag: 'ToggleSync' });
+        expect(workers(app, 'App/Inside:home#1')).toEqual(['heartbeat']);
+        expect(at(app, 'App/Inside:home#1')?.model).toMatchObject({
+          synced: 2,
+        });
       }),
     ));
 
@@ -99,15 +136,15 @@ describe('Opening an app', () => {
     timed(
       Effect.gen(function* () {
         const app = yield* signedIn;
-        const downloads = 'App/downloads#1';
-        app.send(downloads, { _tag: 'Add' });
-        app.send(downloads, { _tag: 'Add' });
+        const downloads = 'App/Inside:downloads#1';
+        send(app, downloads, { _tag: 'Add' });
+        send(app, downloads, { _tag: 'Add' });
         const first = `${downloads}/files[1]#1`;
         const second = `${downloads}/files[2]#1`;
         expect(workers(app, first)).toEqual(['download']);
 
         yield* TestClock.adjust('2 seconds');
-        app.send(first, { _tag: 'Pause' });
+        send(app, first, { _tag: 'Pause' });
         yield* Effect.yieldNow;
         expect(at(app, first)?.props).toEqual({ paused: true });
         expect(workers(app, first)).toEqual([]);
@@ -117,7 +154,7 @@ describe('Opening an app', () => {
         expect(at(app, second)?.state).toEqual({ _tag: 'Done' });
         expect(at(app, first)?.state).toEqual({ _tag: 'Downloading' });
 
-        app.send(first, { _tag: 'Resume' });
+        send(app, first, { _tag: 'Resume' });
         yield* Effect.yieldNow;
         yield* TestClock.adjust(`${DURATION - 2000} millis`);
         expect(at(app, first)?.state).toEqual({ _tag: 'Done' });
@@ -128,17 +165,17 @@ describe('Opening an app', () => {
     timed(
       Effect.gen(function* () {
         const app = yield* signedIn;
-        const downloads = 'App/downloads#1';
-        app.send(downloads, { _tag: 'Add' });
-        app.send(downloads, { _tag: 'Add' });
+        const downloads = 'App/Inside:downloads#1';
+        send(app, downloads, { _tag: 'Add' });
+        send(app, downloads, { _tag: 'Add' });
         const first = `${downloads}/files[1]#1`;
         const second = `${downloads}/files[2]#1`;
 
-        app.send(downloads, { _tag: 'PauseAll' });
+        send(app, downloads, { _tag: 'PauseAll' });
         expect(workers(app, first)).toEqual([]);
         expect(workers(app, second)).toEqual([]);
 
-        app.send(downloads, { _tag: 'ResumeAll' });
+        send(app, downloads, { _tag: 'ResumeAll' });
         expect(workers(app, first)).toEqual(['download']);
         expect(workers(app, second)).toEqual(['download']);
         expect(tags(app).slice(-2)).toEqual(['PauseAll', 'ResumeAll']);
@@ -149,10 +186,10 @@ describe('Opening an app', () => {
     timed(
       Effect.gen(function* () {
         const app = yield* signedIn;
-        const downloads = 'App/downloads#1';
-        app.send(downloads, { _tag: 'Add' });
-        app.send(downloads, { _tag: 'Add' });
-        app.send(downloads, { _tag: 'CancelAll' });
+        const downloads = 'App/Inside:downloads#1';
+        send(app, downloads, { _tag: 'Add' });
+        send(app, downloads, { _tag: 'Add' });
+        send(app, downloads, { _tag: 'CancelAll' });
         expect(at(app, downloads)?.model).toMatchObject({ files: [] });
         expect(at(app, `${downloads}/files[1]#1`)).toBeUndefined();
         expect(at(app, `${downloads}/files[2]#1`)).toBeUndefined();
@@ -163,9 +200,9 @@ describe('Opening an app', () => {
     timed(
       Effect.gen(function* () {
         const app = yield* signedIn;
-        const downloads = 'App/downloads#1';
-        app.send(downloads, { _tag: 'Add' });
-        app.send(`${downloads}/files[1]#1`, { _tag: 'Cancel' });
+        const downloads = 'App/Inside:downloads#1';
+        send(app, downloads, { _tag: 'Add' });
+        send(app, `${downloads}/files[1]#1`, { _tag: 'Cancel' });
         yield* Effect.yieldNow;
         expect(at(app, downloads)?.model).toMatchObject({ files: [] });
         expect(at(app, `${downloads}/files[1]#1`)).toBeUndefined();
@@ -176,18 +213,18 @@ describe('Opening an app', () => {
     timed(
       Effect.gen(function* () {
         const app = yield* signedIn;
-        app.send('App/downloads#1', { _tag: 'Add' });
-        app.send('App/home#1', { _tag: 'SignOut' });
-        expect(at(app, 'App/home#1')?.model).toMatchObject({
+        send(app, 'App/Inside:downloads#1', { _tag: 'Add' });
+        send(app, 'App/Inside:home#1', { _tag: 'SignOut' });
+        expect(at(app, 'App/Inside:home#1')?.model).toMatchObject({
           signingOut: true,
         });
         yield* TestClock.adjust('2 seconds');
-        expect(app.snapshot().state).toEqual({
+        expect(app.snapshot.root.state).toEqual({
           _tag: 'SignedOut',
           signingIn: false,
         });
-        expect(at(app, 'App/home#1')).toBeUndefined();
-        expect(workers(app, 'App/downloads#1/files[1]#1')).toEqual([]);
+        expect(at(app, 'App/Inside:home#1')).toBeUndefined();
+        expect(workers(app, 'App/Inside:downloads#1/files[1]#1')).toEqual([]);
       }),
     ));
 });

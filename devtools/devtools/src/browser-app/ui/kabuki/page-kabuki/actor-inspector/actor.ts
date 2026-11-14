@@ -23,14 +23,17 @@ export const RemoteInspector = Actor.define('RemoteInspector', {
 
 export const RemoteInspectorLive = RemoteInspector.build({
   init: ({ name }) => ({ model: { name } }),
-  provides: (self) =>
-    Layer.effect(KabukiSession)(
-      Effect.gen(function* () {
-        const sessions = yield* Sessions;
-        const { model } = yield* self.get;
-        return yield* sessions.dial(model.name);
-      }),
-    ),
+  provides: {
+    capabilities: [KabukiSession],
+    layer: (self) =>
+      Layer.effect(KabukiSession)(
+        Effect.gen(function* () {
+          const sessions = yield* Sessions;
+          const { model } = yield* self.get;
+          return yield* sessions.dial(model.name);
+        }),
+      ),
+  },
   children: {
     inspector: Actor.child(InspectorLive, {
       input: () => ({

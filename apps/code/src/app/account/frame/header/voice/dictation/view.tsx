@@ -9,7 +9,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@kestack/web-platform/ui/components/alert-dialog';
-import type { Handle } from '@kestack/kabuki/react/view';
+import type { Handle } from '@kestack/kabuki/react/types';
 import { CircleAlertIcon } from 'lucide-react';
 import { useReducedMotion } from 'motion/react';
 import {

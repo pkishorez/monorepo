@@ -624,7 +624,10 @@ describe("a page's Provides", () => {
     const Parent = Page.define({ pages: { Child } });
     const ParentLive = Parent.build({
       pages: { Child: ChildLive },
-      provides: () => Layer.succeed(Greeting, { text: 'hi' }),
+      provides: {
+        capabilities: [Greeting],
+        layer: () => Layer.succeed(Greeting, { text: 'hi' }),
+      },
     });
     type Same<X, Y> =
       (<T>() => T extends X ? 1 : 2) extends <T>() => T extends Y ? 1 : 2

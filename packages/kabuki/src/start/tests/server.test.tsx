@@ -5,7 +5,7 @@ import { Loading } from '../../routing/capabilities/index.ts';
 import { View } from '../../react/index.ts';
 import { Start } from '../app/index.ts';
 import type { Pages } from '../app/index.ts';
-import { loading as loaderRpc } from '../client/index.ts';
+import { loading as loaderRpc } from '../client/rpc.ts';
 import type { Build } from '../app/protocol/index.ts';
 import { Start as Server, handler } from '../server/index.ts';
 import started, { AppView } from './app/src/app.tsx';
@@ -80,7 +80,12 @@ describe('a static page', () => {
       '<script type="module" src="/assets/entry.js"></script>',
     );
     expect(html).toContain('<p>home</p>');
-    expect(saved(html).saved.entries).toHaveLength(1);
+    // A History that starts from the page as drawn, with no entry after it.
+    expect(saved(html).saved).toMatchObject({
+      start: { root: { address: started.app.actor.name }, at: 0 },
+      entries: [],
+      head: null,
+    });
   });
 
   it('is drawn from its Loaders, with the server Layer made from the env', async () => {

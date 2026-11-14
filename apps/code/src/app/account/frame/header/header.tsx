@@ -1,7 +1,7 @@
 import type { Project, Session } from '@kestack/connect/code';
 import { useChild } from '@kestack/kabuki/react';
 import { Router } from '@kestack/kabuki/routing';
-import type { ViewProps } from '@kestack/kabuki/react/view';
+import type { ViewProps } from '@kestack/kabuki/react/types';
 import { ChevronRightIcon, GitForkIcon } from 'lucide-react';
 import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
 import { useEffect, useRef, useState } from 'react';

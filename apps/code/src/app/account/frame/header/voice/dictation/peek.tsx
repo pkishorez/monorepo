@@ -1,5 +1,5 @@
 import { useChild } from '@kestack/kabuki/react';
-import type { Handle } from '@kestack/kabuki/react/view';
+import type { Handle } from '@kestack/kabuki/react/types';
 import { AnimatePresence, motion } from 'motion/react';
 import { type ReactNode, useLayoutEffect, useRef, useState } from 'react';
 import type { DictationLive } from './actor.ts';

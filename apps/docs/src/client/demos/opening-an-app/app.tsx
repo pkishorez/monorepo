@@ -4,7 +4,7 @@ import { AppView, PastContext } from './screens/index.ts';
 const App = View.app(AppView, { name: 'demo:opening-an-app' });
 
 function Shown() {
-  const past = App.useRuntime().shown !== null;
+  const past = App.useRuntime().seeking !== null;
   return (
     <PastContext value={past}>
       <App />

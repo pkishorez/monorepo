@@ -4,13 +4,13 @@
   "ignoredPaths": ["src/start/tests/app", "src/start/tests/bare"],
   "rules": {
     "src/core/snapshot": ["src/core/actor"],
-    "src/core/history": ["src/core/actor", "src/core/snapshot"],
-    "src/core/runtime": [
-      "src/core/actor",
-      "src/core/snapshot",
-      "src/core/history",
-      "src/core/command"
+    "src/core/snapshot/instance": ["src/core/snapshot/address"],
+    "src/core/snapshot/next": [
+      "src/core/snapshot/address",
+      "src/core/snapshot/instance"
     ],
+    "src/core/runtime": ["src/core/actor", "src/core/snapshot"],
+    "src/core/history": ["src/core/actor", "src/core/snapshot"],
     "src/react": ["src/core"],
     "src/routing": ["src/core", "src/react"],
     "src/routing/router": [
@@ -34,8 +34,7 @@
     "src/start/vite": ["src/start/app", "src/start/platform"],
     "src/start/app": ["src/core", "src/react", "src/routing"],
     "src/routing/capabilities": ["src/routing/route"],
-    "src/routing/page": ["src/routing/route", "src/routing/capabilities"],
-    "src/core/actor": ["src/core/command"]
+    "src/routing/page": ["src/routing/route", "src/routing/capabilities"]
   },
   "exceptions": [
     {

@@ -9,8 +9,8 @@ import {
 } from 'effect';
 import { Actor, Command } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
-import type { ActorType } from '@kestack/kabuki/core/actor';
-import type { ViewOf } from '@kestack/kabuki/react/view';
+import type { ActorType } from '@kestack/kabuki/types';
+import type { ViewOf } from '@kestack/kabuki/react/types';
 import { Accounts } from '@kestack/auth-toolkit/client';
 
 import { AccountList } from './list.tsx';
@@ -37,10 +37,11 @@ import {
  *             timed (`model.ts`): it shows past 150 ms and stays 300 ms.
  * 2. Act      switching, adding and signing out are Messages, each one
  *             Command on `Accounts`; one at a time, the rest refused.
- * 3. Share    the root page Provides `CurrentAccount.layer`. A page reads
- *             who is signed in and the switch on screen from it, and asks
- *             for the same actions: what it asks comes to this Instance as
- *             its own Messages, and what it reads is this Instance's Model.
+ * 3. Share    the root page Provides `CurrentAccount.layer`, naming
+ *             `CurrentAccount.capabilities`. A page reads who is signed in
+ *             and the switch on screen from it, and asks for the same
+ *             actions: what it asks comes to this Instance as its own
+ *             Messages, and what it reads is this Instance's Model.
  */
 
 type Current = ReturnType<typeof current>;
@@ -66,7 +67,8 @@ class Link extends Context.Service<
  * current one, then each change; `switching` is the Account a switch on
  * screen makes active, set only once the switch shows, while `account`
  * stays the one before until it ends. The rest are Requests to the Account
- * Switcher. The root page Provides `CurrentAccount.layer`.
+ * Switcher. The root page Provides `CurrentAccount.layer`, naming
+ * `CurrentAccount.capabilities`.
  */
 export class CurrentAccount extends Context.Service<
   CurrentAccount,
@@ -101,6 +103,9 @@ export class CurrentAccount extends Context.Service<
         );
       }),
     );
+  /** What `CurrentAccount.layer` builds, as the root page that Provides it names them: `provides: { capabilities: CurrentAccount.capabilities, layer: () => CurrentAccount.layer }`. */
+  static readonly capabilities: readonly [typeof CurrentAccount, typeof Link] =
+    [CurrentAccount, Link];
 }
 
 /** An action's end as a Message: settled, or what failed and why. */

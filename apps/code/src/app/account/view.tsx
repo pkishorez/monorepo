@@ -1,5 +1,5 @@
 import { View, useChild } from '@kestack/kabuki/react';
-import type { ViewProps } from '@kestack/kabuki/react/view';
+import type { ViewProps } from '@kestack/kabuki/react/types';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import {
   createContext,
@@ -199,7 +199,7 @@ function usePreloaded(children: Active['children']) {
 }
 
 /** No Instance: what a Hook reads while a Child is absent. */
-const NONE = { id: '' };
+const NONE = { address: '' };
 
 /**
  * Whether the page the URL names can be drawn whole, as it said

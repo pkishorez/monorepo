@@ -8,7 +8,7 @@ const Demo = View.app(TodosView, { name: 'todos-stage' });
 export function TodosStage() {
   const runtime = Demo.useRuntime();
   return (
-    <Stage runtime={runtime} past={runtime.shown !== null}>
+    <Stage runtime={runtime} past={runtime.seeking !== null}>
       <div className="h-full overflow-auto">
         <Demo />
       </div>

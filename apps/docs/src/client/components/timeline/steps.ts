@@ -1,26 +1,39 @@
-import type { AppRuntime } from '@kestack/kabuki/react/view';
+import { History } from '@kestack/kabuki';
+import type { HistoryEntry } from '@kestack/kabuki/types';
+import type { AppRuntime } from '@kestack/kabuki/react/types';
 
 /*
- * Steps, counted the way a reader counts them: 0 is the app right after
- * init, n is the app right after the nth Message on the Branch.
+ * Steps, counted the way a reader counts them: 0 is the app at the start
+ * of its History, n is the app right after the nth Message on the Head's
+ * Branch.
  */
 
-/** The step shown: the last one while live. */
-export const stepOf = ({ branch, shown }: AppRuntime): number =>
-  shown === null
-    ? branch.length
-    : shown === 'init'
+/** The entries from the start to the Head; none before the app is drawn. */
+export const lineOf = (app: AppRuntime): ReadonlyArray<HistoryEntry> =>
+  app.runtime === null ? [] : History.entries(app.history);
+
+/** The step shown: the last one, the Head, while not Seeking. */
+export const stepOf = (app: AppRuntime): number => {
+  const line = lineOf(app);
+  const { seeking } = app;
+  return seeking === null
+    ? line.length
+    : seeking.entry === null
       ? 0
-      : branch.findIndex((entry) => entry.id === shown) + 1;
-
-/** Show a step; the last one is live. */
-export const showStep = ({ branch, show }: AppRuntime, step: number) =>
-  show(
-    step >= branch.length ? null : step <= 0 ? 'init' : branch[step - 1]!.id,
-  );
-
-/** Go live from a step, growing a new Branch from it. */
-export const carryOn = (runtime: AppRuntime, step: number) => {
-  runtime.show(null);
-  runtime.start(step <= 0 ? null : runtime.branch[step - 1]!.id);
+      : line.findIndex((entry) => entry.id === seeking.entry) + 1;
 };
+
+/** The entry a step is right after: `null` for the start. */
+const entryOf = (line: ReadonlyArray<HistoryEntry>, step: number) =>
+  step <= 0 ? null : line[step - 1]!.id;
+
+/** Seek a step; the last one is the Head. */
+export const showStep = (app: AppRuntime, step: number) => {
+  const line = lineOf(app);
+  if (step >= line.length) app.toHead();
+  else app.seek(entryOf(line, step));
+};
+
+/** Carry on from a step: a Fork, growing a new Branch from it. */
+export const carryOn = (app: AppRuntime, step: number) =>
+  app.fork(entryOf(lineOf(app), step));

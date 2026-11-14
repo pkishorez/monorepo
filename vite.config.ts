@@ -9,7 +9,7 @@ export default defineConfig({
       '**/std-toolkit/db-dynamodb/src/generated/**',
       '**/__tests__/fixtures/**',
       '**/test/fixtures/**',
-      'platforms/web-platform/src/ui/components/*.tsx',
+      'platforms/web-platform/src/ui/components/primitives/*.tsx',
     ],
     overrides: [
       {
@@ -51,7 +51,7 @@ export default defineConfig({
       '**/std-toolkit/db-dynamodb/src/generated/**',
       '**/__tests__/fixtures/**',
       '**/test/fixtures/**',
-      'platforms/web-platform/src/ui/components/*.tsx',
+      'platforms/web-platform/src/ui/components/primitives/*.tsx',
       '**/package.json',
       'devtools/laymos/schema.json',
     ],

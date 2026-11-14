@@ -1,6 +1,6 @@
 import { Duration, Effect, Layer, Schedule, Schema, Stream } from 'effect';
 import { Actor } from '@kestack/kabuki';
-import type { Self } from '@kestack/kabuki/core/actor';
+import type { Self } from '@kestack/kabuki/types';
 import { PluginState } from '@kestack/cli-platform/plugins';
 import {
   addressOf,
@@ -215,24 +215,32 @@ export const ActorOnline = Actor.define('Online', {
   }),
   // The tunnel's word is Reported at once, but for losing it, which the
   // next beat Reports with the new tunnel Opening.
-  provides: (self) =>
-    Layer.effect(
-      TunnelStatus,
-      Effect.map(Effect.context<Cloud | Connection>(), (context) => {
-        const told = (message: Message) =>
-          self
-            .send(message)
-            .pipe(Effect.andThen(report(self)), Effect.provideContext(context));
-        return TunnelStatus.of({
-          installing: (generation) => told({ _tag: 'Installing', generation }),
-          opening: (generation) => told({ _tag: 'Opening', generation }),
-          openFailed: (generation, at, problem) =>
-            told({ _tag: 'OpenFailed', generation, at, problem }),
-          up: (generation, url) => told({ _tag: 'TunnelUp', generation, url }),
-          lost: (generation) => self.send({ _tag: 'TunnelLost', generation }),
-        });
-      }),
-    ),
+  provides: {
+    capabilities: [TunnelStatus],
+    layer: (self) =>
+      Layer.effect(
+        TunnelStatus,
+        Effect.map(Effect.context<Cloud | Connection>(), (context) => {
+          const told = (message: Message) =>
+            self
+              .send(message)
+              .pipe(
+                Effect.andThen(report(self)),
+                Effect.provideContext(context),
+              );
+          return TunnelStatus.of({
+            installing: (generation) =>
+              told({ _tag: 'Installing', generation }),
+            opening: (generation) => told({ _tag: 'Opening', generation }),
+            openFailed: (generation, at, problem) =>
+              told({ _tag: 'OpenFailed', generation, at, problem }),
+            up: (generation, url) =>
+              told({ _tag: 'TunnelUp', generation, url }),
+            lost: (generation) => self.send({ _tag: 'TunnelLost', generation }),
+          });
+        }),
+      ),
+  },
   workers: {
     address: { run: address },
   },

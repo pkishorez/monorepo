@@ -15,6 +15,7 @@ import {
   seed,
   start,
   type Backend,
+  pageOf,
 } from './fixtures.js';
 
 const wallet = (id: string, account: string, balance: number) => ({
@@ -113,14 +114,14 @@ describe('Caught Up', () => {
         // Wallets reads no Window: its whole Strategy is all it waits on.
         yield* eventually(() => expect(seen.mine()?.caughtUp).toBe(true));
 
-        app.send('Root/page#1', { _tag: 'Picked', wallets: ['w1'] });
+        app.at(pageOf(app))?.send({ _tag: 'Picked', wallets: ['w1'] });
         yield* eventually(() =>
           expect(seen.entries()).toMatchObject({ caughtUp: true }),
         );
         expect(seen.entries()?.rows.map(({ id }) => id)).toEqual(['e1']);
 
         // w1's row shows at once, but w2's Window has not answered yet.
-        app.send('Root/page#1', { _tag: 'Picked', wallets: ['w1', 'w2'] });
+        app.at(pageOf(app))?.send({ _tag: 'Picked', wallets: ['w1', 'w2'] });
         yield* eventually(() =>
           expect(
             messagesAt(app, 'Root/page#1/entries').filter(
@@ -169,7 +170,9 @@ describe('Caught Up', () => {
         // It asked as it opened: the Leader's answer makes Wallets Caught Up.
         yield* eventually(() => expect(two.mine()?.caughtUp).toBe(true));
 
-        follower.send('Root/page#1', { _tag: 'Picked', wallets: ['w2'] });
+        follower
+          .at(pageOf(follower))
+          ?.send({ _tag: 'Picked', wallets: ['w2'] });
         yield* eventually(() =>
           expect(two.entries()).toMatchObject({ caughtUp: true }),
         );

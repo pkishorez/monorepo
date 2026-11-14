@@ -1,11 +1,10 @@
 import { Effect, Layer, Queue, Stream } from 'effect';
 import type { Scope } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { History, Runtime } from '@kestack/kabuki';
+import { Runtime } from '@kestack/kabuki';
+import type { Instance } from '@kestack/kabuki/types';
 import { View } from '@kestack/kabuki/react';
 import { Page, Router } from '@kestack/kabuki/routing';
-import type { Running } from '@kestack/kabuki/core/runtime';
-import type { Instance } from '@kestack/kabuki/core/snapshot';
 import type { KabukiSessionClient } from '@kestack/devtools-kabuki/api';
 import type { KabukiSessionSummary } from '@kestack/devtools-kabuki/server';
 import { Sessions } from '../../sessions/index.js';
@@ -71,19 +70,22 @@ const walk = (at: Instance): ReadonlyArray<Instance> => [
     ((Array.isArray(child) ? child : [child]) as Array<Instance>).flatMap(walk),
   ),
 ];
-const page = (app: Running<unknown>) =>
-  walk(app.snapshot()).find((each) => each.actor === 'Kabuki')!;
-const inspected = (app: Running<unknown>) =>
-  walk(app.snapshot()).some((each) => each.actor === 'RemoteInspector');
+// oxlint-disable-next-line typescript/no-explicit-any -- the page's Runtime, whatever its root
+type App = Runtime<any>;
 
-const start = (name: string | null, layer: Layer.Layer<Sessions>) =>
-  Runtime.start(
-    History.make(Root.actor, {
-      window: 0,
-      input: { route: kabukiRoute(name) },
-    }),
+const page = (app: App) =>
+  walk(app.snapshot.root).find((each) => each.actor === 'Kabuki')!;
+const inspected = (app: App) =>
+  walk(app.snapshot.root).some((each) => each.actor === 'RemoteInspector');
+
+const start = (
+  name: string | null,
+  layer: Layer.Layer<Sessions>,
+): Effect.Effect<App, never, Scope.Scope> =>
+  Runtime.scoped(Root.actor, {
+    input: { route: kabukiRoute(name) },
     layer,
-  );
+  });
 
 describe('the /kabuki page', () => {
   it('opens the Kabuki Session the address names once it is live, and waits while it is gone', () =>

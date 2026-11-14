@@ -1,5 +1,5 @@
 import { View } from '@kestack/kabuki/react';
-import type { ViewProps } from '@kestack/kabuki/react/view';
+import type { ViewProps } from '@kestack/kabuki/react/types';
 import { bindingOf, describe, shortcutOf } from '@kestack/use-keys';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { Input } from '@kestack/web-platform/ui/components/input';

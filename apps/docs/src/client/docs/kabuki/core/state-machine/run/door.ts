@@ -4,8 +4,8 @@ import { DoorLive } from '../components/door.ts';
 
 // Send the door every Message, and see which ones its State takes.
 export const program = Effect.gen(function* () {
-  const app = yield* Runtime.start(DoorLive);
-  const door = app.instance({ from: 'docs' });
+  const app = yield* Runtime.scoped(DoorLive);
+  const door = app.root;
   yield* Console.log('starts', door.state);
 
   // Locked has no rule for Opened, so the Message is ignored.

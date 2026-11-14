@@ -86,23 +86,26 @@ const OwnerLive = Owner.build({
       props: () => ({ ripe: true }),
     }),
   },
-  provides: (self) =>
-    Fruit.owner({
-      done: (choices) =>
-        self.send({
-          _tag: 'Done',
-          values: choices?.map(({ value }) => value) ?? null,
-        }),
-      load: ({ key }) =>
-        Effect.succeed({
-          rows: [
-            { value: `${key}-small`, label: 'Small' },
-            { value: `${key}-large`, label: 'Large' },
-          ],
-          truncated: false,
-          problem: null,
-        }),
-    }),
+  provides: {
+    capabilities: Fruit.capabilities,
+    layer: (self) =>
+      Fruit.owner({
+        done: (choices) =>
+          self.send({
+            _tag: 'Done',
+            values: choices?.map(({ value }) => value) ?? null,
+          }),
+        load: ({ key }) =>
+          Effect.succeed({
+            rows: [
+              { value: `${key}-small`, label: 'Small' },
+              { value: `${key}-large`, label: 'Large' },
+            ],
+            truncated: false,
+            problem: null,
+          }),
+      }),
+  },
   on: {
     Ping: (_, { model }) => ({ model: { ...model, pings: model.pings + 1 } }),
     Drop: (_, { model }) => ({ model: { ...model, picking: null } }),

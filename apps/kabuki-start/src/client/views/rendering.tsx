@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 import { View } from '@kestack/kabuki/react';
 import { Router } from '@kestack/kabuki/routing';
-import type { Root } from '@kestack/kabuki/react/view';
-import type { Status } from '@kestack/kabuki/routing/page';
+import type { Root } from '@kestack/kabuki/react/types';
+import type { Status } from '@kestack/kabuki/routing/types';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { RotateCwIcon } from 'lucide-react';
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';

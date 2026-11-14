@@ -8,9 +8,9 @@ Every kestack web app used to wire the same things by hand: the Document, the Th
 
 It has four modules, each depending only on the ones before it:
 
-- `ui`: what the user sees and touches: `ui/theme`, `ui/components/*`, `ui/viewers/*`, `ui/form` and `ui/input` (device, gestures, keys, sounds).
-- `pwa`: the app installable, working offline and updated in place. `pwa/vite` builds the worker and manifest, `pwa/worker` runs in it, `pwa/rpc/*` talks to it, and `pwa` is the page's side: `PwaHead`, `Pwa`, the Update and Install Prompts and the extras.
-- `recipes/*`: whole features built from `ui` and `pwa`: the Frame, the Account Switcher, the Vim status line, Local sign-in, Kabuki's Devtools, the Thumb Picker, swipe rows, an image viewer, and the touch layers that keep a Drawer and its field above the on-screen keyboard.
+- `ui`: what the user sees and touches: `ui/theme`, `ui/input` (device, gestures, keys, sounds), `ui/components/*` and the viewers built from them, `ui/viewers/*`.
+- `pwa`: the app installable, opening without the network and updated in place. `pwa/vite` builds the worker and manifest, `pwa/worker` runs in the worker, and `pwa` is the page's side: `PwaHead`, `Pwa`, the Update and Install Prompts and the Extras.
+- `recipes/*`: whole features built from `ui`: the Frame, the Account Switcher, the Vim status line, Local sign-in, Kabuki's Devtools, the Thumb Picker, swipe rows, an image viewer, and the touch layers that keep a Drawer and its field above the on-screen keyboard.
 - `app`: putting it together: `app/vite` is the one Vite plugin an app lists, `app/document` the Document it passes to `Start.app`, and `app/alchemy` how it is deployed on its Stages.
 
 Why the Web Platform may break while the Toolkits keep what persists is [ADR 0006](../../docs/adr/0006-platforms-may-break-toolkits-keep-what-persists.md). It ships built `dist/` (from `vp pack`). Terms are in [CONTEXT.md](./CONTEXT.md); the PWA's decisions are in [docs/adr/](./docs/adr/).
@@ -90,7 +90,6 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kestack/web-plat
 | `dropdown-menu`: `DropdownMenu` and its `Trigger`, `Content`, `Item`, `CheckboxItem`, `RadioGroup`, `RadioItem`, `Label`, `Separator`, `Shortcut`, `Group`, `Portal`, `Sub`, `SubTrigger`, `SubContent`                                                                                                  | A menu opened from a button.                                               |
 | `empty`: `Empty`, `EmptyHeader`, `EmptyTitle`, `EmptyDescription`, `EmptyContent`, `EmptyMedia`                                                                                                                                                                                                          | What a screen shows when it has nothing yet.                               |
 | `field`: `Field`, `FieldLabel`, `FieldDescription`, `FieldError`, `FieldGroup`, `FieldLegend`, `FieldSeparator`, `FieldSet`, `FieldContent`, `FieldTitle`                                                                                                                                                | A form control with its label, hint and error.                             |
-| `file-tree`: `Tree`, `Folder`, `File`, `CollapseButton`                                                                                                                                                                                                                                                  | A tree of folders and files that expand and collapse.                      |
 | `google-button`: `GoogleButton`                                                                                                                                                                                                                                                                          | Google's own sign-in button, from auth-toolkit, with its own font.         |
 | `hover-card`: `HoverCard`, `HoverCardTrigger`, `HoverCardContent`                                                                                                                                                                                                                                        | A card shown while pointing at a link.                                     |
 | `input-group`: `InputGroup`, `InputGroupAddon`, `InputGroupButton`, `InputGroupText`, `InputGroupInput`, `InputGroupTextarea`                                                                                                                                                                            | An input or textarea with text, icons or buttons attached.                 |
@@ -114,16 +113,14 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kestack/web-plat
 | `scroll-area`: `ScrollArea`, `ScrollBar`                                                                                                                                                                                                                                                                 | A scrolling region with styled scrollbars.                                 |
 | `select`: `Select`, `SelectTrigger`, `SelectValue`, `SelectContent`, `SelectGroup`, `SelectLabel`, `SelectItem`, `SelectSeparator`, `SelectScrollUpButton`, `SelectScrollDownButton`                                                                                                                     | A styled select.                                                           |
 | `separator`: `Separator`                                                                                                                                                                                                                                                                                 | A line between content.                                                    |
-| `sheet`: `Sheet`, `SheetTrigger`, `SheetContent`, `SheetHeader`, `SheetFooter`, `SheetTitle`, `SheetDescription`, `SheetClose`                                                                                                                                                                           | A dialog that slides in from a side.                                       |
 | `skeleton`: `Skeleton`                                                                                                                                                                                                                                                                                   | A placeholder while content loads.                                         |
 | `slider`: `Slider`                                                                                                                                                                                                                                                                                       | A value picked by dragging.                                                |
-| `sonner`: `Toaster`, `toast`                                                                                                                                                                                                                                                                             | Toasts on sonner, and the function that shows one.                         |
 | `spinner`: `Spinner`                                                                                                                                                                                                                                                                                     | A loading spinner.                                                         |
 | `switch`: `Switch`                                                                                                                                                                                                                                                                                       | An on/off switch.                                                          |
 | `table`: `Table`, `TableHeader`, `TableBody`, `TableFooter`, `TableHead`, `TableRow`, `TableCell`, `TableCaption`                                                                                                                                                                                        | A data table.                                                              |
 | `tabs`: `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent`, `tabsListVariants`                                                                                                                                                                                                                             | Tabbed panels.                                                             |
 | `textarea`: `Textarea`                                                                                                                                                                                                                                                                                   | A multi-line text input.                                                   |
-| `toast`: `Toaster`, `Toast`, `ToastProvider`, `ToastViewport`, `ToastPortal`, `ToastContent`, `ToastTitle`, `ToastDescription`, `ToastAction`, `ToastClose`, `toast`, `createToastManager`, `useToastManager`                                                                                            | Toasts on Base UI, with a manager to show them from anywhere.              |
+| `toast`: `Toaster`, `Toast`, `ToastProvider`, `ToastViewport`, `ToastPortal`, `ToastContent`, `ToastTitle`, `ToastDescription`, `ToastAction`, `ToastClose`, `toast`, `createToastManager`, `useToastManager`                                                                                            | Toasts, with a manager to show them from anywhere.                         |
 | `toggle-group`: `ToggleGroup`, `ToggleGroupItem`                                                                                                                                                                                                                                                         | Toggle buttons where one or several are on.                                |
 | `toggle`: `Toggle`, `toggleVariants`                                                                                                                                                                                                                                                                     | A button that stays pressed.                                               |
 | `tooltip`: `Tooltip`, `TooltipTrigger`, `TooltipContent`, `TooltipProvider`                                                                                                                                                                                                                              | A short hint shown on hover or focus.                                      |
@@ -223,14 +220,6 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kestack/web-plat
 | `ShadowScope`    | Renders its children in a shadow root with the given CSS and a portal container. |
 | `useShadowScope` | The shadow root, portal container and Theme of the nearest `ShadowScope`.        |
 
-### `@kestack/web-platform/ui/form`
-
-| Export        | What it does                                                                                                                                                       |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `useAppForm`  | A TanStack Form hook whose fields come bound to the components: `TextField`, `TextareaField`, `SelectField`, `SwitchField`, `DatePickerField`, and `SubmitButton`. |
-| `withForm`    | Builds a piece of form that takes the form as a prop.                                                                                                              |
-| `formOptions` | TanStack Form's `formOptions`, to share options between forms.                                                                                                     |
-
 ### `@kestack/web-platform/ui/input`
 
 How a person drives the app: the device, touch gestures, keys and sounds.
@@ -259,6 +248,8 @@ The PWA on the page.
 | `Pwa`                   | Around the app in the Document: registers the worker, shows the Update Prompt while a new version waits, and offers install once.   |
 | `PwaProvider`           | Registers the worker after mount and gives `usePwa` its Status; `Pwa` renders it.                                                   |
 | `pwaHead`               | Head tags: manifest link, Apple icon, and meta tags for the Build ID, build time and commit.                                        |
+| `pwaName`               | The app's name, as `pwa({ name })` gave it to the manifest.                                                                         |
+| `pwaIncluded`           | Whether this build is a PWA: `false` when it was built with `noPwa()`.                                                              |
 | `usePwa`                | The Status with `checkForUpdate` and `applyUpdate` (`Unsupported` before mount), and the page's `version`.                          |
 | `updateToNewest`        | Once per page load, from anywhere: checks for a newer build and applies it once downloaded, so every page reloads into it.          |
 | `clearRuntimeCache`     | Deletes every Runtime Cache; works outside `PwaProvider`, for example in sign-out.                                                  |
@@ -266,7 +257,7 @@ The PWA on the page.
 | `splashHead`            | The iOS startup image tags, one per screen iOS matches.                                                                             |
 | `splashScreens`         | Each splash image's size, its `/splash/<w>x<h>.png` path, and the screen it is for, for an app to draw them.                        |
 | `useInstall`            | Install state with `prompt` and `dismiss` (remembered 30 days); call it in the root to catch the browser's offer.                   |
-| `InstallPrompt`         | Bottom sheet on small screens, corner card on larger ones, manual steps on iOS Safari.                                              |
+| `InstallPrompt`         | A Drawer from the bottom on small screens, a corner card on larger ones, manual steps on iOS Safari.                                |
 | `Install`               | The Effect service behind `useInstall`, with its `layer`.                                                                           |
 | `InstallState`          | Tagged enum `Unsupported`, `Available`, `ManualIos`, `Installed`, `Dismissed`.                                                      |
 | `IosSteps`              | The Share, then Add to Home Screen steps `InstallPrompt` shows on iOS Safari, for an app's own install screen.                      |
@@ -292,24 +283,9 @@ The PWA on the page.
 
 ### `@kestack/web-platform/pwa/worker`
 
-| Export             | What it does                                                                                                      |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| `runServiceWorker` | Starts the worker; call it once at the top of the entry, optionally with a `layer` such as a Worker Server.       |
-| `WorkerHost`       | Service given to that `layer`: the worker's Build ID and a stream of every `message` event that is not a Command. |
-
-### `@kestack/web-platform/pwa/rpc/worker`
-
-| Export               | What it does                                                                                           |
-| -------------------- | ------------------------------------------------------------------------------------------------------ |
-| `WorkerServer.layer` | Serves an Effect `RpcGroup` inside the worker; provide its handlers and pass it to `runServiceWorker`. |
-
-### `@kestack/web-platform/pwa/rpc/client`
-
-| Export               | What it does                                                                              |
-| -------------------- | ----------------------------------------------------------------------------------------- |
-| `WorkerClient.make`  | Scoped Effect that opens this page's Worker Client to the Worker Server.                  |
-| `WorkerClient.layer` | The same client as a Layer under your own service tag.                                    |
-| `VersionSkew`        | Tagged error a call fails with when the worker belongs to another Build ID than the page. |
+| Export             | What it does                                                                                       |
+| ------------------ | -------------------------------------------------------------------------------------------------- |
+| `runServiceWorker` | Starts the worker; an app's own `src/sw.ts` calls it once, at the top, as the built-in entry does. |
 
 ### `@kestack/web-platform/recipes/frame`
 
@@ -317,6 +293,7 @@ The PWA on the page.
 | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `AppShell`                                                     | The Frame: an optional Sidebar, an optional header with title and actions, the page, with `vim` as a floating window, the same in Vim Mode or out of it, with a status line while it is on, and `column` to wrap the header and page in one element; on a narrow screen the Sidebar shows in its `sidebarMode`, `slide` beside the page or `fullscreen` in its place, under a finger. |
 | `useAppShell`                                                  | `open`, `setOpen`, `toggle` and `isMobile`, inside an `AppShell`.                                                                                                                                                                                                                                                                                                                     |
+| `useSidebarWidth`                                              | The Sidebar's width on a wide screen, kept in `localStorage` under a key, with its setter: give both to `AppShell`'s sidebar to let a person resize it by its edge.                                                                                                                                                                                                                   |
 | `SidebarGroup`, `SidebarGroupContent`, `SidebarGroupLabel`     | Labeled groups for custom Sidebar content.                                                                                                                                                                                                                                                                                                                                            |
 | `SidebarMenu`, `SidebarMenuItem`, `SidebarMenuButton`          | Menu rows; a button shuts the Sidebar when tapped on a phone.                                                                                                                                                                                                                                                                                                                         |
 | `SidebarMenuSub`, `SidebarMenuSubItem`, `SidebarMenuSubButton` | Nested menu rows.                                                                                                                                                                                                                                                                                                                                                                     |
@@ -326,12 +303,12 @@ The PWA on the page.
 
 The Account Switcher of a Kabuki app: a Child of the root page, its View in the header, its list for a sheet, and `CurrentAccount` for every page.
 
-| Export                | What it does                                                                                                                                                                                                |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `AccountSwitcherLive` | The Child to place on the root page, given `maxAccounts`: follows auth-toolkit's `Accounts`, shows a switch once under way 150 ms and for at least 300 ms, and runs switch, add and sign-out one at a time. |
-| `AccountSwitcherView` | Its slot in the header, always the width of "Sign in": the button signed out, the Account menu signed in, the remembered avatar or nothing while checking.                                                  |
-| `AccountSwitcherList` | The Account menu as a list for a sheet, such as a Drawer, from the same Instance: the Active Account, the others to switch to, adding one and signing out. Nothing unless signed in.                        |
-| `CurrentAccount`      | The Capability the root page Provides with `CurrentAccount.layer`: who is signed in and the switch on screen as a stream, and Requests to sign in, switch and sign out.                                     |
+| Export                | What it does                                                                                                                                                                                                            |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AccountSwitcherLive` | The Child to place on the root page, given `maxAccounts`: follows auth-toolkit's `Accounts`, shows a switch once under way 150 ms and for at least 300 ms, and runs switch, add and sign-out one at a time.             |
+| `AccountSwitcherView` | Its slot in the header, always the width of "Sign in": the button signed out, the Account menu signed in, the remembered avatar or nothing while checking.                                                              |
+| `AccountSwitcherList` | The Account menu as a list for a sheet, such as a Drawer, from the same Instance: the Active Account, the others to switch to, adding one and signing out. Nothing unless signed in.                                    |
+| `CurrentAccount`      | The Capability the root page Provides with `CurrentAccount.layer`, naming `CurrentAccount.capabilities` beside it: who is signed in and the switch on screen as a stream, and Requests to sign in, switch and sign out. |
 
 ### `@kestack/web-platform/recipes/keyboard`
 

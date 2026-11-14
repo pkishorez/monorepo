@@ -29,7 +29,7 @@ const session = Argument.String('session').pipe(
 );
 
 const toStep = (text: string): Step => {
-  if (text === 'init') return 'init';
+  if (text === 'start') return 'start';
   const id = Number(text);
   if (!Number.isInteger(id)) throw new Error(`not an entry id: ${text}`);
   return id;
@@ -103,18 +103,29 @@ const historyCommand = Command.make(
         Flag.withDescription('Only the entries after this entry id'),
       ),
     ),
+    branch: Flag.optional(
+      Flag.Int('branch').pipe(
+        Flag.withDescription(
+          "The Branch through this entry id, in place of the Head's",
+        ),
+      ),
+    ),
     ...clientFlags,
   },
-  ({ session, last, since, ...flags }) =>
+  ({ session, last, since, branch, ...flags }) =>
     printClient(
       flags,
       withKabukiSession(flags.url, session, (client) =>
-        client.history({ ...someOf('last', last), ...someOf('since', since) }),
+        client.history({
+          ...someOf('last', last),
+          ...someOf('since', since),
+          ...someOf('branch', branch),
+        }),
       ).pipe(Effect.map((history) => output(history, renderHistoryText))),
     ),
 ).pipe(
   Command.withDescription(
-    "A Kabuki Session's History, oldest first: each entry's id, Message, destination, source, outcome and time",
+    "A Kabuki Session's History, a Branch at a time, oldest first: each entry's id, Message, the Address it was Sent to, who Sent it, outcome and time",
   ),
 );
 
@@ -149,7 +160,7 @@ const snapshotCommand = Command.make(
     at: Flag.optional(
       Flag.String('at').pipe(
         Flag.withDescription(
-          'The Step: an entry id, or init; the Head if absent',
+          "The Step: an entry id, or start, the History's start; the Head if absent",
         ),
         Flag.mapTryCatch(toStep, (error) => `--at: ${String(error)}`),
       ),

@@ -19,3 +19,7 @@ The Log is a tree of entries, one per Message, each pointing to its parent. A He
 - Commands running at a stop are lost, and `init`'s Commands never run again after the first start. A first fetch is a Lifetime.
 - Starting from an old entry does not rewind the outside world.
 - Starting from a deep entry Replays from the start until there are snapshots.
+
+## Note
+
+Since the Runtime was redesigned, a Branch grows from a Fork, not from `stop()`, moving the Head and `start(from)`: `runtime.fork(id)` moves the same Runtime's Head to that entry, and the next Message grows a new Branch from it. Running, its work stops and starts again from that entry's data; stopped, only the Head moves. No Command runs again, at a Fork or a start. The tree, the Head and Branches stand; see [the design](../history.md).

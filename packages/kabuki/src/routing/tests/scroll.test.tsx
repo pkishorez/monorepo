@@ -10,7 +10,7 @@ import { Loading } from '../capabilities/index.ts';
 import {
   useElementScrollRestoration,
   useKeepScrollAnchor,
-} from '../router/index.ts';
+} from '../router/scroll/index.ts';
 import { registry } from '../../react/view/registry.ts';
 import { KEY } from '../router/adapter/index.ts';
 import { browser } from '../router/adapter/browser/index.ts';
@@ -209,8 +209,13 @@ let host: HTMLDivElement;
 let root: ReactRoot | undefined;
 let count = 0;
 let options: ScrollRestorationOptions<AnyRoute> = {};
-/** The app drawn last, to show a past Step of. */
-let runtime: { readonly show: (step: number | null) => void } | undefined;
+/** The app drawn last, to Seek a past Step of. */
+let runtime:
+  | {
+      readonly seek: (step: number | null) => void;
+      readonly toHead: () => void;
+    }
+  | undefined;
 
 /** Draws the app at the URL shown, on the browser's history: a page load, or a reload. */
 const load = async () => {
@@ -233,7 +238,8 @@ const load = async () => {
     name: `scroll-${count++}`,
   });
   const Probe = () => {
-    runtime = Drawn.useRuntime();
+    const drawn = Drawn.useRuntime();
+    runtime = { seek: drawn.seek, toHead: drawn.toHead };
     return null;
   };
   root = createRoot(host);
@@ -527,12 +533,12 @@ describe('Time Travel', () => {
     await click('inbox');
     expect(scrollY).toBe(0);
 
-    await act(async () => runtime!.show(1));
+    await act(async () => runtime!.seek(1));
     await settle();
     expect(host.textContent).toContain('settings');
     expect(scrollY).toBe(0);
 
-    await act(async () => runtime!.show(null));
+    await act(async () => runtime!.toHead());
     await settle();
     expect(scrollY).toBe(0);
   });

@@ -1,6 +1,6 @@
 import { View, useChild } from '@kestack/kabuki/react';
 import { Router } from '@kestack/kabuki/routing';
-import type { ViewProps } from '@kestack/kabuki/react/view';
+import type { ViewProps } from '@kestack/kabuki/react/types';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { FolderXIcon, Trash2Icon } from 'lucide-react';
 import {
@@ -148,7 +148,7 @@ function ProjectScreen({ root, model, props, children, send }: Self) {
 type Self = ViewProps<typeof ProjectLive>;
 
 /** No Instance: what a Hook reads while a Child is absent. */
-const NONE = { id: '' };
+const NONE = { address: '' };
 
 /**
  * Draws nothing: says, for the place in it the app first loads at, that

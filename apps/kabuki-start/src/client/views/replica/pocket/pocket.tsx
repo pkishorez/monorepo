@@ -1,5 +1,5 @@
 import { View, useChild } from '@kestack/kabuki/react';
-import type { ChildData } from '@kestack/kabuki/react/view';
+import type { ChildData } from '@kestack/kabuki/react/types';
 import { Pages, watchedBy } from '../../../../shared/pages/index.ts';
 import { EntriesView, Unwatched } from './activity.tsx';
 import { LedgerContext, newId } from './ledger.ts';

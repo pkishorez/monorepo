@@ -1,379 +1,295 @@
-import { Effect, Queue, Stream } from 'effect';
+import { Effect } from 'effect';
 import type { AnyActor } from '../actor/index.ts';
-import { isRestore, restore } from '../snapshot/engine/index.ts';
-import type { Envelope, Handled, Snapshot } from '../snapshot/index.ts';
-import { Replay, outcomeOf, strict } from './replay.ts';
-import type { ReplayOptions } from './replay.ts';
+import { Snapshot } from '../snapshot/index.ts';
+import type { Entry } from '../snapshot/index.ts';
+import { recall, remember, replayTo, replayingTo, strict } from './replay.ts';
+import type { HistoryEntry } from './replay.ts';
 import { checkSaved, decodeEntry, encodeEntry } from './saved.ts';
+import type { SavedHistory } from './saved.ts';
 
 /*
- * History: everything that happened to an app, as a tree of entries, one per
- * Message, and the Head the next one grows from. It needs nothing else to
- * tell the Snapshot right after any entry: it replays its own Messages.
+ * History: what happened to an app, as a starting Snapshot and a tree of
+ * entries after it, one per Message, each pointing to the entry before it,
+ * and the Head the next one grows from. A plain, immutable value: every
+ * function gives a new one and leaves the one it was given as it was.
  *
- * 1. Append  an entry after the Head, which moves to it.
- * 2. Move    the Head to an earlier entry, so the next one grows a new
- *            Branch. Not while a Runtime runs on it.
- * 3. Read    the Branch to any entry, the entries after one, the Snapshot
- *            right after one, and what came of it.
- * 4. Save    as plain JSON: its entries and its Head, each value as its
- *            Schema's encoded side (./saved.ts). In memory, every value is
- *            decoded.
- * 5. Compact to its Window, after every append and whenever the Window
- *            changes: the oldest entry kept becomes a Restore, and what does
- *            not grow from it is swept. Doing it twice is doing it once.
+ * A History knows no Runtime. A Runtime tells whoever listens the entries
+ * it played, which are added here; and a Snapshot read from here is one a
+ * Runtime can follow.
+ *
+ * 1. Add       entries after the Head, which moves to the last. After an
+ *              entry that already has one after it, they grow a new Branch.
+ * 2. Move      the Head to any entry, or to the start.
+ * 3. Read      the entries on the way to any one, every entry on every
+ *              Branch, the entries that follow one, and the last of every
+ *              Branch.
+ * 4. Snapshot  the app right after any entry, played from the start and
+ *              the Messages alone (./replay.ts).
+ * 5. Compact   to a Window: the start moves forward to the Snapshot right
+ *              before the oldest entry kept, and what does not grow from
+ *              it is swept. Doing it twice is doing it once.
+ * 6. Save      as plain JSON, every value as its Schema's encoded side
+ *              (./saved.ts), and load it again with the code as it is now.
+ *
+ * Growing is cheap: a History shares its entries with the one it grew
+ * from.
  */
 
-/** One entry: an Envelope, and where it sits. */
-export interface Entry extends Envelope {
-  /** Larger than every id before it; never reused while the History lives. */
-  readonly id: number;
-  /** The entry before it, or `null` right after init. */
-  readonly parent: number | null;
-}
+export type { HistoryEntry } from './replay.ts';
+export type { SavedHistory } from './saved.ts';
 
-/**
- * A History as plain JSON, to keep and load again: every Message, and every
- * Instance of a Restore's Snapshot, as its Actor's Schemas encode it.
- */
-export interface SavedHistory {
-  /** Oldest first, by id. */
-  readonly entries: ReadonlyArray<Entry>;
-  /** The entry the next Message goes after, or `null` right after init. */
+export interface History {
+  /** The Snapshot it starts from: what every entry is played after. */
+  readonly start: Snapshot;
+  /** The entry the next Message goes after, or `null` at the start. */
   readonly head: number | null;
 }
 
-export interface HistoryOptions extends ReplayOptions {
-  /** The root's Input. */
-  readonly input?: unknown;
-  /**
-   * On load, what a saved History that no longer fits the code does: `'warn'`,
-   * the default, skips what does not fit, as Replay always does; `'fail'`
-   * throws at once, so a server never carries on from less than it saved.
-   */
-  readonly onMismatch?: 'warn' | 'fail';
-  /** How many entries to keep on the Head's Branch; `null`, the default, keeps everything, and `0` keeps no Message, only the app as it is now. */
-  readonly window?: number | null;
+/** The entries one or more Histories hold, only ever added to. */
+interface Store {
+  readonly list: Array<HistoryEntry>;
+  /** Where each entry is in the list, by id. */
+  readonly at: Map<number, number>;
+  /** Where the entries that follow each one are in the list, oldest first. */
+  readonly after: Map<number | null, Array<number>>;
 }
 
-export interface History<A = AnyActor> {
-  readonly actor: A;
-  /** The root's Input it plays from init with: not saved, so a History loaded again from it is given it. */
-  readonly input: unknown;
-  /** The History as plain JSON: the same object until it changes, and never changed itself. */
-  readonly save: () => SavedHistory;
-  readonly head: () => number | null;
-  /** Whether an entry is still in the History. */
-  readonly has: (entry: number) => boolean;
-  /** The entries from the first to `to`, the Head by default. */
-  readonly branch: (to?: number | null) => ReadonlyArray<Entry>;
-  /** The entries that follow an entry (`null`: init), oldest first. */
-  readonly children: (of: number | null) => ReadonlyArray<Entry>;
-  /** Write an Envelope after the Head, with what came of it, and move the Head to it. */
-  readonly append: (envelope: Envelope, handled: Handled) => Entry;
-  /** Move the Head to an entry (`null`: init). */
-  readonly moveHead: (to: number | null) => void;
-  /** Forget every entry, on every Branch. The Window stays. */
-  readonly clear: () => void;
-  /** How many entries are kept on the Head's Branch, or `null` for every one. */
-  readonly window: () => number | null;
-  /** Change the Window, and Compact to it now. Allowed while a Runtime runs. */
-  readonly keep: (window: number | null) => void;
-  /** The Snapshot right after an entry, the Head by default, yielding to the page as it plays. */
-  readonly seek: (entry?: number | null) => Effect.Effect<Snapshot>;
-  /** The Snapshot right after an entry (`null`: init), played now. */
-  readonly snapshotAt: (entry: number | null) => Snapshot;
-  /** What came of an entry: worked out again when not seen live. */
-  readonly outcome: (entry: number) => Handled['outcome'];
-  readonly subscribe: (listener: () => void) => () => void;
-  /** The History as plain JSON now, then after every change; a slow reader gets only the latest. */
-  readonly changes: Stream.Stream<SavedHistory>;
-  /** Keep the Head where it is while a Runtime runs on it. Call what it returns to let go. */
-  readonly lock: () => () => void;
+/** What a History value reads from: the first `count` entries of its Store, and the next id to give. */
+interface Held {
+  readonly store: Store;
+  readonly count: number;
+  readonly next: number;
 }
 
-const EMPTY: SavedHistory = { entries: [], head: null };
+const held = new WeakMap<History, Held>();
 
-const make = <A extends AnyActor>(
-  actor: A,
-  options?: HistoryOptions,
-): History<A> => open(actor, EMPTY, [], options);
+const storeOf = (entries: ReadonlyArray<HistoryEntry>): Store => {
+  const store: Store = { list: [], at: new Map(), after: new Map() };
+  for (const entry of entries) push(store, entry);
+  return store;
+};
 
-/** A History saved before, read with the Actor's code as it is now. Throws if `saved` is not a History's shape. */
-const load = <A extends AnyActor>(
+const push = (store: Store, entry: HistoryEntry) => {
+  store.at.set(entry.id, store.list.length);
+  const siblings = store.after.get(entry.parent) ?? [];
+  store.after.set(entry.parent, siblings);
+  siblings.push(store.list.length);
+  store.list.push(entry);
+};
+
+const value = (
+  start: Snapshot,
+  head: number | null,
+  store: Store,
+  count: number,
+  next: number,
+): History => {
+  const history: History = Object.freeze({ start, head });
+  held.set(history, { store, count, next });
+  return history;
+};
+
+const heldOf = (history: History): Held => {
+  const known = held.get(history);
+  if (!known)
+    throw new TypeError(
+      '[@kestack/kabuki] not a History: make one with History.init or History.load',
+    );
+  return known;
+};
+
+const find = (history: History, id: number): HistoryEntry | undefined => {
+  const { store, count } = heldOf(history);
+  const index = store.at.get(id);
+  return index !== undefined && index < count ? store.list[index] : undefined;
+};
+
+/** The entry with this id; throws if the History has none. */
+const entryOf = (history: History, id: number): HistoryEntry => {
+  const entry = find(history, id);
+  if (!entry) throw new RangeError(`[@kestack/kabuki] no History entry ${id}`);
+  return entry;
+};
+
+/** A History with no entries, starting from a Snapshot. */
+const init = (start: Snapshot<any>): History =>
+  value(start as Snapshot, null, storeOf([]), 0, 0);
+
+// 1. Add
+/** Write entries after the Head, in order, and move the Head to the last. */
+const add = (
+  history: History,
+  entries: Entry | ReadonlyArray<Entry>,
+): History => {
+  const written = Array.isArray(entries)
+    ? (entries as ReadonlyArray<Entry>)
+    : [entries as Entry];
+  if (written.length === 0) return history;
+  const { store, count, next } = heldOf(history);
+  // The newest History on its Store adds in place; an older one copies first.
+  const own =
+    count === store.list.length ? store : storeOf(store.list.slice(0, count));
+  let head = history.head;
+  let id = next;
+  for (const { to, message, from, at } of written) {
+    push(own, Object.freeze({ id, parent: head, to, message, from, at }));
+    head = id++;
+  }
+  return value(history.start, head, own, count + written.length, id);
+};
+
+// 2. Move
+/** The same History with its Head at an entry (`null`: the start), so the next one grows from there. */
+const move = (history: History, to: number | null): History => {
+  if (to === history.head) return history;
+  if (to !== null) entryOf(history, to);
+  const { store, count, next } = heldOf(history);
+  return value(history.start, to, store, count, next);
+};
+
+// 3. Read
+/** The entry with this id, if the History still has it. */
+const entry = (history: History, id: number): HistoryEntry | undefined =>
+  find(history, id);
+
+/** The entries from the start to `to`, the Head by default, oldest first: a plain list, to filter as any other. */
+const entries = (
+  history: History,
+  to: number | null = history.head,
+): ReadonlyArray<HistoryEntry> => {
+  const path: Array<HistoryEntry> = [];
+  for (let at = to; at !== null;) {
+    const entry = entryOf(history, at);
+    path.push(entry);
+    at = entry.parent;
+  }
+  return path.reverse();
+};
+
+/** Every entry, on every Branch, oldest first. */
+const all = (history: History): ReadonlyArray<HistoryEntry> => {
+  const { store, count } = heldOf(history);
+  return store.list.slice(0, count);
+};
+
+/** The entries that follow an entry (`null`: the start), oldest first. */
+const children = (
+  history: History,
+  of: number | null,
+): ReadonlyArray<HistoryEntry> => {
+  const { store, count } = heldOf(history);
+  const found: Array<HistoryEntry> = [];
+  for (const index of store.after.get(of) ?? []) {
+    if (index >= count) break;
+    found.push(store.list[index]!);
+  }
+  return found;
+};
+
+/** The last entry of every Branch, the ones nothing follows yet, oldest first. */
+const tips = (history: History): ReadonlyArray<HistoryEntry> => {
+  const { store, count } = heldOf(history);
+  const found: Array<HistoryEntry> = [];
+  for (let index = 0; index < count; index++) {
+    const entry = store.list[index]!;
+    const after = store.after.get(entry.id);
+    if (after === undefined || after[0]! >= count) found.push(entry);
+  }
+  return found;
+};
+
+// 4. Snapshot
+/** The Snapshot right after an entry, the Head by default (`null`: the start), played from the Messages alone. */
+const snapshot = <A extends AnyActor>(
   actor: A,
-  saved: SavedHistory,
-  options?: HistoryOptions,
-): History<A> => {
-  checkSaved(saved);
-  const root = actor.definition;
-  // Before it is opened: Compacting to a Window would hide what does not fit.
-  if (options?.onMismatch === 'fail')
-    strict(root, saved.entries, options.input);
-  return open(
-    actor,
-    {
-      entries: saved.entries.map((entry) => decodeEntry(root, entry)),
-      head: saved.head,
-    },
-    saved.entries,
-    options,
+  history: History,
+  to: number | null = history.head,
+): Snapshot<A> =>
+  replayTo(
+    actor.definition,
+    history.start,
+    to === null ? null : entryOf(history, to),
+    (id) => entryOf(history, id),
+  ) as Snapshot<A>;
+
+/** The same, yielding to the page as it plays, so a long History never freezes it. */
+const replay = <A extends AnyActor>(
+  actor: A,
+  history: History,
+  to: number | null = history.head,
+): Effect.Effect<Snapshot<A>> =>
+  Effect.suspend(
+    () =>
+      replayingTo(
+        actor.definition,
+        history.start,
+        to === null ? null : entryOf(history, to),
+        (id) => entryOf(history, id),
+      ) as Effect.Effect<Snapshot<A>>,
   );
-};
 
-/** A History of decoded entries, and those already encoded, by position. */
-const open = <A extends AnyActor>(
-  actor: A,
-  from: SavedHistory,
-  saved: ReadonlyArray<Entry>,
-  options: HistoryOptions = {},
-): History<A> => {
-  const root = actor.definition;
-  const children = new Map<number | null, Array<Entry>>();
-  const outcomes = new Map<number, Handled['outcome']>();
-  const listeners = new Set<() => void>();
-  const entries = new Map<number, Entry>();
-  let next = 0;
-  /** Each entry as saved, encoded once, when first saved or as it was loaded. */
-  const encoded = new Map(saved.map((entry) => [entry.id, entry]));
-  let replay = Replay.make(root, options.input, options);
-  let branches = new Map<number | null, ReadonlyArray<Entry>>();
-  let head = from.head;
-  let window = checkWindow(options.window ?? null);
-  let state: SavedHistory | undefined;
-  let locks = 0;
-
-  const change = (to: number | null) => {
-    head = to;
-    state = undefined;
-    branches = new Map();
-    for (const listener of listeners) listener();
-  };
-  const unlocked = (what: string) => {
-    if (locks > 0)
-      throw new Error(
-        `[@kestack/kabuki] stop the Runtime before ${what} its History`,
-      );
-  };
-  const entryAt = (id: number) => {
-    const entry = entries.get(id);
-    if (!entry)
-      throw new RangeError(`[@kestack/kabuki] no History entry ${id}`);
-    return entry;
-  };
-  const add = (entry: Entry) => {
-    entries.set(entry.id, entry);
-    next = entry.id + 1;
-    const siblings = children.get(entry.parent) ?? [];
-    children.set(entry.parent, siblings);
-    siblings.push(entry);
-    return entry;
-  };
-  from.entries.forEach(add);
-
-  // 1. Append
-  const append: History<A>['append'] = (envelope, handled) => {
-    const entry = add({ id: next, parent: head, ...envelope });
-    outcomes.set(entry.id, handled.outcome);
-    replay.remember(entry.id, handled.snapshot);
-    head = entry.id;
-    compact();
-    change(head);
-    return entry;
-  };
-
-  // 2. Move
-  const moveHead: History<A>['moveHead'] = (to) => {
-    unlocked('moving the Head of');
-    if (to !== null) entryAt(to);
-    change(to);
-  };
-
-  const clear = () => {
-    unlocked('clearing');
-    entries.clear();
-    encoded.clear();
-    next = 0;
-    children.clear();
-    outcomes.clear();
-    replay = Replay.make(root, options.input, options);
-    change(null);
-  };
-
-  // 3. Read
-  const branch: History<A>['branch'] = (to = head) => {
-    const known = branches.get(to);
-    if (known) return known;
-    const path: Array<Entry> = [];
-    for (let at = to; at !== null; at = entryAt(at).parent)
-      path.unshift(entryAt(at));
-    branches.set(to, path);
-    return path;
-  };
-
-  const outcome = (id: number) => {
-    const entry = entries.get(id);
-    if (!entry)
-      throw new RangeError(`[@kestack/kabuki] no History entry ${id}`);
-    const known =
-      outcomes.get(id) ??
-      outcomeOf(root, replay.at(branch(entry.parent)), entry);
-    outcomes.set(id, known);
-    return known;
-  };
-
-  // 4. Save
-  /** A new array on every change, so one saved before never grows. */
-  const subscribe = (listener: () => void) => {
-    listeners.add(listener);
-    return () => void listeners.delete(listener);
-  };
-
-  const save = () =>
-    (state ??= {
-      entries: Object.freeze(
-        [...entries.values()].map((entry) => {
-          const known = encoded.get(entry.id);
-          if (known) return known;
-          const written = encodeEntry(root, entry);
-          encoded.set(entry.id, written);
-          return written;
-        }),
-      ),
-      head,
-    });
-
-  // 5. Compact
-  /** The oldest entry the Window keeps on the Head's Branch, or none when the whole Branch fits. */
-  const floor = () => {
-    const path = branch(head);
-    if (window === null || path.length === 0) return undefined;
-    // Keeping nothing still keeps the app as it is now: the Head, as a Restore.
-    if (window === 0) return path.at(-1);
-    return path.length <= window ? undefined : path[path.length - window]!;
-  };
-
-  /** Make an entry the start of the History: a Restore of the Snapshot right after it, at its Time, after init. */
-  const fold = (entry: Entry) => {
-    if (entry.parent === null && isRestore(entry.message)) return;
-    const snapshot = replay.at(branch(entry.id));
-    const folded = restoreAt(root.name, snapshot, entry.id, entry.at);
-    entries.set(entry.id, folded);
-    const siblings = children.get(entry.parent) ?? [];
-    siblings.splice(siblings.indexOf(entry), 1);
-    children.set(null, [...(children.get(null) ?? []), folded]);
-    encoded.delete(entry.id);
-    outcomes.delete(entry.id);
-  };
-
-  /** Forget every entry that does not grow from `from`, on any Branch. */
-  const sweep = (from: Entry) => {
-    const kept = new Set<number>();
-    for (const waiting = [from.id]; waiting.length > 0;) {
-      const id = waiting.pop()!;
-      kept.add(id);
-      for (const child of children.get(id) ?? []) waiting.push(child.id);
-    }
-    for (const id of entries.keys())
-      if (!kept.has(id)) {
-        entries.delete(id);
-        encoded.delete(id);
-        outcomes.delete(id);
-        children.delete(id);
-        replay.forget(id);
-      }
-    children.set(null, [entries.get(from.id)!]);
-  };
-
-  /** Keep only the Window: idempotent, and it never touches the Head. */
-  const compact = () => {
-    const from = floor();
-    if (!from) return;
-    fold(from);
-    sweep(entries.get(from.id)!);
-    branches = new Map();
-  };
-
-  const keep: History<A>['keep'] = (to) => {
-    window = checkWindow(to);
-    compact();
-    change(head);
-  };
-  compact();
-
-  return {
-    actor,
-    input: options.input,
-    save,
-    head: () => head,
-    has: (id) => entries.has(id),
-    window: () => window,
-    keep,
-    branch,
-    children: (of) => children.get(of) ?? [],
-    append,
-    moveHead,
-    clear,
-    seek: (entry = head) => replay.seek(branch(entry)),
-    snapshotAt: (entry) => replay.at(branch(entry)),
-    outcome,
-    subscribe,
-    changes: Stream.callback<SavedHistory>(
-      (queue) =>
-        Effect.acquireRelease(
-          Effect.sync(() => {
-            Queue.offerUnsafe(queue, save());
-            return subscribe(() => void Queue.offerUnsafe(queue, save()));
-          }),
-          (unsubscribe) => Effect.sync(unsubscribe),
-        ),
-      { bufferSize: 1, strategy: 'sliding' },
-    ),
-    // Counted, so two Runtimes on one History each hold it until they let go.
-    lock: () => {
-      locks++;
-      let held = true;
-      return () => {
-        if (held) locks--;
-        held = false;
-      };
-    },
-  };
-};
-
+// 5. Compact
 /**
- * The lightest History an app can be saved as: right after init, one Restore
- * of `snapshot` at Time `at`. Nothing before it can be travelled to but init.
+ * Keep only the Window on the Head's Branch, counted back from the Head:
+ * `null` keeps everything, and `0` keeps no entry, only the app as it is
+ * now, as the start. The start moves forward to the Snapshot right before
+ * the oldest entry kept; every entry that does not grow from there, on any
+ * Branch, is gone. The entries kept keep their ids; the same History when
+ * there is nothing to fold.
  */
-const restored = <A extends AnyActor>(
-  actor: A,
-  snapshot: Snapshot,
-  at: number,
-  options?: HistoryOptions,
-): History<A> =>
-  open(
-    actor,
-    { entries: [restoreAt(actor.definition.name, snapshot, 0, at)], head: 0 },
-    [],
-    options,
+const compact = (
+  actor: AnyActor,
+  history: History,
+  window: number | null,
+): History => {
+  checkWindow(window);
+  if (window === null || history.head === null) return history;
+  // The last entry folded into the start: `window` back from the Head.
+  let floor = entryOf(history, history.head);
+  for (let kept = 0; kept < window; kept++) {
+    if (floor.parent === null) return history;
+    floor = entryOf(history, floor.parent);
+  }
+
+  const root = actor.definition;
+  const start = snapshot(actor, history, floor.id) as Snapshot;
+  const { store, count, next } = heldOf(history);
+  // Every entry that grows from the floor, ids rising.
+  const keep = new Set<number>();
+  const waiting = [floor.id];
+  while (waiting.length > 0) {
+    const id = waiting.pop()!;
+    for (const index of store.after.get(id) ?? [])
+      if (index < count) {
+        const { id: after } = store.list[index]!;
+        keep.add(after);
+        waiting.push(after);
+      }
+  }
+  const kept: Array<HistoryEntry> = [];
+  for (let index = 0; index < count; index++) {
+    const entry = store.list[index]!;
+    if (!keep.has(entry.id)) continue;
+    const moved =
+      entry.parent === floor.id
+        ? Object.freeze({ ...entry, parent: null })
+        : entry;
+    // What was played after it holds from the new start too.
+    const after = recall(root, history.start, entry);
+    if (after) remember(root, start, moved, after);
+    kept.push(moved);
+  }
+  return value(
+    start,
+    history.head === floor.id ? null : history.head,
+    storeOf(kept),
+    kept.length,
+    next,
   );
+};
 
-/** An entry right after init that puts `snapshot` in place at Time `at`. */
-const restoreAt = (
-  root: string,
-  snapshot: Snapshot,
-  id: number,
-  at: number,
-): Entry => ({
-  id,
-  parent: null,
-  destination: root,
-  message: restore(snapshot),
-  source: { kind: 'restore' },
-  at,
-});
-
-const checkWindow = (window: number | null) => {
+/** Throws unless a Window keeps 0 entries or more, or every one. */
+const checkWindow = (window: number | null): number | null => {
   if (window !== null && !(Number.isInteger(window) && window >= 0))
     throw new RangeError(
       `[@kestack/kabuki] a Window keeps 0 entries or more, not ${window}`,
@@ -381,6 +297,66 @@ const checkWindow = (window: number | null) => {
   return window;
 };
 
-export const History = { make, load, restored };
+// 6. Save
+const saves = new WeakMap<History, SavedHistory>();
 
-/** Tells a History from an Actor. */
+/** The History as plain JSON: the same object for the same History, and never changed itself. */
+const save = (actor: AnyActor, history: History): SavedHistory => {
+  const known = saves.get(history);
+  if (known) return known;
+  const saved: SavedHistory = Object.freeze({
+    start: Snapshot.save(actor, history.start),
+    entries: Object.freeze(
+      all(history).map((entry) => encodeEntry(actor.definition, entry)),
+    ),
+    head: history.head,
+  });
+  saves.set(history, saved);
+  return saved;
+};
+
+/**
+ * A History saved before, read with the Actor's code as it is now. Throws
+ * if `saved` is not a History's shape, or if its start no longer fits the
+ * code. An entry that no longer fits: `'warn'`, the default, keeps it, and
+ * Replay warns and skips it; `'fail'` throws at once, so a server never
+ * carries on from less than it saved.
+ */
+const load = (
+  actor: AnyActor,
+  saved: SavedHistory,
+  options?: { readonly onMismatch?: 'warn' | 'fail' },
+): History => {
+  checkSaved(saved);
+  const root = actor.definition;
+  const start = Snapshot.load(actor, saved.start) as Snapshot;
+  if (options?.onMismatch === 'fail')
+    strict(root, start, saved.entries, (entry) => decodeEntry(root, entry));
+  const entries = saved.entries.map((entry) =>
+    Object.freeze(decodeEntry(root, entry)),
+  );
+  return value(
+    start,
+    saved.head,
+    storeOf(entries),
+    entries.length,
+    (entries.at(-1)?.id ?? -1) + 1,
+  );
+};
+
+/** What happened to an app, as plain data, and the pure functions that grow, read, replay, fold and save it. */
+export const History = {
+  init,
+  add,
+  move,
+  entry,
+  entries,
+  all,
+  children,
+  tips,
+  snapshot,
+  replay,
+  compact,
+  save,
+  load,
+};

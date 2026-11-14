@@ -133,6 +133,8 @@ export const choiceOf = (
 export const RunningPicker = {
   Live: Running.Live,
   View: Running.View,
+  /** What `owner` builds, for the `provides` that gives it. */
+  capabilities: Running.capabilities,
   opening: (how: typeof Picker.How.Type) => ({
     how,
     step: { id: 'running', key: '' },

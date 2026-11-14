@@ -23,10 +23,10 @@
     "LICENSE"
   ],
   "imports": {
-    "#components/*": "./src/ui/components/*.tsx",
-    "#kit/shadow-dom": "./src/ui/components/kit/shadow-dom.tsx",
-    "#kit/*": "./src/ui/components/kit/*.ts",
-    "#hooks/*": "./src/ui/components/hooks/*.ts"
+    "#components/*": "./src/ui/components/primitives/*.tsx",
+    "#kit/shadow-dom": "./src/ui/components/primitives/kit/shadow-dom.tsx",
+    "#kit/*": "./src/ui/components/primitives/kit/*.ts",
+    "#hooks/*": "./src/ui/components/primitives/hooks/*.ts"
   },
   "exports": {
     "./ui/theme": {
@@ -35,60 +35,48 @@
     },
     "./ui/theme/*.css": "./dist/ui/theme/css/*.css",
     "./ui/components/utils": {
-      "types": "./dist/ui/components/kit/class-names.d.ts",
-      "default": "./dist/ui/components/kit/class-names.js"
+      "types": "./dist/ui/components/primitives/kit/class-names.d.ts",
+      "default": "./dist/ui/components/primitives/kit/class-names.js"
     },
     "./ui/components/scroll-styles": {
-      "types": "./dist/ui/components/kit/scroll-styles.d.ts",
-      "default": "./dist/ui/components/kit/scroll-styles.js"
+      "types": "./dist/ui/components/primitives/kit/scroll-styles.d.ts",
+      "default": "./dist/ui/components/primitives/kit/scroll-styles.js"
     },
     "./ui/components/shadow-dom": {
-      "types": "./dist/ui/components/kit/shadow-dom.d.ts",
-      "default": "./dist/ui/components/kit/shadow-dom.js"
+      "types": "./dist/ui/components/primitives/kit/shadow-dom.d.ts",
+      "default": "./dist/ui/components/primitives/kit/shadow-dom.js"
     },
     "./ui/components/hooks/*": {
-      "types": "./dist/ui/components/hooks/*.d.ts",
-      "default": "./dist/ui/components/hooks/*.js"
+      "types": "./dist/ui/components/primitives/hooks/*.d.ts",
+      "default": "./dist/ui/components/primitives/hooks/*.js"
     },
     "./ui/components/*": {
-      "types": "./dist/ui/components/*.d.ts",
-      "default": "./dist/ui/components/*.js"
+      "types": "./dist/ui/components/primitives/*.d.ts",
+      "default": "./dist/ui/components/primitives/*.js"
     },
     "./ui/viewers/*": {
-      "types": "./dist/ui/viewers/*/index.d.ts",
-      "default": "./dist/ui/viewers/*/index.js"
-    },
-    "./ui/form": {
-      "types": "./dist/ui/form/index.d.ts",
-      "default": "./dist/ui/form/index.js"
+      "types": "./dist/ui/components/viewers/*/index.d.ts",
+      "default": "./dist/ui/components/viewers/*/index.js"
     },
     "./ui/input": {
       "types": "./dist/ui/input/index.d.ts",
       "default": "./dist/ui/input/index.js"
     },
     "./pwa": {
-      "types": "./dist/pwa/prompts/index.d.ts",
-      "default": "./dist/pwa/prompts/index.js"
+      "types": "./dist/pwa/page/index.d.ts",
+      "default": "./dist/pwa/page/index.js"
     },
     "./pwa/splash": {
-      "types": "./dist/pwa/prompts/splash/index.d.ts",
-      "default": "./dist/pwa/prompts/splash/index.js"
+      "types": "./dist/pwa/page/head/splash/index.d.ts",
+      "default": "./dist/pwa/page/head/splash/index.js"
     },
     "./pwa/vite": {
-      "types": "./dist/pwa/engine/vite/index.d.ts",
-      "default": "./dist/pwa/engine/vite/index.js"
+      "types": "./dist/pwa/vite/index.d.ts",
+      "default": "./dist/pwa/vite/index.js"
     },
     "./pwa/worker": {
-      "types": "./dist/pwa/engine/worker/index.d.ts",
-      "default": "./dist/pwa/engine/worker/index.js"
-    },
-    "./pwa/rpc/worker": {
-      "types": "./dist/pwa/engine/worker/rpc/index.d.ts",
-      "default": "./dist/pwa/engine/worker/rpc/index.js"
-    },
-    "./pwa/rpc/client": {
-      "types": "./dist/pwa/engine/page/rpc/index.d.ts",
-      "default": "./dist/pwa/engine/page/rpc/index.js"
+      "types": "./dist/pwa/worker/index.d.ts",
+      "default": "./dist/pwa/worker/index.js"
     },
     "./recipes/*": {
       "types": "./dist/recipes/*/index.d.ts",
@@ -126,7 +114,6 @@
     "@shikijs/langs": "catalog:",
     "@shikijs/themes": "catalog:",
     "@tailwindcss/typography": "catalog:",
-    "@tanstack/react-form": "catalog:",
     "@uiw/codemirror-theme-xcode": "catalog:",
     "@uiw/react-codemirror": "catalog:",
     "@uiw/react-json-view": "catalog:",
@@ -145,7 +132,6 @@
     "remark-gfm": "catalog:",
     "shadcn": "catalog:",
     "shiki": "catalog:",
-    "sonner": "catalog:",
     "tailwind-merge": "catalog:",
     "tailwindcss": "catalog:",
     "tw-animate-css": "catalog:",

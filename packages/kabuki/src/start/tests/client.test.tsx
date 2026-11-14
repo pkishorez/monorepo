@@ -156,10 +156,12 @@ describe('hydrating a page Start drew', () => {
 
   it('hands the Document the running app, and nothing outside Start', async () => {
     function Running() {
-      const runtime = Start.useRuntime();
+      const app = Start.useRuntime();
       return (
         <p id="runtime">
-          {runtime ? `${runtime.running} ${runtime.branch.length > 0}` : 'none'}
+          {app?.runtime
+            ? `${app.runtime.running} ${app.history.start.root.address === app.runtime.snapshot.root.address}`
+            : 'none'}
         </p>
       );
     }
@@ -217,8 +219,8 @@ describe('hydrating a page Start drew', () => {
         view: AppView,
         document: Document,
         attach: [
-          (runtime) => {
-            seen.push(`${code}: ${runtime.history.save().entries.length > 0}`);
+          (app) => {
+            seen.push(`${code}: ${app.runtime!.running}`);
             return () => seen.push(`${code}: stopped`);
           },
         ],

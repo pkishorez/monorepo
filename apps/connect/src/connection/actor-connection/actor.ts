@@ -1,6 +1,6 @@
 import { Effect, Layer, Schema, Stream } from 'effect';
 import { Actor } from '@kestack/kabuki';
-import type { Self } from '@kestack/kabuki/core/actor';
+import type { Self } from '@kestack/kabuki/types';
 import { Plugins, PluginState } from '@kestack/cli-platform/plugins';
 import type { PluginVersion } from '../../cloud/contract/index.js';
 import { ActorOnline } from './actor-online/index.js';
@@ -154,26 +154,29 @@ export const ActorConnection = Actor.define('Connection', {
       state: { _tag: 'Running' },
     };
   },
-  provides: (self) =>
-    Layer.mergeAll(
-      Layer.succeed(
-        Plugins,
-        Plugins.of({
-          report: (name, state) =>
-            self.send({ _tag: 'PluginReported', name, state }),
-        }),
+  provides: {
+    capabilities: [Plugins, Connection],
+    layer: (self) =>
+      Layer.mergeAll(
+        Layer.succeed(
+          Plugins,
+          Plugins.of({
+            report: (name, state) =>
+              self.send({ _tag: 'PluginReported', name, state }),
+          }),
+        ),
+        Layer.succeed(
+          Connection,
+          Connection.of({
+            listening: (port) => self.send({ _tag: 'Listening', port }),
+            wanted: (versions) => self.send({ _tag: 'Wanted', versions }),
+            address: (url) => self.send({ _tag: 'Addressed', url }),
+            forgotten: self.send({ _tag: 'Forgotten' }),
+            stop: (reason) => self.send({ _tag: 'Stop', reason }),
+          }),
+        ),
       ),
-      Layer.succeed(
-        Connection,
-        Connection.of({
-          listening: (port) => self.send({ _tag: 'Listening', port }),
-          wanted: (versions) => self.send({ _tag: 'Wanted', versions }),
-          address: (url) => self.send({ _tag: 'Addressed', url }),
-          forgotten: self.send({ _tag: 'Forgotten' }),
-          stop: (reason) => self.send({ _tag: 'Stop', reason }),
-        }),
-      ),
-    ),
+  },
   children: {
     plugins: Actor.child(ActorPlugins, {
       input: ({ model }) => ({

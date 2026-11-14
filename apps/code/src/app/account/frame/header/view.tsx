@@ -1,6 +1,6 @@
 import { View, useChild } from '@kestack/kabuki/react';
 import { useRouter } from '@kestack/kabuki/routing';
-import type { ViewProps } from '@kestack/kabuki/react/view';
+import type { ViewProps } from '@kestack/kabuki/react/types';
 import { useEffect } from 'react';
 import type { Route } from '../../../app.ts';
 import { Voice } from './voice/index.ts';
@@ -32,7 +32,7 @@ export const HeaderVoice = View.make(HeaderLive, ({ children }) => (
 ));
 
 /** No Instance: what a Hook reads while a Child is absent. */
-const NONE = { id: '' };
+const NONE = { address: '' };
 
 type Children = ViewProps<typeof HeaderLive>['children'];
 

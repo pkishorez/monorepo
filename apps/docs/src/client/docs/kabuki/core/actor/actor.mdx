@@ -30,9 +30,8 @@ Making an Actor takes two steps: you define it, then you build it.
 
 ## 1. Define it
 
-The **Definition** says what the Actor is: its name, the shape of its
-Model, and the Messages it takes. Each shape is a Schema: the Model is
-written as its fields, the Messages as one entry per Message, each with its
+The **Shape** says what the Actor is: its name, its Model, and the
+Messages it takes. Each is a Schema: the Model is written as its fields, the Messages as one entry per Message, each with its
 own fields.
 
 ```ts
@@ -45,7 +44,7 @@ export const Counter = Actor.define('Counter', {
 });
 ```
 
-Why a separate Definition? Because every type in your app flows from it.
+Why a separate Shape? Because every type in your app flows from it.
 The Update, the button that sends `Added`, the parent that holds a Counter,
 your tests: TypeScript checks all of them against this one place. Forget
 the `amount`, and it doesn't compile.
@@ -53,7 +52,7 @@ the `amount`, and it doesn't compile.
 The Schemas also check at runtime. A Message that doesn't fit, like an
 `amount` of `'ten'`, is refused before anything sees it.
 
-And a Definition runs nothing. So anything can import it, a parent, a View
+And a Shape runs nothing. So anything can import it, a parent, a View
 or a test, without pulling in the logic behind it.
 
 ## 2. Build it
@@ -78,12 +77,14 @@ of the Model that change; the rest stay as they are. It's a plain function. It d
 else, so it's easy to read and easy to test.
 
 By habit, the Build is named after the Actor with `Live`, and sits beside
-its Definition.
+its Shape. The Shape and the Build together are the Actor's
+**Definition**: what a Runtime runs.
 
 ## Run it
 
-An Actor needs no screen. `Runtime.start` runs it, and `instance` hands you
-the running Counter to send Messages to and read from. Press Run.
+An Actor needs no screen. `Runtime.scoped` runs it, for as long as the
+program does. Its `root` is the running Counter: you read it, and you send
+it Messages. Press Run.
 
 <Run program={program} caption="Each send says what became of its Message: handled, or refused when it does not fit the Schema. The Model only ever changes through an Update.">
 

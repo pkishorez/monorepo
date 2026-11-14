@@ -42,7 +42,10 @@ const AppLive = App.build({
     Apis: ApisLive,
     Replica: ReplicaLive,
   },
-  provides: () => Layer.mergeAll(CurrentAccount.layer, Replicas.layer),
+  provides: {
+    capabilities: [...CurrentAccount.capabilities, ...Replicas.capabilities],
+    layer: () => Layer.mergeAll(CurrentAccount.layer, Replicas.layer),
+  },
   children: {
     // The Auth Worker's `maxAccounts`: its default, 5.
     account: Actor.child(AccountSwitcherLive, {

@@ -8,7 +8,7 @@ wanted. The engine tree is the `code` Plugin's, in a process of its own: it
 holds the Projects and the Sessions in them, runs each Session's Turns on
 its Agent, and keeps every record in the Store. The two never import each
 other; the router passes Code's socket to the Plugin's without reading it.
-Each root runs with `Runtime.start`. The connection Layer gives
+Each root runs with `Runtime.scoped`. The connection Layer gives
 `Cloud`, `Tunnels` and `Downloads`. The engine Layer gives `Store`,
 `Harnesses`, `HarnessAccounts`, `OneShotPrompt`, `Agents`, `Answers` and
 `Git`.
