@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# Usage: affected.sh <app-dir> <workflow-file> <base>
-# Writes affected=true|false to $GITHUB_OUTPUT.
+# Usage: affected.sh <app-dir> <workflow-file> <base> [path...]
+# Writes affected=true|false to $GITHUB_OUTPUT. A change to a file starting
+# with one of the extra paths counts too.
 set -euo pipefail
 
 app_dir=$1
 workflow=$2
 base=${3:-}
+shift $(($# < 3 ? $# : 3))
 
 affected() {
   echo "$1"
@@ -31,6 +33,15 @@ if [ -n "$forced" ]; then
   echo "$forced"
   affected true
 fi
+
+for path in "$@"; do
+  changed=$(git diff --name-only "$base" HEAD | awk -v path="$path" 'index($0, path) == 1')
+  if [ -n "$changed" ]; then
+    echo "Changed under $path:"
+    echo "$changed"
+    affected true
+  fi
+done
 
 if pnpm ls -r --depth -1 --parseable --filter "...[$base]" | grep -q "/$app_dir\$"; then
   affected true
