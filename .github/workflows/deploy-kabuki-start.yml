@@ -55,7 +55,8 @@ jobs:
             # The native shells run against this deploy, so a change to them
             # deploys too, or their jobs would never start.
             .github/scripts/affected.sh apps/kabuki-start .github/workflows/deploy-kabuki-start.yml "$BASE" \
-              apps/capacitor-kabuki-start/ .github/workflows/native-kabuki-start.yml
+              apps/capacitor-kabuki-start/ packages/capacitor-live-activity/ \
+              .github/workflows/native-kabuki-start.yml
           fi
 
   deploy:
