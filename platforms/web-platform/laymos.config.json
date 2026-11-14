@@ -85,6 +85,10 @@
     "src/capabilities/app-info/shell": ["src/capabilities/app-info/web"],
     "src/capabilities/haptics": ["src/capabilities/platform"],
     "src/capabilities/haptics/ios": ["src/capabilities/haptics/web"],
+    "src/capabilities/live-activity": ["src/capabilities/platform"],
+    "src/capabilities/live-activity/ios": [
+      "src/capabilities/live-activity/web"
+    ],
     "src/pwa/contract/config": [
       "src/pwa/contract/build",
       "src/ui/theme/model.ts"

@@ -131,3 +131,7 @@ _Avoid_: OS, device, target, environment
 **Shell**:
 The app's native wrapper on iOS or Android: a web view pointed at the live site, with Capacitor's bridge in it. It has an id on the device, a name, a version and a build. A browser has none.
 _Avoid_: wrapper, native app, container, host
+
+**Live Activity**:
+iOS's live card for one thing under way, on the Lock Screen and in the Dynamic Island, kept up to date while the app is away: a title, a status line and how far along it is. The Shell draws it with its own plugin; a browser and Android have none, so there it is not supported and none starts.
+_Avoid_: widget, notification, banner

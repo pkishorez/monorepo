@@ -11,7 +11,7 @@ It has five modules, each depending only on the ones before it:
 - `ui`: what the user sees and touches: `ui/theme`, `ui/input` (device, gestures, keys, sounds), `ui/components/*` and the viewers built from them, `ui/viewers/*`.
 - `pwa`: the app installable, opening without the network and updated in place. `pwa/vite` builds the worker and manifest, `pwa/worker` runs in the worker, and `pwa` is the page's side: `PwaHead`, `Pwa`, the Update and Install Prompts and the Extras.
 - `recipes/*`: whole features built from `ui`: the Frame, the Account Switcher, the Vim status line, Local sign-in, Kabuki's Devtools, the Thumb Picker, swipe rows, an image viewer, and the touch layers that keep a Drawer and its field above the on-screen keyboard.
-- `capabilities/*`: native features as Capabilities, each with a web default an app may replace in its Capacitor Shell, per platform: `capabilities/haptics`, `capabilities/app-info`, and `capabilities/platform`, which tells where the page runs. One build serves the browser and both Shells; Capacitor's code is loaded only inside a Shell.
+- `capabilities/*`: native features as Capabilities, each with a web default an app may replace in its Capacitor Shell, per platform: `capabilities/haptics`, `capabilities/app-info`, `capabilities/live-activity`, and `capabilities/platform`, which tells where the page runs. One build serves the browser and both Shells; Capacitor's code is loaded only inside a Shell.
 - `app`: putting it together: `app/vite` is the one Vite plugin an app lists, `app/document` the Document it passes to `Start.app`, and `app/alchemy` how it is deployed on its Stages.
 
 Why the Web Platform may break while the Toolkits keep what persists is [ADR 0006](../../docs/adr/0006-platforms-may-break-toolkits-keep-what-persists.md). It ships built `dist/` (from `vp pack`). Terms are in [CONTEXT.md](./CONTEXT.md); the PWA's decisions are in [docs/adr/](./docs/adr/).
@@ -35,19 +35,19 @@ An app's stylesheet imports `@kestack/web-platform/ui/theme/global.css`, which a
 - `alchemy` and `@alchemy.run/cloudflare` (optional): the Cloudflare Website and state `./app/alchemy` deploys with.
 - `laymos` (optional): the file diff and change types the diff, git-changes and source-explorer viewers read.
 - `use-effect-ts` (optional): runs `./ui/viewers/source-explorer`'s loaders inside React.
-- `@capacitor/core`, `@capacitor/haptics`, `@capacitor/app` (optional): the plugins the `ios` and `android` versions of `./capabilities/*` load inside a Shell.
+- `@capacitor/core`, `@capacitor/haptics`, `@capacitor/app` (optional): the plugins the `ios` and `android` versions of `./capabilities/*` load inside a Shell; `./capabilities/live-activity/ios` needs only `@capacitor/core`, as its plugin is the Shell's own.
 - `@kestack/kabuki` (optional): the Start parts `./app/document`'s Document draws, the Start app `./pwa/vite` builds beside, and the Actor and View `./recipes/account-switcher` is.
 
 ## Exports
 
 ### `@kestack/web-platform/ui/theme`
 
-| Export             | What it does                                                                                                            |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------- |
-| `createTheme`      | Makes the app's Theme: `useTheme`, the head `Script` that sets it before paint, and the `StatusBar` strip.              |
-| `FontPreload`      | Preloads Inter's Latin file from the head, the same file `font-inter.css` uses, so the first paint is already in Inter. |
-| `themeFromCookies` | Reads the Theme from a `Cookie` header string; dark when it is missing or unknown.                                      |
-| `THEME_COOKIE`     | The cookie's name, `kui-theme`.                                                                                         |
+| Export             | What it does                                                                                                                                  |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createTheme`      | Makes the app's Theme: `useTheme`, `setTheme` for code outside React, the head `Script` that sets it before paint, and the `StatusBar` strip. |
+| `FontPreload`      | Preloads Inter's Latin file from the head, the same file `font-inter.css` uses, so the first paint is already in Inter.                       |
+| `themeFromCookies` | Reads the Theme from a `Cookie` header string; dark when it is missing or unknown.                                                            |
+| `THEME_COOKIE`     | The cookie's name, `kui-theme`.                                                                                                               |
 
 ### `@kestack/web-platform/ui/theme/*.css`
 
@@ -405,6 +405,19 @@ The Dock devtools sit in. Kabuki's Inspector is in [`@kestack/devtools-kabuki/in
 | Export    | What it does                                                                             |
 | --------- | ---------------------------------------------------------------------------------------- |
 | `android` | App Info in the Android Shell, from `@capacitor/app`, loaded only when it is made there. |
+
+### `@kestack/web-platform/capabilities/live-activity`
+
+| Export               | What it does                                                                                                                                                |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `LiveActivity`       | The Live Activity Capability: says whether the device can show one, and starts, updates and ends one by its id; by default not supported, starting nothing. |
+| `LiveActivity.layer` | Makes it the platform's own in the app's Shell, as `LiveActivity.layer({ ios })`.                                                                           |
+
+### `@kestack/web-platform/capabilities/live-activity/ios`
+
+| Export | What it does                                                                                                                                                                                |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ios`  | Live Activities in the iOS Shell, through the Shell's own `LiveActivity` plugin, reached with `registerPlugin` from `@capacitor/core` when it is made there. Android keeps the web default. |
 
 ### `@kestack/web-platform/app/vite`
 
