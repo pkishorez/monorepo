@@ -11,8 +11,9 @@
 // offline: reads what the page drew after a relaunch with the network off
 //          and writes offline.json.
 //
-// CDP_ENDPOINT, when set, drives a desktop Chromium instead, to try the
-// script on a page without a device; SHELL_URL then picks the page.
+// SHELL_URL is opened again when the first load failed. CDP_ENDPOINT, when
+// set, drives a desktop Chromium instead, to try the script without a
+// device; SHELL_URL then also picks the page.
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { _android as android, chromium } from 'playwright-core';
@@ -66,7 +67,23 @@ const waitForValue = (page, name, accept, timeout) =>
       () => false,
     );
 
+/**
+ * Opens SHELL_URL again until the page loads. A fresh emulator may launch
+ * the app before its network resolves names, and the web view then shows
+ * its error page (net::ERR_NAME_NOT_RESOLVED) for good.
+ */
+async function untilLoaded(page) {
+  const url = process.env.SHELL_URL;
+  for (let tries = 0; page.url().startsWith('chrome-error:') && url; tries++) {
+    if (tries === 12) throw new Error(`${url} never loaded.`);
+    console.log(`The web view shows an error page; opening ${url} again.`);
+    await sleep(5_000);
+    await page.goto(url, { timeout: 30_000 }).catch(() => {});
+  }
+}
+
 async function proof(page) {
+  await untilLoaded(page);
   let proofLine = null;
   page.on('console', (message) => {
     if (message.text().includes('[native-proof] ')) proofLine = message.text();
