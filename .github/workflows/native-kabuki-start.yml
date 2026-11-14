@@ -112,6 +112,9 @@ jobs:
       SHELL_URL: ${{ inputs.url }}
       # Read by capacitor.config.js: ios.limitsNavigationsToAppBoundDomains.
       SHELL_APP_BOUND: ${{ matrix.app-bound == 'on' }}
+      # One leg is enough to start a Live Activity and photograph the
+      # Dynamic Island (scripts/ios.sh).
+      LIVE_ACTIVITY: ${{ matrix.app-bound == 'off' }}
       OUT: ${{ github.workspace }}/native-out
       APP: apps/capacitor-kabuki-start/ios/App/build/Build/Products/Debug-iphonesimulator/App.app
     steps:
