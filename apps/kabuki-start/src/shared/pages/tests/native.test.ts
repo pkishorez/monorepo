@@ -7,19 +7,23 @@ import type { Instance } from '@kestack/kabuki/types';
 import { Accounts, AccountsState } from '@kestack/auth-toolkit/client';
 import { AppInfo } from '@kestack/web-platform/capabilities/app-info';
 import { Haptics } from '@kestack/web-platform/capabilities/haptics';
+import { LiveActivity } from '@kestack/web-platform/capabilities/live-activity';
 import { Store } from '@kestack/std-toolkit/replica/memory';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { HelloHttp } from '../../../apis/hello-http/index.ts';
 import { HelloRpc } from '../../../apis/hello-rpc/index.ts';
 import { PocketRpc } from '../../../apis/pocket/index.ts';
-import { Pages, router } from '../index.ts';
+import { AppTheme, Pages, router } from '../index.ts';
 
 /*
- * The Native page with fake `AppInfo` and `Haptics`, as an app's Shell on
- * iOS would provide them: it shows what they say, a button's Command says
- * whether the device took its haptic, and `?proof` runs all three by
- * itself and logs one line. With neither provided, the page has the web's.
- * Node has no service worker, so it is `unsupported` throughout.
+ * The Native page with fake `AppInfo`, `Haptics` and `LiveActivity`, as an
+ * app's Shell on iOS would provide them: it shows what they say, a
+ * button's Command says whether the device took its haptic, the Live
+ * Activity starts, moves on and ends, and `?proof` runs all three haptics
+ * by itself and logs one line, starting a Live Activity too with `live=1`.
+ * With none provided, the page has the web's. Node has no service worker,
+ * so it is `unsupported` throughout. `done` lists what the fakes were
+ * asked, in order, the Theme set by `AppTheme` among them.
  */
 
 const shell = {
@@ -29,6 +33,8 @@ const shell = {
   build: '7',
 };
 
+let done: Array<string> = [];
+
 const ios = Layer.mergeAll(
   Layer.succeed(AppInfo, {
     platform: 'ios',
@@ -36,9 +42,25 @@ const ios = Layer.mergeAll(
   }),
   // The engine takes a tap and a selection, and refuses a notification.
   Layer.succeed(Haptics, {
-    impact: () => Effect.succeed(true),
+    impact: () => Effect.sync(() => (done.push('impact'), true)),
     notify: () => Effect.succeed(false),
     selection: Effect.succeed(true),
+  }),
+  Layer.succeed(LiveActivity, {
+    supported: Effect.succeed(true),
+    start: (activity) =>
+      Effect.sync(() => {
+        done.push(`start ${JSON.stringify(activity)}`);
+        return Option.some('activity-1');
+      }),
+    update: (id, change) =>
+      Effect.sync(
+        () => (done.push(`update ${id} ${JSON.stringify(change)}`), true),
+      ),
+    end: (id) => Effect.sync(() => (done.push(`end ${id}`), true)),
+  }),
+  Layer.succeed(AppTheme, {
+    set: (theme) => Effect.sync(() => void done.push(`theme ${theme}`)),
   }),
 );
 
@@ -96,8 +118,21 @@ const model = (runtime: Runtime) =>
     readonly app: { readonly _tag: string };
     readonly serviceWorker: string;
     readonly results: Readonly<Record<string, string>>;
+    readonly live: {
+      readonly supported: string;
+      readonly state: string;
+      readonly id: string | null;
+      readonly progress: number;
+    };
     readonly proof: string;
   };
+
+const proofLines = (log: {
+  readonly mock: { readonly calls: Array<Array<unknown>> };
+}) =>
+  log.mock.calls
+    .map(([line]) => String(line))
+    .filter((line) => line.startsWith('[native-proof] '));
 
 const open = (url: string, capabilities: Layer.Layer<never> = ios) =>
   Effect.gen(function* () {
@@ -109,7 +144,10 @@ const open = (url: string, capabilities: Layer.Layer<never> = ios) =>
     return runtime;
   });
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  done = [];
+});
 
 describe('the Native page', () => {
   it('shows the platform and the Shell AppInfo says', () =>
@@ -171,17 +209,131 @@ describe('the Native page', () => {
           notify: 'refused',
           selection: 'took',
         });
-        const lines = log.mock.calls
-          .map(([line]) => String(line))
-          .filter((line) => line.startsWith('[native-proof] '));
-        expect(lines).toEqual([
+        expect(proofLines(log)).toEqual([
           `[native-proof] ${JSON.stringify({
             platform: 'ios',
             shell,
             serviceWorker: 'unsupported',
             haptics: { impact: true, notify: false, selection: true },
+            liveActivity: { supported: true, id: null },
           })}`,
         ]);
+        // Without live=1 no Live Activity starts, and without theme the Theme stays.
+        expect(done).toEqual(['impact']);
+        expect(model(runtime).live.state).toBe('idle');
+      }),
+    ));
+
+  it('sets the Theme first and leaves a Live Activity running with ?proof&live=1&theme=light', () =>
+    run(
+      Effect.gen(function* () {
+        const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+        const runtime = yield* open('/native?proof=1&live=1&theme=light');
+        const activity = {
+          title: 'Kabuki Start',
+          status: 'Proving the Dynamic Island',
+          progress: 0.4,
+        };
+        expect(done).toEqual([
+          'theme light',
+          'impact',
+          `start ${JSON.stringify(activity)}`,
+        ]);
+        expect(model(runtime).live).toEqual({
+          supported: 'yes',
+          state: 'running',
+          id: 'activity-1',
+          progress: 0.4,
+        });
+        expect(proofLines(log)).toEqual([
+          `[native-proof] ${JSON.stringify({
+            platform: 'ios',
+            shell,
+            serviceWorker: 'unsupported',
+            haptics: { impact: true, notify: false, selection: true },
+            liveActivity: { supported: true, id: 'activity-1' },
+          })}`,
+        ]);
+      }),
+    ));
+
+  it("logs no id with ?proof&live=1 where the web's starts none", () =>
+    run(
+      Effect.gen(function* () {
+        const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+        const runtime = yield* open('/native?proof=1&live=1', Layer.empty);
+        expect(model(runtime).live).toEqual({
+          supported: 'no',
+          state: 'unsupported',
+          id: null,
+          progress: 0,
+        });
+        expect(proofLines(log)).toHaveLength(1);
+        expect(proofLines(log)[0]).toContain(
+          '"liveActivity":{"supported":false,"id":null}',
+        );
+      }),
+    ));
+
+  it('sets no Theme without ?proof', () =>
+    run(
+      Effect.gen(function* () {
+        yield* open('/native?theme=light&live=1');
+        expect(done).toEqual([]);
+      }),
+    ));
+
+  it('starts a Live Activity, moves it on and ends it', () =>
+    run(
+      Effect.gen(function* () {
+        const runtime = yield* open('/native');
+        const page = runtime.at(native(runtime).address);
+        expect(model(runtime).live).toEqual({
+          supported: 'yes',
+          state: 'idle',
+          id: null,
+          progress: 0,
+        });
+        page?.send({ _tag: 'LiveStart' });
+        yield* wait(20);
+        expect(model(runtime).live).toMatchObject({
+          state: 'running',
+          id: 'activity-1',
+        });
+        page?.send({ _tag: 'LiveUpdate' });
+        yield* wait(20);
+        page?.send({ _tag: 'LiveUpdate' });
+        yield* wait(20);
+        expect(model(runtime).live.progress).toBe(0.5);
+        page?.send({ _tag: 'LiveEnd' });
+        yield* wait(20);
+        expect(model(runtime).live).toEqual({
+          supported: 'yes',
+          state: 'ended',
+          id: 'activity-1',
+          progress: 0.5,
+        });
+        expect(done).toEqual([
+          `start ${JSON.stringify({ title: 'Kabuki Start', status: '0% there', progress: 0 })}`,
+          `update activity-1 ${JSON.stringify({ status: '25% there', progress: 0.25 })}`,
+          `update activity-1 ${JSON.stringify({ status: '50% there', progress: 0.5 })}`,
+          'end activity-1',
+        ]);
+      }),
+    ));
+
+  it("is unsupported, and starts nothing, with the web's", () =>
+    run(
+      Effect.gen(function* () {
+        const runtime = yield* open('/native', Layer.empty);
+        runtime.at(native(runtime).address)?.send({ _tag: 'LiveStart' });
+        yield* wait(20);
+        expect(model(runtime).live).toEqual({
+          supported: 'no',
+          state: 'unsupported',
+          id: null,
+          progress: 0,
+        });
       }),
     ));
 
