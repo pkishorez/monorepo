@@ -52,13 +52,18 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo 'affected=true' >> "$GITHUB_OUTPUT"
           else
-            .github/scripts/affected.sh apps/kabuki-start .github/workflows/deploy-kabuki-start.yml "$BASE"
+            # The native shells run against this deploy, so a change to them
+            # deploys too, or their jobs would never start.
+            .github/scripts/affected.sh apps/kabuki-start .github/workflows/deploy-kabuki-start.yml "$BASE" \
+              apps/capacitor-kabuki-start/ .github/workflows/native-kabuki-start.yml
           fi
 
   deploy:
     needs: detect
     if: needs.detect.outputs.affected == 'true'
     runs-on: ubuntu-latest
+    outputs:
+      url: ${{ steps.url.outputs.url }}
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -78,6 +83,15 @@ jobs:
           if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" != "refs/heads/main" ]; then
             echo "::error::Unexpected ref '${{ github.ref }}' — pushes deploy only from main." >&2
             exit 1
+          fi
+
+      - name: Site URL
+        id: url
+        run: |
+          if [ "$STAGE" = "prod" ]; then
+            echo 'url=https://start.kishore.app' >> "$GITHUB_OUTPUT"
+          else
+            echo "url=https://$STAGE-start.kishore.app" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Checkout
@@ -116,6 +130,14 @@ jobs:
       - name: State tree
         if: always()
         run: pnpm -C apps/kabuki-start exec alchemy state list --recursive || true
+
+  # The Android and iOS shells, opened on this deploy's /native page.
+  native:
+    needs: deploy
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    uses: ./.github/workflows/native-kabuki-start.yml
+    with:
+      url: ${{ needs.deploy.outputs.url }}/native?proof=1
 
   summary:
     needs: [detect, deploy]
