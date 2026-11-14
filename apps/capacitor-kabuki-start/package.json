@@ -1,0 +1,22 @@
+{
+  "name": "capacitor-kabuki-start",
+  "description": "Kabuki Start in a native shell: the Android and iOS apps Capacitor wraps around the site at start.kishore.app.",
+  "private": true,
+  "scripts": {
+    "sync": "cap sync",
+    "android": "cap sync android && cd android && ./gradlew assembleDebug",
+    "ios": "cap sync ios && cap open ios",
+    "test": "node --test 'scripts/*.test.mjs'"
+  },
+  "dependencies": {
+    "@capacitor/android": "catalog:",
+    "@capacitor/app": "catalog:",
+    "@capacitor/core": "catalog:",
+    "@capacitor/haptics": "catalog:",
+    "@capacitor/ios": "catalog:"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "catalog:",
+    "playwright-core": "catalog:"
+  }
+}
