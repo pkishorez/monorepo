@@ -403,6 +403,9 @@ importers:
       '@capacitor/ios':
         specifier: 'catalog:'
         version: 8.6.2(@capacitor/core@8.6.2)
+      '@kestack/capacitor-live-activity':
+        specifier: workspace:*
+        version: link:../../packages/capacitor-live-activity
     devDependencies:
       '@capacitor/cli':
         specifier: 'catalog:'
@@ -1032,6 +1035,12 @@ importers:
       vitest:
         specifier: 5.0.5
         version: 5.0.5(@opentelemetry/api@1.10.0)(@types/node@26.6.5)(@vitest/browser-preview@5.0.5)(@vitest/ui@5.0.5)(@voidzero-dev/vite-plus-core@1.4.0(@types/node@26.6.5)(@typescript/typescript6@6.0.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))(jsdom@30.1.3(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@26.6.5)(@typescript/typescript6@6.0.2))
+
+  packages/capacitor-live-activity:
+    dependencies:
+      '@capacitor/core':
+        specifier: 8.6.2
+        version: 8.6.2
 
   packages/kabuki:
     dependencies:

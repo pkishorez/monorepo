@@ -13,7 +13,8 @@
     "@capacitor/app": "catalog:",
     "@capacitor/core": "catalog:",
     "@capacitor/haptics": "catalog:",
-    "@capacitor/ios": "catalog:"
+    "@capacitor/ios": "catalog:",
+    "@kestack/capacitor-live-activity": "workspace:*"
   },
   "devDependencies": {
     "@capacitor/cli": "catalog:",
