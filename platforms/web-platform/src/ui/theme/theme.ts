@@ -35,6 +35,8 @@ export function createTheme(
 
   return {
     useTheme,
+    // For code outside React, such as a Command; the browser's alone.
+    setTheme,
     Script,
     StatusBar,
   };

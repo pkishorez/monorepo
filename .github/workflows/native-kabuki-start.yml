@@ -1,0 +1,169 @@
+name: 📱 native:kabuki-start
+
+# Builds the Android and iOS shells (apps/capacitor-kabuki-start) pointed at a
+# deployed kabuki-start, opens them in an emulator and a simulator, and checks
+# the page's native proof. deploy-kabuki-start.yml calls this once a pull
+# request's preview is up: a workflow_run trigger would only work once this
+# file is on the default branch.
+
+on:
+  workflow_call:
+    inputs:
+      url:
+        description: 'The page the shells open, e.g. https://pr<N>-start.kishore.app/native?proof=1'
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'The page the shells open'
+        required: true
+        type: string
+        default: 'https://start.kishore.app/native?proof=1'
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Android
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SHELL_URL: ${{ inputs.url }}
+      OUT: ${{ github.workspace }}/native-out
+      APK: apps/capacitor-kabuki-start/android/app/build/outputs/apk/debug/app-debug.apk
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+
+      - name: Setup Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+          cache-dependency-path: |
+            apps/capacitor-kabuki-start/android/*.gradle*
+            apps/capacitor-kabuki-start/android/app/*.gradle*
+            apps/capacitor-kabuki-start/android/gradle/wrapper/gradle-wrapper.properties
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --filter capacitor-kabuki-start
+
+      - name: Sync the Android project
+        working-directory: apps/capacitor-kabuki-start
+        run: pnpm exec cap sync android
+
+      - name: Build the debug APK
+        working-directory: apps/capacitor-kabuki-start/android
+        run: ./gradlew assembleDebug
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # The action runs each line of script on its own, so it calls one file.
+      - name: Run on the emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          # A phone's screen, not the default 320 by 640.
+          profile: pixel_6
+          script: apps/capacitor-kabuki-start/scripts/android.sh "$APK" "$OUT"
+
+      - name: Verify the proof
+        if: always()
+        run: node apps/capacitor-kabuki-start/scripts/verify.mjs android "$OUT" 'Native proof — Android'
+
+      - name: Upload screenshots, logs and the APK
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-android
+          path: |
+            native-out/
+            apps/capacitor-kabuki-start/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: warn
+
+  ios:
+    name: iOS (App-Bound Domains ${{ matrix.app-bound }})
+    # Named, not macos-latest, so a new image cannot change Xcode mid-spike.
+    runs-on: macos-26
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        app-bound: ['off', 'on']
+    env:
+      SHELL_URL: ${{ inputs.url }}
+      # Read by capacitor.config.js: ios.limitsNavigationsToAppBoundDomains.
+      SHELL_APP_BOUND: ${{ matrix.app-bound == 'on' }}
+      # One leg is enough to start a Live Activity and photograph the
+      # Dynamic Island (scripts/ios.sh).
+      LIVE_ACTIVITY: ${{ matrix.app-bound == 'off' }}
+      OUT: ${{ github.workspace }}/native-out
+      APP: apps/capacitor-kabuki-start/ios/App/build/Build/Products/Debug-iphonesimulator/App.app
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --filter capacitor-kabuki-start
+
+      - name: Sync the iOS project
+        working-directory: apps/capacitor-kabuki-start
+        run: pnpm exec cap sync ios
+
+      - name: Make the site an App-Bound Domain
+        if: matrix.app-bound == 'on'
+        working-directory: apps/capacitor-kabuki-start
+        run: scripts/app-bound-domains.sh "$(node -p 'new URL(process.env.SHELL_URL).hostname')"
+
+      # A simulator build needs no signing.
+      - name: Build for the simulator
+        working-directory: apps/capacitor-kabuki-start/ios/App
+        run: >-
+          xcodebuild build -project App.xcodeproj -scheme App
+          -configuration Debug -sdk iphonesimulator
+          -destination 'generic/platform=iOS Simulator'
+          -derivedDataPath build CODE_SIGNING_ALLOWED=NO
+
+      - name: Run on the simulator
+        run: apps/capacitor-kabuki-start/scripts/ios.sh "$APP" "$OUT"
+
+      - name: Verify the proof
+        if: always()
+        run: node apps/capacitor-kabuki-start/scripts/verify.mjs ios "$OUT" 'Native proof — iOS, App-Bound Domains ${{ matrix.app-bound }}'
+
+      - name: Upload screenshots, logs and the app
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-ios-app-bound-${{ matrix.app-bound }}
+          path: |
+            native-out/
+            apps/capacitor-kabuki-start/ios/App/build/Build/Products/Debug-iphonesimulator/App.app
+          if-no-files-found: warn

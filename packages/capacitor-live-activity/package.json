@@ -1,0 +1,15 @@
+{
+  "name": "@kestack/capacitor-live-activity",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A Capacitor plugin that starts, updates and ends an iOS Live Activity from the page in an app's native shell.",
+  "license": "MIT",
+  "capacitor": {
+    "ios": {
+      "src": "ios"
+    }
+  },
+  "peerDependencies": {
+    "@capacitor/core": "8.6.2"
+  }
+}

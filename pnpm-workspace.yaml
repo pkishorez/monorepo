@@ -66,6 +66,16 @@ catalog:
   '@alchemy.run/cloudflare': 2.0.0-beta.84
   '@alchemy.run/sql': 2.0.0-beta.84
   '@base-ui/react': 1.9.0
+  # The native shell of a Web Platform app, and the plugins its Capabilities
+  # call: optional peers of web-platform, direct dependencies of a shell.
+  '@capacitor/android': 8.6.2
+  '@capacitor/app': 8.1.2
+  '@capacitor/cli': 8.6.2
+  '@capacitor/core': 8.6.2
+  # 8.0.2 was published by hand, without the provenance 8.0.1 has, so the
+  # trust policy refuses it.
+  '@capacitor/haptics': 8.0.1
+  '@capacitor/ios': 8.6.2
   '@changesets/changelog-github': 1.0.1
   '@changesets/cli': 3.0.3
   '@cloudflare/workers-types': 5.20261023.1

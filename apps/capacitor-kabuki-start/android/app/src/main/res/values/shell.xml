@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The site's dark Theme, its default: the window's color until the
+         page names its own, so a launch shows no white band. -->
+    <color name="shell_background">#0a0a0a</color>
+</resources>

@@ -7,10 +7,17 @@ import { IDB } from '@kestack/std-toolkit/db/idb';
 import { Store } from '@kestack/std-toolkit/replica/idb';
 import { Start } from '@kestack/kabuki/start';
 import { document } from '@kestack/web-platform/app/document';
+import { AppInfo } from '@kestack/web-platform/capabilities/app-info';
+import { android as appInfoOnAndroid } from '@kestack/web-platform/capabilities/app-info/android';
+import { ios as appInfoOnIos } from '@kestack/web-platform/capabilities/app-info/ios';
+import { Haptics } from '@kestack/web-platform/capabilities/haptics';
+import { ios as hapticsOnIos } from '@kestack/web-platform/capabilities/haptics/ios';
+import { LiveActivity } from '@kestack/web-platform/capabilities/live-activity';
+import { ios as liveActivityOnIos } from '@kestack/web-platform/capabilities/live-activity/ios';
 import { HelloHttp } from '../apis/hello-http/index.ts';
 import { HelloRpc } from '../apis/hello-rpc/index.ts';
 import { PocketRpc } from '../apis/pocket/index.ts';
-import { router } from '../shared/pages/index.ts';
+import { AppTheme, router } from '../shared/pages/index.ts';
 import { Devtools, Theme } from './components/index.ts';
 import { AppView } from './views/index.ts';
 import './styles.css';
@@ -25,6 +32,10 @@ import './styles.css';
  * avatar while the Auth Worker confirms it; the table is opened only once
  * the Layer is built, in the browser. So is the Replica Store, one
  * IndexedDB database per Pocket Instance, shared by the browser's tabs.
+ * In the app's Shell on iOS or Android, Haptics, App Info and, on iOS,
+ * Live Activities are the Shell's own, their Capacitor plugins loaded only
+ * there; a browser keeps the web's. `AppTheme` lets the Native page's
+ * proof run set the Theme, as the header's toggle does.
  */
 
 const remembered = Layer.unwrap(
@@ -44,6 +55,12 @@ const layer = Layer.mergeAll(
   HelloRpc.layer,
   PocketRpc.layer,
   replicas,
+  Haptics.layer({ ios: hapticsOnIos }),
+  AppInfo.layer({ ios: appInfoOnIos, android: appInfoOnAndroid }),
+  LiveActivity.layer({ ios: liveActivityOnIos }),
+  Layer.succeed(AppTheme, {
+    set: (theme) => Effect.sync(() => Theme.setTheme(theme)),
+  }),
 ).pipe(
   Layer.provideMerge(
     browser({ url: import.meta.env.VITE_AUTH_URL, cache: remembered }),

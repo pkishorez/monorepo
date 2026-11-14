@@ -15,6 +15,7 @@ const NAV = [
   { to: router.Items(), label: 'Preloading' },
   { to: router.Apis(), label: 'APIs' },
   { to: router.Replica(), label: 'Replica' },
+  { to: router.Native(), label: 'Native' },
 ] as const;
 
 export function Layout({
