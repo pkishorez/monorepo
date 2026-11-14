@@ -3,14 +3,191 @@
 What the spike learned, November 2026. **Seen in CI** means a
 [`native-kabuki-start.yml`](../../../.github/workflows/native-kabuki-start.yml)
 job showed it, against the pull request's preview
-(`https://pr139-start.kishore.app/native?proof=1`); the screenshots below are
-from [run 43548855640](https://github.com/pkishorez/monorepo/actions/runs/43548855640), and the same results came in
-[run 43546197876](https://github.com/pkishorez/monorepo/actions/runs/43546197876).
+(`https://pr139-start.kishore.app/native?proof=1`). The first sections came
+from [run 43548855640](https://github.com/pkishorez/monorepo/actions/runs/43548855640)
+and [run 43546197876](https://github.com/pkishorez/monorepo/actions/runs/43546197876);
+the bars and the Live Activity from
+[run 43561720109](https://github.com/pkishorez/monorepo/actions/runs/43561720109),
+where all three jobs passed, and the Dynamic Island photo from
+[run 43560772240](https://github.com/pkishorez/monorepo/actions/runs/43560772240).
 **Not verified** means nobody has seen it.
 
-| Android                          | Android, offline                                  | iOS, App-Bound Domains off                                    | iOS, App-Bound Domains on                                   |
-| -------------------------------- | ------------------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------- |
-| ![Android](findings/android.png) | ![Android, offline](findings/android-offline.png) | ![iOS, App-Bound Domains off](findings/ios-app-bound-off.png) | ![iOS, App-Bound Domains on](findings/ios-app-bound-on.png) |
+| Android, dark                               | Android, light                                | iOS, dark                           | iOS, light                            | Dynamic Island                                                      |
+| ------------------------------------------- | --------------------------------------------- | ----------------------------------- | ------------------------------------- | ------------------------------------------------------------------- |
+| ![Android, dark](findings/android-dark.png) | ![Android, light](findings/android-light.png) | ![iOS, dark](findings/ios-dark.png) | ![iOS, light](findings/ios-light.png) | ![The Live Activity in the island](findings/ios-dynamic-island.png) |
+
+## The bars: the shell keeps the page out of them
+
+Seen in CI, on both platforms, in both Themes. Before, iOS drew the page
+under the clock and the Dynamic Island, and Android put a white band above a
+dark page. Now the page stays full-screen and unaware (its
+`env(safe-area-inset-*)` are zero) and the shell keeps the web view between
+the system bars, painting them in the page's `theme-color`, as Safari does:
+
+- iOS: `ShellViewController`, the app's root, holds Capacitor's view
+  controller as a child pinned to the safe area (Capacitor's `loadView` is
+  final and makes the web view the whole screen, so it cannot be inset from
+  inside). Its background is `WKWebView.themeColor`, observed; the clock and
+  battery go dark or light from the color's luminance. Hiding the bars, the
+  home indicator and the orientations are still asked of Capacitor's
+  controller, as when it was the root, read from its source. A page call to
+  Capacitor's `SystemBars.setStyle` is now ignored on iOS: the shell decides.
+- Android: Capacitor's `SystemBars` is off (`insetsHandling: 'disable'`).
+  The site asks for `viewport-fit=cover`, and on WebView 140 and later
+  `SystemBars` then hands the bars to the page instead of padding the web view,
+  whatever `css` or `native` says (read in its source; the emulator has
+  WebView 124, so CI did not see that case). A small `ShellBars` plugin in the
+  app pads the window by the bars' insets and paints it; Android's web view
+  has no `themeColor`, so it injects a script that watches the tag and
+  reports `#rrggbb` through a JavaScript interface.
+- Before the page draws, both use the site's dark default (`#0a0a0a`, also
+  Capacitor's `backgroundColor`): no white flash. The launch screens are
+  untouched.
+
+The check reads the screenshots with Node alone (`scripts/png.mjs`): each
+Theme's status bar band and bottom band must be mostly the Theme's color
+(80% and 100% on iOS, where the island takes the rest; 98% and 96% on
+Android), the shell must report that color, and on iOS the web view must
+start at the safe area (186 px of 2622). The color alone is not enough
+evidence: the old dark iOS screenshot passes it at the top (70%), because
+the site's header is the same color as its page; the web view's position and
+the light Theme are what tell.
+
+Not verified: rotation, the keyboard (the shell pads for it as Capacitor
+does), a WebView of 140 or later, a page whose `theme-color` has a `media`.
+To make this a package, the iOS controller and the Android plugin would move
+into a Capacitor plugin with a small iOS class an app names in its
+`SceneDelegate`, and the Android part registered as any plugin is; the
+`SystemBars` setting would stay the app's to set.
+
+## Live Activity: a plugin of our own
+
+Seen in CI, on iOS 26 in an iPhone Pro simulator. With `live=1` the page
+called `start`, the plugin returned an id, and the app printed
+
+```
+[live-activity] started 43D0DDBA-7098-40EF-93C6-C782B1AFCCA2 active
+[live-activity] background 43D0DDBA-7098-40EF-93C6-C782B1AFCCA2 active
+```
+
+the second when Settings came to the front: iOS's own list of the app's
+activities still had it, running. The job fails without both. The photo
+shows the compact view in the island: the masks on the left, `40%` on the
+right. The Lock Screen, the expanded view (a long press) and the minimal
+view (two activities at once) were not photographed. In the second photo, in
+run 43561720109, the island was still animating at five seconds; the wait is
+now eight.
+
+- [`@kestack/capacitor-live-activity`](../../../packages/capacitor-live-activity)
+  is the plugin: Swift only, `isSupported`, `start`, `update`, `end` and
+  `list` with ActivityKit, guarded for iOS 16.2. The app's deployment target
+  stays 15.0: raising it would drop iOS 15 phones for one feature. Whether an
+  iOS 15 phone still opens the app (ActivityKit linked weakly) is not
+  verified.
+- `cap sync` found it through the `workspace:*` link exactly as it finds
+  the official plugins: the path in `CapApp-SPM/Package.swift` is the real
+  one (`../../../../../packages/capacitor-live-activity`), and the plugin
+  class came from the Swift source. Two rules are the CLI's, read in its
+  source: the Swift package and product must be named after the npm name
+  (`KestackCapacitorLiveActivity`), and it lists the first `@objc(…)` of
+  every Swift file as a plugin class, so only the plugin's file may have one.
+  `cap sync android` skips it, as it has no Android.
+- The activity's type, `LiveActivityAttributes`, is defined once, in a second
+  product of the same package, `LiveActivityModel`, with no Capacitor in it.
+  The plugin links it through CapApp-SPM and the widget extension links it
+  directly, so both have the same type and the extension links nothing that
+  is not extension-safe.
+- The widget extension, `ios/App/LiveActivityWidget/`, is a committed
+  target (iOS 16.2) in `App.xcodeproj`, written without Xcode: a script added
+  its 19 objects (target, phases, embed step, dependency, the local package
+  reference to `../../../../packages/capacitor-live-activity`), and the
+  `xcode` parser the Capacitor CLI ships checked that every reference
+  resolves. The first simulator build with it passed. Not verified: that
+  Xcode opens it without rewriting it.
+
+## A plugin of our own: how hard was it
+
+From this work, not from opinion.
+
+**Seamless?** The native part was. The plugin started a Live Activity and
+the island showed it on the first CI round that had it
+([run 43560772240](https://github.com/pkishorez/monorepo/actions/runs/43560772240)).
+`cap sync` and Swift Package Manager needed nothing beyond the package's own
+`Package.swift`. What took care was not the plugin but around it: the widget
+extension that Apple requires, and the Xcode project without a Mac.
+
+**How many files, of which kinds.** For the Live Activity alone:
+
+| Kind                   | Files                                                                                                                                                        |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Swift                  | 4: the plugin, the attributes, the widget, and the plugin's `Package.swift` (about 270 lines)                                                                |
+| Xcode and Apple config | 4: `project.pbxproj` (167 lines by script), the widget's `Info.plist`, one key in the app's `Info.plist`, `CapApp-SPM/Package.swift` (written by `cap sync`) |
+| Package and repo       | 6: the plugin's `package.json` and README, the app's `package.json`, the lockfile, `.syncpackrc.json`, a changeset                                           |
+| TypeScript             | 0 in the plugin. The web side, built alongside, is 13 files, with the plugin's method types written by hand                                                  |
+| CI                     | 5: the two workflows, `ios.sh`, `proof.mjs` and `verify.mjs` (with tests)                                                                                    |
+
+The bars took 9 files of their own (Swift, Java, two resources, the
+storyboard, `SceneDelegate`, the project, the config), and their CI 6.
+
+**What broke, and the fix.**
+
+1. Android's bars stayed dark in the light Theme
+   ([run 43557447631](https://github.com/pkishorez/monorepo/actions/runs/43557447631)):
+   the screenshot check caught it; iOS passed. Nothing showed why, so the
+   next round logged each step
+   ([run 43560772240](https://github.com/pkishorez/monorepo/actions/runs/43560772240)):
+   the page had the channel but the watcher never ran. Capacitor's
+   `Bridge.Builder` replaces the bridge's web view listeners after the plugins
+   load, so a listener added in a plugin's `load()` is dropped. Fixed by
+   adding it in `handleOnStart`, as Capacitor's `SystemBars` does
+   ([run 43561720109](https://github.com/pkishorez/monorepo/actions/runs/43561720109)).
+2. Not a failure, a check that could lie: the bar color alone passes the old
+   screenshot, as above. Fixed before any round by checking the web view's
+   position and both Themes.
+3. Found before pushing, in the CLI's source: the forced package name and the
+   `@objc` scan above, and that `cap add` (not `cap sync`) rewrites every
+   `PRODUCT_BUNDLE_IDENTIFIER` in the project, which would break the widget's.
+
+Four push rounds in all (the last carried these notes), each about 15
+minutes with all three jobs.
+
+**How robust is it.**
+
+- A Capacitor upgrade: the iOS container relies on `CAPBridgeViewController`
+  working as a child (its status bar and orientation calls, read in 8.6.2's
+  source); the Android watcher on when listeners may be added; the plugin on
+  the CLI's naming and `@objc` scan; and `cap sync` reads the iOS major
+  version from the first `IPHONEOS_DEPLOYMENT_TARGET` in the project, so the
+  widget's 16.2 must stay after the app's 15.0. `cap sync` rewrites a plugin's
+  `capacitor-swift-pm` requirement if its major differs.
+- A pnpm bump: the workspace link gives a stable real path, unlike the
+  official plugins' store paths that carry versions. The project also names
+  that path itself; if pnpm ever copied workspace packages instead of linking
+  them, the two paths would differ for one package. Not tried.
+- An Xcode update: the hand-written target is in the format Xcode 15 and
+  later write (`objectVersion = 60`); a new Xcode may rewrite it on open.
+  CI pins `macos-26`.
+- Two contracts are kept by hand: the plugin's Swift and the web side's
+  TypeScript types, and the page's proof lines and CI's parsing of them.
+
+**What was done by hand that a tool usually does.** Xcode's New Target
+wizard (the extension target, its embed step, `Info.plist`, scheme) was a
+script; `npm init @capacitor/plugin` (TypeScript definitions, web fallback,
+podspec, docs) was skipped, as the page needs none of it; the plugin's
+TypeScript interface was written by the web side by hand.
+
+**Worth it next to the official plugins?** No official plugin shows a Live
+Activity, so the choice was ours or a community one (not assessed). For this
+size of feature, about 160 lines of plugin Swift worked first time and were
+the cheap part; the widget extension is required whoever writes the plugin.
+The cost that stays is upkeep: two hand-kept contracts and a project file no
+tool regenerates. An official plugin, where one exists, carries none of that.
+
+**What CI cannot tell.** A real iPhone: whether a free Apple ID's Personal
+Team signs and runs the widget extension, how the island looks on hardware,
+whether a Live Activity survives the 7-day re-signing, and haptics felt by a
+hand. CI builds unsigned (`CODE_SIGNING_ALLOWED=NO`), which a simulator
+runs; a phone does not.
 
 ## App Info: each shell says who it is
 
@@ -76,6 +253,8 @@ worker: the screenshot shows the airplane and the page, and the Sign in
 button is gone, as the Auth Worker cannot be reached. Seen in CI. iOS
 offline was not tried: a simulator shares the Mac's network.
 
+<img src="findings/android-offline.png" alt="Android, offline: the page drawn from the service worker" width="240">
+
 What a seamless offline app would still need:
 
 - On iOS, App-Bound Domains. They limit the web view to the listed domains
@@ -136,7 +315,8 @@ Seen locally and in CI:
   can be inspected.
 
 To try it on a phone, follow the
-[README's Usage](../README.md#install-on-an-iphone-with-a-free-apple-id):
+[README's Usage](../README.md#install-on-an-iphone-with-a-free-apple-id), which
+now signs the widget extension too:
 Android from the `native-android` artifact's `app-debug.apk`; iOS from
 Xcode on a Mac with a free Apple ID (Personal Team, trust the developer on
 the phone, run again every 7 days).
