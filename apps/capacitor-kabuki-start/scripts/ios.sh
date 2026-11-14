@@ -5,7 +5,8 @@
 # it once per Theme (theme=dark, then theme=light), each time with its output
 # kept, waiting for the page's proof line and taking a screenshot. With
 # LIVE_ACTIVITY=true it opens it once more with live=1, then puts it in the
-# background and photographs the Dynamic Island. Capacitor prints its own logs
+# background and photographs the Dynamic Island, then locks the simulator and
+# photographs the Lock Screen. Capacitor prints its own logs
 # and the page's console with Swift's print, so they are on the app's stdout,
 # not in the unified log. Leaves the files for verify.mjs.
 #
@@ -106,14 +107,14 @@ lock_screen() {
   osascript -e 'tell application "System Events" to tell process "Simulator" to get name of every menu item of menu 1 of menu bar item "Device" of menu bar 1' \
     >"$out/simulator-menu.txt" 2>&1 || true
   echo "Device menu: $(cat "$out/simulator-menu.txt")"
-  for press in 1 2; do
-    device_menu Lock || echo "Lock $press failed"
-    sleep 3
-    xcrun simctl io "$udid" screenshot "$out/ios-lock-$press.png" || true
-  done
-  device_menu Home || echo "Home failed"
+  # The first press locks: an iPhone Pro then shows the dimmed always-on
+  # display. The second wakes it to the Lock Screen, as the side button does.
+  device_menu Lock || echo "Lock failed"
   sleep 3
-  xcrun simctl io "$udid" screenshot "$out/ios-lock-home.png" || true
+  xcrun simctl io "$udid" screenshot "$out/ios-locked.png" || true
+  device_menu Lock || echo "Wake failed"
+  sleep 3
+  xcrun simctl io "$udid" screenshot "$out/ios-lock-screen.png" || true
 }
 
 run app-output.txt 'theme=dark'

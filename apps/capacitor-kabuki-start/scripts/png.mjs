@@ -108,3 +108,21 @@ export function shareOfColor(image, from, to, hex, tolerance = 6) {
   }
   return total === 0 ? 0 : matching / total;
 }
+
+/**
+ * The share (0 to 1) of pixels in `image` within `tolerance` of the same
+ * pixel in `other`; 0 when their sizes differ.
+ */
+export function shareSame(image, other, tolerance = 6) {
+  if (image.width !== other.width || image.height !== other.height) return 0;
+  let matching = 0;
+  for (let y = 0; y < image.height; y++) {
+    for (let x = 0; x < image.width; x++) {
+      const a = image.rgb(x, y);
+      const b = other.rgb(x, y);
+      if (a.every((value, i) => Math.abs(value - b[i]) <= tolerance))
+        matching++;
+    }
+  }
+  return matching / (image.width * image.height);
+}
