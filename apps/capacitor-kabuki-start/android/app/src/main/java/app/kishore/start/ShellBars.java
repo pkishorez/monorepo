@@ -41,7 +41,8 @@ public class ShellBars extends Plugin {
     // any CSS color into sRGB.
     private static final String WATCH_THEME_COLOR = """
         (function () {
-          if (window.__shellBars) return;
+          if (window.__shellBars) return 'already watching';
+          if (typeof ShellBarsAndroid === 'undefined') return 'no ShellBarsAndroid';
           window.__shellBars = true;
           var last = null;
           function themeColor() {
@@ -71,6 +72,7 @@ public class ShellBars extends Plugin {
             attributeFilter: ['content', 'media', 'name']
           });
           report();
+          return 'watching';
         })();
         """;
 
@@ -85,9 +87,16 @@ public class ShellBars extends Plugin {
         webView.addJavascriptInterface(new Channel(), "ShellBarsAndroid");
         getBridge().addWebViewListener(
             new WebViewListener() {
+                // The earliest the page's head is there; and again once it
+                // has loaded, in case the first came too early.
                 @Override
                 public void onPageCommitVisible(WebView view, String url) {
-                    view.evaluateJavascript(WATCH_THEME_COLOR, null);
+                    watch(view);
+                }
+
+                @Override
+                public void onPageLoaded(WebView view) {
+                    watch(view);
                 }
             }
         );
@@ -111,6 +120,10 @@ public class ShellBars extends Plugin {
             return new WindowInsetsCompat.Builder(insets).setInsets(types, Insets.NONE).build();
         });
         decor.post(this::paint);
+    }
+
+    private void watch(WebView view) {
+        view.evaluateJavascript(WATCH_THEME_COLOR, (result) -> Log.i(TAG, "theme-color script: " + result + " on " + view.getUrl()));
     }
 
     // SystemBars repaints the window from the theme on a configuration
