@@ -1,7 +1,9 @@
 // Usage: node scripts/android-proof.mjs <proof|offline> <out-dir>
 //
-// Drives the app's web view over the Chrome DevTools Protocol, through
-// `adb forward tcp:9222 localabstract:webview_devtools_remote_<pid>`.
+// Drives the app's web view over the Chrome DevTools Protocol, with
+// Playwright's Android support: it finds the web view's DevTools socket
+// through adb. A plain connectOverCDP fails there, because Android's web view
+// refuses the browser-wide calls (Browser.setDownloadBehavior) it makes.
 //
 // proof:   waits for the page's proof, reads every data-proof value, clicks
 //          each buzz button (a CDP click is a real touch to the page, which
@@ -9,24 +11,21 @@
 // offline: reads what the page drew after a relaunch with the network off
 //          and writes offline.json.
 //
-// SHELL_URL, when set, picks the page on its origin. CDP_ENDPOINT overrides
-// the endpoint. Android's web view serves its browser
-// target at /devtools/browser, the path Playwright's own Android support uses.
+// CDP_ENDPOINT, when set, drives a desktop Chromium instead, to try the
+// script on a page without a device; SHELL_URL then picks the page.
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { chromium } from 'playwright-core';
+import { _android as android, chromium } from 'playwright-core';
 
 const [mode, out] = process.argv.slice(2);
 if ((mode !== 'proof' && mode !== 'offline') || !out) {
   console.error('Usage: android-proof.mjs <proof|offline> <out-dir>');
   process.exit(2);
 }
-const endpoint =
-  process.env.CDP_ENDPOINT ?? 'ws://127.0.0.1:9222/devtools/browser';
 const PROOF_TIMEOUT = 60_000;
 const BUZZES = ['impact', 'notify', 'selection'];
 
-/** The site's page, once the web view has loaded it. */
+/** In desktop Chromium, the site's page, once it has loaded. */
 async function findPage(browser) {
   const origin = process.env.SHELL_URL
     ? new URL(process.env.SHELL_URL).origin
@@ -38,7 +37,7 @@ async function findPage(browser) {
     if (page) return page;
     await sleep(500);
   }
-  throw new Error('The web view never showed a page.');
+  throw new Error('Chromium never showed the page.');
 }
 
 /** Every data-proof element's text, by name. */
@@ -137,13 +136,27 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-const browser = await chromium.connectOverCDP(endpoint, { timeout: 30_000 });
+const APP = 'app.kishore.start';
+
+/** The page in the app's web view, and how to let go of it. */
+async function open() {
+  if (process.env.CDP_ENDPOINT) {
+    const browser = await chromium.connectOverCDP(process.env.CDP_ENDPOINT);
+    return { page: await findPage(browser), close: () => browser.close() };
+  }
+  // The driver APK is for native UI, which this does not touch.
+  const [device] = await android.devices({ omitDriverInstall: true });
+  if (!device) throw new Error('adb lists no device.');
+  const webView = await device.webView({ pkg: APP }, { timeout: 30_000 });
+  // Leaves the app running: this only disconnects from adb.
+  return { page: await webView.page(), close: () => device.close() };
+}
+
+const { page, close } = await open();
 try {
-  const page = await findPage(browser);
   console.log(`Attached to ${page.url()}`);
   if (mode === 'proof') await proof(page);
   else await offline(page);
 } finally {
-  // Leaves the app running: closing a CDP connection does not close the app.
-  await browser.close();
+  await close();
 }
