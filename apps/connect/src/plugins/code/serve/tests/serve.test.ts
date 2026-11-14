@@ -744,6 +744,9 @@ describe('the code Plugin, through the client and Replica', () => {
             expect(
               yield* api.contextUsage({ sessionId: session.id }),
             ).toMatchObject({ usedTokens: 1000 });
+            expect(
+              yield* api.fetchContext({ sessionId: session.id }),
+            ).toMatchObject({ usedTokens: 1000 });
             expect(yield* api.backgroundJobs().pipe(Stream.runHead)).toEqual(
               Option.some([]),
             );

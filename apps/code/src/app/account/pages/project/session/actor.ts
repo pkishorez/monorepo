@@ -83,9 +83,11 @@ import { Actor } from '@kestack/kabuki';
  *              Question Panel, a Child of its own, fresh for each session.
  * 9. Context   how full its agent's context is, and the plan's limits, as
  *              the agent says, asked as the page opens, as each turn ends,
- *              every so often while one runs, and as its details open;
- *              none while the agent is not open to ask. When the Draft
- *              shows it is a Preference, followed as it changes. Its
+ *              every so often while one runs, and as its details open.
+ *              An agent not open has nothing to say, as after a restart:
+ *              what was last told stays, and the Draft and its details
+ *              can fetch it by hand, which opens nothing to keep. When the
+ *              Draft shows it is a Preference, followed as it changes. Its
  *              details are open or not here, so they are asked afresh.
  * 10. Output   the background command open over the page, and what it
  *              writes, followed while it is open: the last of it first,
@@ -228,8 +230,14 @@ const Model = Schema.Struct({
   picking: Schema.NullOr(Picker.How),
   /** How many times it was opened, so each opening is a fresh Picker. */
   opened: Schema.Finite,
-  /** How full its agent's context is, as last asked; null while not known (9. Context). */
+  /** How full its agent's context is, as last told; null while not known (9. Context). */
   context: Schema.NullOr(ContextUsageSchema),
+  /** Whether its agent has been asked since the page opened: until then, no way to fetch it shows. */
+  contextAsked: Schema.Boolean,
+  /** Whether it is being fetched, agent open or closed. */
+  contextFetching: Schema.Boolean,
+  /** Why it last could not be fetched; null when it could. */
+  contextProblem: Schema.NullOr(Schema.String),
   /** When the Draft shows the context, as Preferences say. */
   contextShown: ContextShown,
   /** Whether the session's details are open. */
@@ -269,10 +277,30 @@ const opened = (model: Model, jobId: string): Model => {
 /** How often a running turn's context is asked again. */
 const CONTEXT_EVERY = '15 seconds';
 
+/** How long fetching the context waits on its Connection before it says it could not. */
+const CONTEXT_FETCH_WAIT = '30 seconds';
+
 /** A Query as the page reads it: whether it is read from this device yet. */
 interface Reading {
   readonly status: 'loading' | 'ready' | 'failed';
 }
+
+// 9. Context
+/**
+ * The page once its agent was asked: an agent not open answers null, which
+ * takes back no reading, whether it last told it or it was fetched without it.
+ */
+export const contextRead = <
+  M extends Pick<Model, 'context' | 'contextAsked' | 'contextProblem'>,
+>(
+  model: M,
+  context: Model['context'],
+): M => ({
+  ...model,
+  context: context ?? model.context,
+  contextAsked: true,
+  contextProblem: context === null ? model.contextProblem : null,
+});
 
 // 6. Ready
 /**
@@ -353,6 +381,14 @@ export const Session = Page.define({
       context: Schema.NullOr(ContextUsageSchema),
     },
     ContextShownRead: { shown: ContextShown },
+    /** The context asked for by hand, even with its agent closed. */
+    ContextFetchAsked: {},
+    /** How that went: what it read, or why it could not. */
+    ContextFetched: {
+      sessionId: Schema.String,
+      context: Schema.NullOr(ContextUsageSchema),
+      problem: Schema.NullOr(Schema.String),
+    },
     DetailsToggled: { open: Schema.Boolean },
     /** Whether its Connection runs here now. */
     ConnectionKnown: { here: Schema.Boolean },
@@ -378,6 +414,9 @@ export const SessionLive = Session.build({
       picking: null,
       opened: 0,
       context: null,
+      contextAsked: false,
+      contextFetching: false,
+      contextProblem: null,
       contextShown: 'always',
       details: false,
       here: false,
@@ -469,6 +508,31 @@ export const SessionLive = Session.build({
               Effect.andThen(Effect.sleep(CONTEXT_EVERY), ask),
             );
         }),
+    },
+    // 9. Context: asked for by hand, even with its agent closed.
+    contextFetch: {
+      each: ({ model, props }) =>
+        model.here && model.contextFetching ? [props.params.sessionId] : [],
+      run: (self, sessionId) =>
+        CodeClient.use((api) => api.fetchContext({ sessionId })).pipe(
+          Effect.timeout(CONTEXT_FETCH_WAIT),
+          Effect.match({
+            onSuccess: (context) => ({
+              context: context as Model['context'],
+              problem: null,
+            }),
+            onFailure: (error) => ({
+              context: null,
+              problem:
+                error._tag === 'HarnessFailed'
+                  ? error.message
+                  : 'Its Connection did not answer',
+            }),
+          }),
+          Effect.flatMap((fetched) =>
+            self.send({ _tag: 'ContextFetched', sessionId, ...fetched }),
+          ),
+        ),
     },
     contextShown: {
       run: (self) =>
@@ -563,12 +627,32 @@ export const SessionLive = Session.build({
   on: {
     // 11. Here
     ConnectionKnown: ({ here }, { model }) => ({
-      model: { ...model, here, runs: runsAfter(model, here) },
+      model: {
+        ...model,
+        here,
+        runs: runsAfter(model, here),
+        contextFetching: here && model.contextFetching,
+      },
     }),
     // 9. Context
     ContextRead: ({ sessionId, context }, { model, props }) =>
       sessionId === props.params.sessionId
-        ? { model: { ...model, context } }
+        ? { model: contextRead(model, context) }
+        : {},
+    ContextFetchAsked: (_, { model }) =>
+      !model.here || model.contextFetching
+        ? {}
+        : { model: { ...model, contextFetching: true } },
+    ContextFetched: ({ sessionId, context, problem }, { model, props }) =>
+      sessionId === props.params.sessionId
+        ? {
+            model: {
+              ...model,
+              context: context ?? model.context,
+              contextFetching: false,
+              contextProblem: problem,
+            },
+          }
         : {},
     ContextShownRead: ({ shown }, { model }) =>
       model.contextShown === shown
@@ -583,7 +667,13 @@ export const SessionLive = Session.build({
         lineage,
         // Another session's context is not this one's.
         ...(model.row !== null && model.row.id !== row.id
-          ? { context: null, details: false }
+          ? {
+              context: null,
+              contextAsked: false,
+              contextFetching: false,
+              contextProblem: null,
+              details: false,
+            }
           : {}),
       },
       // Seen up to the end of its last turn: on opening, and as each ends.

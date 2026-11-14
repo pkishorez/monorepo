@@ -901,6 +901,32 @@ describe.runIf(process.env.AI_TOOLKIT_E2E === '1')(
     );
 
     it(
+      'reports its context usage once resumed, before any turn',
+      async () => {
+        const { before, nativeId } = await run(
+          Effect.gen(function* () {
+            const session = yield* open();
+            yield* collect(
+              session,
+              'Reply with one word: hi. No tools.',
+              'resumed-usage',
+            );
+            return {
+              before: yield* session.contextUsage,
+              nativeId: yield* session.nativeId,
+            };
+          }),
+        );
+        const after = await run(
+          Effect.flatMap(open(nativeId), (session) => session.contextUsage),
+        );
+        expect(after.usedTokens).toBe(before.usedTokens);
+        expect(after.maxTokens).toBe(before.maxTokens);
+      },
+      TIMEOUT,
+    );
+
+    it(
       'reports MCP server status and context usage',
       async () => {
         await run(

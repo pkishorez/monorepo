@@ -273,6 +273,34 @@ function Page({ root, model, props, children, send }: Self) {
       onOpen: openDetails,
     };
   }, [used, max, model.contextShown, openDetails, detailsKeys]);
+  const canFetch = model.here && offline === null;
+  const fetchContext = useCallback(
+    () => send({ _tag: 'ContextFetchAsked' }),
+    [send],
+  );
+  // No reading: its agent closed since a restart. Only where a reading would show.
+  const contextFetch = useMemo(
+    () =>
+      canFetch &&
+      model.contextAsked &&
+      model.contextShown === 'always' &&
+      context === null
+        ? {
+            fetching: model.contextFetching,
+            problem: model.contextProblem,
+            onFetch: fetchContext,
+          }
+        : null,
+    [
+      canFetch,
+      model.contextAsked,
+      model.contextShown,
+      context,
+      model.contextFetching,
+      model.contextProblem,
+      fetchContext,
+    ],
+  );
   // While its agent asks, the Question Panel stands in for the Draft.
   const asked =
     useChild(
@@ -325,6 +353,7 @@ function Page({ root, model, props, children, send }: Self) {
       answerer: { agent: around.agent, harness: around.harness },
       stop: around.stop,
       context,
+      contextFetch,
       actions: working && (
         <Button
           type="button"
@@ -355,6 +384,7 @@ function Page({ root, model, props, children, send }: Self) {
       around.harness,
       around.stop,
       context,
+      contextFetch,
     ],
   );
   // The Draft sits under the transcript, inset by the room its scrollbar keeps.
@@ -472,6 +502,12 @@ function Page({ root, model, props, children, send }: Self) {
           about={`${agentName(session.harness)} · ${session.model}`}
           facts={facts}
           context={model.context}
+          reload={{
+            run: fetchContext,
+            reloading: model.contextFetching,
+            problem: model.contextProblem,
+            disabled: !canFetch,
+          }}
           onGo={scroll.toBlock}
         />
       )}

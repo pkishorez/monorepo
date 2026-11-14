@@ -937,6 +937,24 @@ describe.skipIf(!enabled)(
       }
     }, 120_000);
 
+    it('reports its context usage once resumed, before any turn', async () => {
+      const { before, nativeId } = await run(
+        Effect.gen(function* () {
+          const session = yield* open();
+          yield* runTurn(session, NO_TOOLS + 'Reply OK.');
+          return {
+            before: yield* session.contextUsage,
+            nativeId: yield* session.nativeId,
+          };
+        }),
+      );
+      const after = await run(
+        Effect.flatMap(open(nativeId), (session) => session.contextUsage),
+      );
+      expect(after.usedTokens).toBe(before.usedTokens);
+      expect(after.maxTokens).toBe(before.maxTokens);
+    }, 120_000);
+
     it('asks an Agent Question and takes the answers; declined, the agent carries on', async () => {
       const { question, answered, declined, left } = await run(
         Effect.gen(function* () {

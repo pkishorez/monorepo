@@ -48,3 +48,14 @@ export const SnakeRecord = Page.define({
 });
 
 export const SnakeRecordLive = SnakeRecord.build();
+
+/** A prototype: the Actor tree of apps/code, explored one card at a time. */
+export const ActorStory = Page.define({
+  path: '/proto/actor-story',
+  metadata: {
+    title: 'Actor story · kabuki',
+    meta: [{ name: 'robots', content: 'noindex' }],
+  },
+});
+
+export const ActorStoryLive = ActorStory.build();
