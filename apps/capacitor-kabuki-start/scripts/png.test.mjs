@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { deflateSync } from 'node:zlib';
-import { decodePng, shareOfColor } from './png.mjs';
+import { decodePng, shareOfColor, shareSame } from './png.mjs';
 
 /** A PNG of `rows` (arrays of [r, g, b, a]), each row with `filter`. */
 function png(rows, filter = 0) {
@@ -64,4 +64,11 @@ test('counts the share of a band in a color, within a tolerance', () => {
   assert.equal(shareOfColor(image, 0, 1, '#0a0a0a'), 0.75);
   assert.equal(shareOfColor(image, 1, 2, '#ffffff'), 1);
   assert.equal(shareOfColor(image, 0, 0, '#ffffff'), 0);
+});
+
+test('counts the share of pixels two images have in common', () => {
+  const a = decodePng(png([[dark, white, dark, white]]));
+  const b = decodePng(png([[dark, dark, dark, [250, 252, 255, 255]]]));
+  assert.equal(shareSame(a, b), 0.75);
+  assert.equal(shareSame(a, decodePng(png([[dark]]))), 0);
 });

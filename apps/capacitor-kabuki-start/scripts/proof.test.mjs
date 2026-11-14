@@ -219,3 +219,19 @@ test('the Live Activity passes only with an id the plugin started and kept runni
     false,
   );
 });
+
+test('the Lock Screen photo is a finding that never fails the job', () => {
+  const { passed, checks } = judge('ios', proof(), {
+    nativeCalls: ['impact', 'notification', 'selection'],
+    lockScreen: { black: 1, sameAsApp: undefined },
+  });
+  assert.equal(passed, true);
+  assert.deepEqual(
+    checks.find((check) => check.name === 'lock screen photo'),
+    {
+      name: 'lock screen photo',
+      value: '100% black, — as the app',
+      ok: null,
+    },
+  );
+});

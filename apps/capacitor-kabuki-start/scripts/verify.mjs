@@ -10,7 +10,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { decodePng, shareOfColor } from './png.mjs';
+import { decodePng, shareOfColor, shareSame } from './png.mjs';
 import {
   THEME_COLORS,
   findProof,
@@ -67,6 +67,17 @@ if (platform === 'ios') {
   if (existsSync(join(out, 'app-output-live.txt'))) {
     const live = read('app-output-live.txt');
     evidence.live = { proof: findProof(live), log: liveActivityLog(live) };
+  }
+  // A finding, never a failure: how much of the Lock Screen photo is black
+  // (the screen asleep) and how much is the app's own screenshot.
+  if (existsSync(join(out, 'ios-lock-screen.png'))) {
+    const shot = decodePng(readFileSync(join(out, 'ios-lock-screen.png')));
+    evidence.lockScreen = {
+      black: shareOfColor(shot, 0, shot.height, '#000000', 16),
+      sameAsApp: existsSync(join(out, 'ios-live.png'))
+        ? shareSame(shot, decodePng(readFileSync(join(out, 'ios-live.png'))))
+        : undefined,
+    };
   }
 } else {
   // The page may log before CDP attaches, so logcat is read too.
