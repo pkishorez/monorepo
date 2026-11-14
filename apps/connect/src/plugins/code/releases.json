@@ -64,6 +64,10 @@
     {
       "hash": "b9bcb15fecc73414301f307e156a1dc3d75ec498f5fa66ef8ee389e373b98c32",
       "summary": "A new folder is only a folder: createFolder starts no git repository, and CreatedFolder has no gitInitError"
+    },
+    {
+      "hash": "e468679d307f255b39a6d06436112fae36c6ece6a4f350e655168096ccbefa0c",
+      "summary": "A Session's context can be fetched with its agent closed: fetchContext reads it from the open agent, or else from a copy resumed just to read it and closed again"
     }
   ]
 }
