@@ -1,6 +1,6 @@
 {
   "name": "kabuki-start",
-  "description": "The smallest Kabuki Start app, the one to copy: static, dynamic and client pages layered on one screen, links that preload on hover, two API Workers with a public, an authenticated and an authorized call each, and a Pocket of wallets kept on the device with Replica, published at start.kishore.app.",
+  "description": "The smallest Kabuki Start app, the one to copy: static, dynamic and client pages layered on one screen, links that preload on hover, two API Workers with a public, an authenticated and an authorized call each, a Pocket of wallets kept on the device with Replica, and a Native page that runs the same in a browser and in the app's Capacitor Shell on iOS and Android, published at start.kishore.app.",
   "private": true,
   "type": "module",
   "sideEffects": false,
@@ -15,6 +15,9 @@
     "deploy:prod": "ALLOW_DEPLOY=true alchemy deploy --stage prod"
   },
   "dependencies": {
+    "@capacitor/app": "catalog:",
+    "@capacitor/core": "catalog:",
+    "@capacitor/haptics": "catalog:",
     "@kestack/auth-toolkit": "workspace:*",
     "@kestack/devtools-kabuki": "workspace:*",
     "@kestack/kabuki": "workspace:*",

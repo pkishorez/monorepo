@@ -7,6 +7,11 @@ import { IDB } from '@kestack/std-toolkit/db/idb';
 import { Store } from '@kestack/std-toolkit/replica/idb';
 import { Start } from '@kestack/kabuki/start';
 import { document } from '@kestack/web-platform/app/document';
+import { AppInfo } from '@kestack/web-platform/capabilities/app-info';
+import { android as appInfoOnAndroid } from '@kestack/web-platform/capabilities/app-info/android';
+import { ios as appInfoOnIos } from '@kestack/web-platform/capabilities/app-info/ios';
+import { Haptics } from '@kestack/web-platform/capabilities/haptics';
+import { ios as hapticsOnIos } from '@kestack/web-platform/capabilities/haptics/ios';
 import { HelloHttp } from '../apis/hello-http/index.ts';
 import { HelloRpc } from '../apis/hello-rpc/index.ts';
 import { PocketRpc } from '../apis/pocket/index.ts';
@@ -27,6 +32,9 @@ import './styles.css';
  * IndexedDB database per Pocket Instance, shared by the browser's tabs,
  * and so is where the Auth Worker is read: a build runs this module too,
  * to draw the static pages, and only a deploy says where it is.
+ * In the app's Shell on iOS or Android, Haptics and App Info are the
+ * Shell's own, their Capacitor plugins loaded only there; a browser keeps
+ * the web's.
  */
 
 const remembered = Layer.unwrap(
@@ -46,6 +54,8 @@ const layer = Layer.mergeAll(
   HelloRpc.layer,
   PocketRpc.layer,
   replicas,
+  Haptics.layer({ ios: hapticsOnIos }),
+  AppInfo.layer({ ios: appInfoOnIos, android: appInfoOnAndroid }),
 ).pipe(
   Layer.provideMerge(
     Layer.unwrap(
