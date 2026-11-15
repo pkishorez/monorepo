@@ -174,6 +174,25 @@ test('the bars fail in the wrong color, mostly covered, or with the page under t
   );
 });
 
+test('the bars fail, and say why, when a system window covered the app', () => {
+  const { passed, checks } = judge('android', proof({ platform: 'android' }), {
+    bars: [
+      {
+        theme: 'light',
+        report: report(),
+        top: 0.9,
+        bottom: 0.9,
+        pageColor: '#ffffff',
+        coveredBy:
+          'Window{1a2b u0 Application Not Responding: com.google.android.apps.nexuslauncher}',
+      },
+    ],
+  });
+  assert.equal(passed, false);
+  const band = checks.find((check) => check.name === 'light: status bar band');
+  assert.match(band.value, /a system window covered the app/);
+});
+
 test('a page without the Live Activity field fails', () => {
   assert.equal(
     judge('android', proof({ platform: 'android', liveActivity: undefined }))

@@ -175,12 +175,22 @@ export function judge(platform, proof, evidence = {}) {
 /**
  * One theme's bars: `theme` asked for, `report` (the shell's last line),
  * `top` and `bottom` (the share of each band in the page's color), and on
- * Android `pageColor` (the page's own background, read over CDP).
+ * Android `pageColor` (the page's own background, read over CDP) and
+ * `coveredBy` (the window that had focus instead of the app, if one did).
  */
-function barChecks(add, platform, { theme, report, top, bottom, pageColor }) {
+function barChecks(
+  add,
+  platform,
+  { theme, report, top, bottom, pageColor, coveredBy },
+) {
   const want = THEME_COLORS[theme];
+  // The bands then show that window, not the app: say so, not its color.
   const percent = (share) =>
-    share === undefined ? '—' : `${Math.round(share * 100)}% ${want}`;
+    coveredBy
+      ? `a system window covered the app: ${coveredBy}`
+      : share === undefined
+        ? '—'
+        : `${Math.round(share * 100)}% ${want}`;
   if (pageColor !== undefined)
     add(`${theme}: page background`, pageColor, pageColor === want);
   add(
@@ -188,9 +198,10 @@ function barChecks(add, platform, { theme, report, top, bottom, pageColor }) {
     report?.color ?? '—',
     report?.color === want,
   );
-  add(`${theme}: status bar band`, percent(top), (top ?? 0) >= BAND_SHARE);
+  const band = (share) => !coveredBy && (share ?? 0) >= BAND_SHARE;
+  add(`${theme}: status bar band`, percent(top), band(top));
   if ((report?.bottom ?? 0) > 0)
-    add(`${theme}: bottom band`, percent(bottom), (bottom ?? 0) >= BAND_SHARE);
+    add(`${theme}: bottom band`, percent(bottom), band(bottom));
   if (platform === 'ios')
     add(
       `${theme}: web view below the clock`,
