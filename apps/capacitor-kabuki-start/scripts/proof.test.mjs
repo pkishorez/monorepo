@@ -235,3 +235,19 @@ test('the Lock Screen photo is a finding that never fails the job', () => {
     },
   );
 });
+
+test('the expanded island photo is a finding that never fails the job', () => {
+  const { passed, checks } = judge('ios', proof(), {
+    nativeCalls: ['impact', 'notification', 'selection'],
+    expandedIsland: { black: 0, compact: undefined },
+  });
+  assert.equal(passed, true);
+  assert.deepEqual(
+    checks.find((check) => check.name === 'expanded island photo'),
+    {
+      name: 'expanded island photo',
+      value: 'top 0% black (compact: —)',
+      ok: null,
+    },
+  );
+});
