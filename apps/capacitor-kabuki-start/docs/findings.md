@@ -10,13 +10,15 @@ the bars and the Live Activity from
 [run 43561720109](https://github.com/pkishorez/monorepo/actions/runs/43561720109),
 where all three jobs passed, the Dynamic Island photo from
 [run 43560772240](https://github.com/pkishorez/monorepo/actions/runs/43560772240),
-and the Lock Screen photo from
-[run 43586846851](https://github.com/pkishorez/monorepo/actions/runs/43586846851).
+the Lock Screen photo from
+[run 43586846851](https://github.com/pkishorez/monorepo/actions/runs/43586846851),
+and the expanded island from
+[run 43667626415](https://github.com/pkishorez/monorepo/actions/runs/43667626415).
 **Not verified** means nobody has seen it.
 
-| Android, dark                               | Android, light                                | iOS, dark                           | iOS, light                            | Dynamic Island                                                      | Lock Screen                                                           |
-| ------------------------------------------- | --------------------------------------------- | ----------------------------------- | ------------------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| ![Android, dark](findings/android-dark.png) | ![Android, light](findings/android-light.png) | ![iOS, dark](findings/ios-dark.png) | ![iOS, light](findings/ios-light.png) | ![The Live Activity in the island](findings/ios-dynamic-island.png) | ![The Live Activity on the Lock Screen](findings/ios-lock-screen.png) |
+| Android, dark                               | Android, light                                | iOS, dark                           | iOS, light                            | Dynamic Island                                                      | Expanded island                                                      | Lock Screen                                                           |
+| ------------------------------------------- | --------------------------------------------- | ----------------------------------- | ------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| ![Android, dark](findings/android-dark.png) | ![Android, light](findings/android-light.png) | ![iOS, dark](findings/ios-dark.png) | ![iOS, light](findings/ios-light.png) | ![The Live Activity in the island](findings/ios-dynamic-island.png) | ![The island long-pressed](findings/ios-dynamic-island-expanded.png) | ![The Live Activity on the Lock Screen](findings/ios-lock-screen.png) |
 
 ## The bars: the shell keeps the page out of them
 
@@ -97,8 +99,33 @@ to Settings (the simulator has no passcode), so it is not used. It worked on
 the first round and adds about 30 seconds. `verify.mjs` records how much of
 the photo is black or the app's screenshot (12% and 2%) as a finding, never
 a failure: a menu renamed in a new Xcode would lose the photo, not the job.
-The expanded view (a long press, which a menu cannot do) and the minimal
-view (two activities at once) were not photographed.
+The minimal view (two activities at once) was not photographed.
+
+The expanded view, seen in CI: a long press on the island opens it at the
+top of the screen, with the masks on the left, `40%` on the right,
+`Kabuki Start` in the middle and, below, `Proving the Dynamic Island` and
+the bar. Nothing is clipped. It reads a little loose: the masks and `40%`
+sit high in the corners, beside the camera, above the title, as iOS places
+the leading and trailing regions; the title is centred while the status
+line is left-aligned; and the bar starts a little to the right of the
+status line. The widget was left as it is.
+
+<img src="findings/ios-dynamic-island-expanded.png" alt="The Live Activity, the island long-pressed" width="400">
+
+A menu cannot long-press, so `ios.sh` presses the Mac's mouse on the island
+in Simulator's window and holds it. `scripts/simulator.js`, run by
+`osascript` as JavaScript, finds the device's screen in the window (the
+element with the screen's shape, read through System Events), puts the
+press at the island's place in it (half the width across, 3.65% of the
+height down, measured from the simulator's own screenshots), and posts the
+mouse down and up as CoreGraphics events, which the runner image allows
+`osascript` through Accessibility. The photo is taken 1.5 seconds into the
+hold; it was open then and still open right after the release. It worked on
+the first round. It depends on the window having that element, on the
+island's place on an iPhone 17 Pro, and on the same privacy grants as the
+lock. `verify.mjs` records how much of the top 12% of the screen is
+black (70% held open, 16% for the compact island) as a finding, never a
+failure.
 
 - [`@kestack/capacitor-live-activity`](../../../packages/capacitor-live-activity)
   is the plugin: Swift only, `isSupported`, `start`, `update`, `end` and
@@ -188,9 +215,9 @@ minutes with all three jobs.
   them, the two paths would differ for one package. Not tried.
 - An Xcode update: the hand-written target is in the format Xcode 15 and
   later write (`objectVersion = 60`); a new Xcode may rewrite it on open.
-  CI pins `macos-26`. The Lock Screen photo leans on Simulator.app's menu
-  names (`Device`, `Lock`) and on the runner image's privacy grants to
-  `osascript`.
+  CI pins `macos-26`. The Lock Screen and expanded island photos lean on
+  Simulator.app's menu names (`Device`, `Lock`), its window's layout, and
+  the runner image's privacy grants to `osascript`.
 - Two contracts are kept by hand: the plugin's Swift and the web side's
   TypeScript types, and the page's proof lines and CI's parsing of them.
 
