@@ -18,6 +18,7 @@ set -euo pipefail
 app_path=$1
 out=$(mkdir -p "$2" && cd "$2" && pwd)
 app=app.kishore.start
+here=$(cd "$(dirname "$0")" && pwd)
 # The page may take up to a minute; loading it comes on top.
 timeout=${PROOF_TIMEOUT:-90}
 
@@ -93,10 +94,10 @@ device_menu() {
     "$1"
 }
 
-# Locks the simulator with the Live Activity running and photographs the
-# Lock Screen. Never fails the job: the photo is evidence, not a check.
-lock_screen() {
-  open -a Simulator --args -CurrentDeviceUDID "$udid" || return 0
+# Opens Simulator.app on the booted device, which the menu and the mouse
+# need; simctl alone runs it without a window.
+open_simulator() {
+  open -a Simulator --args -CurrentDeviceUDID "$udid" || return 1
   for _ in $(seq 30); do
     windows=$(osascript -e 'tell application "System Events" to count windows of process "Simulator"' 2>&1 || true)
     echo "Simulator windows: $windows"
@@ -107,6 +108,35 @@ lock_screen() {
   osascript -e 'tell application "System Events" to tell process "Simulator" to get name of every menu item of menu 1 of menu bar item "Device" of menu bar 1' \
     >"$out/simulator-menu.txt" 2>&1 || true
   echo "Device menu: $(cat "$out/simulator-menu.txt")"
+}
+
+# Long-presses the compact island with the Mac's mouse on Simulator's window
+# and photographs the expanded Live Activity. Never fails the job.
+expanded_island() {
+  local point
+  osascript -l JavaScript "$here/simulator.js" ax >"$out/simulator-ax.txt" 2>&1 || true
+  point=$(osascript -l JavaScript "$here/simulator.js" island 2>>"$out/simulator-ax.txt") || return 0
+  echo "Island at $point"
+  screencapture -x "$out/desktop.png" || true
+  # shellcheck disable=SC2086
+  osascript -l JavaScript "$here/simulator.js" mouse move $point || return 0
+  # shellcheck disable=SC2086
+  osascript -l JavaScript "$here/simulator.js" mouse down $point || return 0
+  sleep 1.5
+  xcrun simctl io "$udid" screenshot "$out/ios-island-held.png" || true
+  screencapture -x "$out/desktop-held.png" || true
+  # shellcheck disable=SC2086
+  osascript -l JavaScript "$here/simulator.js" mouse up $point || true
+  xcrun simctl io "$udid" screenshot "$out/ios-island-expanded.png" || true
+  sleep 1
+  xcrun simctl io "$udid" screenshot "$out/ios-island-after.png" || true
+  # Let it fold back into the island before the lock.
+  sleep 6
+}
+
+# Locks the simulator with the Live Activity running and photographs the
+# Lock Screen. Never fails the job: the photo is evidence, not a check.
+lock_screen() {
   # The first press locks: an iPhone Pro then shows the dimmed always-on
   # display. The second wakes it to the Lock Screen, as the side button does.
   device_menu Lock || echo "Lock failed"
@@ -134,7 +164,10 @@ if [ "${LIVE_ACTIVITY:-}" = true ]; then
   # The island animates in; give it time to settle before the photo.
   sleep 8
   xcrun simctl io "$udid" screenshot "$out/ios-island.png" || true
-  lock_screen
+  if open_simulator; then
+    expanded_island
+    lock_screen
+  fi
   stop
 fi
 
