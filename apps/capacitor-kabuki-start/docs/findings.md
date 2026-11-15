@@ -218,6 +218,15 @@ minutes with all three jobs.
   CI pins `macos-26`. The Lock Screen and expanded island photos lean on
   Simulator.app's menu names (`Device`, `Lock`), its window's layout, and
   the runner image's privacy grants to `osascript`.
+- A slow emulator: in
+  [run 43671765386](https://github.com/pkishorez/monorepo/actions/runs/43671765386)
+  Android put "Pixel Launcher isn't responding" over the app, which dimmed
+  the light Theme's status bar to 2% white and failed the job. The shell had
+  painted it white; the emulator's launcher had hung. `android.sh` now turns
+  these dialogs off (`hide_error_dialogs`), and before each screenshot
+  `android-dialogs.sh` closes any that is still up and records which window
+  has focus, so a covered screen fails as "a system window covered the app",
+  not as a wrong color.
 - Two contracts are kept by hand: the plugin's Swift and the web side's
   TypeScript types, and the page's proof lines and CI's parsing of them.
 
