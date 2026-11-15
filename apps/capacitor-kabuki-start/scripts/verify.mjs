@@ -12,6 +12,7 @@ import {
 import { join } from 'node:path';
 import { decodePng, shareOfColor, shareSame } from './png.mjs';
 import {
+  SHELL_ID,
   THEME_COLORS,
   findProof,
   judge,
@@ -35,9 +36,13 @@ const readJson = (name) => (read(name) ? JSON.parse(read(name)) : undefined);
 let proof;
 const evidence = { bars: [] };
 
-/** How much of each bar band in `screenshot` is the theme's color. */
-function bars(theme, screenshot, report, pageColor) {
+/**
+ * How much of each bar band in `screenshot` is the theme's color. On Android,
+ * `focus` is the window that had focus when it was taken.
+ */
+function bars(theme, screenshot, report, pageColor, focus) {
   const entry = { theme, report, pageColor };
+  if (focus && !focus.includes(SHELL_ID)) entry.coveredBy = focus;
   if (existsSync(join(out, screenshot)) && report) {
     const image = decodePng(readFileSync(join(out, screenshot)));
     const want = THEME_COLORS[theme];
@@ -115,6 +120,7 @@ if (platform === 'ios') {
       `android-${theme}.png`,
       shellReports(seen.shell ?? '').at(-1),
       seen.background ?? '—',
+      seen.focus,
     );
   }
   const offline = readJson('offline.json');

@@ -34,6 +34,17 @@ launch() {
   wait_for 30 sh -c "adb shell cat /proc/net/unix | grep -q webview_devtools_remote_$pid"
 }
 
+# Takes a device screenshot, after clearing any system dialog off the screen.
+screenshot() {
+  "$here/android-dialogs.sh" >/dev/null || true
+  adb exec-out screencap -p >"$out/$1" || true
+}
+
+# No "isn't responding" or crash dialogs: Android then stops the app that hung
+# instead of asking. A slow emulator once covered the app with one.
+adb shell settings put global hide_error_dialogs 1 || true
+"$here/android-dialogs.sh" || true
+
 adb install -r "$apk"
 adb logcat -c
 adb logcat -v time >"$out/logcat-all.txt" 2>&1 &
@@ -45,7 +56,7 @@ if launch; then
 else
   echo "::warning::The app or its web view's DevTools socket never came up."
 fi
-adb exec-out screencap -p >"$out/android.png" || true
+screenshot android.png
 adb shell dumpsys vibrator_manager >"$out/vibrator.txt" 2>&1 || true
 
 # The bars in both Themes, after the page's own proof run in each.
@@ -63,7 +74,7 @@ if [ "$sw" = controlling ]; then
     sleep 5
     node "$here/android-proof.mjs" offline "$out" || echo "::warning::The offline CDP step failed; see the log."
   fi
-  adb exec-out screencap -p >"$out/android-offline.png" || true
+  screenshot android-offline.png
   adb shell cmd connectivity airplane-mode disable || true
   adb shell svc wifi enable || true
   adb shell svc data enable || true

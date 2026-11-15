@@ -9,8 +9,10 @@
 //          each buzz button (a CDP click is a real touch to the page, which
 //          navigator.vibrate requires) and writes android-proof.json.
 // themes:  opens the page with theme=light, then theme=dark, and after each
-//          proof run takes a screenshot of the device (android-<theme>.png)
-//          with what the page and the shell said, in android-themes.json.
+//          proof run clears any system dialog off the screen
+//          (android-dialogs.sh), takes a screenshot of the device
+//          (android-<theme>.png) and writes what the page and the shell said,
+//          and which window had focus, in android-themes.json.
 // offline: reads what the page drew after a relaunch with the network off
 //          and writes offline.json.
 //
@@ -20,6 +22,7 @@
 import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { _android as android, chromium } from 'playwright-core';
 
 const [mode, out] = process.argv.slice(2);
@@ -153,6 +156,10 @@ async function themes(page) {
         shellWatching: window.__shellBars === true,
       };
     });
+    const focus = execFileSync(
+      fileURLToPath(new URL('android-dialogs.sh', import.meta.url)),
+      { encoding: 'utf8' },
+    ).trim();
     const png = execFileSync('adb', ['exec-out', 'screencap', '-p'], {
       maxBuffer: 64 * 1024 * 1024,
     });
@@ -165,7 +172,7 @@ async function themes(page) {
         maxBuffer: 16 * 1024 * 1024,
       },
     );
-    seen[theme] = { url: url.href, done, ...shown, shell };
+    seen[theme] = { url: url.href, done, ...shown, focus, shell };
   }
   writeFileSync(
     join(out, 'android-themes.json'),
