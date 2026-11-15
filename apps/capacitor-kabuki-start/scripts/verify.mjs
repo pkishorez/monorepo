@@ -79,6 +79,18 @@ if (platform === 'ios') {
         : undefined,
     };
   }
+  // Also a finding: the expanded island covers the top of the screen in
+  // black, the compact one a small pill of it.
+  const topBlack = (name) => {
+    if (!existsSync(join(out, name))) return undefined;
+    const shot = decodePng(readFileSync(join(out, name)));
+    return shareOfColor(shot, 0, Math.round(shot.height * 0.12), '#000000', 16);
+  };
+  if (existsSync(join(out, 'ios-island-expanded.png')))
+    evidence.expandedIsland = {
+      black: topBlack('ios-island-expanded.png'),
+      compact: topBlack('ios-island.png'),
+    };
 } else {
   // The page may log before CDP attaches, so logcat is read too.
   const page = readJson('android-proof.json');

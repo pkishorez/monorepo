@@ -117,19 +117,18 @@ expanded_island() {
   osascript -l JavaScript "$here/simulator.js" ax >"$out/simulator-ax.txt" 2>&1 || true
   point=$(osascript -l JavaScript "$here/simulator.js" island 2>>"$out/simulator-ax.txt") || return 0
   echo "Island at $point"
-  screencapture -x "$out/desktop.png" || true
   # shellcheck disable=SC2086
   osascript -l JavaScript "$here/simulator.js" mouse move $point || return 0
   # shellcheck disable=SC2086
   osascript -l JavaScript "$here/simulator.js" mouse down $point || return 0
+  # The island opens while the press is held, and stays open a few seconds
+  # after it.
   sleep 1.5
-  xcrun simctl io "$udid" screenshot "$out/ios-island-held.png" || true
-  screencapture -x "$out/desktop-held.png" || true
+  xcrun simctl io "$udid" screenshot "$out/ios-island-expanded.png" || true
+  # The Mac's screen, to see where the press landed if the photo is wrong.
+  screencapture -x "$out/desktop.png" || true
   # shellcheck disable=SC2086
   osascript -l JavaScript "$here/simulator.js" mouse up $point || true
-  xcrun simctl io "$udid" screenshot "$out/ios-island-expanded.png" || true
-  sleep 1
-  xcrun simctl io "$udid" screenshot "$out/ios-island-after.png" || true
   # Let it fold back into the island before the lock.
   sleep 6
 }

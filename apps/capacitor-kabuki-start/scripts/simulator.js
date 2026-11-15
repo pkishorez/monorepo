@@ -1,7 +1,7 @@
 // Usage: osascript -l JavaScript scripts/simulator.js <command> [args]
 //
 //   island         prints where the Dynamic Island is on the Mac's screen
-//   ax             prints Simulator's window and every element in it
+//   ax             prints Simulator's window and the elements directly in it
 //   mouse <down|up|move> <x> <y>
 //                  posts a left mouse event at screen point (x, y)
 //
@@ -29,28 +29,28 @@ const frame = (element) => {
   return { x, y, w, h };
 };
 
-// The device's screen: the largest element in the window with the screen's
-// shape, else the window below its title bar.
-function screen() {
-  const window = simulator();
-  const outer = frame(window);
+// The largest of `elements` with the screen's shape, if any.
+function largestScreen(elements) {
   let best;
-  for (const element of window.entireContents()) {
+  for (const element of elements) {
     try {
       const box = frame(element);
       if (box.w < 100 || Math.abs(box.w / box.h - RATIO) > 0.02) continue;
       if (!best || box.w * box.h > best.w * best.h) best = box;
     } catch {}
   }
-  if (best) return { from: 'element', ...best };
-  const h = outer.w / RATIO;
-  return {
-    from: 'window',
-    x: outer.x,
-    y: outer.y + outer.h - h,
-    w: outer.w,
-    h,
-  };
+  return best;
+}
+
+// The device's screen in the window. The window's own children first:
+// walking every element took over a minute on the runner.
+function screen() {
+  const window = simulator();
+  const box =
+    largestScreen(window.uiElements()) ??
+    largestScreen(window.entireContents());
+  if (!box) throw new Error('No element in the window has the screen shape.');
+  return box;
 }
 
 // oxlint-disable-next-line no-unused-vars -- osascript calls run(argv)
@@ -66,7 +66,7 @@ function run(argv) {
   if (command === 'ax') {
     const window = simulator();
     const lines = [`window ${JSON.stringify(frame(window))}`];
-    for (const element of window.entireContents()) {
+    for (const element of window.uiElements()) {
       try {
         lines.push(
           `${element.role()} ${JSON.stringify(element.description())} ${JSON.stringify(frame(element))}`,

@@ -88,7 +88,9 @@ export function nativeHapticsCalls(text) {
  * the job) or null (a finding, recorded and never failing).
  *
  * `evidence` is what else the job saw: on iOS `nativeCalls` (from the app's
- * output) and `lockScreen` (how much of its photo is black or the app), on
+ * output), `lockScreen` (how much of its photo is black or the app) and
+ * `expandedIsland` (how much of the top of the screen is black, held open
+ * and before), on
  * Android `clicks` (each buzz button's result after a real click),
  * `vibrator` (what the vibrator service said), `serviceWorkerLater` (its state
  * once the clicks are done) and `offline` (whether the page drew with the
@@ -142,13 +144,21 @@ export function judge(platform, proof, evidence = {}) {
 
   for (const bars of evidence.bars ?? []) barChecks(add, platform, bars);
   if (evidence.live) liveChecks(add, evidence.live);
+  const percent = (share) =>
+    share === undefined ? '—' : `${Math.round(share * 100)}%`;
   if (evidence.lockScreen) {
     const { black, sameAsApp } = evidence.lockScreen;
-    const percent = (share) =>
-      share === undefined ? '—' : `${Math.round(share * 100)}%`;
     add(
       'lock screen photo',
       `${percent(black)} black, ${percent(sameAsApp)} as the app`,
+      null,
+    );
+  }
+  if (evidence.expandedIsland) {
+    const { black, compact } = evidence.expandedIsland;
+    add(
+      'expanded island photo',
+      `top ${percent(black)} black (compact: ${percent(compact)})`,
       null,
     );
   }
