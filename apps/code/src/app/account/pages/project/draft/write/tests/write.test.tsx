@@ -398,26 +398,36 @@ describe('Draft', () => {
     expect(page.sent).toBe(1);
   });
 
-  it('in the Composer, a new line on Enter, and sends only on Mod+Enter', async () => {
+  const pressEnter = (how: {
+    readonly shiftKey?: boolean;
+    readonly ctrlKey?: boolean;
+  }) =>
+    act(async () => {
+      editor().dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Enter',
+          code: 'Enter',
+          ...how,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+
+  it('in the Composer, a new line on Shift+Enter, and sends on Enter', async () => {
     await key('i', 'KeyI');
-    const press = (ctrlKey: boolean) =>
-      act(async () => {
-        editor().dispatchEvent(
-          new KeyboardEvent('keydown', {
-            key: 'Enter',
-            code: 'Enter',
-            ctrlKey,
-            bubbles: true,
-            cancelable: true,
-          }),
-        );
-      });
-    await press(false);
+    await pressEnter({ shiftKey: true });
     expect(page.sent).toBe(0);
     expect(EditorView.findFromDOM(editor())!.state.doc.toString()).toBe(
       'Please \n',
     );
-    await press(true);
+    await pressEnter({});
+    expect(page.sent).toBe(1);
+  });
+
+  it('in the Composer, sends on Mod+Enter too', async () => {
+    await key('i', 'KeyI');
+    await pressEnter({ ctrlKey: true });
     expect(page.sent).toBe(1);
   });
 

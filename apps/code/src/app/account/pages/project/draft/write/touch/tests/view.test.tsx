@@ -481,6 +481,24 @@ describe('Touch Draft', () => {
     expect(document.activeElement).not.toBe(editor());
   });
 
+  it("makes Enter a new line while editing, the on-screen keyboard's, never a send", async () => {
+    await tap(editor());
+    await tap(editor());
+    await act(async () => {
+      editor().dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Enter',
+          code: 'Enter',
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+    expect(page.sent).toBe(0);
+    // A new line where the tap put the cursor.
+    expect(EditorView.findFromDOM(editor())!.state.doc.lines).toBe(2);
+  });
+
   it('shows Send only with something to send, and the microphone asks the Dictation', async () => {
     await tap(button('Send')!);
     expect(page.sent).toBe(1);

@@ -39,7 +39,8 @@ import { BtwMark } from '../send/btw/btw.tsx';
  *             keyboard, where it is read only at rest (`touch/`). In an
  *             untouched Draft the cursor is at the end.
  * 2. Write    `i`, or a tap, makes it the Composer in place: typed into,
- *             Mod+Enter sending, Enter a new line. Escape,
+ *             Enter sending with a keyboard, Shift+Enter a new line;
+ *             with none, Enter is a new line and Send sends. Escape,
  *             as any move to the page's Normal Mode, makes it read only
  *             again, keeping its text, cursor and selection. With no
  *             keyboard the Touch Draft's edit does, and its Done undoes.
@@ -238,6 +239,7 @@ export function useDraft(options: DraftOptions) {
       return true;
     },
     onSend: send,
+    enterSends: keyboard,
     label: options.label,
     describedBy: options.describedBy,
     placeholder,
@@ -506,7 +508,7 @@ export function Heading({ draft }: { readonly draft: Draft }) {
         </span>
         <span className={HINT}>
           {!draft.vim
-            ? `${SEND_KEYS} to ask`
+            ? 'Enter to ask'
             : draft.writing
               ? 'Esc when done'
               : writeKeys === null
@@ -521,7 +523,7 @@ export function Heading({ draft }: { readonly draft: Draft }) {
       <div aria-hidden className={HEADING}>
         <span className="size-1.5 shrink-0 rounded-full bg-muted-foreground/40" />
         <span>{draft.title ?? 'Message'}</span>
-        <span className={HINT}>{SEND_KEYS} to send</span>
+        <span className={HINT}>Enter to send</span>
       </div>
     );
   return (
@@ -540,13 +542,6 @@ export function Heading({ draft }: { readonly draft: Draft }) {
     </div>
   );
 }
-
-/** What sends, as this computer's keyboard says it. */
-const SEND_KEYS =
-  typeof navigator !== 'undefined' &&
-  /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)
-    ? '⌘ Enter'
-    : 'Ctrl+Enter';
 
 /**
  * The Status Line, the one line at the foot of the Draft: the model and its

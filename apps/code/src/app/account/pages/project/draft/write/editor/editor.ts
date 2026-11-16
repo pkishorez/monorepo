@@ -3,6 +3,7 @@ import {
   history,
   historyField,
   historyKeymap,
+  insertNewlineAndIndent,
   undo,
 } from '@codemirror/commands';
 import {
@@ -89,6 +90,8 @@ interface EditorOptions {
   /** Escape pressed in it; says whether it was taken. */
   readonly onEscape?: () => boolean;
   readonly onSend: () => void;
+  /** Whether Enter sends, as with a keyboard; else it is a new line. */
+  readonly enterSends: boolean;
   readonly label: string;
   readonly describedBy: string | undefined;
   /** What an empty Draft says, as a screen reader hears it; the card draws it. */
@@ -209,7 +212,10 @@ export function useEditor(options: EditorOptions): {
             },
           }),
         ),
-        sendKeys(() => latest.current.onSend()),
+        sendKeys(
+          () => latest.current.onSend(),
+          () => latest.current.enterSends,
+        ),
         keymap.of([
           {
             key: 'Escape',
@@ -500,18 +506,30 @@ function editable({
 }
 
 /*
- * Cmd/Ctrl+Enter sends; Enter is a new line, as it is in any text box, so
- * a message is never sent half written. On a touch screen, whose keyboard
- * has no Cmd, only Send sends. Never while an input method is composing.
+ * With a keyboard, Enter sends and Shift+Enter is a new line, as in any
+ * chat; Cmd/Ctrl+Enter sends too. On a touch screen, whose Enter is the
+ * on-screen keyboard's, Enter is a new line, so a message is never sent
+ * half written, and only Send sends. Never while an input method is
+ * composing.
  */
 
-function sendKeys(send: () => void): Extension {
+function sendKeys(send: () => void, enterSends: () => boolean): Extension {
   const run = (view: EditorView) => {
     if (view.composing) return false;
     send();
     return true;
   };
-  return Prec.high(keymap.of([{ key: 'Mod-Enter', run }]));
+  return Prec.high(
+    keymap.of([
+      {
+        key: 'Enter',
+        // Not taken, it falls through to the default keymap's new line.
+        run: (view) => enterSends() && run(view),
+        shift: insertNewlineAndIndent,
+      },
+      { key: 'Mod-Enter', run },
+    ]),
+  );
 }
 
 /*
