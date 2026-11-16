@@ -2,7 +2,13 @@ import { Button } from '@kestack/web-platform/ui/components/button';
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import { useDevice } from '@kestack/web-platform/ui/input';
 import { MicIcon, PlusIcon, SquareIcon, SquareSlashIcon } from 'lucide-react';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+} from 'react';
 import { keys, useBound, useTypingKeys } from '../../../../frame/commands.ts';
 import * as Picker from '../../../../../../ui/controls/picker/index.ts';
 import {
@@ -366,7 +372,14 @@ export function Card({
       data-plain={!draft.vim || undefined}
       data-dragging={draft.dragging || undefined}
       data-disabled={draft.disabled || undefined}
-      className="group/draft relative flex flex-col rounded-xl border border-dashed border-border bg-muted/30 transition-[border-color,background-color,box-shadow] duration-150 ease-out motion-reduce:transition-none data-dragging:border-solid data-dragging:border-ring data-writing:border-solid data-writing:border-primary/60 data-writing:bg-card data-writing:shadow-[0_1px_2px_rgb(0_0_0/0.06),0_4px_12px_rgb(0_0_0/0.08),0_16px_40px_rgb(0_0_0/0.12)] data-writing:ring-4 data-writing:ring-primary/10 data-recording:not-data-writing:border-solid data-recording:not-data-writing:border-destructive/35 data-plain:border-solid data-plain:bg-card data-plain:focus-within:border-primary/60 data-plain:focus-within:ring-4 data-plain:focus-within:ring-primary/10 data-btw:border-solid data-btw:border-btw/40 data-btw:bg-(--btw-card) data-btw:data-plain:bg-(--btw-card) data-btw:data-writing:border-btw/70 data-btw:data-writing:bg-(--btw-card) data-btw:data-writing:ring-btw/15 data-btw:data-plain:focus-within:border-btw/70 data-btw:data-plain:focus-within:ring-btw/15"
+      onMouseDown={(event) => {
+        if (event.button === 0 && writesOn(draft, event)) {
+          // Or the browser's own focus goes to the Surface around it.
+          event.preventDefault();
+          draft.write({ scroll: false });
+        }
+      }}
+      className="group/draft relative flex cursor-text flex-col rounded-xl border border-dashed border-border bg-muted/30 transition-[border-color,background-color,box-shadow] duration-150 ease-out motion-reduce:transition-none data-dragging:border-solid data-dragging:border-ring data-writing:border-solid data-writing:border-primary/60 data-writing:bg-card data-writing:shadow-[0_1px_2px_rgb(0_0_0/0.06),0_4px_12px_rgb(0_0_0/0.08),0_16px_40px_rgb(0_0_0/0.12)] data-writing:ring-4 data-writing:ring-primary/10 data-recording:not-data-writing:border-solid data-recording:not-data-writing:border-destructive/35 data-plain:border-solid data-plain:bg-card data-plain:focus-within:border-primary/60 data-plain:focus-within:ring-4 data-plain:focus-within:ring-primary/10 data-btw:border-solid data-btw:border-btw/40 data-btw:bg-(--btw-card) data-btw:data-plain:bg-(--btw-card) data-btw:data-writing:border-btw/70 data-btw:data-writing:bg-(--btw-card) data-btw:data-writing:ring-btw/15 data-btw:data-plain:focus-within:border-btw/70 data-btw:data-plain:focus-within:ring-btw/15"
     >
       {/* Its words show as ghost text; how far voice has come peeks above. */}
       <Voice.Peek>
@@ -418,6 +431,31 @@ export function Card({
         </div>
       )}
     </div>
+  );
+}
+
+/** What takes a click itself, so a click on it is not one on the card. */
+const CONTROL =
+  'button, a[href], input, select, textarea, label, [role="button"], [role="combobox"], [role="option"], [role="menuitem"], [tabindex]:not([tabindex="-1"])';
+
+/**
+ * A click anywhere on the card but its controls writes in it, as in any
+ * text box: on its border, its padding, the line over it or the Status
+ * Line's gaps, not only on its words. On the words, the editor places the
+ * cursor itself. In Vim Mode at rest it is read only, and a click there
+ * still does not write.
+ */
+function writesOn(draft: Draft, event: ReactMouseEvent<HTMLElement>) {
+  const on = event.target as Element;
+  const view = draft.view.current;
+  return (
+    draft.writing &&
+    !draft.disabled &&
+    view !== null &&
+    // A click in a Picker drawn in a portal bubbles here through React.
+    event.currentTarget.contains(on) &&
+    !view.dom.contains(on) &&
+    on.closest(CONTROL) === null
   );
 }
 

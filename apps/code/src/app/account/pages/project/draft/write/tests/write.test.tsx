@@ -194,6 +194,8 @@ let shown = 0;
 /** The card drawn anew for each mode, as the Draft's modes draw it, over one `held`. */
 let anew: Held | null = null;
 let toggled = 0;
+/** Vim Mode, as the page is drawn with it; it is on but where a test says. */
+let vim = true;
 
 const PageView = View.make(PageLive, ({ model, children, send }) => {
   page = {
@@ -210,7 +212,7 @@ const PageView = View.make(PageLive, ({ model, children, send }) => {
   hear = (live) => send({ _tag: 'Live', live });
   switchTo = (doc) => send({ _tag: 'Switch', doc });
   return (
-    <keys.Provider vim>
+    <keys.Provider vim={vim}>
       <keys.Surface id="content">
         <OnPage
           key={anew === null ? 'one' : model.doc}
@@ -275,11 +277,12 @@ function OnPage({
   });
   return (
     <div ref={page} tabIndex={-1} data-testid="page">
-      <Card draft={draft} />
-      <StatusLine
-        draft={draft}
-        send={<button type="button" aria-label="Send" onClick={draft.send} />}
-      />
+      <Card draft={draft}>
+        <StatusLine
+          draft={draft}
+          send={<button type="button" aria-label="Send" onClick={draft.send} />}
+        />
+      </Card>
     </div>
   );
 }
@@ -374,6 +377,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   anew = null;
+  vim = true;
   await act(async () => root?.unmount());
   root = undefined;
   document.body.innerHTML = '';
@@ -413,6 +417,66 @@ describe('Draft', () => {
         }),
       );
     });
+
+  /** A press of the mouse on `target`, as the browser fires it. */
+  const press = async (target: Element) => {
+    const event = new MouseEvent('mousedown', {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+    });
+    await act(async () => void target.dispatchEvent(event));
+    await flush();
+    return event;
+  };
+  const named = (name: string) =>
+    document.querySelector<HTMLElement>(`[aria-label="${name}"]`)!;
+
+  it('in the Composer, a click on the card, not on its words, keeps writing in it', async () => {
+    await key('i', 'KeyI');
+    const clicked = await press(card().firstElementChild!);
+    expect(clicked.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(editor());
+    expect((await press(named('Send'))).defaultPrevented).toBe(false);
+  });
+
+  describe('without Vim Mode', () => {
+    beforeEach(async () => {
+      vim = false;
+      // Drawn anew with it off.
+      await act(async () => root!.unmount());
+      document.body.innerHTML = '';
+      const App = View.app(PageView, { name: `draft-test-${apps++}` });
+      root = createRoot(
+        document.body.appendChild(document.createElement('div')),
+      );
+      await act(async () => root!.render(<App />));
+      await flush();
+    });
+
+    it('a click anywhere on the card writes in it, keeping its words, but not one on a control', async () => {
+      await act(async () => named('Elsewhere').focus());
+      expect((await press(card().firstElementChild!)).defaultPrevented).toBe(
+        true,
+      );
+      expect(document.activeElement).toBe(editor());
+      await act(async () => named('Elsewhere').focus());
+      expect((await press(card())).defaultPrevented).toBe(true);
+      expect(document.activeElement).toBe(editor());
+      expect(EditorView.findFromDOM(editor())!.state.doc.toString()).toBe(
+        'Please ',
+      );
+      await act(async () => named('Elsewhere').focus());
+      expect((await press(named('Send'))).defaultPrevented).toBe(false);
+      expect(document.activeElement).toBe(named('Elsewhere'));
+    });
+  });
+
+  it('at rest in Vim Mode, a click on the card does not write in it', async () => {
+    const clicked = await press(card().firstElementChild!);
+    expect(clicked.defaultPrevented).toBe(false);
+    expect(editor().getAttribute('contenteditable')).toBe('false');
+  });
 
   it('in the Composer, a new line on Shift+Enter, and sends on Enter', async () => {
     await key('i', 'KeyI');
