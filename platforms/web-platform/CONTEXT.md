@@ -67,7 +67,7 @@ What a new version saves as it installs, so the app opens with no network: the b
 _Avoid_: preload, static cache
 
 **Runtime Cache**:
-Responses saved while the app runs, each kind of request by its Strategy, such as the images a screen showed. Never a page: every page is the App Shell.
+Responses saved while the app runs, each kind of request by its Strategy, such as the images a screen showed, and the Static Data of Kabuki Start's a static page starts from, the same for everyone. Never a page, and never a visitor's data: every page is the App Shell.
 _Avoid_: dynamic cache, API cache, page cache
 
 #### Versions

@@ -231,36 +231,66 @@ a move.
 
 #### Data and Render Modes
 
-`data`, a Schema, says a page needs a Loader. `render` is `static`, the
-default, `dynamic` or `client`, inherited by the pages under it, the root's
-too; any mode may sit under any other. A server draws a page's data for
-`static` and `dynamic`; a `client` page, and every page under it, is sent
-loading, and the browser loads it. Under a `client` root Start answers every
-URL with the App Shell: see [start.md](start.md).
+`data`, a Schema, says a page needs a Loader. Its Render Mode is when that
+data is first known, and so where the page is first drawn: `static`, at the
+build; `dynamic`, at each request, on the server; `client`, in the browser,
+the server sending the page loading. Each is later than the one before, and
+a page is never drawn earlier than the page above it. An app starts static,
+so no page says it: `render` is `'dynamic'` or `'client'`, inherited by the
+pages under it, the root's too. `dynamic` under a client page, where a
+server draws nothing, is a type error on `Router.define` that names the
+page, and an error when the router is made. So a URL is first drawn as its
+deepest page says, and only its first drawing differs: every move after it
+happens in the browser. Under a `client` root Start answers every URL with
+the App Shell: see [start.md](start.md). Why is
+[ADR 0050](adr/0050-a-page-is-never-drawn-earlier-than-the-page-above-it.md).
+
+Set the mode once per section and let it inherit: a blog and its docs are
+static, the app behind sign-in is client. A page shared by several modes,
+as the root is, has no data, or static data, and sits above them. A part of
+a static page that must be fresh, as a product's stock, is a page under it
+that says `dynamic` or `client`, or loads in the browser with a Worker.
 
 `staleTime`, in milliseconds, is how long a copy of a page's data stays
 fresh in the Data cache once it arrives: see [Stale time](#stale-time). It
 is inherited by the pages under it, and only a `dynamic` or `client` page
 has one: a static page's data is fresh until the next deploy, so
-`staleTime` on it is a type error, or an error when the router is made if
-the page is static from its parent.
+`staleTime` on it is an error when the router is made.
 
 #### Loaders
 
 ```ts
 export default router.loaders({
-  Projects: ({ id }) => Db.project(id),
-  'Projects.Task': ({ id, task }) => Db.task(id, task),
-  Search: ({ q }, request) => Search.run(q, request),
+  Guides: () => Docs.guides(), // static, no params
+  'Guides.Guide': {
+    // static, and its path names a param
+    paths: () => Docs.paths(), // [{ guide: 'install' }, …]
+    load: ({ guide }) => Docs.guide(guide),
+  },
+  Search: ({ q }, request) => Search.run(q, request), // dynamic
+  Inbox: { load: (_, request) => Mail.inbox(request) }, // client; `{ load }` is the same
 });
 ```
 
-`router.loaders` is a typing helper and runs nothing: one function per place
-with data, by its dotted name, and no other. A Loader is handed every path
-param down to it and its own query; a dynamic or client place's, the request
-too. Each returns its data, or fails with `Page.notFound()` or
+`router.loaders` is a typing helper and runs nothing: one Loader per place
+with data, by its dotted name, and no other, each written with the options
+of its Render Mode. A Loader is the function that loads the place's data, or
+`{ load }`.
+
+- A **static** place's is handed every path param down to it, and never its
+  query: the place is the same whatever the query, which the page reads as
+  Props. One whose own path names params is `{ paths, load }`: `paths`
+  answers every path it is at, each with every path param down to it, and
+  only those are drawn; any other is not found. With no data it is
+  `{ paths }` alone. A static place with no params of its own lists none:
+  it is wherever the page above it is.
+- A **dynamic** or **client** place's is handed its query and the request
+  too.
+
+Each returns its data, or fails with `Page.notFound()` or
 `Page.redirect(…)`, below; a defect breaks its page alone. Missing, extra or
-wrong-typed is a type error that names the places. A child that needs its
+wrong-typed is a type error that names the places. What Start does with
+`paths` is in [start.md](start.md#at-the-build). A child that needs its
 parent's data calls the same service; a request-scoped Layer makes it run
 once.
 

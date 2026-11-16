@@ -29,9 +29,10 @@ export const Product = Page.define({
   The URL holds the text `'2'`; the Page gets the number `2`.
 - `data` is the Schema of what its **Loader** loads. `staleTime` says how
   long a copy stays fresh. Both are on the [Data](/kabuki/data) page.
-- `render` is its **Render Mode**: where its data is first loaded, on the
-  server for everyone (`static`, the default), on the server for each
-  request (`dynamic`), or in the browser (`client`).
+- `render` is its **Render Mode**: when its data is first known. An app
+  starts static, at the build, for everyone. A page says `dynamic`, on the
+  server for each request, or `client`, in the browser, and the pages under
+  it follow.
 - `metadata` is what the Page says about itself to the browser and to
   search: its title, description and sharing tags. It is worked out from
   its params, and from its data once it is there.

@@ -7,7 +7,7 @@ import { about } from './metadata/index.ts';
  * to the URL: `/` is static, `/dynamic` adds a dynamic page inside it, and
  * `/dynamic/client` a client page inside that. A URL names one page per
  * level, so nesting is how three modes share a screen; and `/` alone is
- * all static, which is what lets a build keep it for everyone. Each Loader
+ * all static, which is what lets a build draw it for everyone. Each Loader
  * says when it ran.
  */
 

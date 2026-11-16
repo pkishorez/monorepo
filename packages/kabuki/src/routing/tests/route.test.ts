@@ -272,16 +272,11 @@ const Activity = Page.define({
   query: { since: Schema.optionalKey(Schema.String) },
   data: Post,
 });
-const Static = Page.define({
-  path: '/static',
-  render: 'static',
-  data: Post,
-});
 const Account = Page.define({
   path: '/account/:team',
   params: { team: Schema.String },
   render: 'dynamic',
-  pages: { Settings: AccountSettings, Activity, Static },
+  pages: { Settings: AccountSettings, Activity },
 });
 const SiteRoot = Page.define({ pages: { About, Blog, Account } });
 const Site = Router.define(SiteRoot, {
@@ -331,8 +326,6 @@ describe('a place with data', () => {
       ['Account', 'dynamic'],
       ['Account.Settings', 'dynamic'],
       ['Account.Activity', 'client'],
-      // A static place may sit under a dynamic one.
-      ['Account.Static', 'static'],
     ]);
     const isPlace = Schema.is(Site.place);
     expect(isPlace('Account.Activity')).toBe(true);
@@ -372,63 +365,76 @@ describe('a page with Queries', () => {
   });
 });
 
+/** No path listed: for a Loader whose paths a test never reads. */
+const none = () => Effect.succeed([]);
+/** A static place with params, as its Loader is written: the paths it is drawn at, and how one loads. */
+const post = <A, E>(
+  load: (params: { readonly slug: string }) => Effect.Effect<A, E>,
+) => ({
+  paths: none,
+  load,
+});
+
 describe('the Loaders', () => {
   it('are typed from the Routes: one per place with data, and no other', () => {
     const loaders = Site.loaders({
       Blog: () => Effect.succeed([{ title: 'a' }]),
-      'Blog.Post': ({ slug }) =>
-        slug === 'x'
-          ? Effect.fail(Page.notFound())
-          : Effect.succeed({ title: slug }),
+      'Blog.Post': {
+        paths: () => Effect.succeed([{ slug: 'hello' }]),
+        load: ({ slug }) =>
+          slug === 'x'
+            ? Effect.fail(Page.notFound())
+            : Effect.succeed({ title: slug }),
+      },
       'Account.Settings': ({ team }, request) =>
         Effect.succeed({ title: `${team} ${request.method}` }),
-      'Account.Activity': ({ since }, _request) =>
-        since === undefined
-          ? Effect.fail(Page.redirect(Site.About()))
-          : Effect.succeed({ title: since }),
-      'Account.Static': ({ team }) => Effect.succeed({ title: team }),
+      // A Loader with no option of its own may be written `{ load }` too.
+      'Account.Activity': {
+        load: ({ since }, _request) =>
+          since === undefined
+            ? Effect.fail(Page.redirect(Site.About()))
+            : Effect.succeed({ title: since }),
+      },
     });
-    expect(Object.keys(loaders)).toHaveLength(5);
+    expect(Object.keys(loaders)).toHaveLength(4);
     const typed = () => {
       // @ts-expect-error one is missing
       Site.loaders({
         Blog: () => Effect.succeed([]),
-        'Blog.Post': () => Effect.succeed({ title: '' }),
+        'Blog.Post': post(() => Effect.succeed({ title: '' })),
         'Account.Settings': () => Effect.succeed({ title: '' }),
-        'Account.Static': () => Effect.succeed({ title: '' }),
       });
       Site.loaders({
         Blog: () => Effect.succeed([]),
-        'Blog.Post': () => Effect.succeed({ title: '' }),
+        'Blog.Post': post(() => Effect.succeed({ title: '' })),
         'Account.Settings': () => Effect.succeed({ title: '' }),
         'Account.Activity': () => Effect.succeed({ title: '' }),
-        'Account.Static': () => Effect.succeed({ title: '' }),
         // @ts-expect-error a place with no data has no Loader
         About: () => Effect.succeed({}),
       });
       Site.loaders({
         // @ts-expect-error the data is a list of posts
         Blog: () => Effect.succeed({ title: '' }),
-        'Blog.Post': () => Effect.succeed({ title: '' }),
+        'Blog.Post': post(() => Effect.succeed({ title: '' })),
         'Account.Settings': () => Effect.succeed({ title: '' }),
         'Account.Activity': () => Effect.succeed({ title: '' }),
-        'Account.Static': () => Effect.succeed({ title: '' }),
       });
       Site.loaders({
         // @ts-expect-error a static place is not handed the request
         Blog: (_params: {}, _request: Request) => Effect.succeed([]),
-        'Blog.Post': () => Effect.succeed({ title: '' }),
+        'Blog.Post': post(() => Effect.succeed({ title: '' })),
         'Account.Settings': () => Effect.succeed({ title: '' }),
         'Account.Activity': () => Effect.succeed({ title: '' }),
-        'Account.Static': () => Effect.succeed({ title: '' }),
       });
       Site.loaders({
         Blog: () => Effect.succeed([]),
-        // @ts-expect-error a Loader fails only as not found or a Redirect
-        'Blog.Post': () => Effect.fail('nope'),
+        'Blog.Post': {
+          paths: none,
+          // @ts-expect-error a Loader fails only as not found or a Redirect
+          load: () => Effect.fail('nope'),
+        },
         'Account.Settings': () => Effect.succeed({ title: '' }),
         'Account.Activity': () => Effect.succeed({ title: '' }),
-        'Account.Static': () => Effect.succeed({ title: '' }),
       });
     };
     expect(typed).toBeTypeOf('function');
@@ -459,19 +465,21 @@ describe('the Loaders', () => {
     const typed = () => {
       Site.loaders({
         Blog: () => Effect.fail(Page.redirect('https://example.com/blog')),
-        'Blog.Post': () =>
+        'Blog.Post': post(() =>
           Effect.fail(Page.redirect(Site.About(), { permanent: true })),
+        ),
         'Account.Settings': () => Effect.succeed({ title: '' }),
         'Account.Activity': () => Effect.succeed({ title: '' }),
-        'Account.Static': () => Effect.succeed({ title: '' }),
       });
       Site.loaders({
         Blog: () => Effect.succeed([]),
-        // @ts-expect-error a Route of another app
-        'Blog.Post': () => Effect.fail(Page.redirect(Other.Elsewhere())),
+        'Blog.Post': {
+          paths: none,
+          // @ts-expect-error a Route of another app
+          load: () => Effect.fail(Page.redirect(Other.Elsewhere())),
+        },
         'Account.Settings': () => Effect.succeed({ title: '' }),
         'Account.Activity': () => Effect.succeed({ title: '' }),
-        'Account.Static': () => Effect.succeed({ title: '' }),
       });
       // @ts-expect-error a path is a Route, or a whole URL
       Page.redirect('/about');
@@ -567,13 +575,12 @@ describe('the Stale time', () => {
     data: Data,
   });
   const Quick = Page.define({ path: '/quick', data: Data, staleTime: 10 });
-  const Pinned = Page.define({ path: '/pinned', render: 'static', data: Data });
   const Feed = Page.define({
     path: '/feed',
     render: 'dynamic',
     data: Data,
     staleTime: 5_000,
-    pages: { Quick, Pinned, Item },
+    pages: { Quick, Item },
   });
   const Live = Page.define({ path: '/live', render: 'client', data: Data });
   const Fixed = Page.define({ path: '/fixed', data: Data });
@@ -584,7 +591,6 @@ describe('the Stale time', () => {
     expect(Fresh.every.map((place) => [place.name, place.staleTime])).toEqual([
       ['Feed', 5_000],
       ['Feed.Quick', 10],
-      ['Feed.Pinned', Infinity],
       ['Feed.Item', 5_000],
       ['Live', 1_000],
       ['Fixed', Infinity],
@@ -598,14 +604,194 @@ describe('the Stale time', () => {
   });
 
   it('is refused on a static page', () => {
-    // @ts-expect-error a static page has no Stale time
-    Page.define({ path: '/x', render: 'static', data: Data, staleTime: 5 });
-    // A page static from its parent says so when the Router is made.
+    // A page is static from its parent, so it says so when the Router is made.
     const Inside = Page.define({ path: '/inside', data: Data, staleTime: 5 });
     const Outer = Page.define({ path: '/outer', pages: { Inside } });
     expect(() => Router.define(Page.define({ pages: { Outer } }))).toThrow(
       /Outer\.Inside is static/,
     );
+  });
+});
+
+describe('a Render Mode', () => {
+  const Data = Schema.Struct({ ok: Schema.Boolean });
+
+  it('is only ever later than the page above: no page says static', () => {
+    // @ts-expect-error static is where an app starts, never said
+    Page.define({ path: '/x', render: 'static' });
+    // One typed loosely is refused when the Router is made.
+    const Early = Page.define({
+      path: '/early',
+      render: 'static' as never,
+    });
+    const Late = Page.define({
+      path: '/late',
+      render: 'dynamic',
+      pages: { Early },
+    });
+    expect(() => Router.define(Page.define({ pages: { Late } }))).toThrow(
+      'Late.Early is static under a dynamic page: a page is never drawn earlier than the page above it',
+    );
+  });
+
+  it('is refused as dynamic under a client page, by type and when the Router is made', () => {
+    const Thread = Page.define({ path: '/:id', render: 'dynamic' });
+    const Folder = Page.define({ path: '/folder', pages: { Thread } });
+    const Inbox = Page.define({
+      path: '/inbox',
+      render: 'client',
+      pages: { Folder },
+    });
+    const Root = Page.define({ pages: { Inbox } });
+    expect(() =>
+      // @ts-expect-error Inbox.Folder.Thread is dynamic under a client page
+      Router.define(Root),
+    ).toThrow('Inbox.Folder.Thread is dynamic under a client page');
+    // Read lazily, it is refused the same.
+    // @ts-expect-error Inbox.Folder.Thread is dynamic under a client page
+    const lazy = Router.define(() => Root);
+    expect(() => lazy.every).toThrow('Inbox.Folder.Thread is dynamic');
+    // Under a client root too.
+    const Shell = Page.define({ render: 'client', pages: { Thread } });
+    expect(() =>
+      // @ts-expect-error Thread is dynamic under the client root
+      Router.define(Shell),
+    ).toThrow('Thread is dynamic under a client page');
+    // Later under earlier is how an app is written.
+    const Client = Page.define({ path: '/c', render: 'client' });
+    const Dynamic = Page.define({
+      path: '/d',
+      render: 'dynamic',
+      pages: { Client },
+    });
+    expect(
+      Router.define(Page.define({ pages: { Dynamic } })).every.map(
+        ({ name, render }) => [name, render],
+      ),
+    ).toEqual([
+      ['Dynamic', 'dynamic'],
+      ['Dynamic.Client', 'client'],
+    ]);
+  });
+
+  it('says what a Loader is handed: a static place its path params alone', () => {
+    const Guide = Page.define({
+      path: '/:guide',
+      params: { guide: Schema.String },
+      query: { tab: Schema.optionalKey(Schema.String) },
+      data: Data,
+    });
+    const Search = Page.define({
+      path: '/search',
+      render: 'dynamic',
+      query: { q: Schema.optionalKey(Schema.String) },
+      data: Data,
+    });
+    const Docs = Page.define({
+      path: '/docs/:section',
+      params: { section: Schema.String },
+      pages: { Guide, Search },
+    });
+    const router = Router.define(Page.define({ pages: { Docs } }));
+    const [, guide] = router.places(
+      router.Docs.Guide({ section: 'start', guide: 'install', tab: 'npm' }),
+    );
+    // The same whatever the query, so its Loader is not handed it.
+    expect(guide!.params).toEqual({ section: 'start', guide: 'install' });
+    const [, search] = router.places(
+      router.Docs.Search({ section: 'start', q: 'ssr' }),
+    );
+    expect(search!.params).toEqual({ section: 'start', q: 'ssr' });
+    // Every place says the path params down to it, in its URL's order, and whether it names its own.
+    expect(
+      router.every.map(({ name, keys, lists }) => [name, keys, lists]),
+    ).toEqual([
+      ['Docs', ['section'], true],
+      ['Docs.Guide', ['section', 'guide'], true],
+      ['Docs.Search', ['section'], false],
+    ]);
+    const typed = () => {
+      router.loaders({
+        'Docs.Guide': {
+          paths: () => Effect.succeed([{ section: 'start', guide: 'install' }]),
+          // @ts-expect-error a static place is not handed its query
+          load: ({ tab }) => Effect.succeed({ ok: tab === undefined }),
+        },
+        'Docs.Search': ({ q }) => Effect.succeed({ ok: q !== undefined }),
+        Docs: { paths: () => Effect.succeed([{ section: 'start' }]) },
+      });
+    };
+    expect(typed).toBeTypeOf('function');
+  });
+
+  it('gives a static place whose path names params its paths to list', () => {
+    const Guide = Page.define({
+      path: '/:guide',
+      params: { guide: Schema.FiniteFromString },
+      data: Data,
+    });
+    const About = Page.define({ path: '/about', data: Data });
+    const Live = Page.define({
+      path: '/live/:id',
+      params: { id: Schema.String },
+      render: 'client',
+      data: Data,
+    });
+    // No data, but params: its paths are still listed, or it could not be drawn ahead.
+    const Section = Page.define({
+      path: '/docs/:section',
+      params: { section: Schema.String },
+      pages: { Guide, About },
+    });
+    const router = Router.define(Page.define({ pages: { Section, Live } }));
+    const loaders = router.loaders({
+      Section: { paths: () => Effect.succeed([{ section: 'start' }]) },
+      'Section.Guide': {
+        // Every path param down to it, typed as its Schemas read them.
+        paths: () => Effect.succeed([{ section: 'start', guide: 1 }]),
+        load: ({ section, guide }) =>
+          Effect.succeed({ ok: section.length > guide }),
+      },
+      // None of its own: it is drawn wherever the page above it is.
+      'Section.About': ({ section }) => Effect.succeed({ ok: section === '' }),
+      // A client place lists nothing: the browser draws it.
+      Live: ({ id }) => Effect.succeed({ ok: id === '' }),
+    });
+    expect(Object.keys(loaders)).toEqual([
+      'Section',
+      'Section.Guide',
+      'Section.About',
+      'Live',
+    ]);
+    const typed = () => {
+      router.loaders({
+        Section: { paths: () => Effect.succeed([{ section: 'start' }]) },
+        // @ts-expect-error a static place with params lists its paths
+        'Section.Guide': () => Effect.succeed({ ok: true }),
+        'Section.About': () => Effect.succeed({ ok: true }),
+        Live: () => Effect.succeed({ ok: true }),
+      });
+      router.loaders({
+        Section: { paths: () => Effect.succeed([{ section: 'start' }]) },
+        'Section.Guide': {
+          // @ts-expect-error a path is every param down to it, as its Schema reads it
+          paths: () => Effect.succeed([{ guide: '1' }]),
+          load: () => Effect.succeed({ ok: true }),
+        },
+        'Section.About': () => Effect.succeed({ ok: true }),
+        Live: () => Effect.succeed({ ok: true }),
+      });
+      // @ts-expect-error Section has paths to list, and no Loader
+      router.loaders({
+        'Section.Guide': {
+          paths: () => Effect.succeed([]),
+          load: () => Effect.succeed({ ok: true }),
+        },
+        'Section.About': () => Effect.succeed({ ok: true }),
+        Live: () => Effect.succeed({ ok: true }),
+      });
+    };
+    expect(typed).toBeTypeOf('function');
   });
 });
 
@@ -641,8 +827,10 @@ describe("a page's Provides", () => {
 });
 
 describe('a whole query', () => {
+  // Dynamic: what it shows is the request's, so its Loader is handed the query.
   const Authorize = Page.define({
     path: '/authorize',
+    render: 'dynamic',
     query: {
       client_id: Schema.optionalKey(Schema.String),
       search: Page.wholeQuery,

@@ -4,10 +4,18 @@ import { Start } from '../app/index.ts';
 import { knownOf } from '../../routing/page/status/index.ts';
 import type { Known } from '../../routing/page/status/index.ts';
 import type { Outcome, Place, RenderMode } from '../../routing/route/index.ts';
-import { PAGES, PATH, SHELL, appOf, pagesOf } from '../app/protocol/index.ts';
+import {
+  DATA,
+  PAGES,
+  PATH,
+  SHELL,
+  appOf,
+  pagesOf,
+} from '../app/protocol/index.ts';
 import type { Build, StartApp, Wanted } from '../app/protocol/index.ts';
 import type { Handler, Host } from '../platform/index.ts';
 import { kept } from './cache.ts';
+import { keptOf } from './kept.ts';
 import { drawer } from './draw.tsx';
 import type { At } from './draw.tsx';
 import { serverOf } from './layers.ts';
@@ -32,8 +40,9 @@ import {
  * hands it the env and the Cache, if there is one.
  *
  * 1. Route    `POST /_kabuki/load` is the Loader RPC; `GET /_kabuki/pages`
- *             the Pages and `GET /_kabuki/shell` the App Shell, kept as a
- *             static page is; see `app/protocol/pages.ts`. A page is a `GET`.
+ *             the Pages and `GET /_kabuki/shell` the App Shell: the file
+ *             the build wrote, or drawn and kept as a static page is where
+ *             there is none; see `app/protocol/pages.ts`. A page is a `GET`.
  * 2. Read     the URL; a redirect in the Routes, or a URL not written as its
  *             Route is, is a `308` to the Route's URL.
  * 3. Split    the Route's places into those drawn here, static and dynamic,
@@ -44,6 +53,16 @@ import {
  * 4. Load     the Loaders of the places drawn here, all at once, with the
  *             request unless the place is static, and their two Layers:
  *             the visitor only if a place is not static; see `lifetimes.ts`.
+ *             A static place's Loader ran at the build: where the build
+ *             kept the Static Data and the platform hands its files, its answer
+ *             is read from there, and a path the build did not list is not
+ *             found; see `kept.ts`. In dev, or with no files, it runs.
+ *             A URL that is all static and gets here though the platform
+ *             hands the build's files is one the build did not list: a
+ *             `404`, drawn as the app's not-found page if no place with
+ *             data says it is not found. Under the Static Data, a path
+ *             with no file is a `404` in this build's, and a `410` in any
+ *             other or with no files, so the browser asks the Loader RPC.
  *             A Redirect is a `302`, or a `308` if it says it is permanent,
  *             to its Route or the URL outside the app it names. Each other
  *             place starts from what its Loader came to: its data, or
@@ -56,6 +75,9 @@ import {
  * 6. Keep     a whole page whose places drawn here are all static, in the
  *             Cache under the build id; any other page, nowhere. Headers a
  *             Loader added go out with it.
+ *
+ * A URL whose places drawn here are all static seldom gets here: the build
+ * drew it, `prerender.ts`, and the platform answers it with that file.
  */
 
 export interface HandlerOptions {
@@ -93,6 +115,22 @@ export const handler = (options: HandlerOptions): Handler => {
   const modes = new Map<string, RenderMode>(
     app.routes.every.map((place) => [place.name, place.render]),
   );
+  const readKept =
+    build.data === undefined ? undefined : keptOf(app.routes, build.data);
+  /** Reads a static place's answer as the build kept it, where there is a build and the platform hands its files. */
+  const keptFor = (host: Host) =>
+    readKept && host.files ? readKept(host.files) : undefined;
+  /** The places asked for, split into those read from the build's Static Data and those whose Loaders run. */
+  const split = (host: Host, wanted: ReadonlyArray<Wanted>) => {
+    const read = keptFor(host);
+    const isKept = ({ name }: Wanted) =>
+      read !== undefined && modes.get(name) === 'static';
+    return {
+      read,
+      here: wanted.filter(isKept),
+      run: wanted.filter((place) => !isKept(place)),
+    };
+  };
 
   // 4. Load
   /** What the Loaders of `wanted` run with: the memory Loading, handed this request, and their Layers. */
@@ -115,16 +153,31 @@ export const handler = (options: HandlerOptions): Handler => {
       ),
     ) as Layer.Layer<Loading>;
 
-  /** Runs the Loaders of `wanted` at once, as the memory Loading does, handed this request. */
+  /** Runs the Loaders of `wanted` at once, as the memory Loading does, handed this request; a static place's kept answer is read. */
   const load =
-    (request: Request, env: unknown, headers: Headers): Load =>
-    (wanted) =>
-      wanted.length === 0
-        ? Effect.succeed({})
-        : Effect.gen(function* () {
-            const loading = yield* Loading;
-            return yield* loading.load(wanted);
-          }).pipe(Effect.provide(loadingFor(request, env, headers, wanted)));
+    (request: Request, host: Host, headers: Headers): Load =>
+    (wanted) => {
+      const { read, here, run } = split(host, wanted);
+      const loaded: Effect.Effect<Readonly<Record<string, Outcome>>> =
+        run.length === 0
+          ? Effect.succeed({})
+          : Effect.gen(function* () {
+              const loading = yield* Loading;
+              return yield* loading.load(run);
+            }).pipe(
+              Effect.provide(loadingFor(request, host.env, headers, run)),
+            );
+      if (!read || here.length === 0) return loaded;
+      return Effect.all(
+        [Effect.forEach(here, read, { concurrency: 'unbounded' }), loaded],
+        { concurrency: 'unbounded' },
+      ).pipe(
+        Effect.map(([answers, rest]) => ({
+          ...Object.fromEntries(answers),
+          ...rest,
+        })),
+      );
+    };
 
   /**
    * The Loaders of `wanted`, each answered as it is done, for the Loader
@@ -132,26 +185,39 @@ export const handler = (options: HandlerOptions): Handler => {
    * before the answer starts; it is let go once the last place is answered.
    */
   const each =
-    (request: Request, env: unknown, headers: Headers) =>
-    async (wanted: ReadonlyArray<Wanted>) => {
+    (request: Request, host: Host, headers: Headers) =>
+    async (
+      wanted: ReadonlyArray<Wanted>,
+    ): Promise<Stream.Stream<readonly [string, Outcome]>> => {
+      const { read, here, run } = split(host, wanted);
+      const answers: Stream.Stream<readonly [string, Outcome]> = read
+        ? Stream.fromIterable(here).pipe(
+            Stream.mapEffect(read, {
+              concurrency: 'unbounded',
+              unordered: true,
+            }),
+          )
+        : Stream.empty;
+      if (run.length === 0) return answers;
       const scope = await Effect.runPromise(Scope.make());
       const close = Scope.close(scope, Exit.void);
       const context = await Effect.runPromise(
         Layer.buildWithScope(
-          loadingFor(request, env, headers, wanted),
+          loadingFor(request, host.env, headers, run),
           scope,
         ).pipe(Effect.onError(() => close)),
       );
       const loading = Context.get(context, Loading);
-      return (
+      const loaded = (
         loading.each
-          ? loading.each(wanted)
+          ? loading.each(run)
           : Stream.unwrap(
-              Effect.map(loading.load(wanted), (answers) =>
+              Effect.map(loading.load(run), (answers) =>
                 Stream.fromIterable(Object.entries(answers)),
               ),
             )
       ).pipe(Stream.ensuring(close));
+      return here.length === 0 ? loaded : Stream.merge(answers, loaded);
     };
 
   /** What each place with data drawn here came to; a Redirect, the outermost first, instead. */
@@ -198,8 +264,13 @@ export const handler = (options: HandlerOptions): Handler => {
   const pages = JSON.stringify(
     pagesOf(app.routes.every, app.routes.paths(), build.id, app.routes.render),
   );
-  /** The App Shell, the same for everyone until the next deploy. */
+  /** The App Shell, the same for everyone until the next deploy: the file the build wrote, else drawn and kept. */
   const shell = async (request: Request, host: Host) => {
+    const file =
+      build.id !== undefined && host.files
+        ? await host.files(`${build.base}${SHELL.slice(1)}`)
+        : undefined;
+    if (file) return html(await file.text(), 200, SHARED);
     const drawShell = async () =>
       html(await draw.shell(), 200, build.id === undefined ? PRIVATE : SHARED);
     return build.id === undefined
@@ -235,18 +306,38 @@ export const handler = (options: HandlerOptions): Handler => {
       !(route._tag === 'NotFound' && isFile(url.pathname))
     )
       return shell(request, host);
-    const here = drawnHere(app.routes.places(route));
+    const places = app.routes.places(route);
+    // A URL that is all static is a file the build drew: one that gets here, the build did not list.
+    const unlisted =
+      build.id !== undefined &&
+      host.files !== undefined &&
+      places.length > 0 &&
+      places.every((place) => place.render === 'static');
+    if (unlisted) {
+      const file = await host.files!(url.pathname);
+      if (file) return html(await file.text(), 200, SHARED);
+    }
+    const here = drawnHere(places);
     const shared =
       build.id !== undefined &&
+      !unlisted &&
       here.every((place) => place.render === 'static');
     const cache = shared ? SHARED : PRIVATE;
     const drawPage = async () => {
-      const answer = await loaded(load(request, host.env, headers), here);
+      const answer = await loaded(load(request, host, headers), here);
       if (answer._tag === 'Redirect') {
         const to = answer.href ?? app.href(answer.route);
         return answer.permanent ? permanent(to) : found(to);
       }
-      const status = route._tag === 'NotFound' ? 404 : answer.status;
+      // Unlisted, and no place with data says it is not found: the app's own not-found page.
+      if (unlisted && answer.status === 200)
+        return drawn(
+          { route: app.routes.NotFound({ path: url.pathname }), known: {} },
+          404,
+          PRIVATE,
+        );
+      const status =
+        route._tag === 'NotFound' || unlisted ? 404 : answer.status;
       return drawn(
         { route, known: answer.known },
         status,
@@ -274,14 +365,23 @@ export const handler = (options: HandlerOptions): Handler => {
         if (pathname === PATH)
           return request.method === 'POST'
             ? sent(
-                await answer(
-                  app.routes,
-                  request,
-                  each(request, host.env, headers),
-                ),
+                await answer(app.routes, request, each(request, host, headers)),
                 headers,
               )
             : new Response(null, { status: 405, headers: { allow: 'POST' } });
+        // The Static Data, where the platform found no file: this build's is a
+        // path it did not list; another build's, or with no files, is gone,
+        // so the browser asks the Loader RPC.
+        if (pathname.startsWith(`${build.base}${DATA}/`))
+          return new Response(null, {
+            status:
+              build.data !== undefined &&
+              host.files &&
+              pathname.startsWith(`${build.data}/`)
+                ? 404
+                : 410,
+            headers: { 'cache-control': PRIVATE },
+          });
         if (pathname === PAGES || pathname === SHELL) {
           if (request.method !== 'GET' && request.method !== 'HEAD')
             return notAllowed();

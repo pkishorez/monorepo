@@ -253,12 +253,20 @@ What a place says about itself to the browser and to search: its title, descript
 _Avoid_: head (the History's Head is another thing), meta, SEO, document
 
 **Loader**:
-How a place gets its data: one server function per Page that declares data, given its params and query, and the request unless the place is static. A Page that declares data and has no Loader is a type error. Loaders never wait on one another: a Page and the Pages under it load side by side. A Loader that fails says the place is not found, or Redirects; one that breaks fails its Page alone. Only Pages load: a part of a Page starts from its defaults or Props.
+How a place gets its data: one server function per Page that declares data, written with the options of its Render Mode. A static place's is given its path params alone, and one whose path names params lists its Paths too; a dynamic or client place's is given its query and the request as well. A Page that declares data and has no Loader is a type error. Loaders never wait on one another: a Page and the Pages under it load side by side. A Loader that fails says the place is not found, or Redirects; one that breaks fails its Page alone. Only Pages load: a part of a Page starts from its defaults or Props.
 _Avoid_: fetcher, data function, middleware
 
+**Paths**:
+Every path a static place is at, said beside its Loader by a place whose own path names params, each with every path param down to it. Only a listed path is drawn at the build; any other is not found. A static place with no params of its own lists none: it is wherever the Page above it is.
+_Avoid_: static params, entries, routes to prerender
+
 **Render Mode**:
-Where and when a Page's data is first loaded, said on the Page and inherited by the Pages under it: static, the same for everyone and drawn once until the next deploy; dynamic, loaded for each request; client, loaded in the browser alone, the server sending the Page loading. Only the first drawing differs: after it, every move happens in the browser.
+When a Page's data is first known, and so where the Page is first drawn: static, at the build, the same for everyone until the next deploy; dynamic, at each request, on the server; client, in the browser alone, the server sending the Page loading. Each is later than the one before, and a Page is never drawn earlier than the Page above it: an app starts static, a Page says only dynamic or client, and the Pages under it inherit it. So a URL is first drawn as its deepest Page says. Only the first drawing differs: after it, every move happens in the browser.
 _Avoid_: SSR, SSG, CSR, strategy
+
+**Static Data**:
+What a build keeps of each static place: its Loader's answer at each of its Paths, the same for everyone and never changed until the next deploy. The static Pages are drawn from it at the build, the browser reads it on a move, and the server reads it for a static place above a dynamic one, so a static Loader runs once per build and never for a request. Anything in front of the app may keep it for good.
+_Avoid_: data file, payload, the Data, static props
 
 ### Drawing
 
@@ -293,7 +301,7 @@ _Avoid_: plugin, hook, extension
 ### Serving
 
 **Start**:
-What serves an app's first drawing: for a URL, it reads the Route, runs the Loaders, starts every page from its Input and draws the result in the Document, with the Snapshot beside it, so the browser carries on from it. Never runs a Runtime: what it draws is pure. Serves the Loaders to the browser for every move after.
+What makes an app's first drawing: for a URL, it reads the Route, takes each place's data from its Loader, starts every page from it and draws the result in the Document, with the Snapshot beside it, so the browser carries on from it. A static Page it draws at the build, with its Static Data kept beside it; any other, on the server, at the request. Never runs a Runtime: what it draws is pure. Serves the Loaders to the browser for every move after.
 _Avoid_: framework, server, SSR
 
 **Document**:
@@ -301,7 +309,7 @@ The page's HTML around the app, written once: where Start puts the Metadata, the
 _Avoid_: shell, layout, root, html
 
 **App Shell**:
-The Document with no app drawn in it, the same for everyone until the next deploy: it shows what `Start.app({ loading })` says until the browser has drawn the app in it at its own URL, every place loading. What something in front of the app, such as a service worker, answers a page with; under a client root, it is what the server answers every URL with.
+The Document with no app drawn in it, the same for everyone until the next deploy, so the build writes it as a file: it shows what `Start.app({ loading })` says until the browser has drawn the app in it at its own URL, every place loading. What something in front of the app, such as a service worker, answers a page with; under a client root, it is what the server answers every URL with.
 _Avoid_: shell page, skeleton, empty page
 
 **Pages**:

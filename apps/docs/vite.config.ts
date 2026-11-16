@@ -49,6 +49,7 @@ export default defineConfig({
       name: 'ke stack',
       platform: cloudflare(),
       app: 'src/client/app',
+      loaders: 'src/server/loaders.server',
       react: { include: /\.(mdx|tsx|ts)$/ },
     }),
   ],

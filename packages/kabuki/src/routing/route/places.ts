@@ -1,6 +1,7 @@
 import { Schema } from 'effect';
+import { MODES } from './loader.ts';
 import type { RenderMode } from './loader.ts';
-import { dotted } from './node.ts';
+import { dotted, segments } from './node.ts';
 import type {
   AnyNode,
   Children,
@@ -41,7 +42,11 @@ export const placesOn = (
     out.push({
       name,
       key: JSON.stringify([name, params]),
-      params: { ...params, ...pick(node.query, value) },
+      // A static place is the same whatever the query: its Loader is not handed it.
+      params:
+        render === 'static'
+          ? params
+          : { ...params, ...pick(node.query, value) },
       render,
       staleTime: staleTimes.get(name) ?? 0,
       input: node.input,
@@ -75,7 +80,8 @@ export const nodesOn = (
 /**
  * Every place of the tree, as Schemas, from the root down. A place's Stale
  * time is its own, else its parent's, else `staleTime`; a static place's is
- * `Infinity`, and one that says its own throws.
+ * `Infinity`, and one that says its own throws. So does a place that says
+ * an earlier Render Mode than the page above it.
  */
 export const allPlaces = (
   children: Children,
@@ -83,12 +89,22 @@ export const allPlaces = (
   at: ReadonlyArray<string> = [],
   params: Fields = {},
   render: RenderMode = 'static',
+  keys: ReadonlyArray<string> = [],
 ): ReadonlyArray<PlaceSchema> =>
   Object.entries(children).flatMap(([tag, node]) => {
     const here = [...at, tag];
     const name = dotted(here);
     const fields = { ...params, ...node.params };
-    const mode = (node.render as RenderMode | undefined) ?? render;
+    const said = node.render as RenderMode | undefined;
+    if (said !== undefined && MODES.indexOf(said) < MODES.indexOf(render))
+      throw new Error(
+        `[@kestack/kabuki/routing] ${name} is ${said} under a ${render} page: a page is never drawn earlier than the page above it`,
+      );
+    const mode = said ?? render;
+    const own = segments(node.path)
+      .filter((part) => part.startsWith(':'))
+      .map((part) => part.slice(1));
+    const down = [...keys, ...own];
     if (mode === 'static' && node.staleTime !== undefined)
       throw new Error(
         `[@kestack/kabuki/routing] ${name} is static: its data is fresh until the next deploy, so it has no staleTime`,
@@ -97,14 +113,17 @@ export const allPlaces = (
     return [
       {
         name,
-        params: Schema.Struct({ ...fields, ...node.query }) as unknown as Codec<
-          Record<string, unknown>
-        >,
+        // A static place is the same whatever the query: its Loader is not handed it.
+        params: Schema.Struct(
+          mode === 'static' ? fields : { ...fields, ...node.query },
+        ) as unknown as Codec<Record<string, unknown>>,
+        keys: down,
+        lists: own.length > 0,
         render: mode,
         staleTime: mode === 'static' ? Infinity : stale,
         input: node.input,
       },
-      ...allPlaces(node.children, stale, here, fields, mode),
+      ...allPlaces(node.children, stale, here, fields, mode, down),
     ];
   });
 

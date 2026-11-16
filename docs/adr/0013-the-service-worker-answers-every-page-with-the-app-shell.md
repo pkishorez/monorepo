@@ -10,7 +10,7 @@ The App Shell paints what `Start.app({ loading })` says until the app is drawn, 
 
 - The app always opens; server data needs a connection. A page with no data, whose content is in the code, still works offline.
 - Every page stays on the active Build ID while a newer version waits, with no rule for it: the App Shell is always this build's. This replaces the pinning of [web-platform ADR 0006](../../platforms/web-platform/docs/adr/0006-pending-update-pins-navigations-to-the-active-build.md).
-- A static page opened through the worker shows its loading state first, and its Loader runs on the server each time, because the Loader RPC is a `POST` no CDN keeps. A move in the app already works this way. What separates static from dynamic pages, and whether static data should be cacheable, is left open.
+- A static page opened through the worker shows its loading state first, and its Loader runs on the server each time, because the Loader RPC is a `POST` no CDN keeps. A move in the app already works this way. What separates static from dynamic pages, and whether static data should be cacheable, is left open. [ADR 0014](0014-the-service-worker-keeps-the-static-data.md) settles it: the worker keeps the Static Data, and a static page opens whole.
 - A navigation to a path with a file extension or under `/_kabuki/`, or one under `neverCache` or `navigation.denylist`, goes to the network. An app with other server-only URLs must list them in `navigation.denylist`.
 - `navigation.networkTimeoutMs` is gone: no page waits on the network.
 

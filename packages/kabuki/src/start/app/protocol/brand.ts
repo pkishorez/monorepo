@@ -28,6 +28,8 @@ export type ServedApp = ViewOf<any> & {
   readonly routes: {
     readonly route: Codec<any>;
     readonly path: (route: any) => string;
+    /** The Route of a path that names no page. */
+    readonly NotFound: (of: { readonly path: string }) => any;
     /** Every place's path, as written from the root, by dotted name. */
     readonly paths: () => Readonly<Record<string, string>>;
     readonly metadata: (of: any, data?: PlaceData) => Metadata;

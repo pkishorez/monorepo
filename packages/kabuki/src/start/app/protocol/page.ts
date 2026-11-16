@@ -28,6 +28,12 @@ export interface Assets {
 export interface Build {
   /** Changes on every build: the key the cache keeps static pages under. None in dev, where nothing is cached. */
   readonly id: string | undefined;
+  /**
+   * Where the build kept the Static Data, each static place's answer:
+   * `/_kabuki/data/<build>`. None in dev, or where no build drew the static
+   * pages: a static Loader then runs when asked.
+   */
+  readonly data?: string | undefined;
   /** Vite's `base`: where every file is served from. */
   readonly base: string;
   /** The client entry's files. */
@@ -55,6 +61,8 @@ export interface Page {
   readonly drawn: Drawing;
   /** The script that puts the page's scroll back before the app hydrates, if the Router restores it here. */
   readonly scroll?: string;
+  /** Where the build kept the Static Data: the browser reads a static place's answer there. None where it asks the Loader RPC for it. */
+  readonly data?: string;
 }
 
 /**

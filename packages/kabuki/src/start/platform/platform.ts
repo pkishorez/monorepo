@@ -7,8 +7,8 @@
  *   server's dependencies, and which adapter function turns Start's
  *   `Handler` into what the platform runs.
  * - At run time, that adapter function hands every request to the
- *   `Handler` with a `Host`: the platform's env and, if it has one, a
- *   `PageCache`.
+ *   `Handler` with a `Host`: the platform's env and, if it has them, a
+ *   `PageCache` and the files the build wrote.
  */
 
 /** Where static pages are kept, by a key Start makes from the build id and the URL. */
@@ -23,6 +23,13 @@ export interface Host {
   readonly env: unknown;
   /** Where static pages are kept; with none, every page is drawn. */
   readonly cache?: PageCache;
+  /**
+   * A file the build wrote beside the client's, by its path from the
+   * site's root, or nothing if there is none: how the server reads the
+   * Data, each static place's answer. With none, a static Loader runs
+   * when asked.
+   */
+  readonly files?: (path: string) => Promise<Response | undefined>;
 }
 
 /** What Start answers requests with, on any platform. */
@@ -42,4 +49,13 @@ export interface Platform {
   readonly serve: { readonly from: string; readonly name: string };
   /** Vite config the platform adds to the app's, as `nitro()` hands Nitro's plugin its preset. */
   readonly config?: Readonly<Record<string, unknown>>;
+  /**
+   * What the platform's host must be told of the files the build wrote,
+   * as lines to add to a file of its own beside them, by that file's
+   * name: Cloudflare's `_headers`, which says the Static Data never changes.
+   */
+  readonly files?: (written: {
+    /** Where the build kept the Static Data: `/_kabuki/data/<build>`. */
+    readonly data: string;
+  }) => Readonly<Record<string, string>>;
 }

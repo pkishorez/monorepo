@@ -63,23 +63,27 @@ export const loaders = router.loaders({
         title: `${word} ${title}`,
       }));
     }),
-  'Blog.Post': ({ slug }) =>
-    Effect.gen(function* () {
-      begin(`Blog.Post:${slug}`);
-      if (slug === 'moved')
-        return yield* Page.redirect(router.Blog.Post({ slug: 'hello' }));
-      if (slug === 'renamed')
-        return yield* Page.redirect(router.Blog.Post({ slug: 'hello' }), {
-          permanent: true,
-        });
-      if (slug === 'elsewhere')
-        return yield* Page.redirect('https://example.com/post');
-      if (slug === 'broken')
-        return yield* Effect.die(new Error('the post broke'));
-      const post = POSTS.find((each) => each.slug === slug);
-      if (!post) return yield* Page.notFound();
-      return post;
-    }),
+  'Blog.Post': {
+    // Every post there is: the build draws each, and any other slug is not found.
+    paths: () => Effect.succeed(POSTS.map(({ slug }) => ({ slug }))),
+    load: ({ slug }) =>
+      Effect.gen(function* () {
+        begin(`Blog.Post:${slug}`);
+        if (slug === 'moved')
+          return yield* Page.redirect(router.Blog.Post({ slug: 'hello' }));
+        if (slug === 'renamed')
+          return yield* Page.redirect(router.Blog.Post({ slug: 'hello' }), {
+            permanent: true,
+          });
+        if (slug === 'elsewhere')
+          return yield* Page.redirect('https://example.com/post');
+        if (slug === 'broken')
+          return yield* Effect.die(new Error('the post broke'));
+        const post = POSTS.find((each) => each.slug === slug);
+        if (!post) return yield* Page.notFound();
+        return post;
+      }),
+  },
   Account: (_params, request) =>
     Effect.suspend(() => {
       begin('Account');

@@ -1,5 +1,7 @@
 # A server draws pages started from their Loaders, and never runs a Runtime
 
+Amended by [ADR 0049](0049-a-static-page-is-drawn-at-the-build-from-the-paths-it-lists.md): a static page is drawn at the build, not by a server, and its Loader never runs for a request.
+
 Start draws an app's first page on a server. Kabuki loads data with Commands and Workers, which only a Runtime runs, and a Runtime on a server would have to know when its work is done, which nothing in core can tell. So a server never runs one. A place that needs data before it is drawn declares its Input in the Routes, and one server function per place, its Loader, returns it. For a URL, Start runs the Loaders of every place it names at once, starts each page from its own Input with its pure init, and draws the Snapshot that makes, sending it beside the HTML as a Restore. The browser hydrates it and only then starts the Runtime. After a click, the Router asks the server for the Inputs of the places that changed, through an RPC that Start makes from the Routes, and starts those pages from the answers.
 
 A Loader is given its params, and the request unless its place is static. It never sees its parent's Input, so no Loader waits on another and a URL is drawn once, with no streaming. Who may see a place is the Loader's to decide: it fails as not found or Redirects, and there is no middleware.

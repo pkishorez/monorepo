@@ -15,7 +15,7 @@ Four screens. **Rendering** (`/`) is a static page; `/dynamic` adds a
 dynamic layer inside it, and `/dynamic/client` a client layer inside that,
 so all three Render Modes share one screen. A URL names one page per level,
 so nesting is how they do; `/` alone stays all static, which is what lets a
-build keep it for everyone. Each layer says, from its `status.info`, who
+build draw it for everyone, ahead of any visit. Each layer says, from its `status.info`, who
 drew it, when its Loader ran, how its data arrived and whether it is cached.
 **Preloading** (`/items`, `/items/:id`) is a list and the item it opens: each
 link shows its preload as it happens, read from the real `/_kabuki/load`
@@ -107,7 +107,7 @@ the session cookie's domain, so in dev it uses the Auth Worker at
 is under `.kishore.app` and signs in with `https://auth.kishore.app`
 (`src/infra/stage.ts`). Each API Worker lets only the site's origin call it
 with credentials. A personal stage keeps its state in `.alchemy/state`.
-Static pages are kept only in a deployed build: in dev every page is drawn.
+Static pages are drawn ahead only by a build: in dev every page is drawn when asked.
 
 ### Deploy
 

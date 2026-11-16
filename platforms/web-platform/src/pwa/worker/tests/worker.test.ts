@@ -337,6 +337,19 @@ describe('Runtime Cache', () => {
     expect(fake.requests).toHaveLength(1);
   });
 
+  it('keeps the Static Data, each static place’s answer as Start’s build kept it, and asks once', async () => {
+    const fake = start();
+    counter(fake);
+    const path = '/_kabuki/data/k1/Blog.Post/hello.json';
+    const first = fake.fetchEvent(path);
+    expect(await text(first)).toBe('v1');
+    await settle(first);
+    // Under its build id, so it never changes: offline, it still answers.
+    fake.setNetwork(offline);
+    expect(await text(fake.fetchEvent(path))).toBe('v1');
+    expect(fake.caches.urls(DATA)).toEqual([path]);
+  });
+
   it('matches preset rules by destination', async () => {
     const fake = start();
     counter(fake);

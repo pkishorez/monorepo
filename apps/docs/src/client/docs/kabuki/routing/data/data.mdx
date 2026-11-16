@@ -38,9 +38,14 @@ export const loaders = router.loaders({
 ```
 
 A Loader is an Effect. It's handed every path param down to its Page,
-typed, and its own query. A dynamic or client Page's Loader gets the
-request too. Forget a Loader, add one for a Page with no data, or return
-the wrong shape, and it doesn't compile.
+typed. A dynamic or client Page's Loader gets its own query and the request
+too; a static Page is the same whatever the query, so its Loader doesn't.
+Forget a Loader, add one for a Page with no data, or return the wrong
+shape, and it doesn't compile.
+
+A static Page whose path names a param writes its Loader as
+`{ paths, load }`: `paths` lists every path it is at, and Start draws each
+one when you build. That's on the [Serving](/kabuki/serving) page.
 
 Loaders never wait on one another. The list and the product load side by
 side.

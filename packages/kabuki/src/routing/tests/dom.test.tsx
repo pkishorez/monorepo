@@ -395,16 +395,21 @@ describe('a page with data', () => {
     Loading.memory(
       Shop,
       Shop.loaders({
-        Item: ({ id }) =>
-          Effect.sync(() => calls.push(id)).pipe(
-            Effect.andThen(
-              Effect.promise(() => new Promise<void>((done) => (open = done))),
+        Item: {
+          paths: () => Effect.succeed([{ id: 7 }]),
+          load: ({ id }) =>
+            Effect.sync(() => calls.push(id)).pipe(
+              Effect.andThen(
+                Effect.promise(
+                  () => new Promise<void>((done) => (open = done)),
+                ),
+              ),
+              Effect.andThen(() =>
+                broken ? Effect.die(new Error('the shelf fell')) : Effect.void,
+              ),
+              Effect.as({ name: `Lamp ${id}` }),
             ),
-            Effect.andThen(() =>
-              broken ? Effect.die(new Error('the shelf fell')) : Effect.void,
-            ),
-            Effect.as({ name: `Lamp ${id}` }),
-          ),
+        },
       }),
     ),
   );

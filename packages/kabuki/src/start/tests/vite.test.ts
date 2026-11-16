@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createBuilder, createServer } from 'vite';
@@ -42,6 +42,7 @@ const config = (outDir: string, at = root): InlineConfig => ({
   environments: {
     client: { build: { outDir: path.join(outDir, 'client') } },
     ssr: { build: { outDir: path.join(outDir, 'server') } },
+    prerender: { build: { outDir: path.join(outDir, 'prerender') } },
   },
   plugins: [start({ platform: cloudflare() })],
 });
@@ -61,9 +62,19 @@ describe('vite build', () => {
         };
       }
     ).default;
-    return (url: string, init?: RequestInit) =>
-      worker.fetch(new Request(`https://site.test${url}`, init), {});
+    return (url: string, init?: RequestInit, env: object = {}) =>
+      worker.fetch(new Request(`https://site.test${url}`, init), env);
   })();
+
+  /** A file the build wrote beside the client's. */
+  const written = (file: string) =>
+    readFileSync(path.join(out, 'client', file), 'utf8');
+  /** The folder of this build's Static Data, named by its build id. */
+  const dataOf = () => {
+    const [id, ...rest] = readdirSync(path.join(out, 'client', '_kabuki/data'));
+    expect(rest).toEqual([]);
+    return `_kabuki/data/${id}`;
+  };
 
   it('builds the client and a Worker that draws pages, with no entry written by the app', async () => {
     const fetch = await built;
@@ -92,6 +103,110 @@ describe('vite build', () => {
     ).toContain('.stamp');
   }, 60_000);
 
+  it('draws every static page beside the client’s files, at its URL, with the built files in it', async () => {
+    await built;
+    for (const file of [
+      'index.html',
+      'blog.html',
+      'blog/hello.html',
+      'blog/evil.html',
+      'lab.html',
+      'gallery.html',
+      'sign-in.html',
+      // Client pages under static ones, drawn loading, and the App Shell.
+      'dashboard.html',
+      'sketch.html',
+      '_kabuki/shell.html',
+    ])
+      expect(existsSync(path.join(out, 'client', file))).toBe(true);
+    // A dynamic page is the server's.
+    expect(existsSync(path.join(out, 'client', 'account.html'))).toBe(false);
+    const html = written('blog/hello.html');
+    expect(html).toContain('<h1>Hello</h1>');
+    expect(html).toContain('Read: Hello');
+    const script = /<script type="module" src="(\/assets\/[^"]+\.js)">/.exec(
+      html,
+    )?.[1];
+    expect(readdirSync(path.join(out, 'client', 'assets'))).toContain(
+      path.basename(script!),
+    );
+    expect(html).toMatch(/<link rel="stylesheet" href="\/assets\/[^"]+\.css"/);
+    // A lazy View it drew is preloaded by its built chunk.
+    expect(written('gallery.html')).toMatch(
+      /<link rel="modulepreload" href="\/assets\/gallery-[^"]+\.js" data-kabuki-view="src\/gallery\.tsx">/,
+    );
+  }, 60_000);
+
+  it('keeps each static place’s answer under the build id, and tells the page where', async () => {
+    await built;
+    const data = dataOf();
+    expect(JSON.parse(written(`${data}/Blog.Post/hello.json`))).toEqual({
+      _tag: 'Loaded',
+      data: { slug: 'hello', title: 'Hello', body: 'Hi.' },
+    });
+    expect(JSON.parse(written(`${data}/Blog.json`))).toMatchObject({
+      _tag: 'Loaded',
+    });
+    const page = JSON.parse(
+      /<script type="application\/json" id="kabuki-start">(.*?)<\/script>/s.exec(
+        written('index.html'),
+      )![1]!,
+    );
+    expect(page.data).toBe(`/${data}`);
+    expect(page.drawn.build).toBe(data.split('/').at(-1));
+    // The host is told the Static Data never changes.
+    expect(written('_headers')).toBe(
+      `# kabuki start: begin\n/${data}/*\n  Cache-Control: public, max-age=31536000, immutable\n# kabuki start: end\n`,
+    );
+  }, 60_000);
+
+  it('builds a Worker that reads the Static Data from its assets, and never runs a static Loader', async () => {
+    const fetch = await built;
+    /** The Worker's assets: the client's folder, as Cloudflare serves it. */
+    const ASSETS = {
+      fetch: async (request: Request) => {
+        const file = path.join(
+          out,
+          'client',
+          decodeURIComponent(new URL(request.url).pathname),
+        );
+        return existsSync(file)
+          ? new Response(readFileSync(file, 'utf8'))
+          : new Response(null, { status: 404 });
+      },
+    };
+    const ask = async (slug: string) =>
+      JSON.parse(
+        await (
+          await fetch(
+            '/_kabuki/load',
+            {
+              method: 'POST',
+              body: JSON.stringify({
+                places: [{ name: 'Blog.Post', params: { slug } }],
+              }),
+            },
+            { ASSETS },
+          )
+        ).text(),
+      );
+    expect(await ask('hello')).toEqual({
+      name: 'Blog.Post',
+      outcome: {
+        _tag: 'Loaded',
+        data: { slug: 'hello', title: 'Hello', body: 'Hi.' },
+      },
+    });
+    // Its Loader would Redirect: the build listed no such path, so it is not found.
+    expect(await ask('moved')).toEqual({
+      name: 'Blog.Post',
+      outcome: { _tag: 'NotFound' },
+    });
+    expect((await fetch('/blog/moved', undefined, { ASSETS })).status).toBe(
+      404,
+    );
+  }, 60_000);
+
   it('names each lazy View by its module, and preloads its chunk and styles', async () => {
     const fetch = await built;
     const html = await (await fetch('/gallery')).text();
@@ -108,6 +223,8 @@ describe('vite build', () => {
   it('builds the Worker as one module that carries its dependencies and exports only its handler', async () => {
     await built;
     expect(readdirSync(path.join(out, 'server'))).toEqual(['index.js']);
+    // What draws the static pages is one module too, and not among the client's files.
+    expect(readdirSync(path.join(out, 'prerender'))).toEqual(['index.js']);
     const code = readFileSync(path.join(out, 'server', 'index.js'), 'utf8');
     expect(code).not.toMatch(/^import .* from ['"](?!node:)/m);
     expect(code).not.toContain('createRequire');
