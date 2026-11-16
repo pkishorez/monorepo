@@ -141,7 +141,7 @@ two Exceptions.
 
 1. **`sidebar/`** ◆: the Projects and Sessions of the Connections shown:
    `list/` (its rows in `order/`, the Settled List in `settled/`, and a row
-   swiped to Settle in `swipe/`), `bars/` (its `header/` and, on a phone,
+   swiped, or with a mouse dragged, to Settle in `swipe/`), `bars/` (its `header/` and, on a phone,
    its `foot/`) and `prefetch/` ◆ (the messages of every Session shown,
    synced before it is opened).
 2. **`header/`** ◆: where you are, from the rows of the project and the

@@ -18,7 +18,8 @@ import { AnimatePresence } from 'motion/react';
  * first, each with its Project's name. A row opens its Session; its button
  * Un-settles it, which puts it back in the timeline. With no keyboard a row
  * swipes left to right to un-Settle instead, and its button is only heard,
- * by a screen reader, which cannot swipe it. "Settled", last in the
+ * by a screen reader, which cannot swipe it. With a mouse a row also drags
+ * back onto the Sessions to un-Settle it. "Settled", last in the
  * timeline, opens it under itself, and closes it again.
  */
 
@@ -67,7 +68,7 @@ export function SettledList({
   /** Whether the keyboard's cursor is on a place. */
   readonly at: (place: string) => true | undefined;
   readonly onUnsettle: (connectionId: string, sessionId: string) => void;
-  /** A Session swiped to un-Settle it. */
+  /** A Session swiped or dragged to un-Settle it. */
   readonly onMove: (session: OnConnection<Session>, settled: boolean) => void;
 }) {
   const settle = useBound('app.actions');
@@ -80,7 +81,7 @@ export function SettledList({
           <p className="px-3 py-1.5 text-[13px] text-pretty text-muted-foreground keyboard:md:text-xs">
             {!keyboard
               ? 'Nothing is Settled. Swipe a session you are done with left to right to Settle it.'
-              : `Nothing is Settled. Settle a session you are done with from Session Actions${settle === null ? '' : ` (${settle})`}.`}
+              : `Nothing is Settled. Drag a session you are done with onto Settled, or Settle it from Session Actions${settle === null ? '' : ` (${settle})`}.`}
           </p>
         ) : (
           <SidebarMenu className="gap-0.5">
