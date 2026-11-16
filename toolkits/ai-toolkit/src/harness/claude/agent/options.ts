@@ -3,9 +3,14 @@ import { Effect } from 'effect';
 import { ASK_USER_QUESTION, type Questions } from './questions/index.js';
 import type { TurnOptions } from './turn-options.js';
 
+/** Claude Code's own system prompt, or the Agent SDK's minimal one. */
+export type SystemPrompt = 'claude_code' | 'minimal';
+
 export interface SdkAgentConfig extends TurnOptions {
   readonly cwd: string;
   readonly nativeId?: string;
+  /** Claude Code's own system prompt, or the Agent SDK's minimal one. */
+  readonly systemPrompt: SystemPrompt;
   /** The Claude Code to run, and the environment it runs in. */
   readonly executable: {
     readonly path: string;
@@ -30,6 +35,10 @@ export const queryOptions = (
   pathToClaudeCodeExecutable: config.executable.path,
   env: config.executable.env,
   model: config.model,
+  // Unset, the SDK runs its minimal prompt, not Claude Code's.
+  ...(config.systemPrompt === 'claude_code'
+    ? { systemPrompt: { type: 'preset', preset: 'claude_code' } }
+    : {}),
   effort: config.effort,
   permissionMode: config.permissionMode,
   // Token deltas, batched into a few sentences per text.chunk record.

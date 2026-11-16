@@ -47,6 +47,15 @@ export const setKeepScreenOn = Command.make('SetKeepScreenOn', {
     ),
 });
 
+/** Keeps whether a new Claude session runs Claude Code's own system prompt in Preferences; a write that fails is lost. */
+export const setClaudeCodePrompt = Command.make('SetClaudeCodePrompt', {
+  args: Schema.Struct({ on: Schema.Boolean }),
+  run: ({ on }) =>
+    Effect.flatMap(Preferences, (store) => store.setClaudeCodePrompt(on)).pipe(
+      Effect.ignore,
+    ),
+});
+
 /** Keeps when the Draft shows how full the context is in Preferences; a write that fails is lost. */
 export const setContext = Command.make('SetContext', {
   args: Schema.Struct({ shown: PreferencesRead.fields.context }),

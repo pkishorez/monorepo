@@ -5,7 +5,12 @@ import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket'
 import { Actor } from '@kestack/kabuki';
 import { Navigation, Router } from '@kestack/kabuki/routing';
 import { session } from '../../../../app.ts';
-import { SavedDraft, Storage, Written } from '../../../../storage/index.ts';
+import {
+  Preferences,
+  SavedDraft,
+  Storage,
+  Written,
+} from '../../../../storage/index.ts';
 import * as Catalog from '../store.ts';
 import { Handover, SessionArrival, SharedCatalog } from '../store.ts';
 import {
@@ -248,6 +253,7 @@ const Draft = Actor.define('Draft', {
     Handover,
     Navigation,
     Storage,
+    Preferences,
     Accounts,
     RpcConnection,
   ],
@@ -458,7 +464,13 @@ export const DraftLive = Draft.build({
         Effect.gen(function* () {
           const { model } = yield* self.get;
           if (model.starting === null) return;
-          yield* startingOf(id, model.starting.args, self.send);
+          const { args } = model.starting;
+          yield* startingOf(
+            id,
+            args,
+            Catalog.harnessOf(model.catalog, args.account)?.harness ?? null,
+            self.send,
+          );
         }),
     },
     // 2. Choose: the catalog, as the project shares it.

@@ -10,8 +10,9 @@ import { GeneralView } from '../view.tsx';
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 /*
- * General over Preferences in memory: Keep Screen On starts on, and stays
- * as it is switched once Preferences is read again after the write.
+ * General over Preferences in memory: Keep Screen On and Claude Code's
+ * system prompt each start on, and stay as they are switched once
+ * Preferences is read again after the write.
  */
 
 let apps = 0;
@@ -19,17 +20,19 @@ let root: Root | undefined;
 
 const flush = () => act(() => new Promise((done) => setTimeout(done, 0)));
 
-const keepScreenOn = () =>
+const toggle = (id: string) =>
   document.querySelector<HTMLButtonElement>(
-    'button[role="switch"][aria-labelledby="keep-screen-on-name"]',
+    `button[role="switch"][aria-labelledby="${id}-name"]`,
   );
+const keepScreenOn = () => toggle('keep-screen-on');
+const claudeCodePrompt = () => toggle('claude-code-prompt');
 
 const settled = async () => {
   for (let tries = 0; tries < 10; tries++) await flush();
 };
 
-const flip = async () => {
-  await act(async () => keepScreenOn()!.click());
+const flip = async (which = keepScreenOn) => {
+  await act(async () => which()!.click());
   await settled();
 };
 
@@ -67,5 +70,18 @@ describe('Keep screen on', () => {
     expect(keepScreenOn()!.getAttribute('aria-checked')).toBe('false');
     await flip();
     expect(keepScreenOn()!.getAttribute('aria-checked')).toBe('true');
+  });
+});
+
+describe('Claude Code system prompt', () => {
+  it('starts on', () => {
+    expect(claudeCodePrompt()!.getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('stays as it is switched, off and on again', async () => {
+    await flip(claudeCodePrompt);
+    expect(claudeCodePrompt()!.getAttribute('aria-checked')).toBe('false');
+    await flip(claudeCodePrompt);
+    expect(claudeCodePrompt()!.getAttribute('aria-checked')).toBe('true');
   });
 });

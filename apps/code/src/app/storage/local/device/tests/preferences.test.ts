@@ -44,6 +44,7 @@ describe('Preferences', () => {
       sidebarWidth: 260,
       context: 'always',
       keepScreenOn: true,
+      claudeCodePrompt: true,
     });
   });
 
@@ -102,6 +103,18 @@ describe('Preferences', () => {
         const before = (yield* device.read).keepScreenOn;
         yield* device.setKeepScreenOn(false);
         return [before, (yield* device.read).keepScreenOn];
+      }),
+    );
+    expect(read).toEqual([true, false]);
+  });
+
+  it("keeps Claude Code's own system prompt for new Claude sessions until it is turned off", async () => {
+    const read = await run(
+      Effect.gen(function* () {
+        const device = yield* store;
+        const before = (yield* device.read).claudeCodePrompt;
+        yield* device.setClaudeCodePrompt(false);
+        return [before, (yield* device.read).claudeCodePrompt];
       }),
     );
     expect(read).toEqual([true, false]);

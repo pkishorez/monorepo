@@ -1,3 +1,4 @@
+export type { SystemPrompt } from './options.js';
 export {
   openSdkAgent,
   restore,

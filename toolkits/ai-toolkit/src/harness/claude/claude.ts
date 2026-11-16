@@ -18,7 +18,7 @@ import {
   type SdkTurnHandle,
 } from './agent/index.js';
 import { ask, fork } from './fork/index.js';
-import { readSettings, SETTINGS } from './settings.js';
+import { readSettings, readSystemPrompt, SETTINGS } from './settings.js';
 
 /** A dated snapshot such as `claude-opus-4-5-20251101` repeats its alias. */
 const DATED = /-\d{8}$/;
@@ -59,6 +59,7 @@ export const claude: Harness = {
         model: config.model,
         executable: yield* executable,
         ...readSettings(config.settings),
+        systemPrompt: readSystemPrompt(config.settings),
         ...(config.nativeId === undefined ? {} : { nativeId: config.nativeId }),
       });
       const handleOf = (handle: SdkTurnHandle): TurnHandle => ({
