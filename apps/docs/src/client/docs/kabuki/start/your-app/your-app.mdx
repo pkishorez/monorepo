@@ -102,14 +102,19 @@ import { Start } from '@kestack/kabuki/start/server';
 
 export const loaders = router.loaders({
   Blog: () => Posts.list(),
-  'Blog.Post': ({ slug }) => Posts.get(slug), // or Page.notFound()
+  'Blog.Post': {
+    paths: () => Posts.paths(), // every { slug } there is
+    load: ({ slug }) => Posts.get(slug),
+  },
 });
 
 export default Start.server(loaders);
 ```
 
 `router.loaders` checks the list against your router. A page with data and
-no Loader, or a Loader for a page that has none, is a type error.
+no Loader, or a Loader for a page that has none, is a type error. So is a
+static page with a param in its path and no `paths`: the build draws every
+static page, and can only draw the ones it's told are there.
 
 The `.server` in the name matters. If a module the browser loads imports a
 `*.server.*` file, the build fails. Your database code never reaches the
@@ -127,8 +132,8 @@ export default Start.server({
 }).loaders(loaders);
 ```
 
-- `layer` is made once, at the first request. It can read the platform's
-  env. Database clients and config go here.
+- `layer` is made once, at the build and at the server's first request. It
+  can read the platform's env. Database clients and config go here.
 - `visitor` is made for each request that needs it. It can read the
   request, its headers, and what `layer` gives. Who is signed in goes
   here.
@@ -136,9 +141,9 @@ export default Start.server({
 Read the platform's env with `yield* Start.env<WorkerEnv>()`, and the
 request with `yield* Start.Request`.
 
-Only dynamic and client Loaders get the visitor. A static page is kept for
-everyone, so a static Loader that asks who is signed in is a type error.
-And on a page that is all static, the visitor is never made.
+Only dynamic and client Loaders get the visitor. A static page is drawn at
+the build, for everyone, so a static Loader that asks who is signed in is a
+type error. And on a page that is all static, the visitor is never made.
 
 A dynamic Loader, or the visitor, can add headers to the response with
 `Start.ResponseHeaders`, like a refreshed session's `set-cookie`.

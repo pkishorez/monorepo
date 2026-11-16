@@ -2,6 +2,7 @@ import { routesOf } from '../route/index.ts';
 import type {
   ChildrenOf,
   Metadata,
+  Nested,
   Redirects,
   RouteOf,
   RoutesApi,
@@ -95,7 +96,7 @@ export const define = <
     >
   > = {},
 >(
-  root: (G & Rootless<G>) | (() => G & Rootless<G>),
+  root: (G & Rootless<G> & Nested<G>) | (() => G & Rootless<G> & Nested<G>),
   options: RouterOptions<ChildrenOf<G>, D> & {
     readonly redirect?: D & Redirects<ChildrenOf<G>, D>;
   } = {},

@@ -148,6 +148,7 @@ export const drawer = (
         saved,
         drawn: { at: Date.now(), build: build.id },
         ...scrollOf(app, at.route),
+        ...(build.data !== undefined && { data: build.data }),
       };
       const views = new Set<string>();
       return html(
@@ -170,6 +171,7 @@ export const drawer = (
         entry: build.entry,
         head: build.head,
         drawn: { at: Date.now(), build: build.id },
+        ...(build.data !== undefined && { data: build.data }),
       };
       const metadata = app.routes.rootMetadata;
       return html(

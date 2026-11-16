@@ -24,7 +24,9 @@ import './styles.css';
  * seen are kept in IndexedDB, without tokens, so the header opens on the
  * avatar while the Auth Worker confirms it; the table is opened only once
  * the Layer is built, in the browser. So is the Replica Store, one
- * IndexedDB database per Pocket Instance, shared by the browser's tabs.
+ * IndexedDB database per Pocket Instance, shared by the browser's tabs,
+ * and so is where the Auth Worker is read: a build runs this module too,
+ * to draw the static pages, and only a deploy says where it is.
  */
 
 const remembered = Layer.unwrap(
@@ -46,7 +48,11 @@ const layer = Layer.mergeAll(
   replicas,
 ).pipe(
   Layer.provideMerge(
-    browser({ url: import.meta.env.VITE_AUTH_URL, cache: remembered }),
+    Layer.unwrap(
+      Effect.sync(() =>
+        browser({ url: import.meta.env.VITE_AUTH_URL, cache: remembered }),
+      ),
+    ),
   ),
 );
 

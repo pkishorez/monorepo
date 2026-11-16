@@ -26,7 +26,7 @@ const MODES: Record<
   static: {
     name: 'Static',
     place: 'Static',
-    kept: 'Yes, for everyone',
+    kept: 'Yes, by the build, for everyone',
   },
   dynamic: {
     name: 'Dynamic',
@@ -65,13 +65,14 @@ function Fact({
 }
 
 /**
- * Whether the page is kept. Start keeps a whole page only when every layer
- * the server draws is static, so the static layer is kept alone at `/`,
- * and drawn afresh with the page once a dynamic layer is inside it.
+ * Whether the layer's data is kept. A static layer's is the build's, the
+ * same for everyone until the next deploy, whatever is inside it: at `/`
+ * the build drew the whole page with it, and once a dynamic layer is
+ * inside, the server draws the page per visit around the same data.
  */
 const keptOf = (mode: Mode, mixed: boolean) =>
   mode === 'static' && mixed
-    ? 'No: a dynamic layer is inside it, so the page is drawn per visit'
+    ? 'Its data, by the build; the page around it is drawn per visit'
     : MODES[mode].kept;
 
 /** What a live layer says about itself. */
@@ -262,9 +263,10 @@ export const StaticView = View.make(
         </Button>
         <p className="max-w-[60ch] text-sm text-muted-foreground">
           Reload and compare the times. Deployed, the page at{' '}
-          <span className="font-mono text-[13px]">/</span> is kept whole, so its
-          time stays; once a dynamic layer is in it, the whole page is drawn
-          afresh, and in dev every page is.
+          <span className="font-mono text-[13px]">/</span> was drawn by the
+          build, so its time stays, here and under a dynamic layer too; the
+          dynamic layer&apos;s is this visit&apos;s. In dev every Loader runs
+          when asked.
         </p>
       </div>
     </div>

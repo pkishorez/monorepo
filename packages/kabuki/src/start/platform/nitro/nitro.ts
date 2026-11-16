@@ -1,4 +1,4 @@
-import type { Handler, PageCache, Platform } from '../index.ts';
+import type { Handler, Host, PageCache, Platform } from '../index.ts';
 
 /*
  * Start on whatever Nitro builds for: Cloudflare, Vercel, Node, Bun,
@@ -11,7 +11,10 @@ import type { Handler, PageCache, Platform } from '../index.ts';
  * `serve(handler)` is that entry: each request handed to Start with the
  * platform's env, a Worker's bindings on Cloudflare and the process's
  * elsewhere, and the Cloudflare Cache where there is one; with none, a
- * static page is kept by the CDN in front, by its Cache-Control.
+ * static page is kept by the CDN in front, by its Cache-Control. On
+ * Cloudflare it reads the Static Data from the Worker's assets; elsewhere it is
+ * handed no files, so a static Loader runs when the server is asked for
+ * its place.
  */
 
 /** Where Nitro builds the server for. */
@@ -51,12 +54,35 @@ const theCache = (): PageCache | undefined =>
   (globalThis as { readonly caches?: { readonly default?: PageCache } }).caches
     ?.default;
 
+/** A Worker's assets, as its `ASSETS` binding: the client's files, and what the build wrote beside them. */
+interface Assets {
+  readonly fetch: (request: Request) => Promise<Response>;
+}
+
+/** The files the build wrote, read from a Worker's assets; none where the env holds none. */
+const theFiles = (env: unknown, request: Request): Host['files'] => {
+  const assets = (env as { readonly ASSETS?: Assets } | null | undefined)
+    ?.ASSETS;
+  if (typeof assets?.fetch !== 'function') return undefined;
+  return async (path) => {
+    const response = await assets.fetch(
+      new Request(new URL(path, request.url)),
+    );
+    return response.ok ? response : undefined;
+  };
+};
+
 /** Start's handler as Nitro's SSR entry: what the server's entry default-exports. */
 export const serve = (handler: Handler) => ({
   fetch: (request: Request): Promise<Response> => {
     const env =
       (request as OnCloudflare).runtime?.cloudflare?.env ?? process.env;
     const cache = theCache();
-    return handler.fetch(request, cache ? { env, cache } : { env });
+    const files = theFiles(env, request);
+    return handler.fetch(request, {
+      env,
+      ...(cache && { cache }),
+      ...(files && { files }),
+    });
   },
 });

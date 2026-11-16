@@ -1,9 +1,13 @@
 import { Cause, Clock, Context, Effect, Layer, Stream } from 'effect';
+import { loadOf } from '../route/index.ts';
 import type {
+  AnyLoad,
+  AnyLoader,
   LoadError,
   Outcome,
   PlaceSchema,
   RedirectError,
+  RequiredToLoad,
 } from '../route/index.ts';
 import { cached } from './cache.ts';
 
@@ -115,17 +119,8 @@ export interface RoutesWithPlaces {
   readonly options?: { readonly cacheSize?: number };
 }
 
-type AnyLoader = (
-  params: never,
-  request: Request,
-) => Effect.Effect<unknown, LoadError, any>;
-
 type ServicesOf<L> = {
-  [K in keyof L & string]-?: L[K] extends (
-    ...args: never
-  ) => Effect.Effect<any, any, infer R>
-    ? R
-    : never;
+  [K in keyof L & string]-?: RequiredToLoad<L[K]>;
 }[keyof L & string];
 
 /**
@@ -149,7 +144,7 @@ export const memory = <L extends Readonly<Record<string, AnyLoader>>>(
         Stream.fromIterable(places).pipe(
           Stream.mapEffect(
             (place) => {
-              const loader = loaders[place.name] as AnyLoader | undefined;
+              const loader = loadOf(loaders[place.name]);
               const run = Effect.suspend(() =>
                 !loader
                   ? Effect.die(
@@ -158,7 +153,7 @@ export const memory = <L extends Readonly<Record<string, AnyLoader>>>(
                       ),
                     )
                   : modes.get(place.name)?.render === 'static'
-                    ? (loader as (params: unknown) => ReturnType<AnyLoader>)(
+                    ? (loader as (params: unknown) => ReturnType<AnyLoad>)(
                         place.params,
                       )
                     : loader(place.params as never, request()),

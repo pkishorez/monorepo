@@ -1,5 +1,5 @@
 import type { Schema } from 'effect';
-import type { LoadersOf, RenderMode } from './loader.ts';
+import type { LoadersOf, RenderMode, SaidMode } from './loader.ts';
 import type { Metadata } from './metadata.ts';
 
 /*
@@ -36,7 +36,7 @@ export interface Node<
   Q extends Fields = {},
   C extends object = {},
   I = never,
-  M extends RenderMode | undefined = undefined,
+  M extends SaidMode | undefined = undefined,
 > {
   readonly path: string;
   readonly params: P;
@@ -78,6 +78,23 @@ type ModeOf<N, Parent extends RenderMode> =
       ? M
       : Parent
     : Parent;
+/** Whether a node's own path names params. */
+type ListsOf<N> =
+  N extends Node<infer P, any, any, any, any>
+    ? [keyof P] extends [never]
+      ? false
+      : true
+    : false;
+type IsAny<T> = 0 extends 1 & T ? true : false;
+/** Whether a node says `dynamic` itself; one typed loosely says nothing. */
+type SaysDynamic<N> =
+  N extends Node<any, any, any, any, infer M>
+    ? IsAny<M> extends true
+      ? false
+      : [M] extends ['dynamic']
+        ? true
+        : false
+    : false;
 
 /** The value of one node under its tag: `page` is the level below, if the URL goes there. */
 export type ValueOf<T extends string, N> = Simplify<
@@ -130,7 +147,8 @@ export type Tree<C, R, Inherited> = {
 
 /**
  * Every place of a tree, as the types know it. A Loader is handed `params`:
- * every path param down to it, and its own query.
+ * every path param down to it, and its own query unless the place is
+ * static, which is the same whatever the query.
  */
 export type PlacesOf<
   C,
@@ -143,9 +161,14 @@ export type PlacesOf<
       [K in keyof C & string]:
         | {
             readonly name: `${Pre}${K}`;
-            readonly params: Simplify<Ps & ParamsOf<C[K]> & QueryOf<C[K]>>;
+            readonly params: Simplify<
+              ModeOf<C[K], Mode> extends 'static'
+                ? Ps & ParamsOf<C[K]>
+                : Ps & ParamsOf<C[K]> & QueryOf<C[K]>
+            >;
             readonly input: DataOf<C[K]>;
             readonly mode: ModeOf<C[K], Mode>;
+            readonly lists: ListsOf<C[K]>;
           }
         | PlacesOf<
             ChildrenOf<C[K]>,
@@ -159,19 +182,53 @@ export type PlacesOf<
 export type LoaderNames<C> =
   LoadersOf<PlacesOf<C>> extends infer L ? keyof L & string : never;
 
-/** The dotted name of every static place with data among `X`. */
+/** The dotted name of every static place among `X`. */
 type StaticIn<X> = X extends {
   readonly name: infer N extends string;
-  readonly input: infer I;
   readonly mode: 'static';
 }
-  ? [I] extends [never]
-    ? never
-    : N
+  ? N
   : never;
 
-/** The dotted name of every static place of a tree with data. */
+/** The dotted name of every static place of a tree: those among the Loaders are handed nothing made from a request. */
 export type StaticNames<C> = StaticIn<PlacesOf<C>>;
+
+/** The dotted name of every place that says `dynamic` under a client page: the server draws nothing there. */
+type EarlierIn<
+  C,
+  Pre extends string = '',
+  Mode extends RenderMode = 'static',
+> = [keyof C] extends [never]
+  ? never
+  : // Pages typed loosely name no page: nothing to walk, and nothing to refuse.
+    string extends keyof C
+    ? never
+    : {
+        [K in keyof C & string]:
+          | (Mode extends 'client'
+              ? SaysDynamic<C[K]> extends true
+                ? `${Pre}${K}`
+                : never
+              : never)
+          | EarlierIn<ChildrenOf<C[K]>, `${Pre}${K}.`, ModeOf<C[K], Mode>>;
+      }[keyof C & string];
+
+/**
+ * A page is never drawn earlier than the page above it. No page says
+ * `static`, so the one way to say it is `dynamic` under a client page:
+ * such places are a property the root misses, named.
+ */
+export type Nested<N> = [
+  EarlierIn<ChildrenOf<N>, '', ModeOf<N, 'static'>>,
+] extends [never]
+  ? unknown
+  : {
+      readonly 'these pages are dynamic under a client page, which the server never draws': EarlierIn<
+        ChildrenOf<N>,
+        '',
+        ModeOf<N, 'static'>
+      >;
+    };
 
 /** The dotted name of every place of a tree. */
 export type NameOf<C> =
@@ -206,7 +263,7 @@ export interface Place<Name extends string = string> {
   readonly name: Name;
   /** Its name and every path param down to it: a place whose key is the same is the same Instance. */
   readonly key: string;
-  /** What its Loader is handed: every path param down to it, and its own query. */
+  /** What its Loader is handed: every path param down to it, and its own query unless it is static. */
   readonly params: Readonly<Record<string, unknown>>;
   readonly render: RenderMode;
   /** How long, in milliseconds, a copy of its data stays fresh: `Infinity` for a static place. */
@@ -217,8 +274,12 @@ export interface Place<Name extends string = string> {
 /** One place of the tree, as Schemas: what a Loader RPC is made from. */
 export interface PlaceSchema<Name extends string = string> {
   readonly name: Name;
-  /** What its Loader is handed: every path param down to it, its own and its ancestors', and its own query. */
+  /** What its Loader is handed: every path param down to it, its own and its ancestors', and its own query unless it is static. */
   readonly params: Codec<Record<string, unknown>>;
+  /** The names of the path params down to it, in the order its URL writes them. */
+  readonly keys: ReadonlyArray<string>;
+  /** Whether its own path names params: a static place that does lists its paths. */
+  readonly lists: boolean;
   readonly render: RenderMode;
   /** How long, in milliseconds, a copy of its data stays fresh: `Infinity` for a static place, fresh until the next deploy. */
   readonly staleTime: number;

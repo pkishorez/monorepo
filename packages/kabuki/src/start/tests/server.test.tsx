@@ -458,6 +458,34 @@ describe('what an app writes', () => {
     });
     // @ts-expect-error a static Loader Requires Visitor, which only the visitor gives
     Server.server({ layer: greeting, visitor: seen }).loaders(leaking);
+    // Nor may a static place list its paths with it: a build lists them before anyone visits.
+    const listing = router.loaders({
+      ...loaders,
+      'Blog.Post': {
+        paths: () =>
+          Effect.gen(function* () {
+            yield* Visitor;
+            return [];
+          }),
+        load: () => Effect.succeed({ slug: '', title: '', body: '' }),
+      },
+    });
+    // @ts-expect-error a static place's paths Require Visitor, which only the visitor gives
+    Server.server({ layer: greeting, visitor: seen }).loaders(listing);
+    // What the layer gives, they may: the paths are listed with it.
+    Server.server({ layer: greeting }).loaders(
+      router.loaders({
+        ...loaders,
+        'Blog.Post': {
+          paths: () =>
+            Effect.gen(function* () {
+              yield* Greeting;
+              return [];
+            }),
+          load: () => Effect.succeed({ slug: '', title: '', body: '' }),
+        },
+      }),
+    );
     // A dynamic Loader may add headers to its response; a static one may not.
     Server.server({ layer: greeting }).loaders(
       router.loaders({
@@ -867,7 +895,7 @@ describe('the App Shell', () => {
 describe('under a client root', () => {
   const Inbox = Page.define({ path: '/inbox' });
   const InboxLive = Inbox.build();
-  const Pinned = Page.define({ path: '/pinned', render: 'static' });
+  const Pinned = Page.define({ path: '/pinned' });
   const PinnedLive = Pinned.build();
   const Person = Page.define({
     path: '/people/:name',
@@ -902,11 +930,11 @@ describe('under a client root', () => {
       cache ? { env: {}, cache } : { env: {} },
     );
 
-  it('inherits the root Render Mode in every place, unless a place says its own', () => {
+  it('inherits the root Render Mode in every place: none is drawn earlier than the root', () => {
     expect(rooted.render).toBe('client');
     expect(rooted.every.map(({ name, render }) => [name, render])).toEqual([
       ['Inbox', 'client'],
-      ['Pinned', 'static'],
+      ['Pinned', 'client'],
       ['Person', 'client'],
     ]);
     expect(rooted.places(rooted.Inbox()).map((place) => place.render)).toEqual([
@@ -981,7 +1009,7 @@ describe('under a client root', () => {
 
 describe('under a dynamic root', () => {
   const Feed = Page.define({ path: '/feed' });
-  const Open = Page.define({ path: '/open', render: 'static' });
+  const Open = Page.define({ path: '/open', render: 'client' });
   const Root = Page.define({ render: 'dynamic', pages: { Feed, Open } });
   const RootLive = Root.build({
     pages: { Feed: Feed.build(), Open: Open.build() },
@@ -996,7 +1024,7 @@ describe('under a dynamic root', () => {
     build,
   });
 
-  it('says of each page what the server does with it, one that says static too', async () => {
+  it('says of each page what the server does with it, one that says client too', async () => {
     const { pages } = (await (
       await site.fetch(new Request(`https://site.test${Start.pages}`), {
         env: {},
@@ -1004,14 +1032,8 @@ describe('under a dynamic root', () => {
     ).json()) as Pages;
     expect(pages.map((one) => [one.name, one.render])).toEqual([
       ['Feed', 'dynamic'],
-      ['Open', 'static'],
+      ['Open', 'client'],
     ]);
-    const open = await site.fetch(new Request('https://site.test/open'), {
-      env: {},
-    });
-    expect(open.headers.get('cache-control')).toBe(
-      'public, max-age=0, s-maxage=31536000, no-transform',
-    );
   });
 
   it('draws its pages for each visitor', async () => {

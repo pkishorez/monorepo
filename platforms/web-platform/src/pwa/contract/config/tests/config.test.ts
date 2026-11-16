@@ -63,7 +63,17 @@ describe('resolvePwaConfig', () => {
       swUrl: '/sw.js',
       splash: false,
     });
-    expect(config.strategies.map((rule) => rule.cacheName)).toEqual(['images']);
+    // Every preset keeps the Static Data, what Start's build kept of each static place.
+    expect(config.strategies.map((rule) => rule.cacheName)).toEqual([
+      'data',
+      'images',
+    ]);
+    expect(config.strategies[0]).toEqual({
+      match: { origin: 'same-origin', pathPrefix: '/_kabuki/data/' },
+      strategy: 'cache-first',
+      cacheName: 'data',
+      maxEntries: 500,
+    });
   });
 
   it("gives the manifest the default Theme's colors and the icons in public/", () => {
@@ -111,6 +121,7 @@ describe('resolvePwaConfig', () => {
     expect(config.navigation.denylist).toEqual(['/admin']);
     expect(config.strategies.map((rule) => rule.cacheName)).toEqual([
       'api',
+      'data',
       'images',
     ]);
     expect(config.update).toEqual({ checkIntervalMinutes: 5 });

@@ -8,6 +8,7 @@ export type {
   How,
   LevelOf,
   MetadataOf,
+  Nested,
   Node,
   Place,
   PlaceData,
@@ -21,12 +22,18 @@ export type {
 } from './node.ts';
 export { levelSchema, paramsKey, pick } from './values.ts';
 export { wholeQuery } from './url.ts';
-export { NotFoundError, RedirectError } from './loader.ts';
+export { NotFoundError, RedirectError, loadOf, pathsOf } from './loader.ts';
 export type {
+  AnyLoad,
+  AnyLoader,
+  AnyPaths,
   LoadError,
   Outcome,
   RedirectTo,
   RenderMode,
+  RequiredBy,
+  RequiredToLoad,
+  SaidMode,
   StaticOf,
 } from './loader.ts';
 export { MANAGED, tagsOf } from './metadata.ts';

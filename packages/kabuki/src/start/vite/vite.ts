@@ -3,6 +3,7 @@ import { existsSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { isRunnableDevEnvironment } from 'vite';
 import type { Plugin, ViteDevServer } from 'vite';
+import { dataRoot } from '../app/protocol/index.ts';
 import type { Build } from '../app/protocol/index.ts';
 import type { Handler, Platform } from '../platform/index.ts';
 import { serveHandler } from './dev.ts';
@@ -11,11 +12,13 @@ import {
   CLIENT,
   ENTRY,
   HANDLER,
+  PRERENDER,
   WORKER,
   buildModule,
   clientEntry,
   devScripts,
   handlerModule,
+  prerenderModule,
   workerEntry,
 } from './entries.ts';
 import { findFiles } from './files.ts';
@@ -23,6 +26,7 @@ import type { FileOptions } from './files.ts';
 import { filesOf } from './manifest.ts';
 import type { Manifest } from './manifest.ts';
 import { mentionsLazy, withIds } from './lazy.ts';
+import { draw, tellHost } from './prerender.ts';
 import { DEV_STYLES, serveStyles } from './styles.ts';
 
 /*
@@ -41,7 +45,12 @@ import { DEV_STYLES, serveStyles } from './styles.ts';
  * 3. Name      every `View.lazy(() => import('./x'))` with its module's id,
  *              the same on the server and in the browser.
  * 4. Build     the client first, then the Worker, which is handed the client's
- *              files and a build id that changes on every build.
+ *              files and a build id that changes on every build. Then the
+ *              static pages: one more module, built for Node and run
+ *              there, draws each one, the client pages under them and the
+ *              App Shell, and writes their HTML and the static places'
+ *              answers beside the client's files, so the platform answers
+ *              them without the Worker; see `prerender.ts`.
  * 5. Dev       serve SSR from Vite's own server environment when nothing else
  *              runs the Worker, as under plain `vite dev`; under `alchemy dev`
  *              the Cloudflare plugin runs it in workerd. Either way the head
@@ -56,6 +65,10 @@ export interface StartOptions extends FileOptions {
 
 /** A file the client build writes for the Worker to read, and which is never deployed. */
 const MANIFEST = '.vite/kabuki-start.json';
+
+/** The environment that builds what draws the static pages, and where its one module goes: never deployed. */
+const DRAWS = 'prerender';
+const DRAWN = 'node_modules/.kabuki-start/prerender';
 
 /** What the client build hands the Worker's, kept on `globalThis`: Vite may make the plugin again for each build. */
 const built = (): Map<string, Omit<Build, 'head'>> => {
@@ -161,6 +174,24 @@ export const start = (options: StartOptions): Plugin => {
                 ...input({ index: WORKER }, true),
               },
             },
+            // What draws the static pages runs in Node, at the build: one
+            // module that carries every dependency, as the Worker's does.
+            ...(command === 'build'
+              ? {
+                  [DRAWS]: {
+                    consumer: 'server',
+                    resolve: { noExternal: true },
+                    build: {
+                      outDir:
+                        config.environments?.[DRAWS]?.build?.outDir ??
+                        path.join(root, DRAWN),
+                      emptyOutDir: true,
+                      copyPublicDir: false,
+                      ...input({ index: PRERENDER }, true),
+                    },
+                  },
+                }
+              : {}),
           },
           // 4. Build: Start's own two; any other environment is left to the
           // plugin that adds it, as Nitro builds its server after these.
@@ -212,13 +243,15 @@ export const start = (options: StartOptions): Plugin => {
     },
 
     resolveId(id) {
-      if ([HANDLER, WORKER, CLIENT, BUILD].includes(id)) return resolved(id);
+      if ([HANDLER, WORKER, CLIENT, PRERENDER, BUILD].includes(id))
+        return resolved(id);
       return undefined;
     },
 
     async load(id) {
       if (id === resolved(HANDLER)) return handlerModule(files());
       if (id === resolved(WORKER)) return workerEntry(options.platform);
+      if (id === resolved(PRERENDER)) return prerenderModule(files());
       if (id === resolved(CLIENT))
         return clientEntry(
           files(),
@@ -269,9 +302,11 @@ export const start = (options: StartOptions): Plugin => {
         const dir = output.dir ?? this.environment.config.build.outDir;
         const file = path.resolve(root, dir, name);
         const manifest = JSON.parse(readFileSync(file, 'utf8')) as Manifest;
+        const id = randomUUID();
         built().set(root, {
-          id: randomUUID(),
+          id,
           base,
+          data: dataRoot(base, id),
           ...filesOf(manifest, base),
         });
         if (name !== MANIFEST) return;
@@ -279,6 +314,36 @@ export const start = (options: StartOptions): Plugin => {
         const folder = path.dirname(file);
         if (existsSync(folder) && readdirSync(folder).length === 0)
           rmSync(folder, { recursive: true });
+      },
+    },
+
+    // 4. Build: the static pages, once everything else is built, whoever
+    // built it: Start's own `buildApp`, or a platform's, as the Cloudflare
+    // plugin's.
+    buildApp: {
+      order: 'post',
+      async handler(builder) {
+        const client = builder.environments.client;
+        const draws = builder.environments[DRAWS];
+        if (!client || !draws) return;
+        for (const name of ['client', 'ssr']) {
+          const environment = builder.environments[name];
+          if (environment && !environment.isBuilt)
+            await builder.build(environment);
+        }
+        const kept = built().get(root);
+        if (!kept?.data) return;
+        if (!draws.isBuilt) await builder.build(draws);
+        const outDir = path.resolve(root, client.config.build.outDir);
+        const { pages, data } = await draw(
+          path.resolve(root, draws.config.build.outDir, 'index.js'),
+          outDir,
+        );
+        // Only of what was written: an app with no static data has none to keep.
+        if (data > 0) await tellHost(options.platform, outDir, kept.data);
+        client.logger.info(
+          `[@kestack/kabuki/start] drew ${pages.length} page${pages.length === 1 ? '' : 's'} and the App Shell, and kept ${data} answer${data === 1 ? '' : 's'}`,
+        );
       },
     },
 

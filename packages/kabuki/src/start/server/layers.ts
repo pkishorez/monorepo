@@ -1,5 +1,9 @@
 import { Context, Effect, Layer } from 'effect';
-import type { LoadError, StaticOf } from '../../routing/route/index.ts';
+import type {
+  AnyLoader,
+  RequiredBy,
+  StaticOf,
+} from '../../routing/route/index.ts';
 import { branded, refused } from '../app/protocol/index.ts';
 
 /*
@@ -15,22 +19,17 @@ import { branded, refused } from '../app/protocol/index.ts';
  *
  * Both may read the platform's env as `Start.Env`; the visitor may read
  * `Start.Request` and `Start.ResponseHeaders` too, and what the layer
- * gives. A static place's answer is kept for everyone, so its Loader may
- * use nothing made from the request: Requiring what only the visitor gives
- * is a type error, and on a page whose places are all static the visitor is
- * never made.
+ * gives. A static place's answer is kept for everyone, and a build runs
+ * its Loader and lists its paths before any request, so neither may use
+ * anything made from one: Requiring what only the visitor gives is a type
+ * error, and on a page whose places are all static the visitor is never
+ * made.
  *
  * The Loaders are their own call so that the Layers are typed as written:
  * a Layer written in place, as `Layer.succeed(…)`, is typed by what it is
  * checked against when the check is in the same call. Every check is made
  * at `.loaders(…)`, once both Layers are known.
  */
-
-/** One place's Loader, as `Routes.loaders` types it. */
-export type AnyLoader = (
-  params: never,
-  request: globalThis.Request,
-) => Effect.Effect<unknown, LoadError, any>;
 
 type AnyLoaders = Readonly<Record<string, AnyLoader>>;
 
@@ -80,11 +79,9 @@ export interface StartServer<L = AnyLoaders> {
   readonly layers: Layers;
 }
 
-/** What the Loaders of `L` named `K` Require. */
+/** What the Loaders of `L` named `K` Require: to load, and to list their paths. */
 type ServicesOf<L, K extends keyof L> = {
-  [P in K]-?: L[P] extends (...args: never) => Effect.Effect<any, any, infer R>
-    ? R
-    : never;
+  [P in K]-?: RequiredBy<L[P]>;
 }[K];
 
 type Names<L> = keyof L & string;

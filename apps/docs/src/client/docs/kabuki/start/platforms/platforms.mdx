@@ -21,8 +21,9 @@ export default defineConfig({
 - The server is built as one module, in the form workerd runs.
 - The env is your Worker's bindings, read with
   `yield* Start.env<WorkerEnv>()`.
-- A static page is kept in Cloudflare's Cache. It is drawn once per deploy
-  in each data center, and every visitor after that gets the copy.
+- A static page is a file among your assets, which the build drew. Cloudflare
+  answers it without your Worker, and the Worker reads a static page's data
+  from the same assets when it draws a dynamic page under one.
 
 You deploy it with Alchemy, as in [Your app](/kabuki/your-app). kabuki-start
 and this docs site both run this way.
@@ -62,13 +63,14 @@ browser's files.
 
 - The env is the process's env, or the Worker's bindings on a Cloudflare
   preset.
-- There is no cache of Start's own. A static page is sent with a
-  `Cache-Control` that lets the CDN in front keep it until the next
-  deploy, and every other page with one that keeps it nowhere.
+- A static page is a file the build drew, which Nitro serves with the
+  browser's files. Off Cloudflare the server can't read those files yet, so
+  it runs a static Loader when it is asked for one.
 
 <Callout title="Which one?">
-  On Cloudflare, use `cloudflare()`: it keeps static pages in each data center,
-  and deploys with Alchemy. Anywhere else, use `nitro()` with the host's preset.
+  On Cloudflare, use `cloudflare()`: static pages are served from its assets,
+  and it deploys with Alchemy. Anywhere else, use `nitro()` with the host's
+  preset.
 </Callout>
 
 ## In front of your app
@@ -96,7 +98,8 @@ its path: `static` if every place the server draws is static, `client` if
 it draws none, and `dynamic` otherwise.
 
 `GET /_kabuki/shell` answers the **App Shell**: your Document with no app
-in it, the same for everyone until the next deploy. It shows what
+in it, the same for everyone until the next deploy. The build writes it as
+`_kabuki/shell.html`. It shows what
 `Start.app({ loading })` says until the browser has drawn the app into it, at
 its own URL, every place loading. A service worker can answer any page with
 it. If your root page is `render: 'client'`, the server does too: every URL
@@ -116,10 +119,13 @@ the app's assets and the App Shell, and answers every page with the App Shell:
 - the app opens at once, with or without a network;
 - each page then loads its own data, as a move in the app does, so server
   data needs a connection;
-- a Render Mode only says what the server sends when no worker answers, as
+- a static page's data is the same for everyone, so the worker keeps it:
+  a static page you've seen opens whole, offline too;
+- a Render Mode otherwise only says what answers when no worker does, as
   on a first visit or to a crawler.
 
-The reasons are in [ADR 0013](https://github.com/pkishorez/monorepo/blob/main/docs/adr/0013-the-service-worker-answers-every-page-with-the-app-shell.md).
+The reasons are in [ADR 0013](https://github.com/pkishorez/monorepo/blob/main/docs/adr/0013-the-service-worker-answers-every-page-with-the-app-shell.md)
+and [ADR 0014](https://github.com/pkishorez/monorepo/blob/main/docs/adr/0014-the-service-worker-keeps-the-static-data.md).
 
 <Callout title="Remember">
   Your app doesn't change with the host: the adapter does. Start serves the app

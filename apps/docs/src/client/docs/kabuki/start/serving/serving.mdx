@@ -69,42 +69,76 @@ drawn as they are.
 
 ## Render Modes
 
-Each page says where and when its data is first loaded. That's its
-**Render Mode**, and there are three:
+Each page's **Render Mode** is when its data is first known, and so where
+the page is first drawn. There are three, each later than the one before:
 
 ```ts
 export const Feed = Page.define({
   path: '/feed',
-  render: 'dynamic', // 'static' unless you say
+  render: 'dynamic', // or 'client'; static unless a page says
   data: FeedData,
 });
 ```
 
-- **static**, the default: its Loader runs on the server, once for
-  everyone. The page is the same for every visitor, and kept until the
-  next deploy.
+- **static**, where every app starts: its Loader runs at the build, once
+  for everyone. The build draws the page and writes it as a file, so your
+  host answers it without the server. It's the same for every visitor
+  until the next deploy.
 - **dynamic**: its Loader runs on the server for each request, and gets
   the request. The page is drawn for this visitor.
 - **client**: the server sends the page with that place loading. The
   browser loads its data once it starts.
 
-A static page is kept by the platform. On Cloudflare, it is drawn once per
-deploy in each data center, and every visitor after that gets the copy. A
-static Loader never sees the request, so it can't read who is asking. If
+A static Loader never sees the request, so it can't read who is asking. If
 the data depends on the visitor, make the page dynamic.
 
 A client page, and every page under it, is sent loading. The browser
-starts, then loads its data, like any move. That's for pages search engines
+starts, then loads its data, like any move. Under static pages the build
+draws it too, loading, unless its path names a param: then the server
+draws it. That's for pages search engines
 don't need, or data that only makes sense in the browser.
 
-A Render Mode is inherited by the pages under it, and any mode can sit
-under any other. A static blog can have a dynamic comments page under a
-post.
+### A static page with params
+
+A build can only draw a page it knows is there. So a static page whose
+path names a param lists every path it is at, beside its Loader:
+
+```ts
+export const loaders = router.loaders({
+  Blog: () => Posts.list(),
+  'Blog.Post': {
+    paths: () => Posts.paths(), // [{ slug: 'hello' }, { slug: 'again' }]
+    load: ({ slug }) => Posts.get(slug),
+  },
+});
+```
+
+The build draws `/blog/hello` and `/blog/again`, and keeps each one's data
+beside it. Any other slug is not found. Leave `paths` out and it doesn't
+compile. A listed path whose Loader fails stops the build, so a deploy
+never ships a broken page.
+
+### One mode inside another
+
+A Render Mode is inherited by the pages under it, and a page is never drawn
+earlier than the page above it. So a page only ever says `dynamic` or
+`client`, and a URL is first drawn the way its deepest page says:
+
+| The deepest page is | The pages above it | The first HTML                          |
+| ------------------- | ------------------ | --------------------------------------- |
+| static              | all static         | a file the build wrote                  |
+| dynamic             | static or dynamic  | drawn by the server, for this request   |
+| client              | any                | the pages above drawn, this one loading |
+
+A static blog can have a dynamic comments page under a post. A dynamic page
+under a client one is refused when you define the router: the server draws
+nothing there.
 
 <Callout title="Only the first drawing">
-  The Render Mode decides how a page is first served. After that, every move
-  happens in the browser, and every page's data comes through Start the same
-  way, whatever its mode.
+  The Render Mode decides how a page is first drawn. After that, every move
+  happens in the browser. A static page's data is read from the file the build
+  kept, with no Loader run; a dynamic or client page's comes from its Loader on
+  the server.
 </Callout>
 
 ## After the first page

@@ -5,13 +5,14 @@ import type { Files } from './files.ts';
 /*
  * The modules the plugin writes, so the app writes no entry: Start's
  * handler, which knows no platform; the server's entry, which hands it to
- * the platform's adapter; the browser's; and what the server knows of the
- * build.
+ * the platform's adapter; the browser's; what the build runs to draw the
+ * static pages; and what the server knows of the build.
  */
 
 export const HANDLER = 'virtual:kabuki-start/handler';
 export const WORKER = 'virtual:kabuki-start/worker';
 export const CLIENT = 'virtual:kabuki-start/client';
+export const PRERENDER = 'virtual:kabuki-start/prerender';
 export const BUILD = 'virtual:kabuki-start/build';
 
 /** The name the client entry's chunk is given, to find it in the manifest. */
@@ -29,6 +30,18 @@ export const handlerModule = (files: Files) =>
       : `const server = undefined;`,
     `import build from '${BUILD}';`,
     `export default handler({ app, server, build });`,
+  ].join('\n');
+
+/** What the build runs, in Node, once the client is built: the same two files, drawn at every static page. */
+export const prerenderModule = (files: Files) =>
+  [
+    `import { prerender } from '@kestack/kabuki/start/server';`,
+    `import app from ${from(files.app)};`,
+    files.loaders
+      ? `import server from ${from(files.loaders)};`
+      : `const server = undefined;`,
+    `import build from '${BUILD}';`,
+    `export default prerender({ app, server, build });`,
   ].join('\n');
 
 /** The server's entry: the handler in the platform's adapter, its only export. */

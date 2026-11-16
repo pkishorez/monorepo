@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { registry } from '../../react/view/registry.ts';
 import { client } from '../client/index.ts';
 import type { Build } from '../app/protocol/index.ts';
-import { handler } from '../server/index.ts';
+import { handler, prerender } from '../server/index.ts';
 import { Start } from '../app/index.ts';
 import started, { AppView } from './app/src/app.tsx';
 import { router } from './app/src/routes.ts';
@@ -330,6 +330,59 @@ describe('the App Shell', () => {
     await openShell('/dashboard');
     await until(() => document.body.textContent!.includes('visits'));
     expect(runs).toEqual(['Dashboard']);
+    expect(errors).toEqual([]);
+  });
+
+  it('starts its static places from what the build kept, so a static page opens whole', async () => {
+    const built: Build = {
+      ...build,
+      id: 'build-1',
+      data: '/_kabuki/data/build-1',
+    };
+    const files = new Map<string, string>();
+    await prerender({ app: started, server, build: built })(
+      async (file, body) => {
+        files.set(file, body);
+      },
+      host.env,
+    );
+    reset();
+    const site = handler({ app: started, server, build: built });
+    // The platform answers a file the build wrote; the server, the rest.
+    vi.stubGlobal('fetch', async (input: string, init?: RequestInit) => {
+      const url = new URL(input, location.href);
+      const body = files.get(decodeURIComponent(url.pathname.slice(1)));
+      return body !== undefined
+        ? new Response(body)
+        : site.fetch(new Request(url, init), host);
+    });
+    history.replaceState(null, '', '/blog/hello');
+    const html = await (
+      await site.fetch(
+        new Request(new URL('/_kabuki/shell', location.href)),
+        host,
+      )
+    ).text();
+    document.open();
+    document.write(html);
+    document.close();
+    await act(async () => {
+      ({ root, redraw } = await client(started));
+    });
+    // Whole from its first frame: no place showed it was loading, and no Loader ran.
+    expect(document.querySelector('h1')?.textContent).toBe('Hello');
+    expect(document.body.textContent).toContain('2 posts');
+    expect(document.body.textContent).not.toContain('loading…');
+    expect(runs).toEqual([]);
+    // Back to it later is from the Data cache, as a page the server drew is.
+    await act(async () => {
+      history.pushState(null, '', '/');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    await until(() => document.body.textContent!.includes('home'));
+    await act(async () => history.back());
+    await until(() => document.querySelector('h1')?.textContent === 'Hello');
+    expect(runs).toEqual([]);
     expect(errors).toEqual([]);
   });
 });

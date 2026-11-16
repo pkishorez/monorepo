@@ -133,8 +133,12 @@ export interface RoutesApi<C> {
   readonly data: ReadonlyArray<readonly [string, Codec<unknown>]>;
   /**
    * The Loaders of every place with data, by dotted name, checked by type:
-   * one for each, and no other. A static place's is given its params and
-   * query; a dynamic or client place's, the request too.
+   * one for each, and no other, each with the options of its Render Mode.
+   * A Loader is the function that loads the place's data, or `{ load }`. A
+   * static place's is handed its path params; one whose path names params
+   * is `{ paths, load }`, every path it is drawn at before anyone asks, or
+   * `{ paths }` alone with no data. A dynamic or client place's is handed
+   * its query and the request too.
    */
   readonly loaders: <
     const L extends Partial<LoadersOf<PlacesOf<C>, RouteOf<C>>>,

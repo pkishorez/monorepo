@@ -52,6 +52,7 @@ const Home = Page.define({ path: '/', metadata: { title: 'Home' } });
 const Stats = Page.define({
   path: '/stats',
   render: 'client',
+  query: { since: Schema.optionalKey(Schema.String) },
   data: Schema.Struct({ visits: Schema.Number }),
 });
 const App = Page.define({ pages: { Home, Blog, Stats } });
@@ -90,30 +91,35 @@ const hold = (name: string) => {
 };
 
 const loaders = Routes.loaders({
-  Blog: ({ tag }) =>
-    counted(tag ? `Blog:${tag}` : 'Blog').pipe(
-      Effect.as(
-        POSTS.filter((post) => !tag || post.slug === tag).map(
-          ({ slug, title }) => ({ slug, title }),
+  Blog: () =>
+    counted('Blog').pipe(
+      Effect.as(POSTS.map(({ slug, title }) => ({ slug, title }))),
+    ),
+  'Blog.Post': {
+    paths: () => Effect.succeed(POSTS.map(({ slug }) => ({ slug }))),
+    load: ({ slug }) =>
+      counted(`Blog.Post:${slug}`).pipe(
+        Effect.flatMap(
+          (): Effect.Effect<
+            typeof PostData.Type,
+            NotFoundError | RedirectTo
+          > => {
+            if (slug === 'old')
+              return Effect.fail(
+                Page.redirect(Routes.Blog.Post({ slug: 'hello' })),
+              );
+            if (slug === 'away')
+              return Effect.fail(Page.redirect('https://example.com/away'));
+            const post = POSTS.find((each) => each.slug === slug);
+            return post ? Effect.succeed(post) : Effect.fail(Page.notFound());
+          },
         ),
       ),
+  },
+  Stats: ({ since }) =>
+    counted(since ? `Stats:${since}` : 'Stats').pipe(
+      Effect.as({ visits: since ? 1 : 3 }),
     ),
-  'Blog.Post': ({ slug }) =>
-    counted(`Blog.Post:${slug}`).pipe(
-      Effect.flatMap(
-        (): Effect.Effect<typeof PostData.Type, NotFoundError | RedirectTo> => {
-          if (slug === 'old')
-            return Effect.fail(
-              Page.redirect(Routes.Blog.Post({ slug: 'hello' })),
-            );
-          if (slug === 'away')
-            return Effect.fail(Page.redirect('https://example.com/away'));
-          const post = POSTS.find((each) => each.slug === slug);
-          return post ? Effect.succeed(post) : Effect.fail(Page.notFound());
-        },
-      ),
-    ),
-  Stats: () => counted('Stats').pipe(Effect.as({ visits: 3 })),
 });
 
 const AppView = View.make(AppLive, () => null);
@@ -273,17 +279,33 @@ describe('a move to pages with data', () => {
     run(
       Effect.gen(function* () {
         const app = yield* Runtime.scoped(Root.actor, { layer: loading });
-        push(app, Routes.Blog());
+        push(app, Routes.Stats());
         yield* settle;
-        const blog = find(app, 'Blog')!.address;
-        const open = hold('Blog:again');
-        push(app, Routes.Blog({ tag: 'again' }));
+        const stats = find(app, 'Stats')!.address;
+        const open = hold('Stats:mon');
+        push(app, Routes.Stats({ since: 'mon' }));
         yield* settle;
-        expect(find(app, 'Blog')!.address).toBe(blog);
-        expect(status(app, 'Blog')).toEqual(ready(BLOG, true));
+        expect(find(app, 'Stats')!.address).toBe(stats);
+        expect(status(app, 'Stats')).toEqual(ready({ visits: 3 }, true));
         open();
         yield* settle;
-        expect(status(app, 'Blog')).toEqual(ready([BLOG[1]]));
+        expect(status(app, 'Stats')).toEqual(ready({ visits: 1 }));
+      }),
+    ));
+
+  it('never loads a static page again for its query: it is the same whatever the query', () =>
+    run(
+      Effect.gen(function* () {
+        const app = yield* Runtime.scoped(Root.actor, { layer: loading });
+        push(app, Routes.Blog());
+        yield* settle;
+        push(app, Routes.Blog({ tag: 'again' }));
+        yield* settle;
+        expect(find(app, 'Blog')!.props).toMatchObject({
+          query: { tag: 'again' },
+        });
+        expect(status(app, 'Blog')).toEqual(ready(BLOG));
+        expect(calls).toEqual({ Blog: 1 });
       }),
     ));
 });

@@ -43,7 +43,7 @@ import type {
   LevelOf,
   MetadataOf,
   Node,
-  RenderMode,
+  SaidMode,
   Simplify,
   Value,
 } from '../route/index.ts';
@@ -75,7 +75,7 @@ export interface PageOptions<
   P extends Fields,
   Q extends Fields,
   D,
-  M extends RenderMode | undefined,
+  M extends SaidMode | undefined,
   C extends object,
   MW extends StructWritten | undefined,
   SW extends TaggedWritten | undefined,
@@ -91,16 +91,22 @@ export interface PageOptions<
   readonly query?: Q;
   /** The Schema of what its Loader gives: it needs one, in `loaders.server.ts`. */
   readonly data?: Codec<D>;
-  /** How it is first drawn: static, dynamic or client; its parent's unless said. */
+  /**
+   * How it is first drawn, if later than the page above it: `dynamic`, at
+   * the request, or `client`, in the browser. Its parent's unless said, and
+   * static at the root: a page is never drawn earlier than the page above
+   * it, so no page says `static`.
+   */
   readonly render?: M;
   /**
    * How long, in milliseconds, a copy of its data stays fresh once it
    * arrives: a Move or a Preload shows a fresh copy and loads nothing, and
    * an older one is shown and loaded again behind it. Its parent's unless
    * said, else the Router's. A static page has none: its data is fresh
-   * until the next deploy.
+   * until the next deploy, so one that says it throws when the router is
+   * made.
    */
-  readonly staleTime?: M extends 'static' ? never : number;
+  readonly staleTime?: number;
   /** What it says about itself, from its params, query and data once there. */
   readonly metadata?: MetadataOf<P, Q, D>;
   /** The definitions of the pages under it, each named by its key here. */
@@ -144,7 +150,7 @@ export interface PageDefinition<
   Q extends Fields = any,
   C extends object = any,
   D = any,
-  M extends RenderMode | undefined = any,
+  M extends SaidMode | undefined = any,
   Model = any,
   State extends Tagged = any,
   Msg extends Tagged = any,
@@ -184,7 +190,7 @@ export interface PageBuilder<
   Q extends Fields,
   C extends object,
   D,
-  M extends RenderMode | undefined,
+  M extends SaidMode | undefined,
   Model,
   State extends Tagged,
   Msg extends Tagged,
@@ -357,7 +363,7 @@ const define = <
   const P extends Fields = {},
   const Q extends Fields = {},
   D = never,
-  M extends RenderMode | undefined = undefined,
+  M extends SaidMode | undefined = undefined,
   const C extends { readonly [name: string]: AnyPageDefinition } = {},
   const MW extends StructWritten | undefined = undefined,
   const SW extends TaggedWritten | undefined = undefined,

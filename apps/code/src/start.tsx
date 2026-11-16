@@ -47,7 +47,12 @@ const newestBuild = Layer.succeed(
 );
 
 const layer = Layer.mergeAll(
-  CloudClient.layer(import.meta.env.VITE_CONNECT_URL),
+  // Where Connect is, read once the Layer is built, in the browser, never
+  // as the module loads: a build runs this module too, to draw the static
+  // pages, and only a deploy says where Connect is.
+  Layer.unwrap(
+    Effect.sync(() => CloudClient.layer(import.meta.env.VITE_CONNECT_URL)),
+  ),
   preferencesIdb(fitted),
   storageIdb,
   newestBuild,

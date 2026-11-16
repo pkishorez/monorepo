@@ -3,12 +3,18 @@ import type { Effect } from 'effect';
 
 /*
  * What a Loader may fail with, and the typing of every Loader of an app.
- * No server code: the Routes say which places need an Input and how each is
+ * No server code: the Routes say which places have data and how each is
  * drawn, so the Loaders' types are worked out from them, and Start runs them.
  */
 
 /** Where and when a place is first drawn: static, dynamic or client, each later than the one before. */
 export type RenderMode = 'static' | 'dynamic' | 'client';
+
+/**
+ * The Render Mode a page may say: later than the page above it, never
+ * earlier. Static is where every app starts, so no page says it.
+ */
+export type SaidMode = 'dynamic' | 'client';
 
 export const MODES: ReadonlyArray<RenderMode> = ['static', 'dynamic', 'client'];
 
@@ -54,16 +60,19 @@ export type Outcome =
   | ({ readonly _tag: 'Redirect'; readonly permanent?: boolean } & Target)
   | { readonly _tag: 'Broken'; readonly reason: string };
 
-/** What the types know of one place: its dotted name, every param down to it, its Input, and its Render Mode. */
+/** What the types know of one place: its dotted name, what its Loader is handed, its data, its Render Mode, and whether it names path params of its own. */
 export interface PlaceType {
   readonly name: string;
+  /** Every path param down to it, and its own query unless it is static: a static place is the same whatever the query. */
   readonly params: object;
   readonly input: unknown;
   readonly mode: RenderMode;
+  /** Whether its own path names params: a static place that does lists every one of its paths. */
+  readonly lists: boolean;
 }
 
-/** A place's Loader: a static place's is given its params and query; a dynamic or client place's, the request too. */
-export type LoaderOf<
+/** How a place loads its data: a static place's is given its path params; a dynamic or client place's, its query and the request too. */
+export type LoadOf<
   X extends PlaceType,
   R = unknown,
 > = X['mode'] extends 'static'
@@ -73,12 +82,88 @@ export type LoaderOf<
       request: Request,
     ) => Effect.Effect<X['input'], LoadError<R>, any>;
 
-/** One Loader per place with an Input, by its dotted name, each Redirecting only to a Route of type `R`. */
+/** Every path a static place is drawn at: the path params of each, its own and those above it. A path not listed is not found. */
+export type PathsOf<X extends PlaceType> = () => Effect.Effect<
+  ReadonlyArray<X['params']>,
+  unknown,
+  any
+>;
+
+/**
+ * A place's Loader, with the options of its Render Mode. It is the function
+ * that loads its data, or `{ load }`; a static place whose path names
+ * params is `{ paths, load }`, since only a listed path can be drawn before
+ * anyone asks, and `{ paths }` alone if it has no data.
+ */
+export type LoaderOf<
+  X extends PlaceType,
+  R = unknown,
+> = X['mode'] extends 'static'
+  ? X['lists'] extends true
+    ? [X['input']] extends [never]
+      ? { readonly paths: PathsOf<X> }
+      : { readonly paths: PathsOf<X>; readonly load: LoadOf<X, R> }
+    : LoadOf<X, R> | { readonly load: LoadOf<X, R> }
+  : LoadOf<X, R> | { readonly load: LoadOf<X, R> };
+
+/** Whether a place is written among the Loaders: it has data, or it is static and lists its paths. */
+type Written<X extends PlaceType> = [X['input']] extends [never]
+  ? X['mode'] extends 'static'
+    ? X['lists']
+    : false
+  : true;
+
+/** One Loader per place with data, or with paths to list, by its dotted name, each Redirecting only to a Route of type `R`. */
 export type LoadersOf<X extends PlaceType, R = unknown> = {
-  readonly [
-    P in X as [P['input']] extends [never] ? never : P['name']
-  ]: LoaderOf<P, R>;
+  readonly [P in X as Written<P> extends true ? P['name'] : never]: LoaderOf<
+    P,
+    R
+  >;
 };
+
+/** What loading a place's data Requires, from its Loader as written. */
+export type RequiredToLoad<E> =
+  | (E extends (...args: never) => Effect.Effect<any, any, infer R> ? R : never)
+  | (E extends {
+      readonly load: (...args: never) => Effect.Effect<any, any, infer R>;
+    }
+      ? R
+      : never);
+
+/** What one Loader, as written, Requires: its `load`'s and its `paths`' alike. */
+export type RequiredBy<E> =
+  | RequiredToLoad<E>
+  | (E extends {
+      readonly paths: (...args: never) => Effect.Effect<any, any, infer R>;
+    }
+      ? R
+      : never);
+
+/** Any place's `load`, as the code that runs it sees it. */
+export type AnyLoad = (
+  params: never,
+  request: Request,
+) => Effect.Effect<unknown, LoadError, any>;
+
+/** Any place's `paths`, as the code that runs it sees it. */
+export type AnyPaths = () => Effect.Effect<
+  ReadonlyArray<Readonly<Record<string, unknown>>>,
+  unknown,
+  any
+>;
+
+/** Any place's Loader, as written. */
+export type AnyLoader =
+  | AnyLoad
+  | { readonly load?: AnyLoad; readonly paths?: AnyPaths };
+
+/** The function that loads a place's data, from its Loader as written; none for a place that only lists its paths. */
+export const loadOf = (loader: AnyLoader | undefined): AnyLoad | undefined =>
+  typeof loader === 'function' ? loader : loader?.load;
+
+/** The function that lists a static place's paths, from its Loader as written. */
+export const pathsOf = (loader: AnyLoader | undefined): AnyPaths | undefined =>
+  typeof loader === 'function' ? undefined : loader?.paths;
 
 declare const STATIC: unique symbol;
 
@@ -108,12 +193,12 @@ export type StaticOf<L> = L extends {
  */
 export type Exactly<L, Wanted extends PropertyKey> = L & {
   readonly [K in Exclude<keyof L & string, Wanted>]: {
-    readonly 'is not a place with an Input': K;
+    readonly 'is not a place with data, nor a static one with paths to list': K;
   };
 } & ([Exclude<Wanted, keyof L>] extends [never]
     ? unknown
     : {
-        readonly 'these places have an Input and no Loader': Exclude<
+        readonly 'these places have data, or paths to list, and no Loader': Exclude<
           Wanted,
           keyof L
         >;

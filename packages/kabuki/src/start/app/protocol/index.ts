@@ -1,5 +1,13 @@
 export { APP, appOf, branded, refused } from './brand.ts';
 export type { DocumentType, ServedApp, StartApp } from './brand.ts';
+export {
+  DATA,
+  dataFile,
+  dataPath,
+  dataRoot,
+  pageFile,
+  segmentsOf,
+} from './data.ts';
 export { PAGES, SHELL, pagesOf } from './pages.ts';
 export type { PageInfo, Pages } from './pages.ts';
 export {
