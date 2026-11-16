@@ -1,14 +1,17 @@
 import { Effect, Schema } from 'effect';
 import { Command } from '@kestack/kabuki';
+import { CodeClient, CodeClients } from '@kestack/connect/code';
 import { ConnectionFilter } from '../store.ts';
 import { Connections } from '../../account.ts';
 import { Preferences } from '../../../storage/index.ts';
 import { Moves } from '../../connection/records/index.ts';
+import { reasonOf } from '../../connection/link/index.ts';
 
 /*
  * What the sidebar asks for: the Connection it shows kept as the Account's
  * Connection Filter, the Connections it shows collapsed kept beside it, its width kept in Preferences, the Connection List asked
- * again, and each Session put, through `Moves`.
+ * again, each Session put, through `Moves`, and a Session's Title given
+ * by the user, asked of its Connection.
  */
 
 /** Keeps the Connection the sidebar shows, for its Account; a write that fails is lost. */
@@ -70,5 +73,26 @@ export const agreed = Command.make('AgreedMove', {
   run: ({ connectionId, sessionId, settled }) =>
     Effect.flatMap(Moves, (moves) =>
       moves.agreed({ connectionId, sessionId }, settled),
+    ),
+});
+
+/** Gives a Session the user's own Title; ends in `Renamed`, with why it was refused, if it was. */
+export const setTitle = Command.make('SetTitle', {
+  args: Schema.Struct({
+    connectionId: Schema.String,
+    sessionId: Schema.String,
+    title: Schema.String,
+  }),
+  run: ({ connectionId, sessionId, title }) =>
+    CodeClients.on(
+      connectionId,
+      CodeClient.use((api) => api.setTitle({ sessionId, title })).pipe(
+        Effect.mapError(reasonOf),
+      ),
+    ).pipe(
+      Effect.map(() => ({ _tag: 'Renamed' as const, reason: null })),
+      Effect.catch((reason) =>
+        Effect.succeed({ _tag: 'Renamed' as const, reason }),
+      ),
     ),
 });

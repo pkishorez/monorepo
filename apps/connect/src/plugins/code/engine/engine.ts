@@ -288,6 +288,14 @@ export interface EngineService {
   readonly regenerateTitle: (
     sessionId: string,
   ) => Effect.Effect<string, SessionNotFound>;
+  /**
+   * Gives the Session the user's own Title, trimmed, and answers with the
+   * Title it keeps: one left empty keeps the Title it had.
+   */
+  readonly setTitle: (
+    sessionId: string,
+    title: string,
+  ) => Effect.Effect<string, SessionNotFound>;
   /** The Skills a Harness Account's harness offers in a Project's folder. */
   readonly skills: (
     projectId: string,
@@ -719,6 +727,15 @@ const make = (options: EngineOptions) =>
           if (found === null) return session.model.session.title;
           session.send({ _tag: 'Titled', title: found });
           return found;
+        }),
+
+      setTitle: (sessionId, title) =>
+        Effect.gen(function* () {
+          const session = yield* toSession(sessionId);
+          const given = title.trim();
+          if (given === '') return session.model.session.title;
+          session.send({ _tag: 'Titled', title: given });
+          return given;
         }),
 
       skills: (projectId, id) =>

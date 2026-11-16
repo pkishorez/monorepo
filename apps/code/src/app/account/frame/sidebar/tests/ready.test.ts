@@ -25,6 +25,7 @@ const model = {
   moving: [],
   told: null,
   refused: null,
+  unrenamed: null,
   refusals: {},
   asking: {},
   working: {},

@@ -103,7 +103,7 @@ A Turn cut off because its Connection stopped while it ran, found at the next st
 _Avoid_: cancelled, failed
 
 **Title**:
-A short name for a Session, written from its user messages; it can be regenerated at any time.
+A short name for a Session, written from its user messages; it can be regenerated, or given by the user, at any time.
 _Avoid_: name, label
 
 **Bootstrap Sweep**:

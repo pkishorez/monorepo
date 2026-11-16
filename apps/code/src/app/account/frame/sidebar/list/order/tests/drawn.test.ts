@@ -114,6 +114,7 @@ describe('the Connections the sidebar reads', () => {
     moving: [],
     told: null,
     refused: null,
+    unrenamed: null,
     refusals: {},
     asking: {},
     working: {},

@@ -574,6 +574,26 @@ describe('asking a Session', () => {
     );
   });
 
+  it("takes the user's own Title, trimmed", async () => {
+    const fake = makeFakeHarness({ oneShot: 'Written' });
+    await run(
+      Effect.gen(function* () {
+        const { engine, session, saved, idle } = yield* started('one');
+        yield* idle();
+        expect(yield* engine.setTitle(session.id, '  My own  ')).toBe('My own');
+        yield* eventually(async () =>
+          expect((await saved())?.title).toBe('My own'),
+        );
+        // One left empty keeps the Title it had.
+        expect(yield* engine.setTitle(session.id, '   ')).toBe('My own');
+        expect((yield* Effect.flip(engine.setTitle('nope', 'x')))._tag).toBe(
+          'SessionNotFound',
+        );
+      }),
+      fake,
+    );
+  });
+
   it("lists a harness's Skills in a Project's folder", async () => {
     const fake = makeFakeHarness();
     await run(
