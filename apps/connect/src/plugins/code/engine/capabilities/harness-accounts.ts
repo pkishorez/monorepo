@@ -3,8 +3,7 @@ import type { HarnessAccount, HarnessError } from '@kestack/ai-toolkit/harness';
 
 /*
  * The Harness Account each harness call runs as, found by its id: a
- * Session's calls run as the Session's, a Title's as Codex's Default
- * Account. Read afresh on every call, so a change applies to the next
+ * Session's calls, its Title's too, run as the Session's. Read afresh on every call, so a change applies to the next
  * process a harness starts. The implementation is services/harness-accounts/.
  */
 export class HarnessAccounts extends Context.Service<

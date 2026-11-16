@@ -18,6 +18,7 @@ import {
   type SdkTurnHandle,
 } from './agent/index.js';
 import { ask, fork } from './fork/index.js';
+import { oneShot } from './one-shot/index.js';
 import { readSettings, SETTINGS } from './settings.js';
 
 /** A dated snapshot such as `claude-opus-4-5-20251101` repeats its alias. */
@@ -75,6 +76,8 @@ export const claude: Harness = {
   skills,
   fork: (input) => Effect.flatMap(executable, (found) => fork(input, found)),
   ask: (input) => Effect.flatMap(executable, (found) => ask(input, found)),
+  oneShot: (text) =>
+    Effect.flatMap(executable, (found) => oneShot(text, found)),
   binary,
   project,
 };

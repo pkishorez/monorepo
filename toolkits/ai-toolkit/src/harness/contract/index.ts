@@ -11,7 +11,6 @@ export {
   HarnessError,
   Harnesses,
   isRecord,
-  OneShotPrompt,
   QuestionNotAsked,
   type AgentQuestion,
   type AskAnswer,

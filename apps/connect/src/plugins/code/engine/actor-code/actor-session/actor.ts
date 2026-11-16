@@ -17,7 +17,6 @@ import {
 import {
   HarnessAccount,
   Harnesses,
-  OneShotPrompt,
   type Agent,
   HarnessError,
 } from '@kestack/ai-toolkit/harness';
@@ -432,15 +431,7 @@ const agentTurn = (self: SessionSelf) =>
   });
 
 export const Session = Actor.define('Session', {
-  requires: [
-    Agents,
-    Answers,
-    Git,
-    Harnesses,
-    HarnessAccounts,
-    OneShotPrompt,
-    Store,
-  ],
+  requires: [Agents, Answers, Git, Harnesses, HarnessAccounts, Store],
   input: SessionInput,
   model: Model,
   state: State,

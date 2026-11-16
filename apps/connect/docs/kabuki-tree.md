@@ -10,7 +10,7 @@ its Agent, and keeps every record in the Store. The two never import each
 other; the router passes Code's socket to the Plugin's without reading it.
 Each root runs with `Runtime.scoped`. The connection Layer gives
 `Cloud`, `Tunnels` and `Downloads`. The engine Layer gives `Store`,
-`Harnesses`, `HarnessAccounts`, `OneShotPrompt`, `Agents`, `Answers` and
+`Harnesses`, `HarnessAccounts`, `Agents`, `Answers` and
 `Git`.
 Changed through `/kabukifi`; edit by hand and it drifts.
 
@@ -64,7 +64,7 @@ actor-connection ─ Input: key, folders, socketId, port, origins; Props: wanted
 actor-online     ─ Provides TunnelStatus ────────────────────────────────────▶ actor-tunnel
 actor-online     ─ key: generation; Input: generation; Props: port ─────────▶ actor-tunnel
 actor-plugins    ─ each Plugin name; Input: name, folders, socket; Props: wanted ▶ ActorPlugin
-engine Layer     ─ Store, Harnesses, HarnessAccounts, OneShotPrompt, Agents, Answers, Git ▶ actor-code
+engine Layer     ─ Store, Harnesses, HarnessAccounts, Agents, Answers, Git ▶ actor-code
 actor-code       ─ each session id; Input: session, cwd, first ──────────────▶ actor-session
 ```
 
@@ -382,7 +382,7 @@ ends with nothing. AnswerNotAsked: tells the waiting caller its question is
 no longer asked; ends with nothing.
 **Workers**: agent: always; keeps the Agent in Agents, opened on first use.
 jobs: always; Sends Jobs. questions: always; Sends Questions. persist: always; saves each changed record. title:
-while untitled; asks OneShotPrompt; renames a new Worktree's branch
+while untitled; asks its own harness's One-shot Prompt; renames a new Worktree's branch
 `ke-code/<id>`, never pushed, for the Title, and Sends BranchFound; Sends
 Titled. branch: while not Settled; reads the branch as it starts, then
 every minute; Sends BranchFound when it changed. agentTurn: in Idle; Sends
@@ -395,8 +395,8 @@ null. mcpStatus, contextUsage: from the open Agent; AgentClosed while closed.
 **Requires**: Agents: agent, jobs, questions, agentTurn, turn, cancel,
 StopJob, AnswerQuestion, mcpStatus, contextUsage. Answers: AnswerQuestion,
 AnswerNotAsked. Git: branch, title. Store: persist, turn, fork, retitle. Harnesses:
-agent, fork, ask. HarnessAccounts: agent, fork, ask, title, retitle. OneShotPrompt:
-title, retitle.
+agent, fork, ask, title, retitle. HarnessAccounts: agent, fork, ask, title,
+retitle.
 **Provides**: none.
 **Services**: none in the tree: services/agents/ keeps each Agent, opened on
 first use and kept across Turns; services/answers/ keeps each caller waiting

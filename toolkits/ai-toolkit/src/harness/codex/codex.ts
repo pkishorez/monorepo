@@ -10,14 +10,20 @@ import {
 } from './catalog/index.js';
 import { ask, fork } from './fork/index.js';
 import { project } from './project/index.js';
-import { openSession, SETTINGS, threadOptions } from './thread/index.js';
+import {
+  oneShot,
+  openSession,
+  SETTINGS,
+  threadOptions,
+} from './thread/index.js';
 
 /**
  * Codex through `codex app-server`: one process per session, approvals
  * never asked (`approvalPolicy: never`, any request answered at once but
  * the questions an Agent asks the user), and
  * every whole record of a turn, sub-agents included, streamed as Raw.
- * Forks, asks and catalog reads each run their own short-lived process.
+ * Forks, asks, One-shot Prompts and catalog reads each run their own
+ * short-lived process.
  */
 export const codex: Harness = {
   name: 'codex',
@@ -40,8 +46,9 @@ export const codex: Harness = {
   skills,
   fork,
   ask,
+  oneShot,
   binary,
   project,
 };
 
-export { codexOneShot, restore, type StreamPointer } from './thread/index.js';
+export { restore, type StreamPointer } from './thread/index.js';
