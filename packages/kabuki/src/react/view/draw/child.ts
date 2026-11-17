@@ -1,6 +1,6 @@
 import { use, useRef, useSyncExternalStore } from 'react';
 import { AppContext } from './view.tsx';
-import type { Address } from '../../../core/snapshot/index.ts';
+import { Address } from '../../../core/snapshot/index.ts';
 import type { Drawable, DrawnApp, Handle, ViewProps } from './view.tsx';
 
 /**
@@ -36,6 +36,19 @@ const useDrawn = (hook: string): DrawnApp => {
   if (!drawn)
     throw new Error(`[@kestack/kabuki] ${hook} is used outside its app`);
   return drawn;
+};
+
+/**
+ * Whether the parent of the Child at this Address has stopped. A parent
+ * whose View is still drawn, as it leaves the page, keeps what it last read
+ * of its Children, as it keeps its own last data.
+ */
+const parentGone = (
+  read: (address: Address<any>) => Drawable | undefined,
+  child: Address<any>,
+) => {
+  const parent = Address.parent(child);
+  return parent !== undefined && read(parent) === undefined;
 };
 
 /**
@@ -98,8 +111,9 @@ interface UseChild {
 
 /**
  * Reads one fixed Child from its parent's View: its Model, State and Props,
- * at the Step drawn; `undefined` once the Child has stopped. The component
- * re-renders when they change, or, given a selector, only when what it picks
+ * at the Step drawn; `undefined` once the Child has stopped, unless its
+ * parent stopped too, while its View is still drawn: then as last read. The
+ * component re-renders when they change, or, given a selector, only when what it picks
  * changes. For drawing only: what a parent must act on, it owns.
  */
 export const useChild: UseChild = (
@@ -112,6 +126,8 @@ export const useChild: UseChild = (
   const from =
     (read: (address: Address<any>) => Drawable | undefined) => () => {
       const child = readOf(read(handle.address));
+      if (child === undefined && parentGone(read, handle.address))
+        return last.current;
       const next = child && pick(child);
       return Object.is(next, last.current)
         ? last.current
@@ -134,7 +150,8 @@ interface UseChildren {
 
 /**
  * Reads a slot of keyed Children from their parent's View, in the slot's
- * order, leaving out any that stopped. The component re-renders when one of
+ * order, leaving out any that stopped, unless their parent stopped too,
+ * while its View is still drawn: then as last read. The component re-renders when one of
  * them changes or the list does, or, given a selector, only when what it
  * picks from one of them changes or the list does.
  */
@@ -147,11 +164,14 @@ export const useChildren: UseChildren = (
   const last = useRef<ReadonlyArray<unknown>>([]);
   const from =
     (read: (address: Address<any>) => Drawable | undefined) => () => {
+      const was = last.current;
+      let missing = false;
       const next = handles.flatMap((handle) => {
         const child = readOf(read(handle.address));
+        if (!child) missing = true;
         return child ? [pick(child)] : [];
       });
-      const was = last.current;
+      if (missing && parentGone(read, handles[0]!.address)) return was;
       if (
         next.length === was.length &&
         next.every((value, index) => Object.is(value, was[index]))
