@@ -1,5 +1,12 @@
 # @kestack/rpc-toolkit
 
+## 0.0.7
+
+### Patch Changes
+
+- Updated dependencies [[`6cf1d7f`](https://github.com/pkishorez/monorepo/commit/6cf1d7fb87f1b98311e1d6ab9b86b8f233e0c707), [`a581f08`](https://github.com/pkishorez/monorepo/commit/a581f085ade3a86e985d75b5ec9ba0724bc14ff0)]:
+  - @kestack/std-toolkit@0.0.7
+
 ## 0.0.6
 
 ### Patch Changes

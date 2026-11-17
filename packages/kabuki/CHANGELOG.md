@@ -1,5 +1,86 @@
 # @kestack/kabuki
 
+## 0.0.6
+
+### Patch Changes
+
+- [#79](https://github.com/pkishorez/monorepo/pull/79) [`df76ba6`](https://github.com/pkishorez/monorepo/commit/df76ba60280fdb5405ca85b29fe67f8604de18bf) Thanks [@kishorenuma](https://github.com/kishorenuma)! - A Router that routes in memory starts at its root, not at whatever page the browser is on, so a routed demo can sit inside another app's page. `Router.view` no longer gives `View.app` an `input` that reads the browser's address: only an app whose Layer holds an Adapter owns the address, and it starts there with `input: () => view.startAt()`. Start's client does this for you; an app that gives `browser()` or `tanstack()` to `View.app` itself adds that line.
+
+- [#138](https://github.com/pkishorez/monorepo/pull/138) [`af1f892`](https://github.com/pkishorez/monorepo/commit/af1f8924c111d3cdc6fa040ecc2982b3836f5fb9) Thanks [@kishorenuma](https://github.com/kishorenuma)! - A Message to an Instance with many siblings, or deep in the tree, costs far less. Finding an Instance by its Address walks down once, looking each Child of an `each` up by its key instead of scanning the list, and the Runtime's live tree passes over every Child that did not change. One Message to one of 10,000 siblings went from about 2.9 ms to under 0.1 ms, and one to the bottom of a chain 200 deep from 3.4 ms to 0.25 ms. Nothing else changes.
+
+- [#138](https://github.com/pkishorez/monorepo/pull/138) [`4d4cc1a`](https://github.com/pkishorez/monorepo/commit/4d4cc1a3789e5f5feaf0892b246f04c7caffb983) Thanks [@kishorenuma](https://github.com/kishorenuma)! - A `Router.Link` and a `Router.Retry` are no longer drawn again on every move: they read the Router's Sends alone, which never change. `useRouter` draws again only when what it holds changes: the entries, the move, the move held or the Metadata.
+
+- [#138](https://github.com/pkishorez/monorepo/pull/138) [`a581f08`](https://github.com/pkishorez/monorepo/commit/a581f085ade3a86e985d75b5ec9ba0724bc14ff0) Thanks [@kishorenuma](https://github.com/kishorenuma)! - Kabuki is rebuilt around three parts: the Actor and its Blueprint, the app's data (Address, History, Snapshot), and one Runtime per app, running or stopped, that Seeks any Step and Forks in place. Breaking.
+
+  **Added**
+
+  - `actor.blueprint` and `Blueprint.at`: what an Actor is and does, as plain data, with nothing running: for the top and each State, the Messages it handles, its Workers, Children, Queries and the Capabilities it Provides. Every tool reads it instead of the engine.
+  - `Address`: an Instance's one canonical ID, `App/Inside:downloads#2/files[3][#1](https://github.com/pkishorez/monorepo/issues/1)`, now naming the State a Child is written in. `Address.parse`, `parent`, `place`, `within` and `check`; an Address taken from a Snapshot types what can be sent to it.
+  - `Snapshot.trail(actor, history, address, upTo?)`: one Instance's story along the History, up to any entry, when it started, each Message sent to it, each that changed it, and when it stopped. Every Instance in a Snapshot carries the History entry that `started` it and the one that last `changed` it.
+  - `Snapshot.workers(actor, snapshot, address)`: the Workers the data asks for at an Instance, by name and, for one of `each`, key, by the rule a running Runtime runs them by. Compare it before and after an entry to see which Workers the entry started or stopped.
+  - `Runtime.make(actor, { input, history, layer, window })` and `Runtime.scoped` for Effect code: the app's one Runtime, running from the moment it is made, and running none of the Head's Commands. `runtime.running` says whether it runs.
+  - `runtime.stop()` stops every Worker, Provide and Command, and Time with it; `runtime.send` then throws `Stopped` and adds nothing. `runtime.start()` runs again at the Head: Workers and Provides start from its data, and no past Command runs again.
+  - `runtime.fork(entry | null)`: moves the same Runtime's Head to any entry, or init, so the next Message grows a new Branch. Running, its work starts again from that entry's data, running no Command; stopped, only the Head moves.
+  - `runtime.seek(entry | null)`: the app right after any entry, on any Branch, as a `Step`, the plain data `{ entry, at, snapshot }`, changing nothing.
+  - `History.tips(history)`: the last entry of every Branch.
+  - `<Kabuki of={runtime | step} view={AppView} />`, from `@kestack/kabuki/react`: a Runtime is drawn at its Head and a click Sends while it runs; a Step is drawn as it is and a click does nothing.
+
+  **Changed**
+
+  - `provides` names what it gives: `provides: { capabilities: [Session], layer: (self) => Layer }`. A Layer that builds a Capability not named, or misses one named, is a type error, and only the named ones reach descendants.
+  - A slot name is used once per Actor: a State's Child can no longer take the name of one written at the top.
+  - History is plain data, `{ input, entries, head }`, with `History.make`, `add`, `go`, `line`, `children`, `entry`, `compact`, `save`, `load` and `restored`; its Window is a Runtime option. A History entry is `{ id, parent, to, message, from, at }`.
+  - A Snapshot is `{ entry, root }`, and an Instance's `id` is its `address`; it no longer holds `key`. `Snapshot<A>` and `Instance<A>` are typed by their Actor: `state`, `model` and `props` are its own, and each Child in `children` is its Actor's `Instance`, a list for `each`, optional when written in a State or there only `while` a test holds. So `runtime.snapshot.root.children.files[0].address` is that Child's `Address`, and `runtime.send` takes only its Messages. `Instance` with no Actor stays untyped, for tools, and a typed one is assignable to it.
+  - `AppRuntime<A>` (from `useRuntime()`) is assignable to `AppRuntime`, so an Attachment or tool written for any app takes a typed one.
+  - `View.app`'s `useRuntime()` gives `runtime`, the same one for the app's whole mount, `seeking`, `seek(entry | null)` (`null`: init, as with `runtime.seek`), `toHead()` (draws the Head again), `fork(entry | null)`, `start`, `stop`, `workers`, `instance`, `failure` and `subscribe`. A Fork no longer makes a new Runtime.
+  - `@kestack/kabuki/core/history` and `@kestack/kabuki/core/snapshot` are now `@kestack/kabuki/core/data`.
+
+  **Removed**
+
+  - `Runtime.start` (use `Runtime.make` or `Runtime.scoped`), the `live` option and `runtime.live` (use `runtime.running`, `stop()` and `start()`), `useRuntime()`'s `show`, `shown` and `clear` (use `seek`, `toHead`, `seeking` and `fork(null)`), `runtime.provided`, `Snapshot.handle` and `Snapshot.instanceAt` (use `Snapshot.play` and `Snapshot.at`), the engine's `ActorDefinition` types from the public API, and `actorAt`, `isRestore` and `remember` from `@kestack/kabuki/core/data` (kabuki's own).
+  - `@kestack/kabuki/core/command` (import `Command` from `@kestack/kabuki` or `@kestack/kabuki/core/actor`).
+
+- [#138](https://github.com/pkishorez/monorepo/pull/138) [`b72f4e7`](https://github.com/pkishorez/monorepo/commit/b72f4e76332cae07b51d0fbe128fff4b06f6f8a6) Thanks [@kishorenuma](https://github.com/kishorenuma)! - Core is now the Definition, the Snapshot, the Runtime and the History, and the Runtime is a Snapshot kept alive.
+
+  - `Snapshot.init`, `Snapshot.next` (was `play`), `Snapshot.save` and `Snapshot.load` make, step and save the app as plain data. A Snapshot is `{ root, at }`. An Instance repeats its State's tag as `_tag`, so a check on it narrows `state` and `children`, and no longer has `started` or `changed`.
+  - `Runtime.make(actor, { snapshot, layer })` runs a Snapshot. `runtime.root` and `runtime.at(address)` give a live Instance to walk and Send through. `runtime.follow(snapshot)` makes the running app match a Snapshot, changing only what differs, or with `restart: true` starts all work again. `runtime.subscribe` tells its listener the entries played.
+  - The Runtime keeps no History: `runtime.history`, `fork`, `seek`, `keep`, `window`, `send`, `workers` and `instance` are gone. A History is kept beside a Runtime: `History.init(snapshot)`, `add`, `move`, `entries`, `all`, `snapshot`, `replay`, `compact`, `save` and `load`. An entry is `{ to, message, from, at }`, and a History's entry adds `id` and `parent`.
+  - There is no Restore Message. A History starts from a Snapshot, and Compacting moves that start forward. A saved History is `{ start, entries, head }`, so one saved before no longer loads.
+  - `Snapshot.replay`, `Snapshot.seek` and `Snapshot.trail` are gone: use `History.snapshot`, `History.replay`, and a filter over `History.entries`.
+  - React: `<Kabuki of>` takes a Runtime or a Snapshot. `useRuntime()` gives `history`, `window`, `keep` and `startOver`, which starts the app over from init, and no longer `workers` or `instance`. `Step` is exported from `@kestack/kabuki/react/types`.
+
+- [#138](https://github.com/pkishorez/monorepo/pull/138) [`6f65d9b`](https://github.com/pkishorez/monorepo/commit/6f65d9b14a24b5c8728cdf628df1744cfc31857b) Thanks [@kishorenuma](https://github.com/kishorenuma)! - A static page is drawn at the build, and a page is never drawn earlier than the page above it.
+
+  - **Static pages are files.** `vite build` now draws every URL that ends at a static place and writes its HTML beside the client's files, so the platform answers it without the server. Each static place's answer is kept beside it as the Static Data, one JSON file per place and path under the build id: `/_kabuki/data/<build>/Blog.Post/hello.json`.
+  - **The build writes the App Shell and the client pages it can.** `_kabuki/shell.html` is the App Shell, which the server answers `/_kabuki/shell` and every URL under a client root with. A client page under static ones is drawn loading at each path they list, unless its own path names params or it needs a query.
+  - **A static place with params lists its paths.** Its Loader is `{ paths, load }`, or `{ paths }` with no data; only a listed path is drawn, and any other is not found. Leaving `paths` out is a type error. A Loader may also be written `{ load }` in any mode.
+  - **An unlisted path is a `404`, and a deploy does not break an open tab.** A URL that is all static and reaches the server was not listed. A tab from the build before gets a `410` for its Static Data, and loads through the Loader RPC instead.
+  - **A static Loader runs once per build.** In the browser a move to a static place reads its file with a `GET`; the server reads the same file through the platform's new `Host.files` when it draws a dynamic or client page under a static one. On Cloudflare the files come from the Worker's `ASSETS`.
+  - **Breaking: a static Loader is handed its path params alone**, never its query. A page whose data depends on the query is `dynamic` or `client`.
+  - **Breaking: no page says `render: 'static'`.** An app starts static and a page says only `'dynamic'` or `'client'`; `dynamic` under a client page is a type error on `Router.define`, and an error when the router is made.
+  - **A build runs the app.** It builds one more module, for Node, to draw with, so the app's modules must load there: read what only a deploy or a browser has when a Layer is built, never as a module loads.
+  - `prerender` is exported from `@kestack/kabuki/start/server`, for tests.
+
+- [#135](https://github.com/pkishorez/monorepo/pull/135) [`7cacf4f`](https://github.com/pkishorez/monorepo/commit/7cacf4f346b81da1732fac049ea01c3fcab9af0c) Thanks [@pkishorez](https://github.com/pkishorez)! - A stopped View keeps what it read of its Children.
+
+  **Changed**
+
+  - A View whose Instance has stopped, still drawn as it leaves the page, keeps what `useChild` and `useChildren` last read of its Children, as it keeps its own last data. A Child its live parent stopped still reads as gone. So a page can stay on screen, whole, until the next one is ready.
+
+- [#138](https://github.com/pkishorez/monorepo/pull/138) [`4dbf438`](https://github.com/pkishorez/monorepo/commit/4dbf43853ebb2eb47879a8bf73139ccf71ac3909) Thanks [@kishorenuma](https://github.com/kishorenuma)! - Kabuki's import paths are cut from 21 to 11: each Part has one path for its values and one for its types. Breaking.
+
+  - `@kestack/kabuki`, `/react`, `/routing` and `/start` give values only. Their types are at `@kestack/kabuki/types`, `/react/types`, `/routing/types` and `/start/types`.
+  - `/start/server` and `/start/vite` stay; `/start/client` stays for the browser entry the plugin writes.
+  - Removed: `/core/actor`, `/core/data`, `/core/runtime`, `/react/view`, `/routing/page`, `/routing/router`, `/routing/capabilities`, `/routing/adapter`, `/routing/browser`, `/routing/tanstack`, `/start/app`, `/start/platform`, `/start/cloudflare` and `/start/nitro`.
+  - `useLive` is on `@kestack/kabuki/react`; `Loading`, `browser`, `tanstack`, `useElementScrollRestoration` and `useKeepScrollAnchor` are on `@kestack/kabuki/routing`.
+  - `cloudflare()` and `nitro()` are on `@kestack/kabuki/start/vite`, beside `start`. Their `serve` functions are `serveCloudflare` and `serveNitro` on `@kestack/kabuki/start/server`.
+
+- [#138](https://github.com/pkishorez/monorepo/pull/138) [`3bd9576`](https://github.com/pkishorez/monorepo/commit/3bd9576b80e3364b23826a4e070f81daec56f3c6) Thanks [@kishorenuma](https://github.com/kishorenuma)! - A Message wakes only the Views whose Instance it changed. Each View, `useChild` and `useChildren` is told at its own Address, so with thousands of Views a Message costs about what one does: the Snapshot drawn is compared with the one before, skipping every part that is the same object in both, where every View used to look its Instance up from the root on each Message.
+
+- [#133](https://github.com/pkishorez/monorepo/pull/133) [`2678376`](https://github.com/pkishorez/monorepo/commit/2678376efd3ce396d3f491c63c615169112eccd9) Thanks [@pkishorez](https://github.com/pkishorez)! - The service worker now answers every page with the App Shell, without the network, so an installed app opens at once at any URL. It keeps only the build's assets and the App Shell; each page loads its data through the Loader RPC, so server data needs a connection, and a Render Mode only says what the server sends when no worker answers. `navigation.networkTimeoutMs` is gone, and a navigation to a path with a file extension or under `/_kabuki/` goes to the network.
+
+  In Kabuki, the root page's Render Mode is now inherited like any other. Under a `client` root the server answers every URL with the App Shell and a `200`, except a file that is not there, which stays a `404`. `Start.app({ loading })` is what the App Shell paints until the app is drawn, and the App Shell now carries the root's Metadata.
+
 ## 0.0.5
 
 ### Patch Changes
