@@ -112,7 +112,10 @@ const wordingOf = (fresh: boolean, btw: boolean, running: boolean) =>
 /**
  * Switched to with a keyboard, the mode takes focus, and is written in if
  * the one before was; as it goes, it says so in `last`, while its editor
- * is still on the page.
+ * is still on the page. Opened with a keyboard, out of Vim Mode, as a new
+ * session from its plus or a Session switched to, it is the Composer at
+ * once, so typing goes into it; in Vim Mode the page keeps its Normal
+ * Mode, and on a touch screen nothing takes focus by itself.
  */
 function useHandOn(
   draft: ReturnType<typeof useDraft>,
@@ -124,7 +127,12 @@ function useHandOn(
   latest.current = draft;
   useEffect(() => {
     const before = last.current;
-    if (!keyboard || before === null || before.mode === mode) return;
+    if (!keyboard) return;
+    if (before === null) {
+      if (!draft.vim) draft.write({ scroll: false });
+      return;
+    }
+    if (before.mode === mode) return;
     if (before.writing || !draft.vim) draft.write();
     else draft.view.current?.focus();
   }, []);
