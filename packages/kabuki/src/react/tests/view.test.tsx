@@ -635,6 +635,18 @@ describe('a stopped View', () => {
     await send('Shelf/lists[x]#1', { _tag: 'Removed', id: 'b' });
     expect(host.textContent).toBe('List 0 ac');
   });
+
+  it('reads no Child for a Handle at no Address, as a Child absent is read', async () => {
+    const NONE = { address: '' } as Handle<typeof Header>;
+    const AbsentView = View.make(List, (self) => {
+      const clicks = useChild(NONE, ({ model }) => model.clicks);
+      const texts = useChildren([NONE]);
+      return <p {...self.root}>{`${clicks ?? 'none'} ${texts.length}`}</p>;
+    });
+    const App = View.app(AbsentView);
+    await mount(<App />);
+    expect(host.textContent).toBe('none 0');
+  });
 });
 
 // motion.create keeps memo ----------------------------------------------------------

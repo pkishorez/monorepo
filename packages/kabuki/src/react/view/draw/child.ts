@@ -1,6 +1,6 @@
 import { use, useRef, useSyncExternalStore } from 'react';
 import { AppContext } from './view.tsx';
-import { Address } from '../../../core/snapshot/index.ts';
+import type { Address } from '../../../core/snapshot/index.ts';
 import type { Drawable, DrawnApp, Handle, ViewProps } from './view.tsx';
 
 /**
@@ -41,14 +41,16 @@ const useDrawn = (hook: string): DrawnApp => {
 /**
  * Whether the parent of the Child at this Address has stopped. A parent
  * whose View is still drawn, as it leaves the page, keeps what it last read
- * of its Children, as it keeps its own last data.
+ * of its Children, as it keeps its own last data. A Handle at no Address,
+ * as an app hands for a Child absent, has no parent: a key's `/` is written
+ * `%2F`, so the last `/` is where the parent's Address ends.
  */
 const parentGone = (
   read: (address: Address<any>) => Drawable | undefined,
   child: Address<any>,
 ) => {
-  const parent = Address.parent(child);
-  return parent !== undefined && read(parent) === undefined;
+  const at = child.lastIndexOf('/');
+  return at > 0 && read(child.slice(0, at) as Address) === undefined;
 };
 
 /**
