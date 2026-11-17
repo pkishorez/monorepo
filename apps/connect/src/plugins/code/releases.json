@@ -72,6 +72,10 @@
     {
       "hash": "81633f94c1ec3720838a062b223378beb6da3e248ba8a69f8974b5e77177733f",
       "summary": "Moves to Kabuki Start's new render modes: the build writes the App Shell and static pages"
+    },
+    {
+      "hash": "2a8004b82c3327db79f2d5606fffe1f4de48a920518c674550c99b123d301e35",
+      "summary": "A Session's context can be fetched with its agent closed: fetchContext reads it from the open agent, or else from a copy resumed just to read it and closed again"
     }
   ]
 }
