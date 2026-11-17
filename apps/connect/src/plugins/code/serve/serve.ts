@@ -1,11 +1,7 @@
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { Layer } from 'effect';
-import {
-  Harnesses,
-  Models,
-  type OneShotPrompt,
-} from '@kestack/ai-toolkit/harness';
+import { Harnesses, Models } from '@kestack/ai-toolkit/harness';
 import { sherpa, Speech, type SpeechToText } from '@kestack/ai-toolkit/speech';
 import { CodeApi } from '../api/contract/index.js';
 import { Engine, storeLayer } from '../engine/index.js';
@@ -30,7 +26,7 @@ export interface CodePluginOptions {
   readonly modelsCache?: string;
   /** Where the Speech to Text model is kept; `speech-to-text/` beside the database unless given. */
   readonly speechFolder?: string;
-  readonly harnesses: Layer.Layer<Harnesses | OneShotPrompt>;
+  readonly harnesses: Layer.Layer<Harnesses>;
   /** Speech to Text; sherpa-onnx with Parakeet unless given. */
   readonly speech?: Layer.Layer<SpeechToText>;
   /** The folder `listFolder` and `createFolder` never leave; the user's home unless given. */

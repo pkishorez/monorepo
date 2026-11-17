@@ -16,4 +16,4 @@ export {
   type QuestionAnswered,
 } from './questions.js';
 export { readableError, TURN_END } from './turn-end.js';
-export { codexOneShot } from './one-shot.js';
+export { oneShot } from './one-shot.js';

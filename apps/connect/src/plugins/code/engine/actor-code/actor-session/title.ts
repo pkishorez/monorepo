@@ -1,5 +1,5 @@
-import { Duration, Effect, Option } from 'effect';
-import { HarnessAccount, OneShotPrompt } from '@kestack/ai-toolkit/harness';
+import { Duration, Effect } from 'effect';
+import { HarnessAccount, Harnesses } from '@kestack/ai-toolkit/harness';
 import { HarnessAccounts, Store } from '../../capabilities/index.js';
 import { EngineRaw } from '../../engine-raw/index.js';
 import type { SessionQuerySelf, SessionSelf } from './actor.js';
@@ -8,15 +8,14 @@ import { renameFor } from './branch.js';
 /*
  * A Session's Title: the first line of its first message until a One-shot
  * Prompt has written one, and written again from the user's latest
- * messages when the engine asks the retitle Query. The first one written
- * names a new Worktree's branch too (see branch.ts).
+ * messages when the engine asks the retitle Query. The Session's own
+ * harness writes it, as the Session's Harness Account, so its messages go
+ * to no other agent; when that fails, nothing else is asked. The first one
+ * written names a new Worktree's branch too (see branch.ts).
  */
 
 /** How long the One-shot Prompt may take before the title stays as it is. */
 const TITLE_TIMEOUT = Duration.seconds(60);
-
-/** Titles are written by Codex (`codexOneShot`), as its Default Account. */
-const TITLE_ACCOUNT = 'codex';
 
 /** How many of the user's latest messages a Title is written from. */
 const TITLE_MESSAGES = 5;
@@ -74,27 +73,30 @@ export const clean = (reply: string): string =>
     .slice(0, MAX_WORDS)
     .join(' ');
 
-/** A title for `messages`; '' when the One-shot Prompt failed, took too long or wrote none. */
-const titled = (messages: ReadonlyArray<string>, why: string) =>
+/** The harness a Session runs, and the Harness Account it runs as. */
+interface WrittenBy {
+  readonly harness: Parameters<Harnesses['Service']['get']>[0];
+  readonly account: string;
+}
+
+/**
+ * A title for `messages`, from the Session's own harness as its account;
+ * '' when the One-shot Prompt failed, took too long or wrote none.
+ */
+const titled = (by: WrittenBy, messages: ReadonlyArray<string>, why: string) =>
   Effect.gen(function* () {
-    const oneShot = yield* OneShotPrompt;
-    const accounts = yield* HarnessAccounts;
-    // As Codex's Default Account, as the user set it; with no Codex
-    // harness on this Connection, as the One-shot Prompt's own default.
-    const account = yield* Effect.option(accounts.as(TITLE_ACCOUNT));
-    const asked = oneShot.prompt(prompt(messages));
-    return yield* (
-      Option.isSome(account)
-        ? asked.pipe(Effect.provideService(HarnessAccount, account.value))
-        : asked
-    ).pipe(
-      Effect.timeout(TITLE_TIMEOUT),
-      Effect.map(clean),
-      Effect.catch((error) =>
-        Effect.as(Effect.logWarning(`No title written; ${why}`, error), ''),
-      ),
-    );
-  });
+    const harness = (yield* Harnesses).get(by.harness);
+    const account = yield* (yield* HarnessAccounts).as(by.account);
+    return yield* harness
+      .oneShot(prompt(messages))
+      .pipe(Effect.provideService(HarnessAccount, account));
+  }).pipe(
+    Effect.timeout(TITLE_TIMEOUT),
+    Effect.map(clean),
+    Effect.catch((error) =>
+      Effect.as(Effect.logWarning(`No title written; ${why}`, error), ''),
+    ),
+  );
 
 /**
  * The title Worker: asks for a title from the first message, once, and
@@ -104,7 +106,11 @@ export const title = (self: SessionSelf) =>
   Effect.gen(function* () {
     const { model } = yield* self.get;
     const text = model.untitled ?? '';
-    const found = yield* titled([text], 'keeping the first line');
+    const found = yield* titled(
+      model.session,
+      [text],
+      'keeping the first line',
+    );
     const written = found === '' ? fallbackTitle(text) : found;
     yield* renameFor(self, written);
     yield* self.send({ _tag: 'Titled', title: written });
@@ -138,6 +144,6 @@ export const retitle = (self: SessionQuerySelf) =>
     const { model } = yield* self.get;
     const messages = yield* recentUserMessages(model.session.id);
     if (messages.length === 0) return null;
-    const found = yield* titled(messages, 'keeping the title');
+    const found = yield* titled(model.session, messages, 'keeping the title');
     return found === '' ? null : found;
   });

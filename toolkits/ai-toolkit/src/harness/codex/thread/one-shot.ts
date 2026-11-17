@@ -1,12 +1,11 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Duration, Effect, Layer, Stream } from 'effect';
+import { Duration, Effect, Stream } from 'effect';
 import {
   HarnessAccount,
   HarnessError,
   isRecord,
-  OneShotPrompt,
 } from '../../contract/index.js';
 import { start, type AppServer, type ThreadItem } from '../app-server/index.js';
 import { listModels } from '../catalog/index.js';
@@ -48,20 +47,16 @@ const tempFolder = Effect.acquireRelease(
     Effect.promise(() => rm(folder, { recursive: true, force: true })),
 );
 
-const prompt = (text: string) =>
+/**
+ * A One-shot Prompt answered by Codex: a read-only, ephemeral thread on a
+ * small model, in a temp folder, with no Agent behind it.
+ */
+export const oneShot = (
+  text: string,
+): Effect.Effect<string, HarnessError, HarnessAccount> =>
   Effect.gen(function* () {
-    // The caller's Harness Account when it gives one, else the installed Codex.
-    const account = yield* Effect.serviceOption(HarnessAccount).pipe(
-      Effect.map((found) =>
-        found._tag === 'Some'
-          ? found.value
-          : { binary: undefined, configFolder: undefined },
-      ),
-    );
     const cwd = yield* tempFolder;
-    const server = yield* start(cwd).pipe(
-      Effect.provideService(HarnessAccount, account),
-    );
+    const server = yield* start(cwd);
     const session = yield* openSession(server, {
       cwd,
       model: yield* smallModel(server),
@@ -99,9 +94,3 @@ const prompt = (text: string) =>
         ),
     }),
   );
-
-/**
- * One-shot Prompts answered by Codex: a read-only, ephemeral thread on a
- * small model, in a temp folder, with no Agent behind it.
- */
-export const codexOneShot = Layer.succeed(OneShotPrompt, { prompt });

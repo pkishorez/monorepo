@@ -139,10 +139,11 @@ interface Agent {
   Codex: `item/started` for tool-like items, `item/completed`, `turn/completed`,
   token usage).
 
-Session titles: after the first user message, Connect asks a One-shot Prompt
-(`codexOneShot`: Codex with model
-`gpt-6-luna`, or the account's newest luna model) for a short title, written to the Session. Failure leaves the first
-line of the message as the title.
+Session titles: after the first user message, Connect asks the Session's own
+harness, as its Harness Account, for a One-shot Prompt (`oneShot`: Claude's
+Haiku; Codex's `gpt-6-luna`, or the account's newest luna model) for a short
+title, written to the Session. Failure leaves the first line of the message
+as the title; no other harness is asked.
 
 ## Engine (Kabuki, server-side, no drawing)
 

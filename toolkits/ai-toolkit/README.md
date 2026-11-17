@@ -62,7 +62,6 @@ Claude Code and Codex are not dependencies: install the ones you use, and sign i
 | ----------------------------- | ---------------------------------------------------------------------------------------------- |
 | `claude`                      | The Claude Code harness, through the Agent SDK.                                                |
 | `codex`                       | The Codex harness, through `codex app-server`.                                                 |
-| `codexOneShot`                | Layer of `OneShotPrompt` answered by Codex on a small model, read-only, in a temp folder.      |
 | `Harnesses`                   | Service listing the Coding Harnesses a program runs, each found by name.                       |
 | `harnesses`                   | Layer of `Harnesses` from a list of harnesses.                                                 |
 | `HarnessAccount`              | Service saying which Harness Account a call runs as: its binary and config folder.             |
@@ -71,7 +70,6 @@ Claude Code and Codex are not dependencies: install the ones you use, and sign i
 | `checkBinary`                 | A path the user gave, expanded, once it runs as the harness's binary.                          |
 | `configFolderOf`              | The config folder an account really uses: its own, else the environment's, else the harness's. |
 | `InvalidBinary`               | Error: the path is missing, not executable, or its `--version` failed.                         |
-| `OneShotPrompt`               | Service answering a prompt with no Agent behind it and nothing kept.                           |
 | `HarnessError`                | Error: a Coding Harness failed.                                                                |
 | `isRecord`                    | Whether something in a Turn's stream is a record of the agent's, not a fact about the Turn.    |
 | `projectRaw`                  | One Raw record to its Message form, by the harness in a list that wrote it.                    |
@@ -136,18 +134,18 @@ const program = Effect.scoped(
 
 ### Ask a One-shot Prompt
 
-`OneShotPrompt` answers a prompt with no Agent behind it. `codexOneShot` is Codex's; tests give `makeFakeHarness().layer`.
+Every harness answers a prompt with no Agent behind it, as the Harness Account it is given. Trimmed from `src/harness/claude/tests/claude.e2e.test.ts`.
 
 ```ts
 import { Effect } from 'effect';
-import { codexOneShot, OneShotPrompt } from '@kestack/ai-toolkit/harness';
+import { claude, HarnessAccount } from '@kestack/ai-toolkit/harness';
 
-const reply = OneShotPrompt.use((oneShot) =>
-  oneShot.prompt('Write a title of at most six words for: add dark mode'),
-).pipe(Effect.provide(codexOneShot));
+const reply = claude
+  .oneShot('Write a title of at most six words for: add dark mode')
+  .pipe(Effect.provide(HarnessAccount.layerDefault));
 ```
 
-- It runs read-only, with no tools, on a small model, and keeps nothing; it fails after 30 seconds.
+- It runs with no tools on the harness's small model (Claude's Haiku, Codex's luna) in a temp folder, and keeps nothing; it fails after 30 seconds.
 
 ### Turn speech into text
 

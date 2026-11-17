@@ -19,7 +19,6 @@ import {
   HarnessAccount,
   Harnesses,
   InvalidBinary,
-  OneShotPrompt,
   type HarnessError,
 } from '@kestack/ai-toolkit/harness';
 import {
@@ -388,13 +387,7 @@ const make = (options: EngineOptions) =>
     const harnesses = yield* Harnesses;
     const folders = yield* Folders;
     const services = yield* Effect.context<
-      | Store
-      | Harnesses
-      | OneShotPrompt
-      | HarnessAccounts
-      | Agents
-      | Answers
-      | Git
+      Store | Harnesses | HarnessAccounts | Agents | Answers | Git
     >();
     const repos = yield* Git;
     const accounts = yield* HarnessAccounts;
@@ -878,7 +871,7 @@ export class Engine extends Context.Service<Engine, EngineService>()(
   /** Runs the engine until its Scope closes; the root sweeps the Store first. */
   static readonly layer = (
     options: EngineOptions,
-  ): Layer.Layer<Engine, never, Store | Harnesses | OneShotPrompt> =>
+  ): Layer.Layer<Engine, never, Store | Harnesses> =>
     Layer.effect(Engine, make(options)).pipe(
       Layer.provide(
         Layer.mergeAll(

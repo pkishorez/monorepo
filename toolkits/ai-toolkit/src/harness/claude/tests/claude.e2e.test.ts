@@ -231,6 +231,11 @@ describe.skipIf(!enabled)('claude harness against the real Claude Code', () => {
     expect(models.filter((model) => model.isDefault)).toHaveLength(1);
   }, 60_000);
 
+  it('answers a One-shot Prompt', async () => {
+    const reply = await run(claude.oneShot('Reply with exactly: ok-one-shot'));
+    expect(reply).toContain('ok-one-shot');
+  }, 60_000);
+
   it('reads a file: a Read tool call, its result, and a done turn', async () => {
     const outs = await run(
       runTurn(

@@ -12,7 +12,6 @@ import {
   HarnessAccount,
   HarnessError,
   Harnesses,
-  OneShotPrompt,
   QuestionNotAsked,
   type AskInput,
   type BackgroundJob,
@@ -81,7 +80,7 @@ interface FakeAgent {
 
 export interface FakeHarness {
   readonly harness: Harness;
-  readonly layer: Layer.Layer<Harnesses | OneShotPrompt>;
+  readonly layer: Layer.Layer<Harnesses>;
   /** Every open, with what it was opened with. */
   readonly opens: Array<AgentConfig>;
   /** The Harness Account each open ran as. */
@@ -96,8 +95,8 @@ export interface FakeHarness {
   readonly asks: Array<AskInput>;
   /** Every One-shot Prompt, with its text. */
   readonly prompts: Array<string>;
-  /** Whether each One-shot Prompt had a Harness Account to run as. */
-  readonly promptAccounts: Array<boolean>;
+  /** The Harness Account each One-shot Prompt ran as. */
+  readonly promptAccounts: Array<HarnessAccount['Service']>;
   /** Every Background Job stopped, by id. */
   readonly stoppedJobs: Array<string>;
   /** Every Agent Question answered, by id; a null answer declined it. */
@@ -174,7 +173,7 @@ export const makeFakeHarness = (
   const forks: Array<ForkInput> = [];
   const asks: Array<AskInput> = [];
   const prompts: Array<string> = [];
-  const promptAccounts: Array<boolean> = [];
+  const promptAccounts: Array<HarnessAccount['Service']> = [];
   const stoppedJobs: Array<string> = [];
   const answers: FakeHarness['answers'] = [];
   const agents = new Map<string, FakeAgent>();
@@ -386,6 +385,16 @@ export const makeFakeHarness = (
           ? { _tag: 'Text' as const, text: `answer:${input.question}` }
           : { _tag: 'Data' as const, data: { question: input.question } };
       }),
+    oneShot: (text) =>
+      Effect.gen(function* () {
+        prompts.push(text);
+        promptAccounts.push(yield* HarnessAccount);
+        if (options.oneShot === undefined)
+          return yield* new HarnessError({
+            message: 'no One-shot Prompts here',
+          });
+        return options.oneShot;
+      }),
     // A configured path containing `missing` does not run.
     binary: Effect.gen(function* () {
       const configured = (yield* HarnessAccount).binary;
@@ -422,28 +431,13 @@ export const makeFakeHarness = (
     },
   };
 
-  const layer = Layer.merge(
-    Layer.succeed(Harnesses, {
-      all: [harness],
-      get: (name) => {
-        if (name !== 'claude') throw new Error(`No harness ${name}`);
-        return harness;
-      },
-    }),
-    Layer.succeed(OneShotPrompt, {
-      prompt: (text) =>
-        Effect.gen(function* () {
-          prompts.push(text);
-          const given = yield* Effect.serviceOption(HarnessAccount);
-          promptAccounts.push(given._tag === 'Some');
-          if (options.oneShot === undefined)
-            return yield* new HarnessError({
-              message: 'no One-shot Prompts here',
-            });
-          return options.oneShot;
-        }),
-    }),
-  );
+  const layer = Layer.succeed(Harnesses, {
+    all: [harness],
+    get: (name) => {
+      if (name !== 'claude') throw new Error(`No harness ${name}`);
+      return harness;
+    },
+  });
 
   const agentOf = (nativeId: string) => Effect.sync(() => agents.get(nativeId));
 

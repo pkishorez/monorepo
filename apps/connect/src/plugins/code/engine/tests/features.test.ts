@@ -563,9 +563,11 @@ describe('asking a Session', () => {
           expect(asked).toContain(`<message>\n${text}\n</message>`);
         expect(asked).toContain('<latest-message>\nsix\n</latest-message>');
         expect(asked).not.toContain('\none\n');
-        // Titles run as Codex's Default Account; with no Codex here, as
-        // the One-shot Prompt's own default, both times.
-        expect(fake.promptAccounts).toEqual([false, false]);
+        // Titles run as the Session's own Harness Account, both times.
+        expect(fake.promptAccounts).toEqual([
+          fake.accounts[0],
+          fake.accounts[0],
+        ]);
         yield* eventually(async () =>
           expect((await saved())?.title).toBe('A greeting'),
         );

@@ -254,6 +254,13 @@ export interface Harness {
   readonly ask: (
     input: AskInput,
   ) => Effect.Effect<AskAnswer, HarnessError, HarnessAccount>;
+  /**
+   * A One-shot Prompt's reply: a small model with no Agent behind it, no
+   * tools, nothing kept.
+   */
+  readonly oneShot: (
+    text: string,
+  ) => Effect.Effect<string, HarnessError, HarnessAccount>;
   /** The Harness Binary this harness runs, and whether it runs. */
   readonly binary: Effect.Effect<BinaryInfo, never, HarnessAccount>;
   /** Pure: one Raw record this harness wrote, to its projected form or null. */
@@ -292,14 +299,3 @@ export class HarnessAccount extends Context.Service<
     { binary: undefined, configFolder: undefined },
   );
 }
-
-/**
- * The reply to a prompt from a Coding Harness with no Agent behind it:
- * read-only, no tools, nothing kept.
- */
-export class OneShotPrompt extends Context.Service<
-  OneShotPrompt,
-  {
-    readonly prompt: (text: string) => Effect.Effect<string, HarnessError>;
-  }
->()('@kestack/ai-toolkit/OneShotPrompt') {}

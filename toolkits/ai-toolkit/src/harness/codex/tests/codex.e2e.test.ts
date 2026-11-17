@@ -21,7 +21,6 @@ import { afterAll, describe, expect, it } from 'vitest';
 import {
   HarnessAccount,
   isRecord,
-  OneShotPrompt,
   type Agent,
   type AgentQuestion,
   type BackgroundJob,
@@ -34,7 +33,7 @@ import {
 import type { Part, Projected } from '../../../contract/projection/index.js';
 import type { Raw } from '../../../contract/raw/index.js';
 import { isNotification, start } from '../app-server/index.js';
-import { codex, codexOneShot, restore } from '../index.js';
+import { codex, restore } from '../index.js';
 import { openSession } from '../thread/index.js';
 
 // Runs against the real, logged-in Codex on this machine. A cheap, fast model.
@@ -404,10 +403,8 @@ describe.runIf(process.env.AI_TOOLKIT_E2E === '1')(
     it(
       'answers a One-shot Prompt',
       async () => {
-        const reply = await Effect.runPromise(
-          OneShotPrompt.use((oneShot) =>
-            oneShot.prompt('Reply with exactly: ok-one-shot'),
-          ).pipe(Effect.provide(codexOneShot)),
+        const reply = await run(
+          codex.oneShot('Reply with exactly: ok-one-shot'),
         );
         expect(reply).toContain('ok-one-shot');
       },
