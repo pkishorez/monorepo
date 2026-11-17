@@ -7,6 +7,7 @@ import {
 } from '@kestack/web-platform/recipes/account-switcher';
 import { Apis, ApisLive } from './apis.ts';
 import { ItemLive, Items, ItemsLive } from './items.ts';
+import { Native, NativeLive } from './native.ts';
 import { ClientLive, DynamicLive, Static, StaticLive } from './rendering.ts';
 import {
   Entries,
@@ -19,7 +20,7 @@ import { PocketLive as PocketReplica } from '../../replicas/pocket/index.ts';
 import { Actor } from '@kestack/kabuki';
 
 /*
- * The root page, with the four pages under it, and the router read down
+ * The root page, with the five pages under it, and the router read down
  * from it. Both sides import this: the server for the router its Loaders
  * are checked against, the browser for every page's build its Views draw.
  * The root page also holds the Account Switcher, which its View draws in
@@ -30,7 +31,7 @@ import { Actor } from '@kestack/kabuki';
 
 const App = Page.define({
   metadata: { meta: [{ property: 'og:site_name', content: 'Kabuki Start' }] },
-  pages: { Static, Items, Apis, Replica },
+  pages: { Static, Items, Apis, Replica, Native },
 });
 
 const ReplicasLive = Replicas.actor([PocketReplica]);
@@ -41,6 +42,7 @@ const AppLive = App.build({
     Items: ItemsLive,
     Apis: ApisLive,
     Replica: ReplicaLive,
+    Native: NativeLive,
   },
   provides: {
     capabilities: [...CurrentAccount.capabilities, ...Replicas.capabilities],
@@ -71,6 +73,7 @@ export const Pages = {
   ItemLive,
   ApisLive,
   ReplicaLive,
+  NativeLive,
   PocketLive,
   Wallets,
   Entries,

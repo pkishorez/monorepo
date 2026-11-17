@@ -79,6 +79,16 @@
     "src/app/alchemy": ["src/app/dev-auth"],
     "src/app/document": ["src/pwa/page", "src/ui/input/device", "src/ui/theme"],
     "src/app/vite": ["src/pwa/vite", "src/app/dev-auth"],
+    "src/capabilities/app-info": ["src/capabilities/platform"],
+    "src/capabilities/app-info/android": ["src/capabilities/app-info/shell"],
+    "src/capabilities/app-info/ios": ["src/capabilities/app-info/shell"],
+    "src/capabilities/app-info/shell": ["src/capabilities/app-info/web"],
+    "src/capabilities/haptics": ["src/capabilities/platform"],
+    "src/capabilities/haptics/ios": ["src/capabilities/haptics/web"],
+    "src/capabilities/live-activity": ["src/capabilities/platform"],
+    "src/capabilities/live-activity/ios": [
+      "src/capabilities/live-activity/web"
+    ],
     "src/pwa/contract/config": [
       "src/pwa/contract/build",
       "src/ui/theme/model.ts"

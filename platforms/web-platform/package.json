@@ -82,6 +82,10 @@
       "types": "./dist/recipes/*/index.d.ts",
       "default": "./dist/recipes/*/index.js"
     },
+    "./capabilities/*": {
+      "types": "./dist/capabilities/*/index.d.ts",
+      "default": "./dist/capabilities/*/index.js"
+    },
     "./app/document": {
       "types": "./dist/app/document/index.d.ts",
       "default": "./dist/app/document/index.js"
@@ -139,6 +143,9 @@
   },
   "devDependencies": {
     "@alchemy.run/cloudflare": "catalog:",
+    "@capacitor/app": "catalog:",
+    "@capacitor/core": "catalog:",
+    "@capacitor/haptics": "catalog:",
     "@cloudflare/workers-types": "catalog:",
     "@kestack/auth-toolkit": "workspace:*",
     "@kestack/kabuki": "workspace:*",
@@ -177,7 +184,10 @@
     "vite": "^8.0.0",
     "@tailwindcss/vite": "4.3.3",
     "@vitejs/plugin-react": "6.1.2",
-    "alchemy": "2.0.0-beta.84"
+    "alchemy": "2.0.0-beta.84",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/core": "8.6.2",
+    "@capacitor/haptics": "8.0.1"
   },
   "peerDependenciesMeta": {
     "@alchemy.run/cloudflare": {
@@ -208,6 +218,15 @@
       "optional": true
     },
     "alchemy": {
+      "optional": true
+    },
+    "@capacitor/app": {
+      "optional": true
+    },
+    "@capacitor/core": {
+      "optional": true
+    },
+    "@capacitor/haptics": {
       "optional": true
     }
   }

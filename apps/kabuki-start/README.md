@@ -1,6 +1,6 @@
 # kabuki-start
 
-The smallest Kabuki Start app, the one to copy: static, dynamic and client pages layered on one screen, links that preload on hover, two API Workers with a public, an authenticated and an authorized call each, and a Pocket of wallets kept on the device with Replica, published at start.kishore.app.
+The smallest Kabuki Start app, the one to copy: static, dynamic and client pages layered on one screen, links that preload on hover, two API Workers with a public, an authenticated and an authorized call each, a Pocket of wallets kept on the device with Replica, and a Native page that runs the same in a browser and in the app's Capacitor Shell on iOS and Android, published at start.kishore.app.
 
 ## Big picture
 
@@ -11,7 +11,7 @@ declared with Alchemy. How Start works is in
 pages, Places, Loaders and Render Modes in
 [`packages/kabuki/docs/routing.md`](../../packages/kabuki/docs/routing.md).
 
-Four screens. **Rendering** (`/`) is a static page; `/dynamic` adds a
+Five screens. **Rendering** (`/`) is a static page; `/dynamic` adds a
 dynamic layer inside it, and `/dynamic/client` a client layer inside that,
 so all three Render Modes share one screen. A URL names one page per level,
 so nesting is how they do; `/` alone stays all static, which is what lets a
@@ -44,7 +44,19 @@ Wallets sync whole; entries sync one Window per wallet: a wallet's
 accounts shows every Instance, its Collections and their Windows, each
 counting down for 8 seconds once let go. **+$1 from elsewhere** writes
 straight to the Worker, as another device would, so only a wallet whose
-Window runs brings its entry in.
+Window runs brings its entry in. **Native** (`/native`) is the same page in a
+browser and in the app's Capacitor Shell on iOS and Android: it says the
+platform and the Shell's id, name, version and build from web-platform's
+`AppInfo`, whether a service worker controls the page, and has three
+haptics to try through `Haptics`, each saying whether the device took it,
+and a Live Activity through `LiveActivity`, iOS's live card in the Dynamic
+Island, to start, move on by a quarter and end.
+The app's Layer gives each Shell the Capabilities' own versions; a browser
+keeps the web's, and never loads Capacitor. With `?proof` it runs the three
+haptics by itself and logs one `[native-proof]` line, and each value sits
+in an element marked `data-proof`, for the native build's check to read;
+`&live=1` also starts a Live Activity and leaves it running, and
+`&theme=light` or `dark` first sets the Theme.
 
 The folders are its boundaries. `src/shared/pages` is what both sides
 import: every page's definition and build, its data Schema, and the router.
@@ -64,7 +76,7 @@ which Alchemy sets from the Workers it declares and Vite inlines.
 src/
   shared/pages/        both sides: one file per page, its data Schema beside it (replica/ a folder: the page, the accounts list, the Pocket); pages.ts holds the root page and the router
   client/
-    app.tsx            Start.app: the router, the root View, the Web Platform's Document with devtools around it, the browser's Layer (Accounts, the API clients and the Replica Store)
+    app.tsx            Start.app: the router, the root View, the Web Platform's Document with devtools around it, the browser's Layer (Accounts, the API clients, the Replica Store, and Haptics, App Info and Live Activities per Shell)
     views/             one View per page; views.tsx draws the root page, preload-link.tsx shows a preload live
     views/replica/     the Replica page: the accounts list, the sync panel, the Pocket
     components/        layout, page intro, clock, devtools, theme
