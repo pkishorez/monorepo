@@ -3,6 +3,7 @@ import { ArchiveIcon, ArchiveRestoreIcon } from 'lucide-react';
 import { useDevice } from '@kestack/web-platform/ui/input';
 import { createContext, type ReactNode, use } from 'react';
 import { notify } from '../../../../../../ui/controls/notice/index.ts';
+import { dragOf } from './drag.ts';
 
 /*
  * On a touch screen a Session row swipes left to right: an unsettled one
@@ -11,7 +12,8 @@ import { notify } from '../../../../../../ui/controls/notice/index.ts';
  * a toast offers Undo for five seconds, or until the sidebar shuts; its
  * Connection is asked at once, and Undo asks it back. A refusal brings its
  * row back afresh (`SwipeBack`), even one never taken out of its list, and
- * no other. With no touch screen the row is drawn as it is.
+ * no other. With no touch screen it drags instead (`drag.ts`), onto
+ * "Settled" or back onto the Sessions.
  */
 
 /** How many of a Session's Moves were refused: each brings its row back, drawn afresh. */
@@ -52,7 +54,10 @@ export function SwipeToMove({
 }) {
   const { touch } = useDevice();
   const back = use(SwipeBack)(connectionId, sessionId);
-  if (!touch) return children;
+  if (!touch)
+    return (
+      <div {...dragOf({ connectionId, sessionId, settled })}>{children}</div>
+    );
   return (
     <SwipeRow
       key={back}

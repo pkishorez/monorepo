@@ -44,6 +44,7 @@ import {
 } from './order/order.ts';
 import { SettledList, settledOf } from './settled/settled.tsx';
 import { SwipeToMove } from './swipe/swipe.tsx';
+import { type Dragged, useDropToMove } from './swipe/drag.ts';
 import { arrive, ArriveItem } from './order/arrive/arrive.tsx';
 import { AnimatePresence, MotionConfig, motion } from 'motion/react';
 
@@ -71,7 +72,10 @@ import { AnimatePresence, MotionConfig, motion } from 'motion/react';
  * half lit, so the open one still stands out. A Connection out of reach
  * keeps what it last synced, its Projects and rows quieter, with no plus,
  * and, its name shown, last. Last of all, "Settled"
- * with how many, quieter, opens the Settled List under it, and closes it. While
+ * with how many, quieter, opens the Settled List under it, and closes it.
+ * With a mouse, a row dragged onto "Settled" is Settled, and a Settled one
+ * dragged back onto the Sessions above it is un-Settled, each lit while a
+ * row is over it that it would take (`swipe/drag.ts`). While
  * nothing is held and some Connection's were never synced here, each such
  * Connection is listed instead, saying how far it got: downloading
  * cloudflared, opening its tunnel, linking. Its foot, the two buttons
@@ -154,7 +158,7 @@ export function Places({
     sessionId: string,
   ) => void;
   readonly onUnsettle: (connectionId: string, sessionId: string) => void;
-  /** A Session swiped to Settle it, or to un-Settle it. */
+  /** A Session swiped or dragged to Settle it, or to un-Settle it. */
   readonly onMove: (session: OnConnection<Session>, settled: boolean) => void;
 }) {
   const page = routes.pageOf(route);
@@ -184,6 +188,15 @@ export function Places({
   const groups = shownOf(listed, folded);
   const settled = settledOf(projects.rows, sessions);
   const toggleSettled = () => setSettledOpen((now) => !now);
+  const dropped = (settled: boolean) => (dragged: Dragged) => {
+    const session = sessions.find(
+      ({ connectionId, id }) =>
+        connectionId === dragged.connectionId && id === dragged.sessionId,
+    );
+    if (session !== undefined) onMove(session, settled);
+  };
+  const toSettled = useDropToMove(true, dropped(true));
+  const toSessions = useDropToMove(false, dropped(false));
   const stops: ReadonlyArray<Stop> = [
     ...listed.flatMap((group) => [
       ...(group.connection === null
@@ -262,83 +275,85 @@ export function Places({
       <div ref={cursor.list} className="flex flex-col px-2 pb-1">
         <>
           <OpenProject />
-          {waiting ? (
-            <Waiting connections={projects.waiting} />
-          ) : listed.length === 0 ? (
-            <p className="px-3 py-2 text-[15px] text-pretty text-muted-foreground keyboard:md:text-sm">
-              No sessions yet. Start one with the plus
-              {picks === null ? '' : `, or ${picks}`}: pick a folder, then say
-              what to do.
-            </p>
-          ) : (
-            <section aria-label="Sessions" className="pb-5">
-              <SidebarMenu className="gap-0">
-                {/* No row's presence moves the others by `layout`, so each
+          <div {...toSessions.props} className={DROP}>
+            {waiting ? (
+              <Waiting connections={projects.waiting} />
+            ) : listed.length === 0 ? (
+              <p className="px-3 py-2 text-[15px] text-pretty text-muted-foreground keyboard:md:text-sm">
+                No sessions yet. Start one with the plus
+                {picks === null ? '' : `, or ${picks}`}: pick a folder, then say
+                what to do.
+              </p>
+            ) : (
+              <section aria-label="Sessions" className="pb-5">
+                <SidebarMenu className="gap-0">
+                  {/* No row's presence moves the others by `layout`, so each
                     row's presence holds still and a memoized row stays put
                     as the list draws again. */}
-                <AnimatePresence
-                  key={read}
-                  initial={false}
-                  presenceAffectsLayout={false}
-                >
-                  {listed.flatMap((group, index) => {
-                    const quiet = away(group.connectionId);
-                    const name =
-                      group.connection === null
-                        ? []
-                        : [
-                            <ConnectionLabel
-                              key={connectionPlace(group.connectionId)}
-                              connectionId={group.connectionId}
-                              name={group.connection}
-                              first={index === 0}
-                              collapsed={folded.has(group.connectionId)}
-                              count={countOf(listed, group.connectionId)}
-                              cursor={at(connectionPlace(group.connectionId))}
-                              onCollapse={onCollapse}
-                            />,
-                          ];
-                    if (folded.has(group.connectionId)) return name;
-                    return [
-                      ...name,
-                      <ProjectHeading
-                        key={group.place}
-                        accountId={accountId}
-                        place={group.place}
-                        connectionId={group.connectionId}
-                        projectId={group.projectId}
-                        name={group.name}
-                        branch={group.branch}
-                        first={index === 0 || group.connection !== null}
-                        open={open === group.place}
-                        quiet={quiet}
-                        cursor={at(group.place)}
-                      />,
-                      ...group.sessions.map(({ place, session }) => (
-                        <SessionRow
-                          key={place}
+                  <AnimatePresence
+                    key={read}
+                    initial={false}
+                    presenceAffectsLayout={false}
+                  >
+                    {listed.flatMap((group, index) => {
+                      const quiet = away(group.connectionId);
+                      const name =
+                        group.connection === null
+                          ? []
+                          : [
+                              <ConnectionLabel
+                                key={connectionPlace(group.connectionId)}
+                                connectionId={group.connectionId}
+                                name={group.connection}
+                                first={index === 0}
+                                collapsed={folded.has(group.connectionId)}
+                                count={countOf(listed, group.connectionId)}
+                                cursor={at(connectionPlace(group.connectionId))}
+                                onCollapse={onCollapse}
+                              />,
+                            ];
+                      if (folded.has(group.connectionId)) return name;
+                      return [
+                        ...name,
+                        <ProjectHeading
+                          key={group.place}
                           accountId={accountId}
-                          place={place}
-                          session={session}
-                          original={originalOf(session, titles)}
-                          heading={group.branch}
+                          place={group.place}
+                          connectionId={group.connectionId}
+                          projectId={group.projectId}
+                          name={group.name}
+                          branch={group.branch}
+                          first={index === 0 || group.connection !== null}
+                          open={open === group.place}
                           quiet={quiet}
-                          open={open === place}
-                          cursor={at(place)}
-                          unseen={isUnseen(session)}
-                          asking={isAsking(session)}
-                          working={isWorking(session)}
-                          onMove={onMove}
-                        />
-                      )),
-                    ];
-                  })}
-                </AnimatePresence>
-              </SidebarMenu>
-            </section>
-          )}
+                          cursor={at(group.place)}
+                        />,
+                        ...group.sessions.map(({ place, session }) => (
+                          <SessionRow
+                            key={place}
+                            accountId={accountId}
+                            place={place}
+                            session={session}
+                            original={originalOf(session, titles)}
+                            heading={group.branch}
+                            quiet={quiet}
+                            open={open === place}
+                            cursor={at(place)}
+                            unseen={isUnseen(session)}
+                            asking={isAsking(session)}
+                            working={isWorking(session)}
+                            onMove={onMove}
+                          />
+                        )),
+                      ];
+                    })}
+                  </AnimatePresence>
+                </SidebarMenu>
+              </section>
+            )}
+          </div>
           {/* A heading like the days', so what opens under it reads as its own; a finger's height to hit. */}
-          <section aria-label="Settled">
+          <section aria-label="Settled" {...toSettled.props} className={DROP}>
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
@@ -391,6 +406,10 @@ export function Places({
 }
 
 const cursorRing = 'data-cursor:ring-2 data-cursor:ring-inset';
+
+/** A place a dragged row may be dropped on, lit while one it takes is over it. */
+const DROP =
+  'rounded-lg transition-colors duration-150 data-over:bg-sidebar-accent/50 data-over:ring-2 data-over:ring-inset motion-reduce:transition-none';
 
 /**
  * Open project, at the top on a wide screen, as a row: it opens the

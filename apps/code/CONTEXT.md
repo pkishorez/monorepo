@@ -197,7 +197,7 @@ The one line at the foot of the page: the model and permissions in effect, and t
 _Avoid_: footer, toolbar
 
 **Move**:
-A Session the user put Settled or un-Settled, from a swipe, its Undo, the Settled List's Un-settle or Actions, on its way to its Connection: asked of it at once, one call at a time per Session, and the Session drawn where it was put until the Session as synced agrees, or a moment after its last call returns. One refused says why, and the Session goes back.
+A Session the user put Settled or un-Settled, from a swipe or, with a mouse, a drag, its Undo, the Settled List's Un-settle or Actions, on its way to its Connection: asked of it at once, one call at a time per Session, and the Session drawn where it was put until the Session as synced agrees, or a moment after its last call returns. One refused says why, and the Session goes back.
 _Avoid_: pending settle, optimistic row
 
 **Settled List**:
