@@ -21,7 +21,8 @@ import { GeneralLive } from './actor.ts';
  * wide screen. Screen: whether it is kept on while the app shows. Keyboard:
  * Vim Mode, which a touch screen with no keyboard leaves out. Voice: the Microphone, chosen in the Microphone Picker.
  * Touch: Smart Input and Smart Displacement, which a keyboard leaves out.
- * Sessions: when the Draft shows how full the context is.
+ * Sessions: when the Draft shows how full the context is, and whether a
+ * new Claude session runs Claude Code's own system prompt.
  * Each says what it does in a line; a Row of one switch, and the theme's,
  * is clicked anywhere to flip it.
  */
@@ -258,6 +259,29 @@ export const GeneralView = View.make(GeneralLive, ({ root, model, send }) => {
           }
         >
           How full it is, by the message box.
+        </Row>
+        <Row
+          id="claude-code-prompt"
+          name="Claude Code system prompt"
+          onToggle={
+            device === null
+              ? undefined
+              : () =>
+                  send({
+                    _tag: 'ClaudeCodePromptChosen',
+                    on: !device.claudeCodePrompt,
+                  })
+          }
+          control={
+            <OnOff
+              id="claude-code-prompt"
+              on={device?.claudeCodePrompt ?? null}
+              onChange={(on) => send({ _tag: 'ClaudeCodePromptChosen', on })}
+            />
+          }
+        >
+          New Claude sessions start with Claude Code's own instructions. Off,
+          they get the Agent SDK's minimal prompt.
         </Row>
       </Section>
       <Section name="Touch" className="keyboard:hidden">

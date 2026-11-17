@@ -161,6 +161,9 @@ const writeIn = (
     ),
   ).pipe(Effect.provide(saved));
 
+/** Whether this browser's Preferences run Claude Code's own system prompt: switched by a test. */
+const prompt = { claudeCode: true };
+
 const world = (
   answer: Answer = 'take',
   saved = storageMemory(),
@@ -275,9 +278,12 @@ const world = (
       keepSubscribed: (subscribe) => subscribe(),
       hooks: { onConnect: Effect.void, onDisconnect: Effect.void },
     }),
-    // Its Touch Drafts read how they are written.
+    // Its Touch Drafts read how they are written; a start, the system prompt.
     Layer.mock(Preferences)({
-      read: Effect.succeed(nothing),
+      read: Effect.sync(() => ({
+        ...nothing,
+        claudeCodePrompt: prompt.claudeCode,
+      })),
       changes: Stream.never,
     }),
   );
@@ -625,7 +631,7 @@ describe('Draft', () => {
             projectId: 'p1',
             account: 'claude',
             model: 'opus',
-            settings: { effort: 'high' },
+            settings: { effort: 'high', systemPrompt: 'claude_code' },
             text: 'Fix the build',
             attachments: [],
             branch: null,
@@ -634,6 +640,20 @@ describe('Draft', () => {
         ]);
         expect(pushed).toEqual([session('a1', 'm1', 'p1', 's9')]);
       }),
+    ));
+
+  it("starts a Claude session with the Agent SDK's minimal prompt when this browser turns Claude Code's off", () =>
+    run(
+      Effect.gen(function* () {
+        prompt.claudeCode = false;
+        const { layer, started } = world();
+        const app = yield* start('NewSession', layer);
+        yield* wait();
+        yield* say(app, 'Fix the build');
+        expect(started).toMatchObject([
+          { settings: { effort: 'high', systemPrompt: 'minimal' } },
+        ]);
+      }).pipe(Effect.ensuring(Effect.sync(() => (prompt.claudeCode = true)))),
     ));
 
   it('stays and says why when the Connection refuses a start, as nothing was started', () =>

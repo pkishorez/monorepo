@@ -72,6 +72,10 @@
     {
       "hash": "81633f94c1ec3720838a062b223378beb6da3e248ba8a69f8974b5e77177733f",
       "summary": "Moves to Kabuki Start's new render modes: the build writes the App Shell and static pages"
+    },
+    {
+      "hash": "b521d3dafbf51a58e6b10cc6d635dbde14880edbb874c2d941911c4fe10e8beb",
+      "summary": "A Claude Session runs with Claude Code's own system prompt unless its Turn's settings say systemPrompt minimal"
     }
   ]
 }

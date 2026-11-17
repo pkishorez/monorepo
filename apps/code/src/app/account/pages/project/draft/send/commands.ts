@@ -8,6 +8,7 @@ import {
 import { Command } from '@kestack/kabuki';
 import { nextUlid } from '@kestack/std-toolkit/core';
 import { reasonOf } from '../../../../connection/link/index.ts';
+import { Preferences } from '../../../../../storage/index.ts';
 import { Handover, SessionArrival, SharedCatalog } from '../../store.ts';
 import { Attached, wire } from '../draft.ts';
 
@@ -33,6 +34,23 @@ export const StartArgs = Schema.Struct({
 });
 export type StartArgs = typeof StartArgs.Type;
 
+/**
+ * A new Claude session's settings, with the system prompt this browser's
+ * Preferences choose: Claude Code's own, or the Agent SDK's minimal one.
+ * Its Connection keeps it with the session, so every open of it after runs
+ * the same. Another agent's are left as they are.
+ */
+const withSystemPrompt = (args: StartArgs, harness: string | null) =>
+  harness !== 'claude'
+    ? Effect.succeed(args)
+    : Effect.map(Preferences.read, ({ claudeCodePrompt }) => ({
+        ...args,
+        settings: {
+          ...args.settings,
+          systemPrompt: claudeCodePrompt ? 'claude_code' : 'minimal',
+        },
+      }));
+
 /** Chooses the id a new session starts under, a ULID, so it is known whatever the answer. */
 export const nameStart = Command.make('NameStart', {
   run: () =>
@@ -54,6 +72,8 @@ export const nameStart = Command.make('NameStart', {
 export const starting = (
   id: string,
   args: StartArgs,
+  /** Its agent, such as `claude`; null when the catalog does not say. */
+  harness: string | null,
   send: (
     message:
       | {
@@ -71,7 +91,11 @@ export const starting = (
       send({ _tag: 'Started', sessionId }),
     );
   return Stream.unwrap(
-    Effect.map(CodeClient, (api) => api.startSession({ ...args, id })),
+    Effect.flatMap(CodeClient, (api) =>
+      Effect.map(withSystemPrompt(args, harness), (sent) =>
+        api.startSession({ ...sent, id }),
+      ),
+    ),
   ).pipe(
     Stream.runFoldEffect(
       () => false,

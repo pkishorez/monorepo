@@ -3,6 +3,7 @@ import { Effect, Fiber, Option, Stream, type Scope } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
 import { QuestionNotAsked, type TurnOut } from '../../../contract/index.js';
 import { openSdkAgent, type SdkAgent } from '../agent.js';
+import type { SystemPrompt } from '../options.js';
 
 /*
  * The live query, stood in for: a test feeds the records Claude Code would
@@ -15,7 +16,7 @@ const live = vi.hoisted(() => {
   const sent: Array<{ uuid: string; text: unknown }> = [];
   /** Settles the model change the query is making, if any. */
   let modelChange: ((ok: boolean) => void) | undefined;
-  const asked: { canUseTool?: CanUseTool } = {};
+  const asked: { canUseTool?: CanUseTool; options?: unknown } = {};
   /** How the next query's initialize request goes; it succeeds unless set. */
   const initialize: { next: (() => Promise<unknown>) | undefined } = {
     next: undefined,
@@ -26,6 +27,8 @@ const live = vi.hoisted(() => {
     /** Calls the query's `canUseTool`, as Claude Code does before a tool runs. */
     canUseTool: (...args: Parameters<CanUseTool>) => asked.canUseTool!(...args),
     settleModelChange: (ok: boolean) => modelChange?.(ok),
+    /** The options the last query was started with. */
+    options: () => asked.options as { systemPrompt?: unknown },
     emit: (record: unknown) => {
       records.push(record);
       wake?.();
@@ -43,6 +46,7 @@ const live = vi.hoisted(() => {
       options: { canUseTool: CanUseTool };
     }) => {
       asked.canUseTool = options.canUseTool;
+      asked.options = options;
       const mine: Array<unknown> = [];
       records = mine;
       let closed = false;
@@ -105,13 +109,14 @@ const sentNow = (count: number) =>
     }),
   );
 
-const open = (cwd = '/tmp') =>
+const open = (cwd = '/tmp', systemPrompt: SystemPrompt = 'claude_code') =>
   openSdkAgent({
     cwd,
     executable: { path: '/usr/local/bin/claude', env: {} },
     model: 'claude-test',
     effort: 'high',
     permissionMode: 'default',
+    systemPrompt,
   });
 
 const withSession = <A, E>(
@@ -143,6 +148,27 @@ describe('openSdkAgent', () => {
           ready!();
           yield* Fiber.join(opening);
         }),
+      ),
+    ));
+
+  it("runs with Claude Code's own system prompt", () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.map(open(), () =>
+          expect(live.options().systemPrompt).toEqual({
+            type: 'preset',
+            preset: 'claude_code',
+          }),
+        ),
+      ),
+    ));
+
+  it("runs with the Agent SDK's minimal prompt when asked, setting none", () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.map(open('/tmp', 'minimal'), () =>
+          expect(live.options().systemPrompt).toBeUndefined(),
+        ),
       ),
     ));
 

@@ -25,8 +25,9 @@ import {
  *                 app floats as a window, the text size, the microphone a
  *                 Dictation records from, whether the Touch Draft takes
  *                 Smart Input and Smart Displacement, the sidebar's
- *                 width, when the Draft shows how full the context is, and
- *                 whether the screen is kept on. The store is the truth; an actor that shows it
+ *                 width, when the Draft shows how full the context is,
+ *                 whether the screen is kept on, and whether a new Claude
+ *                 session runs Claude Code's own system prompt. The store is the truth; an actor that shows it
  *                 reads it again after every write, from this tab or
  *                 another. The Connection the sidebar shows is its Account's
  *                 (`account/frame/store.ts`).
@@ -41,7 +42,9 @@ import {
  * and another places the caret, typing only from Edit; whether it takes
  * Smart Displacement: a caret or an end dragged sits above the finger; the
  * sidebar's width on a wide screen, in px; when the Draft shows how full
- * the session's context is; whether the screen is kept on while the app shows.
+ * the session's context is; whether the screen is kept on while the app shows;
+ * whether a new Claude session runs Claude Code's own system prompt, rather
+ * than the Agent SDK's minimal one.
  */
 /** How big text and spacing are, with a keyboard on a wide screen. */
 export const TextSize = Schema.Literals(['small', 'medium', 'large']);
@@ -62,10 +65,11 @@ export const PreferencesRead = Schema.Struct({
   sidebarWidth: Schema.Finite,
   context: ContextShown,
   keepScreenOn: Schema.Boolean,
+  claudeCodePrompt: Schema.Boolean,
 });
 export type PreferencesRead = typeof PreferencesRead.Type;
 
-/** What a browser that keeps nothing reads: the default keys, Vim Mode off, no window, medium text, the default microphone, no Smart Input nor Displacement, a sidebar 260 px wide, the context always shown, the screen kept on. */
+/** What a browser that keeps nothing reads: the default keys, Vim Mode off, no window, medium text, the default microphone, no Smart Input nor Displacement, a sidebar 260 px wide, the context always shown, the screen kept on, Claude Code's own system prompt. */
 export const nothing: PreferencesRead = {
   bindings: {},
   vim: false,
@@ -77,6 +81,7 @@ export const nothing: PreferencesRead = {
   sidebarWidth: 260,
   context: 'always',
   keepScreenOn: true,
+  claudeCodePrompt: true,
 };
 
 /** The Capability that reads and writes Preferences, and says when it changed. */
@@ -108,6 +113,9 @@ export class Preferences extends Context.Service<
     readonly setKeepScreenOn: (
       on: boolean,
     ) => Effect.Effect<void, DatabaseError>;
+    readonly setClaudeCodePrompt: (
+      on: boolean,
+    ) => Effect.Effect<void, DatabaseError>;
     /** Once per write, here or in another tab; rings while busy fold into one. */
     readonly changes: Stream.Stream<void>;
   }
@@ -131,7 +139,8 @@ export class Preferences extends Context.Service<
  * Draft takes Smart Input and Smart Displacement, off until turned on;
  * one for the sidebar's width; one for when the Draft shows the context,
  * always until chosen; one for whether the screen is kept on, on until
- * turned off. The Unseen marks are each Connection's own.
+ * turned off; one for whether a new Claude session runs Claude Code's own
+ * system prompt, on until turned off. The Unseen marks are each Connection's own.
  *
  * How the Touch Draft was written before Smart Input (`DeviceTouch`, text
  * or voice) is no longer read.
@@ -219,6 +228,15 @@ const keepScreenOn = table
   .singleEntity(KeepScreenOnSchema)
   .default({ on: true });
 
+const ClaudeCodePromptSchema = ESchema.make('DeviceClaudeCodePrompt', {
+  /** Whether a new Claude session runs Claude Code's own system prompt, else the Agent SDK's minimal one. */
+  on: Schema.Boolean,
+}).build();
+
+const claudeCodePrompt = table
+  .singleEntity(ClaudeCodePromptSchema)
+  .default({ on: true });
+
 /** Bindings by Action id, as kept. */
 type Bindings = Readonly<Record<string, ReadonlyArray<string>>>;
 
@@ -301,6 +319,7 @@ const make = (
       sidebarWidth: (yield* kept(sidebarWidth)).width,
       context: (yield* kept(context)).shown,
       keepScreenOn: (yield* kept(keepScreenOn)).on,
+      claudeCodePrompt: (yield* kept(claudeCodePrompt)).on,
     };
   }).pipe(Effect.provide(layer));
 
@@ -331,6 +350,10 @@ const make = (
       write(context.getAndUpdate(() => ({ shown }), { retries: RETRIES })),
     setKeepScreenOn: (on) =>
       write(keepScreenOn.getAndUpdate(() => ({ on }), { retries: RETRIES })),
+    setClaudeCodePrompt: (on) =>
+      write(
+        claudeCodePrompt.getAndUpdate(() => ({ on }), { retries: RETRIES }),
+      ),
     // 3. Follow
     changes: doorbell.rings,
   });
