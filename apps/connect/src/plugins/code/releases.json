@@ -72,6 +72,10 @@
     {
       "hash": "81633f94c1ec3720838a062b223378beb6da3e248ba8a69f8974b5e77177733f",
       "summary": "Moves to Kabuki Start's new render modes: the build writes the App Shell and static pages"
+    },
+    {
+      "hash": "88b56a1edf36d8b12a3f33babbc14025887bfbe4568fc510b0358965c1ad421a",
+      "summary": "setTitle gives a Session the user's own Title, trimmed; a blank one keeps the Title it had"
     }
   ]
 }
