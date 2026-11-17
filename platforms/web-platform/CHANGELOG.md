@@ -1,5 +1,85 @@
 # @kestack/ui-toolkit
 
+## 0.0.7
+
+### Patch Changes
+
+- [`e6bff3f`](https://github.com/pkishorez/monorepo/commit/e6bff3f08491006cbcfa392a68f913a4a0238348) Thanks [@pkishorez](https://github.com/pkishorez)! - A code block in `MarkdownViewer` can be copied.
+
+  **Added**
+
+  - A small copy button at the top right of every code block, fenced or indented, shown on pointing at the block or on focus, and always on a touch screen. It copies the code as written, then shows a check for a moment, or a cross if the clipboard refused.
+
+- [`5f58fb2`](https://github.com/pkishorez/monorepo/commit/5f58fb2c3a7749326a07fe8c474f532a775c3280) Thanks [@pkishorez](https://github.com/pkishorez)! - `ImageViewer` stops at the first and last image, opens without sliding, and moves between images faster.
+
+  **Fixed**
+
+  - Past the first or the last image, a swipe gives a little and springs back, and the arrow and key that way do nothing: it never wraps around to the other end.
+  - An image opened afresh shows in place. It used to slide in from the side the last move went.
+  - Moving to the next image takes 0.32 s instead of about 0.8 s: the image shown carries on off the screen in 120 ms, and the next eases in from a third of the way across in 200 ms.
+
+- [`aa238be`](https://github.com/pkishorez/monorepo/commit/aa238be43c331c2400846ff49fdd12a0fb199fdf) Thanks [@pkishorez](https://github.com/pkishorez)! - `ImageViewer` moves through a set of images, and frames each one.
+
+  **New**
+
+  - `images` and `onShow`: given every image, `src` among them, it says which one it shows, "2 of 5", and moves to the one before or after: by a swipe sideways on touch, the image following the finger and the next sliding in; by arrows at its sides or the arrow keys otherwise. Alone, a sideways swipe only gives a little.
+  - Its buttons and count show while it is used, and fade after 2.5 s left alone.
+  - The image sits inside a margin with rounded corners, a hairline and a shadow, on a dimmed, blurred backdrop, so its edges are plain.
+
+- [#123](https://github.com/pkishorez/monorepo/pull/123) [`4ed2c1a`](https://github.com/pkishorez/monorepo/commit/4ed2c1a126382b68b60392c8aef71c7b0a042046) Thanks [@kishorenuma](https://github.com/kishorenuma)! - A page the service worker already saved is checked against the server build too. A deploy that changes no asset keeps the Build ID, so the new worker installs into the last install's Precache; before, it kept every page found there, a stale one included, and the home page stayed unstyled after the fix for saving stale pages shipped.
+
+- [#122](https://github.com/pkishorez/monorepo/pull/122) [`75f0a0b`](https://github.com/pkishorez/monorepo/commit/75f0a0bab4f116611a8c3988e26997b98b7b4e78) Thanks [@kishorenuma](https://github.com/kishorenuma)! - The service worker no longer saves a page an older deploy drew. On install, each page must carry the server build that Kabuki Start's Pages name; a stale copy, as iOS Safari can answer even a `reload` fetch with, is asked for once more past every cache, then left to the network, or fails install if it is the App Shell. Before, a stale home page was saved and loaded unstyled for the whole life of the build, since the files it pointed at were gone.
+
+- [#133](https://github.com/pkishorez/monorepo/pull/133) [`2678376`](https://github.com/pkishorez/monorepo/commit/2678376efd3ce396d3f491c63c615169112eccd9) Thanks [@pkishorez](https://github.com/pkishorez)! - The service worker now answers every page with the App Shell, without the network, so an installed app opens at once at any URL. It keeps only the build's assets and the App Shell; each page loads its data through the Loader RPC, so server data needs a connection, and a Render Mode only says what the server sends when no worker answers. `navigation.networkTimeoutMs` is gone, and a navigation to a path with a file extension or under `/_kabuki/` goes to the network.
+
+  In Kabuki, the root page's Render Mode is now inherited like any other. Under a `client` root the server answers every URL with the App Shell and a `200`, except a file that is not there, which stays a `404`. `Start.app({ loading })` is what the App Shell paints until the app is drawn, and the App Shell now carries the root's Metadata.
+
+- [#138](https://github.com/pkishorez/monorepo/pull/138) [`a581f08`](https://github.com/pkishorez/monorepo/commit/a581f085ade3a86e985d75b5ec9ba0724bc14ff0) Thanks [@kishorenuma](https://github.com/kishorenuma)! - Runs on Kabuki's new Runtime and declared `provides`.
+
+  **Added**
+
+  - `Replicas.capabilities`, from `@kestack/std-toolkit`, and `CurrentAccount.capabilities`, from `@kestack/web-platform`: every Capability their Layer builds, to name in a page's `provides`: `provides: { capabilities: Replicas.capabilities, layer: () => Replicas.layer }`.
+
+- [#121](https://github.com/pkishorez/monorepo/pull/121) [`32c3798`](https://github.com/pkishorez/monorepo/commit/32c379829a355b88722e35efe8eb5f2ffc57fd95) Thanks [@kishorenuma](https://github.com/kishorenuma)! - `document({ prompts })` chooses what the PWA asks of the reader.
+
+  **Added**
+
+  - `prompts.update: 'reload'` reloads every open page into a new version as soon as it is ready, in place of the Update Prompt. `'prompt'`, the default, asks first, as before.
+  - `prompts.install: 'off'` never offers install. `'prompt'`, the default, offers it once, as before.
+  - `Pwa` takes the same `prompts`, and `PwaPrompts` is their type.
+
+- [#79](https://github.com/pkishorez/monorepo/pull/79) [`2b2e5e5`](https://github.com/pkishorez/monorepo/commit/2b2e5e5d5e8ec705ed0b2fbec34587806030391d) Thanks [@kishorenuma](https://github.com/kishorenuma)! - A Drawer can be swiped open from the edge of the screen: `DrawerSwipeArea`, from `@kestack/web-platform/ui/components/drawer`, is an invisible strip you place along an edge, and swiping away from it pulls the Drawer out under the finger, the way a side menu opens on a phone. The page still scrolls the other way through it.
+
+- [#128](https://github.com/pkishorez/monorepo/pull/128) [`d5a56b3`](https://github.com/pkishorez/monorepo/commit/d5a56b3119b67926410d5d8bedf6c2127573e6f3) Thanks [@kishorenuma](https://github.com/kishorenuma)! - `GoogleButton` (`ui/components/google-button`) is now auth-toolkit's (`@kestack/auth-toolkit/google-button`), re-exported, so an app and the Auth Worker draw the same button.
+
+  - It takes a `label`, one of the words Google's branding guidelines allow ("Sign in with Google", "Continue with Google", "Sign up with Google"), and a `theme` of `light`, `dark` or `auto`, which follows the page's dark mode.
+  - It loads its font, Google Sans Medium as Google's guidelines say, only on a page that draws it, where before it named Roboto and fell back to Arial.
+  - Its width grows with its label, from Google's 183px up to 400px. It no longer centers itself: pass `className="mx-auto"` for that. A `className` given to it is added to its own instead of replacing them.
+  - Its prop types are exported as `GoogleButtonProps`, `GoogleButtonLabel` and `GoogleButtonTheme`.
+
+- [#117](https://github.com/pkishorez/monorepo/pull/117) [`9daf71c`](https://github.com/pkishorez/monorepo/commit/9daf71c79cd51ac7aff2e1e18c71869f2e8bde2f) Thanks [@kishorenuma](https://github.com/kishorenuma)! - `./recipes/image-viewer` shows an image whole over the page to zoom into: `ImageViewer`, opened on an image by its caller, and `ImageButton`, a thumbnail that opens it when pressed. Pinch, a double tap, the wheel, its buttons or `+`, `-` and `0` zoom it, a drag moves it, and a swipe down, Escape or a tap on the backdrop close it at once.
+
+- [#138](https://github.com/pkishorez/monorepo/pull/138) [`6f65d9b`](https://github.com/pkishorez/monorepo/commit/6f65d9b14a24b5c8728cdf628df1744cfc31857b) Thanks [@kishorenuma](https://github.com/kishorenuma)! - The service worker keeps the Static Data: what Kabuki Start's build kept of each static place, the same for everyone. Every Preset has a `data` rule, cache-first, for `/_kabuki/data/`, and the app starts its static places from it in the App Shell, so a static page opens whole, and offline once it has been seen. A dynamic or client page's data is still never kept.
+
+- [#135](https://github.com/pkishorez/monorepo/pull/135) [`f71b84b`](https://github.com/pkishorez/monorepo/commit/f71b84b22dbece4a713c0a089251c7337e3e45da) Thanks [@pkishorez](https://github.com/pkishorez)! - The header no longer lays the page out on every change to it, and Vim Mode is instant.
+
+  **Changed**
+
+  - The App Shell header said whether the page was scrolled under it by reading the scroller's position after every change to the page, which laid the whole page out at once each time, as each word streamed in too. It now reads the position only as the page scrolls, and after a change only whether that scroller is still there.
+  - With Vim Mode on, a Surface lights and dims at once rather than over 100ms, and what dims behind an open dialog or popover is not blurred, so nothing under it is drawn again frame after frame.
+
+- [#138](https://github.com/pkishorez/monorepo/pull/138) [`aa114fb`](https://github.com/pkishorez/monorepo/commit/aa114fb260fee34c53f51ced868afe6afd5e64b8) Thanks [@kishorenuma](https://github.com/kishorenuma)! - Worker RPC is gone: `./pwa/rpc/worker`, `./pwa/rpc/client`, `WorkerHost` and `runServiceWorker`'s `layer` option. No app called its service worker, and a page and a worker that need to talk will get an abstraction of their own. `runServiceWorker()` now takes nothing.
+
+- [#138](https://github.com/pkishorez/monorepo/pull/138) [`f9d800a`](https://github.com/pkishorez/monorepo/commit/f9d800a9b107d1c7901c1368893908372cce9074) Thanks [@kishorenuma](https://github.com/kishorenuma)! - One of each: `./ui/components/sonner`, `./ui/components/sheet`, `./ui/components/file-tree` and `./ui/form` are gone. Toasts are `./ui/components/toast`, a layer from an edge is `./ui/components/drawer`, a tree of files is `./ui/viewers/file-tree`, and no app used the form. The Install Prompt is a Drawer on a small screen, so a swipe down dismisses it.
+
+- [#138](https://github.com/pkishorez/monorepo/pull/138) [`aa114fb`](https://github.com/pkishorez/monorepo/commit/aa114fb260fee34c53f51ced868afe6afd5e64b8) Thanks [@kishorenuma](https://github.com/kishorenuma)! - The PWA no longer goes by `pwa-toolkit`. Its caches start with `web-platform:pwa:`, and a new version deletes the ones under the former name as it activates, as the Kill Switch does. Its meta tags are `web-platform:build-id`, `web-platform:built-at` and `web-platform:commit`, its Vite plugins `@kestack/web-platform:pwa-*`, and its messages start with `web-platform/pwa:`. The Install Prompt's dismissal is kept under a new key, so someone who dismissed it is asked once more. Only the Command's key keeps the old name, since a page of an older build still sends it.
+- Updated dependencies [[`eba4397`](https://github.com/pkishorez/monorepo/commit/eba4397640c4ab3e921bb0c7613e24b25b89ca6a), [`eba4397`](https://github.com/pkishorez/monorepo/commit/eba4397640c4ab3e921bb0c7613e24b25b89ca6a), [`eba4397`](https://github.com/pkishorez/monorepo/commit/eba4397640c4ab3e921bb0c7613e24b25b89ca6a), [`df76ba6`](https://github.com/pkishorez/monorepo/commit/df76ba60280fdb5405ca85b29fe67f8604de18bf), [`af1f892`](https://github.com/pkishorez/monorepo/commit/af1f8924c111d3cdc6fa040ecc2982b3836f5fb9), [`4d4cc1a`](https://github.com/pkishorez/monorepo/commit/4d4cc1a3789e5f5feaf0892b246f04c7caffb983), [`a581f08`](https://github.com/pkishorez/monorepo/commit/a581f085ade3a86e985d75b5ec9ba0724bc14ff0), [`b72f4e7`](https://github.com/pkishorez/monorepo/commit/b72f4e76332cae07b51d0fbe128fff4b06f6f8a6), [`6f65d9b`](https://github.com/pkishorez/monorepo/commit/6f65d9b14a24b5c8728cdf628df1744cfc31857b), [`7cacf4f`](https://github.com/pkishorez/monorepo/commit/7cacf4f346b81da1732fac049ea01c3fcab9af0c), [`4dbf438`](https://github.com/pkishorez/monorepo/commit/4dbf43853ebb2eb47879a8bf73139ccf71ac3909), [`3bd9576`](https://github.com/pkishorez/monorepo/commit/3bd9576b80e3364b23826a4e070f81daec56f3c6), [`2678376`](https://github.com/pkishorez/monorepo/commit/2678376efd3ce396d3f491c63c615169112eccd9), [`a581f08`](https://github.com/pkishorez/monorepo/commit/a581f085ade3a86e985d75b5ec9ba0724bc14ff0), [`803e7a0`](https://github.com/pkishorez/monorepo/commit/803e7a0425c11465e59eaca169a335824cd7b318)]:
+  - @kestack/auth-toolkit@0.0.7
+  - @kestack/kabuki@0.0.6
+  - @kestack/use-keys@0.0.3
+  - laymos@0.0.18
+  - @kestack/use-gesture@0.0.2
+
 ## 0.0.6
 
 ### Patch Changes
