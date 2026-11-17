@@ -23,14 +23,18 @@ export function decodeProjectConfig(input: unknown) {
 }
 
 /**
- * What can be checked before any file is read: every path is canonical, a
- * Rule never points from inside a thing to the thing itself, `*` only ever
- * names a source, and an Exception never joins the same two paths twice.
+ * What can be checked before any file is read: every path is canonical, every
+ * index file is a bare file name, a Rule never points from inside a thing to
+ * the thing itself, `*` only ever names a source, and an Exception never joins
+ * the same two paths twice.
  */
 export function validateConfig(
   config: Config,
 ): readonly ConfigValidationIssue[] {
-  const pathIssues = findInvalidPaths(config);
+  const pathIssues = [
+    ...findInvalidPaths(config),
+    ...findInvalidIndexFiles(config),
+  ];
   if (pathIssues.length > 0) return pathIssues;
   return [...validateRules(config), ...validateExceptions(config)];
 }
@@ -72,6 +76,25 @@ export function isCanonicalPath(path: string): boolean {
     return false;
   }
   return posix.normalize(path) === path;
+}
+
+function findInvalidIndexFiles(
+  config: Config,
+): readonly ConfigValidationIssue[] {
+  return (config.indexFiles ?? []).flatMap((name, index) =>
+    name.length === 0 ||
+    name === '.' ||
+    name === '..' ||
+    name.includes('/') ||
+    name.includes('\\')
+      ? [
+          {
+            kind: 'path' as const,
+            message: `indexFiles[${index}] must be a file name, not a path: ${JSON.stringify(name)}`,
+          },
+        ]
+      : [],
+  );
 }
 
 interface ConfigPath {

@@ -86,4 +86,36 @@ describe('buildModuleTree', () => {
       'src/db/std-table/contract',
     ]);
   });
+
+  test('a configured index file makes its folder a Module and is its Index, unless declared a File Module', () => {
+    const pages = buildModuleTree(
+      [
+        'pages/blog/index.page.tsx',
+        'pages/blog/view/view.tsx',
+        'pages/blog/view/index.ts',
+        'pages/book/index.page.tsx',
+        'pages/book/index.ts',
+        'pages/search/search.tsx',
+        'pages/index.page.tsx',
+      ],
+      ['pages/index.page.tsx'],
+      ['index.page.tsx'],
+    );
+    const node = (path: string) =>
+      pages.nodes.find((candidate) => candidate.path === path);
+
+    expect(node('pages/blog')).toMatchObject({
+      kind: 'module',
+      index: 'pages/blog/index.page.tsx',
+      children: ['pages/blog/view'],
+    });
+    expect(node('pages/blog/view')?.index).toBe('pages/blog/view/index.ts');
+    expect(node('pages/book')?.index).toBe('pages/book/index.ts');
+    expect(node('pages/search')?.kind).toBe('wrapper');
+    expect(node('pages')?.kind).toBe('wrapper');
+    expect(node('pages/index.page.tsx')).toMatchObject({
+      kind: 'module',
+      shape: 'file',
+    });
+  });
 });

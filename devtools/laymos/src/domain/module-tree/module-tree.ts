@@ -18,22 +18,39 @@ export const rootPath = '.';
 
 /**
  * Reads the Module tree out of a file list. A folder holding an index file
- * is a Module; a declared File Module is a Module; every folder between the
- * root and a Module is a Wrapper. Each analyzed file is owned by the nearest
- * Module above it, or by the Wrapper it sits in when no Module is above.
+ * (built in, or named under `indexFiles`) is a Module; a declared File Module
+ * is a Module; every folder between the root and a Module is a Wrapper. Each
+ * analyzed file is owned by the nearest Module above it, or by the Wrapper it
+ * sits in when no Module is above. A folder holding both kinds of index file
+ * takes the built-in one as its Index; a configured one declared as a File
+ * Module never makes its folder a Module.
  */
 export function buildModuleTree(
   files: Iterable<string>,
   fileModules: Iterable<string>,
+  indexFiles: Iterable<string> = [],
 ): ModuleTree {
   const analyzed = [...new Set(files)].sort();
   const declaredFiles = new Set(fileModules);
+  const configuredIndexNames = new Set(indexFiles);
   const moduleFolders = new Set<string>();
   const indexOf = new Map<string, string>();
   for (const file of analyzed) {
-    if (!indexFileNames.has(posix.basename(file))) continue;
+    const builtIn = indexFileNames.has(posix.basename(file));
+    // A configured index file declared as a File Module is its own Index,
+    // never its folder's.
+    if (
+      !builtIn &&
+      (!configuredIndexNames.has(posix.basename(file)) ||
+        declaredFiles.has(file))
+    )
+      continue;
     const folder = posix.dirname(file);
-    if (!indexOf.has(folder)) {
+    const current = indexOf.get(folder);
+    if (
+      current === undefined ||
+      (builtIn && !indexFileNames.has(posix.basename(current)))
+    ) {
       moduleFolders.add(folder);
       indexOf.set(folder, file);
     }

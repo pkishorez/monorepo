@@ -41,6 +41,10 @@ The `$schema` key gives editors autocomplete and validation. Trust it over prose
   architecture analysis.
 - `fileModules` — single files that are Modules of their own. The one kind of
   Module that is declared, because a file has no index to say so.
+- `indexFiles` — file names that count as an index file beside `index.ts`,
+  `index.tsx` and the rest, such as `index.page.tsx` where Next.js
+  `pageExtensions` name route files so. A built-in index file in the same
+  folder wins.
 - `rules` — maps a source path (a Wrapper or Module, or `*` for every sibling
   of the target) to the target paths it may import. One way, not chained,
   as narrow as the need, never looping.

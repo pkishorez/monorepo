@@ -34,7 +34,11 @@ const binarySniffLength = 8000;
 export function loadFileList(configPath: string, modulePath: string) {
   return Effect.gen(function* () {
     const { baseDir, config, fileGraph } = yield* loadProject(configPath);
-    const tree = buildModuleTree(fileGraph.keys(), config.fileModules);
+    const tree = buildModuleTree(
+      fileGraph.keys(),
+      config.fileModules,
+      config.indexFiles,
+    );
     const node = nodeByPath(tree, modulePath);
     if (node === undefined) {
       return yield* new FileNotFound({ path: modulePath });
