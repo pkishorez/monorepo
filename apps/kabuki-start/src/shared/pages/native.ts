@@ -14,6 +14,12 @@ import { about } from './metadata/index.ts';
  * page in every one of them: the app's Layer gives each Shell its own
  * Capabilities, and a browser keeps the web's.
  *
+ * It is static, like the other pages with no Loader: the build draws it
+ * once, with everything it reads from the browser or the Shell still
+ * `checking`, and each of those is read where it runs, once it runs.
+ * Nothing the build knows is frozen into it, and the query reaches it in
+ * the browser, as Props.
+ *
  * With `proof` in the query, it runs each haptic once by itself, as soon
  * as the rest is known, and logs one `[native-proof]` line saying all of
  * it, for a native build's check to read from the device's log. With
