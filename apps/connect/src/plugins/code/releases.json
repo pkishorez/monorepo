@@ -72,6 +72,10 @@
     {
       "hash": "81633f94c1ec3720838a062b223378beb6da3e248ba8a69f8974b5e77177733f",
       "summary": "Moves to Kabuki Start's new render modes: the build writes the App Shell and static pages"
+    },
+    {
+      "hash": "b02438a73bebf6223660eaa048f5ff5d7d39ff55574f204f94eb303c59b5f1a9",
+      "summary": "A Session's Title is written by its own harness, as its own Harness Account, not always by Codex"
     }
   ]
 }
