@@ -1,0 +1,17 @@
+```tsx
+import { lighting } from '@kestack/dune';
+import { HtmlCanvas, Lamp } from '@kestack/dune/react';
+
+export function Deploy() {
+  return (
+    <HtmlCanvas effect={lighting({ ambient: 0.7 })}>
+      <form className="card">
+        <input name="project" defaultValue="aurora" />
+        <Lamp color="#f67f2f" intensity={1.4}>
+          <button type="submit">Deploy</button>
+        </Lamp>
+      </form>
+    </HtmlCanvas>
+  );
+}
+```

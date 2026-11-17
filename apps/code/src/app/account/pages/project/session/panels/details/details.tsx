@@ -1,5 +1,5 @@
 import type { ContextUsage } from '@kestack/connect/code';
-import { RotateCwIcon } from 'lucide-react';
+import { RefreshCwIcon, RotateCwIcon } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import { Panel } from './parts/panel.tsx';
@@ -23,7 +23,8 @@ import {
  * A session's details, opened from Actions, a turn's details, the context
  * by the Draft, or Ctrl+G, in four parts, each a word over what it shows.
  * Context: how full the agent's context is, and each of the plan's
- * limits, as the agent says now, while it is open. Then four numbers:
+ * limits, as the agent last said, with a button to read them again, even
+ * with its agent closed. Then four numbers:
  * cost, where its agent tells it, turns, the agent's time and tokens.
  * Tokens: one bar of what the cache held and what was new. Turns: each a
  * bar as long as what it cost, or its tokens where no cost is told, made
@@ -34,6 +35,16 @@ import {
 /** How full the context is, and the plan's limits, as the agent says now. */
 export type Context = ContextUsage;
 
+/** How reading the context again goes, and the way to ask. */
+export interface Reload {
+  readonly run: () => void;
+  readonly reloading: boolean;
+  /** Why the last try could not read it; null when it could. */
+  readonly problem: string | null;
+  /** Its Connection cannot be reached. */
+  readonly disabled: boolean;
+}
+
 export function SessionDetails({
   open,
   onOpenChange,
@@ -41,6 +52,7 @@ export function SessionDetails({
   about,
   facts,
   context,
+  reload,
   onGo,
 }: {
   readonly open: boolean;
@@ -49,8 +61,9 @@ export function SessionDetails({
   /** The agent and model it runs with. */
   readonly about: string;
   readonly facts: Facts;
-  /** Null while the agent is not open to ask. */
+  /** Null until the agent is first read. */
   readonly context: Context | null;
+  readonly reload: Reload;
   /** Shows a turn in the transcript. */
   readonly onGo: (turnId: string) => void;
 }) {
@@ -70,7 +83,7 @@ export function SessionDetails({
       tall
     >
       <div className="flex flex-col gap-8 pt-1">
-        <ContextPart context={context} />
+        <ContextPart context={context} reload={reload} />
         <div
           className={cn(
             'grid grid-cols-2 gap-4',
@@ -133,7 +146,13 @@ const resetOf = (at: number, now = Date.now()) =>
       })
     : new Date(at).toLocaleDateString('en', { weekday: 'short' });
 
-function ContextPart({ context }: { readonly context: Context | null }) {
+function ContextPart({
+  context,
+  reload,
+}: {
+  readonly context: Context | null;
+  readonly reload: Reload;
+}) {
   const used = context?.usedTokens;
   const max = context?.maxTokens;
   const limits = context?.rateLimits ?? [];
@@ -141,7 +160,31 @@ function ContextPart({ context }: { readonly context: Context | null }) {
   return (
     <Part
       name="Context"
-      aside={known ? <Pill level={levelOf(used, max)} /> : undefined}
+      aside={
+        <span className="flex items-center gap-2">
+          {reload.problem !== null && known && (
+            <span title={reload.problem}>Could not reload</span>
+          )}
+          {known && <Pill level={levelOf(used, max)} />}
+          <button
+            type="button"
+            aria-label="Reload context"
+            aria-busy={reload.reloading}
+            title="Reload context"
+            disabled={reload.disabled || reload.reloading}
+            onClick={reload.run}
+            className="focus-ring flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground active:bg-muted disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-muted-foreground motion-reduce:transition-none pointer-coarse:size-8"
+          >
+            <RefreshCwIcon
+              aria-hidden
+              className={cn(
+                'size-3.5',
+                reload.reloading && 'animate-spin motion-reduce:animate-none',
+              )}
+            />
+          </button>
+        </span>
+      }
     >
       {known ? (
         <div className="flex flex-col gap-2.5">
@@ -156,7 +199,7 @@ function ContextPart({ context }: { readonly context: Context | null }) {
         <div className="flex flex-col gap-2.5">
           <span className="h-2 rounded-full border border-dashed border-border" />
           <span className="text-xs text-muted-foreground">
-            Shows once the agent runs again
+            {reload.reloading ? 'Reading…' : (reload.problem ?? 'Not read yet')}
           </span>
         </div>
       )}

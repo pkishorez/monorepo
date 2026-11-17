@@ -5,6 +5,7 @@ import { ArrowLeftIcon } from 'lucide-react';
 import { Pages, router } from '../../../shared/index.ts';
 import { ThemeToggle } from '../../components/index.ts';
 import { SnakeRecord } from '../../docs/index.ts';
+import { ActorStory } from '../../demos/actor-story/index.ts';
 import {
   OpeningAnApp,
   OpeningAnAppStage,
@@ -59,6 +60,20 @@ export const StageDemoView = View.make(Pages.StageDemoLive, () => {
 });
 
 const never = () => () => {};
+
+/** The Actor story prototype. It reads where it is from the URL's query, so it is drawn in the browser alone. */
+export const ActorStoryView = View.make(Pages.ActorStoryLive, () => {
+  const browser = useSyncExternalStore(
+    never,
+    () => true,
+    () => false,
+  );
+  return browser ? (
+    <ActorStory actions={actions} />
+  ) : (
+    <div className="h-dvh bg-background" />
+  );
+});
 
 /**
  * Snake, staged to be recorded. It reads its seed and script from the

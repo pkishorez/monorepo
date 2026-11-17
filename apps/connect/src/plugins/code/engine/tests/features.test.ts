@@ -630,6 +630,57 @@ describe('asking a Session', () => {
       { path },
     );
   });
+
+  it('fetches Context Usage with the agent closed, from a copy it never keeps', async () => {
+    const path = join(folder(), 'ai.db');
+    const fake = makeFakeHarness();
+    const sessionId = await run(
+      Effect.gen(function* () {
+        const { session, idle } = yield* started();
+        yield* idle();
+        return session.id;
+      }),
+      fake,
+      { path },
+    );
+    await run(
+      Effect.gen(function* () {
+        const engine = yield* Engine;
+        expect(yield* engine.fetchContext(sessionId)).toMatchObject({
+          usedTokens: 1000,
+          maxTokens: 200000,
+        });
+        // Opened once more, resuming it, and closed again: Queries still refuse.
+        expect(fake.opens).toHaveLength(2);
+        expect(fake.opens[1]?.nativeId).toBe('native-1');
+        expect(
+          yield* Effect.flip(engine.contextUsage(sessionId)),
+        ).toMatchObject({
+          _tag: 'HarnessFailed',
+        });
+        expect((yield* Effect.flip(engine.fetchContext('nope')))._tag).toBe(
+          'SessionNotFound',
+        );
+      }),
+      fake,
+      { path },
+    );
+  });
+
+  it('fetches Context Usage from an open agent without opening another', async () => {
+    const fake = makeFakeHarness();
+    await run(
+      Effect.gen(function* () {
+        const { engine, session, idle } = yield* started();
+        yield* idle();
+        expect(yield* engine.fetchContext(session.id)).toMatchObject({
+          usedTokens: 1000,
+        });
+        expect(fake.opens).toHaveLength(1);
+      }),
+      fake,
+    );
+  });
 });
 
 describe('Background Jobs', () => {

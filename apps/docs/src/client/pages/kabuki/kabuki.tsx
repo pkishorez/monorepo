@@ -1,6 +1,7 @@
 import { View } from '@kestack/kabuki/react';
 import { Pages } from '../../../shared/index.ts';
 import {
+  ActorStoryView,
   DemoView,
   SnakeRecordView,
   StageDemoView,
@@ -21,7 +22,9 @@ export const KabukiView = View.make(Pages.KabukiLive, (self) => {
     TodosDemo: todos,
     StageDemo: stage,
     SnakeRecord: record,
+    ActorStory: story,
   } = self.children;
+  if (story) return <ActorStoryView instance={story} />;
   if (demo) return <DemoView instance={demo} />;
   if (todos) return <TodosDemoView instance={todos} />;
   if (stage) return <StageDemoView instance={stage} />;

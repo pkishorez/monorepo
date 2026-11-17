@@ -1,4 +1,6 @@
 export {
+  ActorStory,
+  ActorStoryLive,
   Demo,
   DemoLive,
   SnakeRecord,
