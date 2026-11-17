@@ -211,6 +211,10 @@ export const CodeApiLive = CodeApi.toLayer(
         engine
           .regenerateTitle(sessionId)
           .pipe(Effect.mapError(wire.SessionNotFound)),
+      setTitle: ({ sessionId, title }) =>
+        engine
+          .setTitle(sessionId, title)
+          .pipe(Effect.mapError(wire.SessionNotFound)),
       skills: ({ projectId, account }) =>
         engine
           .skills(projectId, account)

@@ -1,6 +1,7 @@
 import { Effect, Schema, Stream } from 'effect';
 import { Actor } from '@kestack/kabuki';
 import { Navigation, Router } from '@kestack/kabuki/routing';
+import { CodeClients } from '@kestack/connect/code';
 import { ConnectionFilter } from '../store.ts';
 import { Connections } from '../../account.ts';
 import { nameOf } from '../../connection/link/index.ts';
@@ -16,6 +17,7 @@ import {
 import {
   agreed,
   putMove,
+  setTitle,
   reload,
   setCollapsed,
   setConnectionFilter,
@@ -55,6 +57,8 @@ import { drawnOf, type Read } from './list/order/drawn.ts';
  * 6. Width     its width on a wide screen, kept in Preferences: nothing
  *              is drawn until it is read; dragged, it shows at once and
  *              is kept once the drag rests.
+ * 6b. Rename  a Session's Title given by the user, from its row, asked of
+ *              its Connection; a refusal says why.
  * 7. Prefetch  the messages of every session it shows are synced at once
  *              (`prefetch/`), whether or not it is on screen, so a
  *              session opened draws them from this device.
@@ -107,6 +111,10 @@ const Model = Schema.Struct({
       reason: Schema.String,
     }),
   ),
+  /** The last Title given that its Connection refused, numbered so each is said once. */
+  unrenamed: Schema.NullOr(
+    Schema.Struct({ n: Schema.Finite, reason: Schema.String }),
+  ),
   /** How many of each Session's Moves were refused, by `refusedKey`. */
   refusals: Schema.Record(Schema.String, Schema.Finite),
   /** Whether it could once be drawn whole, from this device (8. Ready). */
@@ -123,7 +131,14 @@ export const refusedKey = (connectionId: string, sessionId: string) =>
 type Model = typeof Model.Type;
 
 const Sidebar = Actor.define('Sidebar', {
-  requires: [Connections, ConnectionFilter, Preferences, Moves, Navigation],
+  requires: [
+    Connections,
+    ConnectionFilter,
+    Preferences,
+    Moves,
+    Navigation,
+    CodeClients,
+  ],
   props: Schema.Struct({
     /** The Account, whose Connection Filter it keeps. */
     accountId: Schema.String,
@@ -175,6 +190,14 @@ const Sidebar = Actor.define('Sidebar', {
       sessionId: Schema.String,
       settled: Schema.Boolean,
     },
+    /** A Session given a Title of the user's own. */
+    RenameAsked: {
+      connectionId: Schema.String,
+      sessionId: Schema.String,
+      title: Schema.String,
+    },
+    /** Its Connection answered: null, it took it, or why it did not. */
+    Renamed: { reason: Schema.NullOr(Schema.String) },
     /** Its width and every Connection shown are read: it can be drawn whole. */
     Ready: {},
   }),
@@ -237,6 +260,7 @@ export const SidebarLive = Sidebar.build({
       moving: [],
       told: null,
       refused: null,
+      unrenamed: null,
       refusals: {},
       ready: false,
       asking: {},
@@ -419,6 +443,17 @@ export const SidebarLive = Sidebar.build({
       };
     },
     MoveSeen: (seen) => ({ command: agreed(seen) }),
+    // 6b. Rename
+    RenameAsked: (asked) => ({ command: setTitle(asked) }),
+    Renamed: ({ reason }, { model }) =>
+      reason === null
+        ? {}
+        : {
+            model: {
+              ...model,
+              unrenamed: { n: (model.unrenamed?.n ?? 0) + 1, reason },
+            },
+          },
     ConnectionsKnown: ({ read, connections, problem, unseen }, { model }) => ({
       model: { ...model, listRead: read, connections, problem, unseen },
     }),

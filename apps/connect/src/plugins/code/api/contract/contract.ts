@@ -45,6 +45,7 @@ export { Branches, ProjectValue } from './projects.js';
 export { SessionQuestions } from './questions.js';
 export {
   SessionValue,
+  TITLE_MAX,
   START_STEPS,
   StartStep,
   type StartStepName,

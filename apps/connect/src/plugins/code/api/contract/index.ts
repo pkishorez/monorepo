@@ -45,6 +45,7 @@ export {
   SessionQuestions,
   SessionSchema,
   SessionValue,
+  TITLE_MAX,
   SettingInfo,
   SkillSchema,
   SkillsUnavailable,

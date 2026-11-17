@@ -52,6 +52,7 @@ export {
   SessionNotFound,
   SessionSchema,
   SessionValue,
+  TITLE_MAX,
   SettingInfo,
   SkillSchema,
   SkillsUnavailable,

@@ -1,4 +1,4 @@
-import type { Project, Session } from '@kestack/connect/code';
+import { TITLE_MAX, type Project, type Session } from '@kestack/connect/code';
 import { Router } from '@kestack/kabuki/routing';
 import { revealInView } from '@kestack/use-keys/surfaces';
 import {
@@ -6,15 +6,31 @@ import {
   FolderGit2Icon,
   FolderPlusIcon,
   GitForkIcon,
+  PencilIcon,
   PlusIcon,
 } from 'lucide-react';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from '@kestack/web-platform/ui/components/context-menu';
+import { Input } from '@kestack/web-platform/ui/components/input';
+import { useDevice } from '@kestack/web-platform/ui/input';
 import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   useAppShell,
 } from '@kestack/web-platform/recipes/frame';
-import { memo, useEffect, useRef, useState } from 'react';
+import {
+  type KeyboardEvent,
+  memo,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import { keys, useBound } from '../../commands.ts';
 import { outOfReach } from '../../../connection/link/index.ts';
 import * as routes from '../../../../app.ts';
@@ -66,7 +82,10 @@ import { AnimatePresence, MotionConfig, motion } from 'motion/react';
  * glyph, said without Code's prefix; and its status at the right, as
  * quietly as it can be said: a mark, or how long ago, level with the title
  * (`ui/status-word`), or, loud on purpose, a "Question" pill while its agent
- * waits on an Agent Question. The Projects have more room above than the
+ * waits on an Agent Question. With a mouse, a right click on a row offers
+ * Rename, which turns its title into a field in its place: Enter, or a
+ * click away, gives the Session that Title, shown at once; Escape leaves
+ * it as it was. The Projects have more room above than the
  * rows between them, so the list reads as a list. A row under a pointer is
  * half lit, so the open one still stands out. A Connection out of reach
  * keeps what it last synced, its Projects and rows quieter, with no plus,
@@ -118,6 +137,7 @@ export function Places({
   onOpenSession,
   onUnsettle,
   onMove,
+  onRename,
 }: {
   /**
    * The Connections read, as one key: rows added under it arrive live and move
@@ -156,6 +176,8 @@ export function Places({
   readonly onUnsettle: (connectionId: string, sessionId: string) => void;
   /** A Session swiped to Settle it, or to un-Settle it. */
   readonly onMove: (session: OnConnection<Session>, settled: boolean) => void;
+  /** A Session given a Title of the user's own, trimmed and not empty. */
+  readonly onRename: (session: OnConnection<Session>, title: string) => void;
 }) {
   const page = routes.pageOf(route);
   const here = page?._tag === 'Project' ? page : null;
@@ -329,6 +351,7 @@ export function Places({
                           asking={isAsking(session)}
                           working={isWorking(session)}
                           onMove={onMove}
+                          onRename={onRename}
                         />
                       )),
                     ];
@@ -614,6 +637,7 @@ const SessionRow = memo(function SessionRow({
   asking,
   working,
   onMove,
+  onRename,
 }: {
   /** The Account its link is under. */
   readonly accountId: string;
@@ -635,8 +659,12 @@ const SessionRow = memo(function SessionRow({
   /** Whether its agent runs Background Jobs. */
   readonly working: boolean;
   readonly onMove: (session: OnConnection<Session>, settled: boolean) => void;
+  readonly onRename: (session: OnConnection<Session>, title: string) => void;
 }) {
-  const title = session.title || 'Untitled session';
+  const { touch } = useDevice();
+  const [renaming, setRenaming] = useState(false);
+  const given = useGiven(session.title);
+  const title = given.title ?? (session.title || 'Untitled session');
   const branch = branchOf(session, heading);
   return (
     <ArriveItem className={GUIDE}>
@@ -646,62 +674,160 @@ const SessionRow = memo(function SessionRow({
         settled={false}
         onMove={(settled) => onMove(session, settled)}
       >
-        <SidebarMenuButton
-          data-place={place}
-          data-cursor={cursor}
-          isActive={open}
-          className={`h-auto min-h-12 gap-2 rounded-xl px-2.5 py-2 data-active:font-normal keyboard:md:h-auto keyboard:md:min-h-8 keyboard:md:rounded-lg keyboard:md:py-[5px] ${HOVER_ROW} ${TOUCH_ROW} ${cursorRing}`}
-          render={
-            <Router.Link
-              to={routes.session(
-                accountId,
-                session.connectionId,
-                session.projectId,
-                session.id,
-              )}
-              title={
-                original === null ? title : `${title}\nForked from ${original}`
-              }
-            />
-          }
-        >
-          {original !== null && (
-            <GitForkIcon
-              role="img"
-              aria-label={`Forked from ${original}`}
-              className="size-3! shrink-0 text-muted-foreground/60"
-            />
-          )}
-          <span
-            className={`min-w-0 flex-auto truncate text-[15px] leading-5 keyboard:md:text-sm ${unseen ? 'font-semibold text-sidebar-foreground' : quiet ? 'text-muted-foreground' : ''}`}
-          >
-            {title}
-          </span>
-          {branch !== null && (
-            <span
-              title={`In its own worktree, on ${session.branch}`}
-              className="flex max-w-[min(30%,11ch)] min-w-3 flex-[0_999_auto] items-center gap-1 overflow-hidden font-mono text-[12px] text-muted-foreground/70 keyboard:md:text-[11px]"
-            >
-              <FolderGit2Icon
-                role="img"
-                aria-label="Worktree"
-                className="size-3! shrink-0 opacity-80"
-              />
-              <span className="min-w-0 truncate">{branch}</span>
-            </span>
-          )}
-          <StatusWord
-            status={session.status}
-            unseen={unseen}
-            asking={asking}
-            working={working}
-            at={session.activeAt}
+        {renaming ? (
+          <TitleField
+            was={session.title}
+            onDone={(typed) => {
+              setRenaming(false);
+              if (typed === null || typed === session.title) return;
+              given.give(typed);
+              onRename(session, typed);
+            }}
           />
-        </SidebarMenuButton>
+        ) : (
+          // With a mouse, a right click offers Rename; a touch screen swipes it.
+          <ContextMenu disabled={touch}>
+            <ContextMenuTrigger>
+              <SidebarMenuButton
+                data-place={place}
+                data-cursor={cursor}
+                isActive={open}
+                className={`h-auto min-h-12 gap-2 rounded-xl px-2.5 py-2 data-active:font-normal keyboard:md:h-auto keyboard:md:min-h-8 keyboard:md:rounded-lg keyboard:md:py-[5px] ${HOVER_ROW} ${TOUCH_ROW} ${cursorRing}`}
+                render={
+                  <Router.Link
+                    to={routes.session(
+                      accountId,
+                      session.connectionId,
+                      session.projectId,
+                      session.id,
+                    )}
+                    title={
+                      original === null
+                        ? title
+                        : `${title}\nForked from ${original}`
+                    }
+                  />
+                }
+              >
+                {original !== null && (
+                  <GitForkIcon
+                    role="img"
+                    aria-label={`Forked from ${original}`}
+                    className="size-3! shrink-0 text-muted-foreground/60"
+                  />
+                )}
+                <span
+                  className={`min-w-0 flex-auto truncate text-[15px] leading-5 keyboard:md:text-sm ${unseen ? 'font-semibold text-sidebar-foreground' : quiet ? 'text-muted-foreground' : ''}`}
+                >
+                  {title}
+                </span>
+                {branch !== null && (
+                  <span
+                    title={`In its own worktree, on ${session.branch}`}
+                    className="flex max-w-[min(30%,11ch)] min-w-3 flex-[0_999_auto] items-center gap-1 overflow-hidden font-mono text-[12px] text-muted-foreground/70 keyboard:md:text-[11px]"
+                  >
+                    <FolderGit2Icon
+                      role="img"
+                      aria-label="Worktree"
+                      className="size-3! shrink-0 opacity-80"
+                    />
+                    <span className="min-w-0 truncate">{branch}</span>
+                  </span>
+                )}
+                <StatusWord
+                  status={session.status}
+                  unseen={unseen}
+                  asking={asking}
+                  working={working}
+                  at={session.activeAt}
+                />
+              </SidebarMenuButton>
+            </ContextMenuTrigger>
+            <ContextMenuContent>
+              <ContextMenuItem onClick={() => setRenaming(true)}>
+                <PencilIcon aria-hidden />
+                Rename
+              </ContextMenuItem>
+            </ContextMenuContent>
+          </ContextMenu>
+        )}
       </SwipeToMove>
     </ArriveItem>
   );
 });
+
+/** How long a Title given shows over the Session's own, at most, waiting for it to sync. */
+const GIVEN_FOR = 5000;
+
+/**
+ * A Title given here, shown at once over `title`, the Session's own as
+ * synced, until that changes or a few seconds pass: so a row renamed reads
+ * its new Title while its Connection is asked, and its own again if it
+ * was refused.
+ */
+function useGiven(title: string) {
+  const [given, setGiven] = useState<{
+    readonly title: string;
+    readonly over: string;
+  } | null>(null);
+  if (given !== null && given.over !== title) setGiven(null);
+  useEffect(() => {
+    if (given === null) return;
+    const done = setTimeout(() => setGiven(null), GIVEN_FOR);
+    return () => clearTimeout(done);
+  }, [given]);
+  return {
+    title: given?.title ?? null,
+    give: (typed: string) => setGiven({ title: typed, over: title }),
+  };
+}
+
+/**
+ * A row's title as a field, in the row's place, its text chosen. Enter, or
+ * a click away, ends it with the text trimmed, or null when nothing is
+ * left; Escape ends it with null.
+ */
+function TitleField({
+  was,
+  onDone,
+}: {
+  /** The Session's Title as it is. */
+  readonly was: string;
+  readonly onDone: (typed: string | null) => void;
+}) {
+  const field = useRef<HTMLInputElement | null>(null);
+  // Ended once: Enter or Escape, then the blur as it goes.
+  const ended = useRef(false);
+  const end = (typed: string | null) => {
+    if (ended.current) return;
+    ended.current = true;
+    const kept = typed?.trim() ?? '';
+    onDone(kept === '' ? null : kept);
+  };
+  useLayoutEffect(() => {
+    field.current?.focus();
+    field.current?.select();
+  }, []);
+  return (
+    <Input
+      ref={field}
+      aria-label="Session title"
+      defaultValue={was}
+      maxLength={TITLE_MAX}
+      autoComplete="off"
+      spellCheck={false}
+      onBlur={(event) => end(event.currentTarget.value)}
+      onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
+        if (event.key !== 'Enter' && event.key !== 'Escape') return;
+        // Its keys are the field's, not the sidebar's.
+        event.preventDefault();
+        event.stopPropagation();
+        end(event.key === 'Enter' ? event.currentTarget.value : null);
+      }}
+      className="h-12 rounded-xl px-2.5 text-[15px] keyboard:md:h-8 keyboard:md:rounded-lg keyboard:md:text-sm"
+    />
+  );
+}
 
 /** The Connections whose Projects never synced here, each with how far it got. */
 function Waiting({

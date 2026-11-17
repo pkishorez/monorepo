@@ -24,6 +24,9 @@ import { Batch, Cursor, Opaque, tagged } from './wire.js';
 /** A Session as a reply carries it, with its version. */
 export const SessionValue = SessionSchema.schema;
 
+/** The longest Title the user may give a Session. */
+export const TITLE_MAX = 200;
+
 /** An Ask's answer: text, or data shaped by the schema it was given. */
 const AskAnswer = ValueESchema.make(
   'AskAnswer',
@@ -176,6 +179,18 @@ export const SessionsRpc = RpcGroup.make(
   /** Writes the Session's Title afresh from its latest user messages. */
   Rpc.make('regenerateTitle', {
     payload: OnSession('RegenerateTitlePayload'),
+    success: Schema.String,
+    error: SessionNotFound,
+  }),
+  /**
+   * Gives the Session the user's own Title, trimmed, and answers with the
+   * Title it keeps: one left empty keeps the Title it had.
+   */
+  Rpc.make('setTitle', {
+    payload: ESchema.make('SetTitlePayload', {
+      sessionId: Schema.String,
+      title: Schema.String.check(Schema.isMaxLength(TITLE_MAX)),
+    }).build().schema,
     success: Schema.String,
     error: SessionNotFound,
   }),

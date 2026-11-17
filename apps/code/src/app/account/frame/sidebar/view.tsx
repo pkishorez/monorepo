@@ -119,6 +119,16 @@ export const SidebarView = View.make(
         sidebar: true,
       });
     }, [refused?.n]);
+    // A Title its Connection refused: the row reads its own again.
+    const { unrenamed } = model;
+    useEffect(() => {
+      if (unrenamed === null) return;
+      notify({
+        title: 'Not renamed',
+        description: unrenamed.reason,
+        sidebar: true,
+      });
+    }, [unrenamed?.n]);
     // The Connections shown whose Projects never synced here, each said as it
     // comes up; null while none was ever listed on this device.
     const neverSynced = new Set(drawn?.neverSynced ?? []);
@@ -151,6 +161,11 @@ export const SidebarView = View.make(
           settled,
           title: title || 'Untitled session',
         }),
+      [send],
+    );
+    const onRename = useCallback(
+      ({ connectionId, id }: OnConnection<Session>, title: string) =>
+        send({ _tag: 'RenameAsked', connectionId, sessionId: id, title }),
       [send],
     );
     const header = (
@@ -212,6 +227,7 @@ export const SidebarView = View.make(
               })
             }
             onMove={onMove}
+            onRename={onRename}
           />
         </SwipeBack>
       </>

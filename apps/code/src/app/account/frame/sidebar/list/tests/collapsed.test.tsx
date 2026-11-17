@@ -97,6 +97,7 @@ describe('the sidebar, its Connections collapsed', () => {
             onOpenSession={() => {}}
             onUnsettle={() => {}}
             onMove={() => {}}
+            onRename={() => {}}
           />
         </keys.Provider>,
       ),
