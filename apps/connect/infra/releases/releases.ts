@@ -96,7 +96,7 @@ export const minConnectOf = (pkg: Package) =>
         )
       : Effect.succeed(pkg.minConnect);
 
-/** The Worker's `MIN_CONNECT`: the Minimum Connect, as `minConnect` in `package.json` names it. A person bumps it on purpose. */
+/** The Worker's `MIN_CONNECT`: the Minimum Connect, as `minConnect` in `package.json` names it. A change raises it on purpose with `raiseMinConnect`, which the release applies (scripts/raise-min-connect.ts). */
 export const minConnect = Effect.suspend(() =>
   minConnectOf(
     JSON.parse(

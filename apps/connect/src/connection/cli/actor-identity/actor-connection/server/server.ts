@@ -9,20 +9,14 @@ import {
 import { connect, type Socket } from 'node:net';
 import { Effect } from 'effect';
 import {
+  HEALTH,
   KEY_EXPIRED,
   mismatchReason,
   PLUGIN_MISMATCH,
   pluginOfPath,
   PROTOCOL,
 } from '../../../../../contracts/link/index.js';
-import {
-  EXPIRED,
-  guard,
-  HEALTH,
-  pathOf,
-  type Refusal,
-  withoutKey,
-} from './guard.js';
+import { EXPIRED, guard, pathOf, type Refusal, withoutKey } from './guard.js';
 import { MOST_HELD, readFrames } from './frames.js';
 
 /*

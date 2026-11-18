@@ -1,7 +1,7 @@
 import { Option, Schema } from 'effect';
 import { ESchema } from '@kestack/std-toolkit/eschema';
 
-export { allowsOrigin } from './origins.js';
+export { allowsOrigin, DEFAULT_ORIGINS } from './origins.js';
 
 /*
  * The Link: how an App reaches a Plugin through a Connection, which an older
@@ -20,6 +20,9 @@ export { allowsOrigin } from './origins.js';
  * with `KEY_EXPIRED`: the Connection keeps only the one key, so it cannot tell
  * an old key from a made-up one.
  */
+
+/** The one path a Connection serves without the key, for the Heartbeat's Tunnel Check. */
+export const HEALTH = '/health';
 
 /**
  * The subprotocol a socket offers, and the server selects once the key checks

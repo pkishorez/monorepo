@@ -2,11 +2,13 @@ name: 🧪 test:monorepo
 
 on:
   pull_request:
-    # The changeset release PR changes only these, so it starts no run.
+    # A pull request that changes only these needs no tests. A package.json
+    # is tested: it can raise the Minimum Connect, or change a script. The
+    # changeset release PR starts no run at all, as the bot's token starts
+    # none.
     paths-ignore:
       - '.changeset/**'
       - '**/CHANGELOG.md'
-      - '**/package.json'
   push:
     branches:
       - main

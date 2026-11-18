@@ -10,9 +10,7 @@ export { Connections } from './connections.js';
 export { connectionsTable } from './storage/index.js';
 export {
   type Latest,
-  RELEASE_PATH,
   releaseFile,
-  releaseKey,
   type ReleaseFiles,
   standingOf,
 } from './releases.js';

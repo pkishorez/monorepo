@@ -23,6 +23,7 @@ import {
   hostName,
   kept,
 } from './identity/index.js';
+import { DEFAULT_ORIGINS } from '../../contracts/link/index.js';
 import { run } from './run.js';
 import {
   OUTDATED_EXIT,
@@ -58,17 +59,6 @@ const version = (
     readFileSync(new URL('../../../package.json', import.meta.url), 'utf8'),
   ) as { readonly version: string }
 ).version;
-
-/** This computer, and every App on the stack's domains, deployed or as Portless serves it in development. */
-const DEFAULT_ORIGINS: ReadonlyArray<string> = [
-  'http://localhost:*',
-  'http://127.0.0.1:*',
-  'http://[::1]:*',
-  'https://localhost:*',
-  'https://*.localhost:*',
-  'https://*.kishore.app',
-  'https://*.kishore.computer',
-];
 
 /** The largest the log may be when `serve` starts before it is emptied. */
 const MOST_BYTES = 10 * 1024 * 1024;

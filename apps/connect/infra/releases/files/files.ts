@@ -8,7 +8,7 @@ import { Effect } from 'effect';
 import {
   RELEASE_PATH,
   releaseKey,
-} from '../../../src/cloud/worker/store/index.ts';
+} from '../../../src/contracts/heartbeat/index.ts';
 
 /*
  * Where each Release File is kept, named by its hash and never changed, as

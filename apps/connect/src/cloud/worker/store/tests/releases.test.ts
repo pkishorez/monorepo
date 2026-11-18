@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { fromReleaseKey, releaseKey } from '../releases.js';
+import { releaseKey } from '../../../../contracts/heartbeat/index.js';
+import { fromReleaseKey } from '../releases.js';
 
 /* How Connect Cloud keeps each Release File: by its Plugin's name and hash. */
 

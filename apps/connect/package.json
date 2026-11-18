@@ -2,6 +2,7 @@
   "name": "@kestack/connect",
   "version": "0.0.6",
   "minConnect": "0.0.4",
+  "raiseMinConnect": true,
   "description": "Connects a computer to the cloud as a Connection its User reaches from anywhere: the ke-connect command, Connect Cloud on a Cloudflare Worker, and the code Plugin Code talks to",
   "repository": {
     "type": "git",
@@ -49,6 +50,7 @@
     "lint": "vp check && pnpm lint:tsc && laymos lint && pnpm tree",
     "lint:tsc": "tsc --noEmit",
     "test": "vitest run --exclude \"**/*.e2e.test.ts\"",
+    "test:frozen": "vitest run src/contracts/heartbeat/tests/frozen.test.ts",
     "tree": "node scripts/tree.ts"
   },
   "devDependencies": {

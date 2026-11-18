@@ -13,6 +13,7 @@ import {
   HEARTBEAT_PATH,
   HeartbeatApi,
   outdatedLine,
+  RELEASE_PATH,
   UPGRADE_REQUIRED,
   VERSION_HEADER,
 } from '../../contracts/heartbeat/index.js';
@@ -23,7 +24,6 @@ import { heartbeatHandlers } from './heartbeat/index.js';
 import {
   connectionsTable,
   type Latest,
-  RELEASE_PATH,
   releaseFile,
   type ReleaseFiles,
 } from './store/index.js';

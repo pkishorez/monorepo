@@ -2,6 +2,7 @@ import { timingSafeEqual } from 'node:crypto';
 import type { IncomingHttpHeaders } from 'node:http';
 import {
   allowsOrigin,
+  HEALTH,
   KEY_PREFIX,
 } from '../../../../../contracts/link/index.js';
 
@@ -18,9 +19,6 @@ import {
  * it. A Plugin never sees the key: it is taken out of what the request offers,
  * and the Plugin selects `ke-connect`.
  */
-
-/** The one path open without the key, for the Heartbeat's Tunnel Check. */
-export const HEALTH = '/health';
 
 /** Why a request is turned away, or null when it may come in. */
 export interface Refusal {

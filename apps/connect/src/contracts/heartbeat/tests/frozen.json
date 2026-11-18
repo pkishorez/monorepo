@@ -12,6 +12,7 @@
     "releaseKey": "x/y.mjs",
     "VERSION_HEADER": "ke-connect-version",
     "UPGRADE_REQUIRED": 426,
+    "DEFAULT_ORIGINS": "[\"http://localhost:*\",\"http://127.0.0.1:*\",\"http://[::1]:*\",\"https://localhost:*\",\"https://*.localhost:*\",\"https://*.kishore.app\",\"https://*.kishore.computer\"]",
     "pluginPath": "/x/y/rpc",
     "PROTOCOL": "ke-connect",
     "KEY_PREFIX": "key.",

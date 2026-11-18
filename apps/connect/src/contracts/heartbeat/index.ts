@@ -12,6 +12,8 @@ export {
   HeartbeatApi,
   outdatedLine,
   Release,
+  RELEASE_PATH,
+  releaseKey,
   ReportAnswer,
   SetupStep,
   TunnelCheck,

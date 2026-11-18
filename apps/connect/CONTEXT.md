@@ -41,7 +41,7 @@ A Release's one file, kept as `<name>/<sha256>.mjs` and never changed once kept.
 _Avoid_: shelf, registry, store (the code Plugin's records), CDN, artifact
 
 **Minimum Connect**:
-The oldest `ke-connect` Connect Cloud lets run its Plugins, one for all of them, which a person raises on purpose as `minConnect` in `package.json`. A Connection below it, or one that names no version, is Outdated: every Heartbeat it sends is answered 426, before it is read, with one line to show. `ke-connect` prints the line and exits 75. An App shows the Connection Outdated, from the version in its last Report, says to update `ke-connect`, and does not dial it.
+The oldest `ke-connect` Connect Cloud lets run its Plugins, one for all of them, `minConnect` in `package.json`, which a change raises on purpose by setting `raiseMinConnect`, and the release then raises to itself. A Connection below it, or one that names no version, is Outdated: every Heartbeat it sends is answered 426, before it is read, with one line to show. `ke-connect` prints the line and exits 75. An App shows the Connection Outdated, from the version in its last Report, says to update `ke-connect`, and does not dial it.
 _Avoid_: latest version (a newer `ke-connect` is no reason to update), required version, compatibility range
 
 **Plugin State**:

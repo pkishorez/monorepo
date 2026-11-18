@@ -49,6 +49,12 @@ export { AUTH_PATH, AuthInfo } from './sign-in/index.js';
 /** Where Connect Cloud serves the Heartbeat. */
 export const HEARTBEAT_PATH = '/heartbeat';
 
+/** Where Connect Cloud serves Release Files: `<cloud>/releases/<name>/<sha256>.mjs`. R2 keeps each file at the same path. */
+export const RELEASE_PATH = '/releases';
+
+/** A Release File's key, under any root: `<name>/<sha256>.mjs`. */
+export const releaseKey = (name: string, hash: string) => `${name}/${hash}.mjs`;
+
 /** The header every Heartbeat call carries: the caller's `ke-connect` version. Frozen. */
 export const VERSION_HEADER = 'ke-connect-version';
 

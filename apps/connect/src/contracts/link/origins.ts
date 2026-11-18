@@ -9,6 +9,22 @@
  * host stands for any subdomains and `:*` for any port.
  */
 
+/**
+ * The pages every `ke-connect` lets in: this computer, and every App on the
+ * stack's domains, deployed or as Portless serves it in development. An older
+ * `ke-connect` keeps the list it was built with, so an App served anywhere
+ * else cannot reach it.
+ */
+export const DEFAULT_ORIGINS: ReadonlyArray<string> = [
+  'http://localhost:*',
+  'http://127.0.0.1:*',
+  'http://[::1]:*',
+  'https://localhost:*',
+  'https://*.localhost:*',
+  'https://*.kishore.app',
+  'https://*.kishore.computer',
+];
+
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const toRegExp = (pattern: string) => {

@@ -3,7 +3,7 @@
 '@kestack/cli-platform': patch
 ---
 
-Connect is one simple tree, tied to the User's login, and a Connection Key rotates. Only the Heartbeat between `ke-connect` and Connect Cloud stays compatible from now on; a `ke-connect` too old for the rest is told to update. This is a clean break: deploy Connect Cloud first, then install `ke-connect` again. The release PR raises the Minimum Connect to this release, once its version is bumped: `minConnect` cannot be above the package's version.
+Connect is one simple tree, tied to the User's login, and a Connection Key rotates. Only the Heartbeat between `ke-connect` and Connect Cloud stays compatible from now on; a `ke-connect` too old for the rest is told to update. This is a clean break: deploy Connect Cloud first, then install `ke-connect` again. This release raises the Minimum Connect to itself: a change that moves what an older `ke-connect` reads now sets `"raiseMinConnect": true`, and the release applies it.
 
 **Breaking**
 

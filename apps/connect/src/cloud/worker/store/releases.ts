@@ -1,5 +1,9 @@
 import { Effect } from 'effect';
-import { type Release } from '../../../contracts/heartbeat/index.js';
+import {
+  RELEASE_PATH,
+  releaseKey,
+  type Release,
+} from '../../../contracts/heartbeat/index.js';
 import { type ReleaseStanding } from '../../../contracts/app-api/index.js';
 
 /*
@@ -10,14 +14,8 @@ import { type ReleaseStanding } from '../../../contracts/app-api/index.js';
  * that it does not name is an older Release.
  */
 
-/** Where Connect Cloud serves Release Files: `<cloud>/releases/<name>/<sha256>.mjs`. R2 keeps each file at the same path. */
-export const RELEASE_PATH = '/releases';
-
 /** A Plugin's name, a DNS label, then a Release's hash, the sha256 of its file in lowercase hex. */
 const KEY = /^([a-z0-9-]{1,64})\/([a-f0-9]{64})\.mjs$/;
-
-/** A Release File's key, under any root: `<name>/<sha256>.mjs`. */
-export const releaseKey = (name: string, hash: string) => `${name}/${hash}.mjs`;
 
 /** The Plugin and hash a Release File's key names; null for anything else. */
 export const fromReleaseKey = (

@@ -1,5 +1,7 @@
 export {
   allowsOrigin,
+  DEFAULT_ORIGINS,
+  HEALTH,
   KEY_EXPIRED,
   KEY_PREFIX,
   keyExpired,
