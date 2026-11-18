@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import { Authz } from '@kestack/auth-toolkit';
-import { HeartbeatApi } from '../../../heartbeat/index.js';
+import { HeartbeatApi } from '../../../contracts/heartbeat/index.js';
 import { Connections, type Latest } from '../store/index.js';
 
 /*

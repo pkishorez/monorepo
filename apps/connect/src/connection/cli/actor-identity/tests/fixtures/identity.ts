@@ -10,7 +10,7 @@ import { Downloads, socketPath } from '@kestack/cli-platform/files';
 import {
   addressOf,
   type ConnectionStatus,
-} from '../../../../../heartbeat/index.js';
+} from '../../../../../contracts/heartbeat/index.js';
 import { Tunnels } from '../../actor-connection/index.js';
 import { ActorIdentity } from '../../actor.js';
 import {
@@ -18,7 +18,7 @@ import {
   Control,
   type Reported,
 } from '../../capabilities/index.js';
-import { hold } from '../../services/index.js';
+import { hold } from '../../../control/index.js';
 
 /*
  * The whole tree, against a fake account on Connect Cloud that records each

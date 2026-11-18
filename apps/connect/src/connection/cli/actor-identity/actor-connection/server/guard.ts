@@ -3,7 +3,7 @@ import type { IncomingHttpHeaders } from 'node:http';
 import {
   allowsOrigin,
   KEY_PREFIX,
-} from '../../../../../connection/link/index.js';
+} from '../../../../../contracts/link/index.js';
 
 /*
  * Who may come in. A browser page is let in only from an origin given; a

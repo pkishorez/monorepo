@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
-import { type Release } from '../../../heartbeat/index.js';
-import { type ReleaseStanding } from '../../app-api/index.js';
+import { type Release } from '../../../contracts/heartbeat/index.js';
+import { type ReleaseStanding } from '../../../contracts/app-api/index.js';
 
 /*
  * Connect Cloud's Releases: what every Connection should run, which the deploy

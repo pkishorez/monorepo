@@ -18,7 +18,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { fakeGuard } from '@kestack/auth-toolkit/fake';
 import { SQLite } from '@kestack/std-toolkit/db/sqlite';
 import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
-import { pluginPath } from '../../../connection/link/index.js';
+import { pluginPath } from '../../../contracts/link/index.js';
 import { connectionsTable, serveOver } from '../../../cloud/worker/index.js';
 import { CodeClient } from '../../plugins/code/api/index.js';
 import { CLOUDFLARED_KEY } from '../actor-identity/actor-connection/index.js';

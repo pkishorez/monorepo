@@ -22,7 +22,7 @@ import {
   standingOf,
   writeRecord,
 } from './record.js';
-import { supervise } from './supervise.js';
+import { supervise } from './supervise/supervise.js';
 import { follow, proxyUp, sizeOf } from './terminal.js';
 
 export { branchOf };

@@ -35,8 +35,8 @@ A 4401 and a page back from hidden still ask at once. A link that drops starts t
 ## Consequences
 
 - The `ke-connect` released with this is the last to be installed again by hand without being told: one before it cannot read 426.
-- `src/heartbeat` holds everything `ke-connect` and Connect Cloud say to each other, and only `src/cloud` and `src/connection/cli` import it, by Laymos Rule.
-- `src/heartbeat/tests/frozen.test.ts` keeps `frozen.json`: the Minimum Connect, and every value `ke-connect` reads or serves, each by its version and its shape. A change to one without a raised Minimum Connect fails it. Once `minConnect` is raised, `UPDATE_FROZEN=1 pnpm test` rewrites `frozen.json`.
+- `src/contracts/heartbeat` holds everything `ke-connect` and Connect Cloud say to each other, and only `src/cloud` and `src/connection/cli` import it, by Laymos Rule.
+- `src/contracts/heartbeat/tests/frozen.test.ts` keeps `frozen.json`: the Minimum Connect, and every value `ke-connect` reads or serves, each by its version and its shape. A change to one without a raised Minimum Connect fails it. Once `minConnect` is raised, `UPDATE_FROZEN=1 pnpm test` rewrites `frozen.json`.
 - What only Connect Cloud and an App say to each other, and what only an App and a Plugin say, change freely: each side updates itself.
 - Raising the Minimum Connect stops every older Connection at its next Heartbeat. Under a service that is a restart; by hand, an install.
 - `minConnect` in `package.json` cannot be above its `version`: the deploy refuses it. So the Minimum Connect for this release, 0.0.7, is raised in the release PR, once the version is 0.0.7. Until then a Minimum Connect of 0.0.4 already refuses every older `ke-connect`, which sends no header.

@@ -1,7 +1,7 @@
 import { Duration, Effect, Layer, Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
 import type { Self } from '@kestack/kabuki/types';
-import { addressOf } from '../../../heartbeat/index.js';
+import { addressOf } from '../../../contracts/heartbeat/index.js';
 import { ActorConnection, ROTATE_EVERY } from './actor-connection/index.js';
 import { Cloud, CloudAccount, Control } from './capabilities/index.js';
 

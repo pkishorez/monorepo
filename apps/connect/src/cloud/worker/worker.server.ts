@@ -1,11 +1,11 @@
 import { Schema } from 'effect';
-import { Release } from '../../heartbeat/index.ts';
+import { Release } from '../../contracts/heartbeat/index.ts';
 import { serve } from './worker.ts';
 
 /*
  * Connect Cloud's Worker: Connect Cloud over the Worker's D1 database, signing
  * in through the Auth Worker at `AUTH_URL`, letting pages on the origins
- * `ALLOWED_ORIGINS` names (comma-separated patterns, see connection/link/)
+ * `ALLOWED_ORIGINS` names (comma-separated patterns, see contracts/link/)
  * call with credentials, telling every Connection to run the Releases
  * `RELEASES` names (JSON, `{"code":{"hash":"…","url":"…"}}`, the latest of
  * each Plugin; none when it is empty), refusing 426 any `ke-connect` below

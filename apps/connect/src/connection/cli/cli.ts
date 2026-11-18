@@ -9,19 +9,21 @@ import { Console, Data, Effect, Layer, Logger, Option, Schedule } from 'effect';
 import { createFolders } from '@kestack/cli-platform/files';
 import { reach } from '@kestack/cli-platform/single';
 import {
-  account,
   ConnectionControl,
+  hold,
+  type RunningConnection,
+} from './control/index.js';
+import {
+  account,
   type ConnectionFolders,
   connectionFolders,
   connectionNames,
   deleteFolders,
   forget,
-  hold,
   hostName,
   kept,
-  run,
-  type RunningConnection,
-} from './actor-identity/index.js';
+} from './identity/index.js';
+import { run } from './run.js';
 import {
   OUTDATED_EXIT,
   run as runCommands,
@@ -43,7 +45,7 @@ import {
  * - remove: stops it if it runs, forgets it in Connect Cloud, signs out
  *   and deletes its folders.
  *
- * A Connection keeps its files where actor-identity/services/ says. `serve` logs to the
+ * A Connection keeps its files where identity/ says. `serve` logs to the
  * console and to a file, so a Connect started by a dev script or in the
  * background can still be read afterwards. The file is only ever appended
  * to; a file grown past 10 MB is emptied when `serve` starts, rather than

@@ -4,20 +4,20 @@
   "ignoredPaths": ["src/connection/cli/tests/fixtures"],
   "fileModules": [],
   "rules": {
-    "src/cloud": ["src/heartbeat"],
-    "src/cloud/client": ["src/cloud/app-api"],
-    "src/cloud/worker": ["src/cloud/app-api", "src/connection/link"],
+    "src/cloud": ["src/contracts/heartbeat"],
+    "src/cloud/client": ["src/contracts/app-api"],
+    "src/cloud/worker": ["src/contracts/app-api", "src/contracts/link"],
     "src/cloud/worker/app": ["src/cloud/worker/store"],
     "src/cloud/worker/heartbeat": ["src/cloud/worker/store"],
-    "src/connection/cli": ["src/heartbeat", "src/connection/link"],
+    "src/connection/cli": ["src/contracts/heartbeat", "src/contracts/link"],
     "src/connection/cli/actor-identity/actor-connection": [
       "src/connection/cli/actor-identity/capabilities"
     ],
-    "src/connection/cli/actor-identity/services/control": [
+    "src/connection/cli/control": [
       "src/connection/cli/actor-identity/capabilities"
     ],
     "src/connection/plugins/code/api": [
-      "src/connection/link",
+      "src/contracts/link",
       "src/connection/plugins/code/records"
     ],
     "src/connection/plugins/code/serve": [
@@ -40,6 +40,14 @@
     ],
     "src/connection/plugins/code/engine/services": [
       "src/connection/plugins/code/engine/capabilities"
-    ]
-  }
+    ],
+    "src/contracts/app-api": ["src/contracts/heartbeat"]
+  },
+  "exceptions": [
+    {
+      "from": "src/connection/cli/actor-identity",
+      "to": "src/connection/cli/control",
+      "because": "Identity's tests run it on a real control socket, as serve does, to check it answers list and remove there"
+    }
+  ]
 }

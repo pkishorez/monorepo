@@ -46,9 +46,10 @@
     "deploy": "alchemy deploy",
     "deploy:prod": "ALLOW_DEPLOY=true alchemy deploy --stage prod",
     "fmt": "vp fmt",
-    "lint": "vp check && pnpm lint:tsc && laymos lint",
+    "lint": "vp check && pnpm lint:tsc && laymos lint && pnpm tree",
     "lint:tsc": "tsc --noEmit",
-    "test": "vitest run --exclude \"**/*.e2e.test.ts\""
+    "test": "vitest run --exclude \"**/*.e2e.test.ts\"",
+    "tree": "node scripts/tree.ts"
   },
   "devDependencies": {
     "@alchemy.run/cloudflare": "catalog:",

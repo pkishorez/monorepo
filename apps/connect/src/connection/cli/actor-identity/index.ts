@@ -1,22 +1,8 @@
-export { ActorIdentity } from './actor.js';
+export { ActorIdentity, type IdentityInput } from './actor.js';
+export { CLOUDFLARED_KEY, Tunnels, tunnels } from './actor-connection/index.js';
 export {
   Cloud,
   CloudAccount,
   Control,
   type Reported,
 } from './capabilities/index.js';
-export { run } from './run.js';
-export {
-  account,
-  belongsTo,
-  ConnectionControl,
-  type ConnectionFolders,
-  connectionFolders,
-  connectionNames,
-  deleteFolders,
-  forget,
-  hold,
-  hostName,
-  kept,
-  RunningConnection,
-} from './services/index.js';

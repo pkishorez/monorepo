@@ -30,7 +30,7 @@ import {
   mismatchOf,
   type PluginMismatch,
   keyProtocols,
-} from '../../../../link/index.js';
+} from '../../../../../contracts/link/index.js';
 import {
   MessageSchema,
   PROJECTION_VERSION,

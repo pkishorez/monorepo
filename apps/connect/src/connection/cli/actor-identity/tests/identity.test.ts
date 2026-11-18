@@ -3,8 +3,8 @@ import { Effect } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
 import { socketPath } from '@kestack/cli-platform/files';
 import { reach } from '@kestack/cli-platform/single';
-import { addressOf } from '../../../../heartbeat/index.js';
-import { ConnectionControl } from '../services/index.js';
+import { addressOf } from '../../../../contracts/heartbeat/index.js';
+import { ConnectionControl } from '../../control/index.js';
 import {
   eventually,
   fake,

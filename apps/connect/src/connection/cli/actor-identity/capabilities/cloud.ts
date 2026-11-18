@@ -1,5 +1,8 @@
 import { Context, type Duration, type Effect } from 'effect';
-import type { ConnectionStatus, Release } from '../../../../heartbeat/index.js';
+import type {
+  ConnectionStatus,
+  Release,
+} from '../../../../contracts/heartbeat/index.js';
 
 /*
  * Connect Cloud as everything under Identity sees it: how often to report,

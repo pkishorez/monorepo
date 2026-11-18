@@ -5,7 +5,7 @@ import {
   versionedClient,
   type VersionGap,
 } from '@kestack/rpc-toolkit/rpc/version-gap';
-import { AppApi, RPC_PATH } from '../app-api/index.js';
+import { AppApi, RPC_PATH } from '../../contracts/app-api/index.js';
 
 /*
  * Connect Cloud as an App calls it: `AppApi` over HTTP at `<cloud>/rpc`,
@@ -16,13 +16,16 @@ import { AppApi, RPC_PATH } from '../app-api/index.js';
  * stands.
  */
 
-export { addressOf, ConnectionStatus } from '../../heartbeat/index.js';
+export {
+  addressOf,
+  ConnectionStatus,
+} from '../../contracts/heartbeat/index.js';
 export {
   Connection,
   DISPLAY_NAME_MAX,
   isOutdated,
   ReleaseStanding,
-} from '../app-api/index.js';
+} from '../../contracts/app-api/index.js';
 
 /** `base` without a trailing slash, then `path`. */
 const at = (base: string, path: string) => `${base.replace(/\/+$/, '')}${path}`;

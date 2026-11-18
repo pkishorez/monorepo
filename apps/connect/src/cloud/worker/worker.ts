@@ -15,9 +15,9 @@ import {
   outdatedLine,
   UPGRADE_REQUIRED,
   VERSION_HEADER,
-} from '../../heartbeat/index.js';
-import { allowsOrigin } from '../../connection/link/index.js';
-import { AppApi, RPC_PATH } from '../app-api/index.js';
+} from '../../contracts/heartbeat/index.js';
+import { allowsOrigin } from '../../contracts/link/index.js';
+import { AppApi, RPC_PATH } from '../../contracts/app-api/index.js';
 import { appHandlers } from './app/index.js';
 import { heartbeatHandlers } from './heartbeat/index.js';
 import {
@@ -51,7 +51,7 @@ import {
  * - `GET /releases/<name>/<sha256>.mjs` answers that Release File from `files`,
  *   to anyone. Anything else there, or no `files`, is 404.
  * - Apps are on other origins of the same site: an origin matching one of
- *   `origins` (patterns, see connection/link/) may call `/rpc` with
+ *   `origins` (patterns, see contracts/link/) may call `/rpc` with
  *   credentials, its own origin echoed back, and its preflight is answered
  *   here, since the RPC server answers POST alone. A call from any other
  *   origin is refused 403 before it is read: another page of the same site

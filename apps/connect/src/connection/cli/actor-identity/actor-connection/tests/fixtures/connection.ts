@@ -12,7 +12,7 @@ import { Downloads, socketPath } from '@kestack/cli-platform/files';
 import type {
   ConnectionStatus,
   Release,
-} from '../../../../../../heartbeat/index.js';
+} from '../../../../../../contracts/heartbeat/index.js';
 import { Cloud } from '../../../capabilities/index.js';
 import { ActorConnection, ROTATE_EVERY, Tunnels } from '../../index.js';
 

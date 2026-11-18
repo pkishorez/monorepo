@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import * as Output from 'alchemy/Output';
 import { Effect } from 'effect';
 import { folders } from '@kestack/cli-platform/files';
-import { belowMinimum } from '../../src/heartbeat/index.ts';
+import { belowMinimum } from '../../src/contracts/heartbeat/index.ts';
 import { where } from '../stage.ts';
 import {
   builtHash,

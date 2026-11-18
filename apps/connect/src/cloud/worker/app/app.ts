@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import { Authz } from '@kestack/auth-toolkit';
-import { AppApi } from '../../app-api/index.js';
+import { AppApi } from '../../../contracts/app-api/index.js';
 import {
   Connections,
   type Latest,

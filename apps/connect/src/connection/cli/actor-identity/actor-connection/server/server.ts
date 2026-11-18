@@ -14,7 +14,7 @@ import {
   PLUGIN_MISMATCH,
   pluginOfPath,
   PROTOCOL,
-} from '../../../../../connection/link/index.js';
+} from '../../../../../contracts/link/index.js';
 import {
   EXPIRED,
   guard,

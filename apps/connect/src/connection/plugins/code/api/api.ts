@@ -13,7 +13,7 @@ export {
   PLUGIN_MISMATCH,
   pluginPath,
   PluginMismatch,
-} from '../../../link/index.js';
+} from '../../../../contracts/link/index.js';
 
 export {
   CodeApi,

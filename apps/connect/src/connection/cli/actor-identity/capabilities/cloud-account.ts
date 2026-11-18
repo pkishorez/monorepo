@@ -1,5 +1,8 @@
 import { Context, type Duration, type Effect } from 'effect';
-import type { ConnectionStatus, Release } from '../../../../heartbeat/index.js';
+import type {
+  ConnectionStatus,
+  Release,
+} from '../../../../contracts/heartbeat/index.js';
 
 /*
  * The User's account on Connect Cloud, which Identity stands on, so it can

@@ -29,7 +29,7 @@ Connect is one simple tree, tied to the User's login, and a Connection Key rotat
 **Changed**
 
 - Cloud Connect is now Connect Cloud, and the Shelf is now Release Files.
-- `src/heartbeat` is everything `ke-connect` and Connect Cloud say to each other, `src/cloud/app-api` what Connect Cloud and an App say, and `src/connection/link` how an App reaches a Plugin through a Connection; `src/connection` holds the CLI and its Plugins. The Actor tree is Identity, Connection, then its Tunnel and Plugins, side by side, so a broken tunnel never stops a Plugin.
+- `src/contracts` holds what the parts say to each other: `heartbeat`, what `ke-connect` and Connect Cloud say, `app-api`, what Connect Cloud and an App say, and `link`, how an App reaches a Plugin through a Connection. `src/cloud` is Connect Cloud, and `src/connection` holds the CLI and its Plugins, so neither imports the other. `pnpm tree` checks that parts using each other are at most three in a folder. The Actor tree is Identity, Connection, then its Tunnel and Plugins, side by side, so a broken tunnel never stops a Plugin.
 - `connection.json` is v2 and keeps no Connection Key: an old key reads, and is dropped at the next start. Connect Cloud's Connection record is v4, with the new status.
 - A Plugin with no file says `<name> <hash> has no file; run the build`.
 - `ke-connect remove` on a `ke-connect` Connect Cloud refuses says so: it prints Connect Cloud's line, and that the Connection stays listed until it is forgotten from the App. It still signs out and deletes the Connection's files.

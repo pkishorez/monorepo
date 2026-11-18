@@ -17,8 +17,8 @@ import {
   HEARTBEAT_PATH,
   HeartbeatApi,
   VERSION_HEADER,
-} from '../../../heartbeat/index.js';
-import { isOutdated } from '../../app-api/index.js';
+} from '../../../contracts/heartbeat/index.js';
+import { isOutdated } from '../../../contracts/app-api/index.js';
 import { connectionsTable, serveOver } from '../index.js';
 import { standingOf } from '../store/index.js';
 
