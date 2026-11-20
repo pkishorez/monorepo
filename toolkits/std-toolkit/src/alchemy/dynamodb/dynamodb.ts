@@ -1,13 +1,17 @@
 import { Effect } from 'effect';
 import * as DynamoDBResource from '@alchemy.run/aws/DynamoDB';
-import * as Output from 'alchemy/Output';
 import {
   DynamoDB as DynamoDBAdapter,
   type DynamoTableTopology,
 } from '../../db/dynamodb/index.js';
-import type { TableDefinition } from '../../db/index.js';
-import type { TableMode } from '../../db/stored-contract/index.js';
-import { guardContract } from '../deploy-guard/index.js';
+import type { TableDefinition } from '../../db/std-table/definition/index.js';
+import type { TableMode } from '../../db/table-snapshot/index.js';
+import { TableSnapshot } from '../../snapshot/index.js';
+import {
+  SnapshotCheck,
+  SnapshotRecord,
+  type TableSnapshotProps,
+} from './snapshot.js';
 
 type DynamoTable = Pick<
   TableDefinition,
@@ -83,33 +87,45 @@ const tableProps = (topology: DynamoTableTopology, tableName: string) => {
   };
 };
 
+/** What the check and the record are given: the code's snapshot of the table. */
+export const snapshotProps = (options: DynamoDBTableOptions) =>
+  TableSnapshot.serialize(TableSnapshot.capture(options.table)).pipe(
+    Effect.orDie,
+    Effect.map((snapshot): TableSnapshotProps => ({
+      tableName: options.tableName,
+      mode: options.mode,
+      snapshot,
+      localIndexOrder: Object.keys(options.table.localSecondaryIndexes),
+    })),
+  );
+
 /**
- * Creates or updates the DynamoDB table. DynamoDB keeps no Stored contract,
- * so its deploy guard is its only check. Nothing here replaces or wipes the
- * table: in either mode, a breaking change, or an index change other than
- * adding a global secondary index, fails the deploy, and the way past it is
- * a new physical table name.
+ * Creates or updates the DynamoDB table, checked against the snapshot it
+ * keeps in its own internal entities (ADR 0020). Three resources, ordered
+ * by their outputs: a check reads the snapshot from the live table and fails
+ * the deploy on a refusal before Alchemy touches the table; Alchemy's table;
+ * and a record that writes the code's snapshot into it once it is changed,
+ * or first created. Nothing here replaces or wipes the table: in either
+ * mode, a breaking change, a new physical name, or an index change other
+ * than adding a global secondary index fails the deploy, and the way past it
+ * is a new `DynamoDB.table` resource, with its own id and table name. A
+ * deploy stopped before the record leaves the older snapshot, which the next
+ * deploy checks against. Returns Alchemy's table.
  */
 const table = (id: string, options: DynamoDBTableOptions) =>
   Effect.gen(function* () {
     const topology = DynamoDBAdapter.getTableDefinition(options.table);
-    const guard = yield* guardContract(
-      `${id}DeployGuard`,
-      options.table,
-      options.mode,
-      {
-        target: options.tableName,
-        inPlaceOnly: true,
-        localIndexOrder: (topology.LocalSecondaryIndexes ?? []).map(
-          (index) => index.IndexName,
-        ),
-      },
-    );
-    const tableNameAfterGuard = Output.map(guard.hash, () => options.tableName);
-    return yield* DynamoDBResource.Table(id, {
+    const props = yield* snapshotProps(options);
+    const check = yield* SnapshotCheck(`${id}SnapshotCheck`, props);
+    const dynamoTable = yield* DynamoDBResource.Table(id, {
       ...tableProps(topology, options.tableName),
-      tableName: tableNameAfterGuard,
+      tableName: check.tableName,
     });
+    yield* SnapshotRecord(`${id}SnapshotRecord`, {
+      ...props,
+      tableName: dynamoTable.tableName,
+    });
+    return dynamoTable;
   });
 
 export const DynamoDB = { table } as const;

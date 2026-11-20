@@ -167,7 +167,7 @@ export const ConnectionRecord = EntityESchema.make('Connection', 'id', {
 
 export type ConnectionRecord = typeof ConnectionRecord.Type;
 
-/** Connect Cloud's table, for `SQLite.setup`, `D1.table` and its deploy guard. */
+/** Connect Cloud's table, for `SQLite.setup` and `D1.table`. */
 export const connectionsTable = StdTable.make('connections')
   .primary('pk', 'sk')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')

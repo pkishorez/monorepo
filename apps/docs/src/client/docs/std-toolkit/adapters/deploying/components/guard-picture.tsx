@@ -8,11 +8,11 @@ import {
 } from '../../../../../components/index.ts';
 
 /*
- * Two deploys meet the Deploy guard. On the left, the versions last
- * shipped; on the right, the ones this deploy brings, the new one lit.
- * The first adds a version: the guard lets it through and the table is
+ * Two deploys meet the check. On the left, the versions in the snapshot
+ * the table keeps; on the right, the ones this deploy brings, the new one
+ * lit. The first adds a version: the check lets it through and the table is
  * set up, lit as it is. The second edits a version that already shipped:
- * the guard shakes and fails the deploy, and the table is never touched.
+ * the check shakes and fails the deploy, and the table is never touched.
  * Every line keeps its height, so the picture never grows.
  */
 
@@ -30,20 +30,20 @@ const SHIPPED: ReadonlyArray<Version> = [{ name: 'v1' }, { name: 'v2' }];
 const STEPS: ReadonlyArray<Step> = [
   {
     next: [{ name: 'v1' }, { name: 'v2' }, { name: 'v3' }],
-    table: 'waiting for the guard',
+    table: 'waiting for the check',
     caption:
-      'This deploy adds v3 to Task. The Deploy guard compares it with what last shipped.',
+      'This deploy adds v3 to Task. The check compares it with the snapshot the table keeps.',
   },
   {
     next: [{ name: 'v1' }, { name: 'v2' }, { name: 'v3' }],
     verdict: 'passed',
     table: 'set up at v3',
     caption:
-      'A new version leaves every stored row readable, so the guard lets it through and the table is set up.',
+      'A new version leaves every stored row readable, so the check lets it through and the table is set up.',
   },
   {
     next: [{ name: 'v1' }, { name: 'v2', edited: true }],
-    table: 'waiting for the guard',
+    table: 'waiting for the check',
     caption: 'The next deploy edits v2, a version that already shipped.',
   },
   {
@@ -51,7 +51,7 @@ const STEPS: ReadonlyArray<Step> = [
     verdict: 'failed',
     table: 'untouched',
     caption:
-      'Rows saved at v2 would no longer read, so the guard fails the deploy before the table is touched.',
+      'Rows saved at v2 would no longer read, so the check fails the deploy before the table is touched.',
   },
 ];
 const CAPTIONS = STEPS.map((each) => each.caption);
@@ -102,7 +102,7 @@ export function GuardPicture() {
       <div className="px-4 py-8 sm:px-8">
         <div className="mx-auto max-w-md">
           <div className="grid grid-cols-2 gap-3">
-            <Versions title="Last shipped" versions={SHIPPED} />
+            <Versions title="In the table" versions={SHIPPED} />
             <Versions
               title="This deploy"
               versions={now.next}
@@ -124,7 +124,7 @@ export function GuardPicture() {
                 exit={{ opacity: 0, transition: EXIT }}
                 className={`rounded-full border px-2.5 py-0.5 font-mono text-[11px] whitespace-nowrap ${now.verdict === 'failed' ? 'border-red-500 text-red-600 dark:text-red-400' : now.verdict === 'passed' ? 'border-border' : 'border-transparent text-muted-foreground'}`}
               >
-                Deploy guard:{' '}
+                Check:{' '}
                 {now.verdict === 'passed'
                   ? 'passed'
                   : now.verdict === 'failed'

@@ -6,6 +6,7 @@ import {
   checkFailed,
   conditionFailed,
   conditionHolds,
+  isInternalEntity,
   transactItemKey,
   type StoredItem,
   type StoredKey,
@@ -170,8 +171,12 @@ export const makeTableContract = (
   hardDeleteAllItems: () =>
     Effect.try({
       try: () => {
-        const removed = items.size;
-        items.clear();
+        let removed = 0;
+        for (const [key, item] of items) {
+          if (isInternalEntity(item.meta._e)) continue;
+          items.delete(key);
+          removed++;
+        }
         return removed;
       },
       catch: (cause) => new OperationFailure({ cause }),

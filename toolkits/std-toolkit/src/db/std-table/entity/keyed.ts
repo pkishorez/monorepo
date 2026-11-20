@@ -60,6 +60,7 @@ export const makeKeyedEntity = <
     readonly [S['idField']],
     Patterns
   >,
+  reads: { readonly consistent?: boolean } = {},
 ): KeyedEntity<Name, S, Pk, Patterns> => {
   const service = StdTableService(definition.table.logicalName);
   const readItem = (key: StoredKey, consistent?: boolean) =>
@@ -83,7 +84,7 @@ export const makeKeyedEntity = <
       DatabaseError
     >;
   const read = (key: EntityKey<S, Pk>) =>
-    readRaw(key).pipe(
+    readRaw(key, reads.consistent).pipe(
       Effect.flatMap((item) =>
         item === null
           ? Effect.succeed(null)
@@ -410,7 +411,7 @@ export const makeKeyedEntity = <
       options?: QueryOptions<EntityValue<S>>,
     ) =>
       Effect.withSpan(
-        queryEntity(definition, patternName, input, options),
+        queryEntity(definition, patternName, input, options, reads.consistent),
         'StdTable.query',
         { attributes: { entity: definition.name, pattern: patternName } },
       ),

@@ -1,5 +1,14 @@
 import { Context, Data, Effect, Layer, Schema } from 'effect';
 
+/**
+ * Entity names starting with this belong to std-toolkit: the table's own
+ * snapshot, kept as internal entities. Table-wide reads and removals skip them.
+ */
+export const INTERNAL_ENTITY_PREFIX = '__';
+
+export const isInternalEntity = (entity: string): boolean =>
+  entity.startsWith(INTERNAL_ENTITY_PREFIX);
+
 export interface StoredKey {
   readonly pk: string;
   readonly sk: string;
@@ -135,6 +144,12 @@ export interface QueryRequest {
   readonly descending: boolean;
   readonly limit: number;
   readonly startAfter?: QueryPosition;
+  /**
+   * Reads every write that succeeded before the query, where the database
+   * can read otherwise. DynamoDB can on the table and a local secondary
+   * index, and refuses it on a global one.
+   */
+  readonly consistent?: boolean;
 }
 
 export interface QueryResult {
@@ -203,6 +218,7 @@ export interface StdTableContract {
   readonly hardDeleteEntityItems: (
     entity: string,
   ) => Effect.Effect<number, ContractFailure>;
+  /** Every item but the internal entities' (see `isInternalEntity`), which describe the physical table, not its rows. */
   readonly hardDeleteAllItems: () => Effect.Effect<number, ContractFailure>;
 }
 

@@ -24,7 +24,8 @@ const isESchemaReference = Schema.is(
   }),
 );
 
-const referencesIn = (
+/** The ESchema identities a version's shape names. */
+export const referencesIn = (
   value: unknown,
   output = new Set<string>(),
 ): Set<string> => {

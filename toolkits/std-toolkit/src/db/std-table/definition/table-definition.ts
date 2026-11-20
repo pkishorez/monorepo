@@ -1,3 +1,4 @@
+import { isInternalEntity } from '../contract/index.js';
 import type {
   AnyEntityESchema,
   AnyUnkeyedESchema,
@@ -15,6 +16,12 @@ import {
   makeSingleEntityBuilder,
   type RegisteredEntity,
 } from './entity-definition.js';
+import {
+  SnapshotEntityRecord,
+  SnapshotRecord,
+  SnapshotVersionRecord,
+  type SnapshotValue,
+} from './snapshot-entities.js';
 import {
   addIndex,
   copyTopology,
@@ -51,16 +58,40 @@ const makeTopologyBuilder = <
   },
 });
 
+/** What `__snapshot` reads before setup first writes it. */
+const snapshotDefault = (
+  logicalName: string,
+  topology: MutableTopology,
+): SnapshotValue => {
+  const indexes = (
+    values: Record<string, { name: string; pk: string; sk: string }>,
+  ) => Object.values(values).map(({ name, pk, sk }) => ({ name, pk, sk }));
+  return {
+    logicalName,
+    mode: 'persistent',
+    primary: { pk: topology.primary.pk, sk: topology.primary.sk },
+    localSecondaryIndexes: indexes(topology.localSecondaryIndexes),
+    globalSecondaryIndexes: indexes(topology.globalSecondaryIndexes),
+  };
+};
+
 const makeTableDefinition = <Name extends string>(
   logicalName: Name,
   topology: MutableTopology,
 ): TableDefinition<Name> => {
   const entities: RegisteredEntity[] = [];
-  const register = (entity: RegisteredEntity): void => {
+  const add = (entity: RegisteredEntity): void => {
     if (entities.some(({ name }) => name === entity.name)) {
       throw new Error(`Entity "${entity.name}" is already defined`);
     }
     entities.push(entity);
+  };
+  const register = (entity: RegisteredEntity): void => {
+    if (isInternalEntity(entity.name))
+      throw new Error(
+        `Entity name "${entity.name}" is reserved: names starting with "__" belong to std-toolkit`,
+      );
+    add(entity);
   };
   const table = {
     logicalName,
@@ -77,6 +108,12 @@ const makeTableDefinition = <Name extends string>(
     },
     registeredEntities: entities,
   } as TableDefinition<Name>;
+  // The table's own snapshot (ADR 0020), before any entity of the app's.
+  makeSingleEntityBuilder(table, SnapshotRecord, add).default(
+    snapshotDefault(logicalName, topology),
+  );
+  makeKeyedEntityBuilder(table, SnapshotEntityRecord, add).primary().build();
+  makeKeyedEntityBuilder(table, SnapshotVersionRecord, add).primary().build();
   return Object.freeze(table);
 };
 

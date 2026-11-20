@@ -33,7 +33,8 @@ layer.
 
 `make` never touches the physical table. For DynamoDB Local and tests,
 `DynamoDB.createTable` makes the table if it's missing and waits until it's
-ready. `DynamoDB.deleteTable` removes it.
+ready. `DynamoDB.deleteTable` removes it, and `DynamoDB.describeTable` reads
+its keys and indexes, or gives `undefined` when it isn't there.
 
 ## In production
 
@@ -41,9 +42,11 @@ Your deployed table comes from `DynamoDB.table` in
 `@kestack/std-toolkit/alchemy`, which creates it and every index. See
 [Deploying](/std-toolkit/deploying).
 
-DynamoDB keeps no **Stored contract** of its own, so the check that runs at
-deploy is the only one. And nothing ever replaces or wipes a DynamoDB
-table, in either mode:
+Like every table, a DynamoDB table keeps a snapshot of its shape in a few
+rows of its own. `DynamoDB.table` checks your table against it at deploy,
+before the table changes, and writes the new one after. It needs your
+stack to have AWS's providers, `AWS.providers()`. And nothing ever
+replaces or wipes a DynamoDB table, in either mode:
 
 - Adding a global secondary index is fine.
 - Any other index change, or a breaking change to a stored shape, fails the

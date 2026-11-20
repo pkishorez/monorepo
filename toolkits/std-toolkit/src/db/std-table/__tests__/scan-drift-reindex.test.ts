@@ -1,10 +1,9 @@
 import { Effect, Fiber, Schema, Stream } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { defaultBroadcaster } from '../../../core/index.js';
+import { Broadcaster, defaultBroadcaster } from '../../../core/index.js';
 import { EntityESchema } from '../../../eschema/index.js';
 import { StdTable } from '../table/index.js';
 import { contractLayer } from '../contract/index.js';
-import { LEGACY_BASELINE_ENTITY } from '../key/index.js';
 import { makeDeterministicContract } from './deterministic-contract.js';
 
 describe('scan, drift, and reindex', () => {
@@ -46,9 +45,9 @@ describe('scan, drift, and reindex', () => {
         });
         yield* deterministic.contract.writeItem({
           item: {
-            pk: 'legacy',
+            pk: 'internal',
             sk: 'snapshot',
-            meta: { _e: LEGACY_BASELINE_ENTITY, _u: 'old', _d: false },
+            meta: { _e: '__snapshot', _u: 'old', _d: false },
             data: { _v: 'v2' },
             keys: {},
           },
@@ -80,6 +79,13 @@ describe('scan, drift, and reindex', () => {
         const after = yield* afterTable.drift(repaired);
         expect(after.drifted).toBe(false);
 
+        // A table-wide subscriber never hears of the internal entities.
+        (yield* Broadcaster).broadcast([
+          {
+            value: {},
+            meta: { _e: '__snapshot', _v: 'v1', _u: 'new', _d: false },
+          },
+        ]);
         yield* noteAfter.insert({
           noteId: 'a2',
           notebook: 'news',

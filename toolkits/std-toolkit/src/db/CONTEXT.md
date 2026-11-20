@@ -13,7 +13,7 @@ The adapter-independent single-table abstraction and aggregate of its entity sur
 _Avoid_: Table (bare, for the abstraction), EntityRegistry, EntityManager, store registry, portable table.
 
 **StdTable contract**:
-The minimal storage obligation every adapter fulfills to make a StdTable complete: item-level reads, conditional puts, **item checks**, queries, atomic writes, hard deletes, and query positions over **stored items** (`StdTableContract`). The kernel implements all StdTable surface semantics once, including generating Entity Meta `_u` with core `nextUlid`; adapters only translate storage primitives, physical values, query positions, atomic writes, and adapter failures. Adapters store the supplied `_u` and do not generate versions.
+The minimal storage obligation every adapter fulfills to make a StdTable complete: item-level reads, conditional puts, **item checks**, queries, atomic writes, hard deletes, and query positions over **stored items** (`StdTableContract`). A read or query may ask to be strongly consistent (`consistent`); an adapter whose reads always are ignores it, and DynamoDB refuses it on a global secondary index. The kernel implements all StdTable surface semantics once, including generating Entity Meta `_u` with core `nextUlid`; adapters only translate storage primitives, physical values, query positions, atomic writes, and adapter failures. Adapters store the supplied `_u` and do not generate versions.
 _Avoid_: Table runtime, runtime, port, binding, adapter Entity service, duplicated portable implementation.
 
 **StdTable service**:
@@ -37,8 +37,8 @@ The result of `<Adapter>.make(stdTable, config)` — `DynamoDBTable`, `SQLiteTab
 _Avoid_: Configured adapter (retired term), instance, storage, public binding.
 
 **Adapter setup**:
-The adapter-native step that prepares one physical table under its **Table mode**: it compares the current table snapshot with the **Stored contract**, then refuses (a **Persistent table**) or wipes the whole table (a **Disposable table**) on a change that is not safe, applies the topology, and records the new Stored contract. Its options are the adapter's own; IndexedDB's lets a disposable table reindex or wipe on a change that needs a backfill. It runs where nothing per request pays for it: at deploy inside an Alchemy resource (D1), at runtime start (SQLite files, IndexedDB on app open), or on an object's first access (Durable Objects). DynamoDB has none: Alchemy creates its table, and its **Deploy guard** is its only check. Memory has none and takes no mode, since nothing outlives it. It is separate from `make`.
-_Avoid_: Automatic setup, layer initialization, verifySnapshot.
+The adapter-native step that prepares one physical table under its **Table mode**: it runs any **Migration**, compares the current table snapshot with the **Stored snapshot**, then refuses (a **Persistent table**) or wipes the whole table (a **Disposable table**) on a change that is not safe, applies the topology, and writes the items of the Stored snapshot that changed. The check itself is written once, over the **StdTable contract**; its options are the adapter's own, and IndexedDB's lets a disposable table reindex or wipe on a change that needs a backfill. It runs where nothing per request pays for it: at deploy inside an Alchemy resource (D1), at runtime start (SQLite files, IndexedDB on app open), or in a Durable Object's constructor. DynamoDB has none at runtime: `DynamoDB.table` runs the same check at deploy, around Alchemy's own table resource. Memory has none and takes no mode, since nothing outlives it. It is separate from `make`.
+_Avoid_: Automatic setup, layer initialization, verifySnapshot, Deploy guard (retired).
 
 **Table mode**:
 Whether one physical table is a **Persistent table** or a **Disposable table**, declared for each physical table rather than on the StdTable, since one StdTable may be persistent on a server and disposable in a browser. A disposable table may become persistent; a persistent table never becomes disposable, so that change is an error, and the only way past it is a new physical table name.
@@ -51,6 +51,14 @@ _Avoid_: Durable table (collides with Durable Objects), server table, production
 **Disposable table**:
 A physical table whose data may be thrown away when a schema change is not safe, such as preferences or a local copy that can be fetched again. It is still stored; it is only disposable. A disposable table is not frozen by version history: its schemas may change freely.
 _Avoid_: Ephemeral table (Memory's and Sync's "ephemeral" means never stored), cache table, semi-ephemeral.
+
+**Stored snapshot**:
+The table snapshot a physical table's data was last set up under, with its **Table mode**, kept in that table as three internal entities every StdTable registers before the app's own: `__snapshot` (one item: the topology and mode), `__snapshot_entity` (one item per entity) and `__snapshot_version` (one item per version of every ESchema the table reaches). It is the only baseline: setup and the deploy resources compare the current snapshot with it, so a device or object that skipped releases is compared from where its own data actually is, and nothing is lost with Alchemy state. Setup writes its items in an order where a write stopped at any point still leaves one the next setup reads, and `__snapshot` last; entity and version items with no `__snapshot` are still a baseline, under the code's topology, with data taken as persistent. It is read strongly consistently. An app reads it, and cannot write it: every StdTable's `storedSnapshot` holds read-only surfaces over the three entities (`snapshot.get`, and `get` and `query` on `entity` and `version`), and `storedTableSnapshot(table)` joins them into the table snapshot, its mode and its declared local index order, or `null` when no `__snapshot` is stored. The join lives in `table-snapshot`, beside setup's, since the StdTable sits below it. Entity names starting `__` are reserved for these entities; table-wide reads and change notices skip them, and `dangerouslyRemoveAllItems` keeps them. A change to their own format is a new version of their ESchema, not a **Migration**.
+_Avoid_: Stored contract and Deployed contract (retired terms), contract table, baseline item, schema version row.
+
+**Migration**:
+Code in `src/migrations/` that moves data from a layout std-toolkit no longer writes to the one it does, one folder per release, named after it, importing nothing that may change. Adapter setup and the Alchemy providers call migrations only through fixed entry points (`Migrations.sqlite`, `Migrations.idb`, and `AlchemyMigrations`, kept apart so a runtime bundle never loads Alchemy), which do nothing when none is registered. Deleting one is deleting its folder and its lines in those entry points. Not to be confused with a **Read migration**, which upgrades one value as it is read.
+_Avoid_: Schema migration (that is eschema's), upgrade script.
 
 **Stored item**:
 The portable database form of an **Entity** as it crosses the **StdTable contract**: derived pk/sk, the entity metadata, the eschema **encoded form** of the value, and derived secondary-index keys (`StoredItem`, with `StoredKey` for a key pair alone). Everything is in encoded form before an adapter sees it, and its flat layout mirrors the physical row so adapters translate native value representations, not structure.
@@ -120,7 +128,7 @@ The in-memory conversion of an older **stored item** into the **value** during a
 _Avoid_: Read repair, automatic migration write-back.
 
 **Table scan**:
-A portable, table-wide walk of every Entity item (`table.scan()`), returning raw **stored item**s across every entity type intermixed — untyped, for the same reason `subscribe()` is. An internal snapshot item written by older releases is excluded. Accepts a `parallelism` hint that each **adapter** honors as best it can; DynamoDB runs real segmented scans, the others answer sequentially.
+A portable, table-wide walk of every Entity item (`table.scan()`), returning raw **stored item**s across every entity type intermixed — untyped, for the same reason `subscribe()` is. The internal entities that hold the table's own snapshot (names starting `__`, ADR 0020) are excluded. Accepts a `parallelism` hint that each **adapter** honors as best it can; DynamoDB runs real segmented scans, the others answer sequentially.
 _Avoid_: Full table read, dump.
 
 **Drift**:
@@ -151,7 +159,7 @@ StdTable `get` and `query` operations return tombstoned Entities by default, inc
 _Avoid_: Hidden tombstones, includeDeleted.
 
 **Hard deletion**:
-The portable, irreversible removal of one Entity or all items for an **entity surface**. `hardDelete` and `dangerouslyRemoveAllItems` require the explicit `I KNOW WHAT I AM DOING` confirmation; normal `delete` writes a tombstone.
+The portable, irreversible removal of one Entity or all items for an **entity surface**. `hardDelete` and `dangerouslyRemoveAllItems` require the explicit `I KNOW WHAT I AM DOING` confirmation; normal `delete` writes a tombstone. The table's `dangerouslyRemoveAllItems` keeps the internal entities' items, since they describe the physical table, not its rows.
 _Avoid_: Delete (use for tombstoning).
 
 **Adapter-native operation**:

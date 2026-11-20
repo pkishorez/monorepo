@@ -1,9 +1,10 @@
 import type { TableDefinition } from '../../std-table/definition/index.js';
-import type {
-  StoredKey,
-  ItemCondition,
-  QueryRequest,
-  ScanRequest,
+import {
+  INTERNAL_ENTITY_PREFIX,
+  type StoredKey,
+  type ItemCondition,
+  type QueryRequest,
+  type ScanRequest,
 } from '../../std-table/contract/index.js';
 import type { SQLiteRow, SQLiteValue } from '../item-schema/index.js';
 import { quoteIdentifier, tableIndexes } from './identifier.js';
@@ -92,8 +93,10 @@ const makeDeleteEntityStatement = (tableName: string) => ({
   sql: `DELETE FROM ${quoteIdentifier(tableName)} WHERE _e = ?`,
 });
 
+/** Every row but the internal entities', which describe the table itself. */
 const makeDeleteAllStatement = (tableName: string) => ({
-  sql: `DELETE FROM ${quoteIdentifier(tableName)}`,
+  sql: `DELETE FROM ${quoteIdentifier(tableName)} WHERE substr(_e, 1, ?) <> ?`,
+  parameters: [INTERNAL_ENTITY_PREFIX.length, INTERNAL_ENTITY_PREFIX],
 });
 
 const makeQueryStatement = (
@@ -180,55 +183,33 @@ const makeDropTableStatement = (tableName: string) => ({
   sql: `DROP TABLE IF EXISTS ${quoteIdentifier(tableName)}`,
 });
 
-/** The table holding each physical table's Stored contract, beside the data. */
-export const CONTRACT_TABLE = '_std_contract';
-
-const makeCreateContractTableStatement = () => ({
-  sql: `CREATE TABLE IF NOT EXISTS ${quoteIdentifier(CONTRACT_TABLE)} (table_name TEXT PRIMARY KEY NOT NULL COLLATE NOCASE, mode TEXT NOT NULL, hash TEXT NOT NULL, snapshot TEXT NOT NULL)`,
+/** Whether the table holds a row of any entity but the internal ones. */
+const makeHasRowsStatement = (tableName: string) => ({
+  sql: `SELECT 1 AS found FROM ${quoteIdentifier(tableName)} WHERE substr(_e, 1, ?) <> ? LIMIT 1`,
+  parameters: [INTERNAL_ENTITY_PREFIX.length, INTERNAL_ENTITY_PREFIX],
 });
 
-const makeReadContractStatement = (tableName: string) => ({
-  sql: `SELECT mode, hash FROM ${quoteIdentifier(CONTRACT_TABLE)} WHERE table_name = ?`,
-  parameters: [tableName] as const,
-});
-
-const makeReadContractSnapshotStatement = (tableName: string) => ({
-  sql: `SELECT snapshot FROM ${quoteIdentifier(CONTRACT_TABLE)} WHERE table_name = ?`,
-  parameters: [tableName] as const,
-});
-
-type ContractRow = { mode: string; hash: string; snapshot: string };
-
-/** Records a first contract; changes nothing when another setup got there first. */
-const makeInsertContractStatement = (
+/**
+ * Holds while an entity's items are as read: no item at all when `version`
+ * is undefined, else one whose `_u` is `version`. A no-op self-update, as in
+ * `check`, so `changes` reports the result.
+ */
+const makeEntityGuardStatement = (
   tableName: string,
-  contract: ContractRow,
-) => ({
-  sql: `INSERT INTO ${quoteIdentifier(CONTRACT_TABLE)} (table_name, mode, hash, snapshot) VALUES (?, ?, ?, ?) ON CONFLICT (table_name) DO NOTHING`,
-  parameters: [
-    tableName,
-    contract.mode,
-    contract.hash,
-    contract.snapshot,
-  ] as const,
-});
-
-/** Replaces the contract only while it is still the one setup read. */
-const makeSwapContractStatement = (
-  tableName: string,
-  read: { mode: string; hash: string },
-  contract: ContractRow,
-) => ({
-  sql: `UPDATE ${quoteIdentifier(CONTRACT_TABLE)} SET mode = ?, hash = ?, snapshot = ? WHERE table_name = ? AND mode = ? AND hash = ?`,
-  parameters: [
-    contract.mode,
-    contract.hash,
-    contract.snapshot,
-    tableName,
-    read.mode,
-    read.hash,
-  ] as const,
-});
+  entity: string,
+  version: string | undefined,
+) =>
+  version === undefined
+    ? {
+        sql: `UPDATE ${quoteIdentifier(tableName)} SET _u = _u WHERE _e = ?`,
+        parameters: [entity],
+        expectedChanges: 0,
+      }
+    : {
+        sql: `UPDATE ${quoteIdentifier(tableName)} SET _u = _u WHERE _e = ? AND _u = ?`,
+        parameters: [entity, version],
+        expectedChanges: 1,
+      };
 
 const findMissingColumnDefinitions = (
   table: SQLiteTable,
@@ -261,7 +242,6 @@ export const Statement = {
   addColumn: makeAddColumnStatement,
   check: makeCheckStatement,
   createIndexes: makeCreateIndexStatements,
-  createContractTable: makeCreateContractTableStatement,
   createTable: makeCreateTableStatement,
   deleteAll: makeDeleteAllStatement,
   deleteEntity: makeDeleteEntityStatement,
@@ -276,10 +256,8 @@ export const Statement = {
   scan: makeScanStatement,
   dropIndex: makeDropIndexStatement,
   dropTable: makeDropTableStatement,
-  readContract: makeReadContractStatement,
-  insertContract: makeInsertContractStatement,
-  readContractSnapshot: makeReadContractSnapshotStatement,
-  swapContract: makeSwapContractStatement,
+  entityGuard: makeEntityGuardStatement,
+  hasRows: makeHasRowsStatement,
   tableInfo: makeTableInfoStatement,
   write: makeWriteStatement,
 } as const;

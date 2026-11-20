@@ -13,21 +13,23 @@ your tables:
 
 - `D1.table` sets up a table in a Cloudflare D1 database.
 - `DynamoDB.table` creates a DynamoDB table and every index.
-- `DeployGuard.table` guards a table Alchemy doesn't create, such as one in
-  IndexedDB or a Durable Object.
 - `providers()` gives your stack what these resources need.
 
 Each table resource takes a required `mode`, the same **Table mode** the
 adapters take.
 
-## The Deploy guard
+## The check at deploy
 
-A persistent table gets a **Deploy guard**. Every deploy, it compares your
-table with the one you last shipped, kept in Alchemy's state. If the new
-table would break rows already stored, the deploy fails, before the table
-is touched.
+Every table keeps a snapshot of the shape it was last set up under, as a
+few rows of its own. Every deploy, `D1.table` and `DynamoDB.table` compare
+your table with that snapshot. If the new table would break rows already
+stored, the deploy fails, before the table is touched. Then the new
+snapshot is written.
 
-<Picture caption="Adding a version passes the guard, and the table is set up. Editing a version that already shipped stops the deploy, and the table is never touched.">
+The snapshot lives with the data, not in Alchemy's state. Lose the state,
+and the next deploy is still checked against the rows it would break.
+
+<Picture caption="Adding a version passes the check, and the table is set up. Editing a version that already shipped stops the deploy, and the table is never touched.">
   <GuardPicture />
 </Picture>
 
@@ -78,29 +80,65 @@ export default Stack(
 ```
 
 Entities add themselves to a table as their modules load. So import every
-module that binds an entity before the table resource runs, or the guard
+module that binds an entity before the table resource runs, or the check
 won't see them.
 
-## The other two
+## A DynamoDB table
 
-`DynamoDB.table` takes the table, a `tableName` and a mode. DynamoDB keeps
-no **Stored contract**, so its guard is the only check. It never replaces a
-table: a change only a new table could make fails, and so does renaming the
-table under the same resource.
+`DynamoDB.table` takes the table, a `tableName` and a mode. Before Alchemy
+changes the table, it reads the snapshot from the live table and checks
+your table against it. Once the table is changed, it writes the new one.
 
-`DeployGuard.table(table)` is for a persistent table your deploy doesn't
-create, like one in your users' browsers. Declaring it makes the table
-persistent, and one guard covers every place that table lives.
+It reaches the table with the AWS account and region your stack deploys
+with, so give your stack AWS's providers under std-toolkit's. Without
+them, the deploy fails and says so:
+
+```ts
+import * as AWS from '@alchemy.run/aws';
+import { Stack } from 'alchemy';
+import * as Effect from 'effect/Effect';
+import * as Layer from 'effect/Layer';
+import { DynamoDB, providers } from '@kestack/std-toolkit/alchemy';
+import { boardTable } from './src/table.ts';
+
+export default Stack(
+  'Board',
+  {
+    providers: providers().pipe(Layer.provideMerge(AWS.providers())),
+    state: AWS.state(),
+  },
+  Effect.gen(function* () {
+    yield* DynamoDB.table('BoardTable', {
+      table: boardTable,
+      tableName: 'board',
+      mode: 'persistent',
+    });
+  }),
+);
+```
+
+To read the physical table's keys and indexes outside a deploy, or tell
+whether it's there yet, use `DynamoDB.describeTable(config)` from
+`@kestack/std-toolkit/db/dynamodb`.
+
+It never replaces or wipes a DynamoDB table, in either mode. A change only a
+new table could make fails, and so does renaming the table under the same
+resource. The way past is a new `DynamoDB.table`, with its own id and table
+name.
+
+Under `alchemy dev`, it doesn't work yet: Alchemy keeps the table on real
+AWS, while the check reads and writes the local emulator. Deploy a
+DynamoDB table to a stage instead.
 
 ## More than one check
 
-The guard isn't the only check. Setup compares the table with the Stored
-contract kept beside the data, on D1, SQLite and IndexedDB. And the
+A table your deploy doesn't create, like one in a Durable Object or in your
+users' browsers, runs the same check itself, each time it's set up. And the
 [Snapshot](/std-toolkit/snapshot) test catches a breaking change before you
-even deploy. Each catches what the one before might miss.
+even deploy, for every table. Each catches what the one before might miss.
 
 <Callout title="Remember">
-  Declare each server table with its mode. A persistent table is guarded on
+  Declare each server table with its mode. A persistent table is checked on
   every deploy, and a change that would break its rows never reaches them.
 </Callout>
 

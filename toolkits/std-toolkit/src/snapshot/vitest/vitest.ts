@@ -84,7 +84,7 @@ const refusals = (
             '',
             TableSnapshot.renderChanges(blocked),
             '',
-            'Running vitest with -u does not accept a breaking change, and nothing else does: setup and the deploy guard refuse it too. A stored version is frozen once shipped: undo the edit and add the change as a new version instead, or move the data to a new physical table name.',
+            'Running vitest with -u does not accept a breaking change, and nothing else does: the check against the snapshot each table keeps refuses it too, at deploy or at setup. A stored version is frozen once shipped: undo the edit and add the change as a new version instead, or move the data to a new physical table name.',
           ].join('\n'),
         ]),
   ];
@@ -107,7 +107,9 @@ export async function expectTableShippable(
   file: string,
   options: ShippableOptions = {},
 ): Promise<void> {
-  if (table.registeredEntities.length === 0) {
+  // A StdTable registers its own snapshot as entities named `__…` (ADR 0020);
+  // only the app's count.
+  if (table.registeredEntities.every(({ name }) => name.startsWith('__'))) {
     throw new Error(
       `Table "${table.logicalName}" has no registered entities; import the modules that define them before checking it.`,
     );
