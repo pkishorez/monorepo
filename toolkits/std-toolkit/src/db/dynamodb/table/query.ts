@@ -97,6 +97,15 @@ export const queryItems = (
   if (start instanceof Error) {
     return Effect.fail(new OperationFailure({ cause: start }));
   }
+  if (request.consistent === true && 'kind' in index && index.kind === 'gsi') {
+    return Effect.fail(
+      new OperationFailure({
+        cause: new Error(
+          `Global secondary index "${request.index}" has no consistent reads`,
+        ),
+      }),
+    );
+  }
   return client
     .query({
       TableName: tableName,
@@ -105,6 +114,9 @@ export const queryItems = (
       ScanIndexForward: !request.descending,
       Limit: request.limit,
       ...(start === undefined ? {} : { ExclusiveStartKey: start }),
+      ...(request.consistent === undefined
+        ? {}
+        : { ConsistentRead: request.consistent }),
     })
     .pipe(
       Effect.mapError(contractFailure),

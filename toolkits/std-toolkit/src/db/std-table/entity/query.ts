@@ -33,6 +33,7 @@ export const queryEntity = <Name extends string, S extends AnyEntityESchema>(
   patternName: string,
   input: JsonObject,
   options?: QueryOptions<EntityValue<S>>,
+  consistent?: boolean,
 ): TableEffect<QueryPage<Entity<EntityValue<S>>>, Name> =>
   Effect.gen(function* () {
     const pattern = Object.hasOwn(definition.accessPatterns, patternName)
@@ -144,6 +145,7 @@ export const queryEntity = <Name extends string, S extends AnyEntityESchema>(
         ...(sort === undefined ? {} : { sort }),
         descending: operator === '<' || operator === '<=',
         limit: Math.max(1, limit - items.length),
+        ...(consistent === undefined ? {} : { consistent }),
         ...(startAfter === undefined ? {} : { startAfter }),
       };
       const page = yield* contract

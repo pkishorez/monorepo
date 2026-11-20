@@ -1,7 +1,8 @@
 import { Effect } from 'effect';
-import type {
-  ContractFailure,
-  StoredKey,
+import {
+  isInternalEntity,
+  type ContractFailure,
+  type StoredKey,
 } from '../../std-table/contract/index.js';
 import type {
   AttributeValue,
@@ -17,6 +18,7 @@ const deleteMatchingItems = (
   client: DynamoDBClient,
   table: DynamoTable,
   scanInput: Omit<Parameters<DynamoDBClient['scan']>[0], 'ExclusiveStartKey'>,
+  keep: (item: NativeItem) => boolean = () => false,
 ): Effect.Effect<number, ContractFailure> =>
   Effect.gen(function* () {
     let exclusiveStartKey: Record<string, AttributeValue> | undefined;
@@ -30,6 +32,7 @@ const deleteMatchingItems = (
           : { ExclusiveStartKey: exclusiveStartKey }),
       });
       for (const item of page.Items ?? []) {
+        if (keep(item as NativeItem)) continue;
         const key = yield* Effect.try({
           try: () => itemKey(table, item as NativeItem),
           catch: contractFailure,
@@ -77,11 +80,22 @@ export const hardDeleteEntityItems = (
     }),
   });
 
+/** Every item but the internal entities', which describe the table itself. */
 export const hardDeleteAllItems = (
   client: DynamoDBClient,
   table: DynamoTable,
   tableName: string,
-) => deleteMatchingItems(client, table, { TableName: tableName });
+) =>
+  deleteMatchingItems(client, table, { TableName: tableName }, (item) => {
+    const entity = item._e;
+    return (
+      typeof entity === 'object' &&
+      entity !== null &&
+      'S' in entity &&
+      typeof entity.S === 'string' &&
+      isInternalEntity(entity.S)
+    );
+  });
 type DynamoTable = Pick<
   TableDefinition,
   'primary' | 'localSecondaryIndexes' | 'globalSecondaryIndexes'

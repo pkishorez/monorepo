@@ -1,16 +1,11 @@
 import type { Effect } from 'effect';
 import type { TableDefinition } from '../../std-table/definition/index.js';
 import {
-  CONTRACT_STORE,
-  inspectContractStore,
-  inspectUpgrade,
-  upgradeDatabase,
+  ensureStore,
+  reconcileStore,
+  type IDBIndexDefinition,
+  type IDBUpgrade,
 } from './upgrade.js';
-
-interface IDBIndexDefinition {
-  readonly name: string;
-  readonly keyPath: string | readonly [string, string];
-}
 
 type TableSource = Pick<
   TableDefinition,
@@ -33,14 +28,30 @@ interface UpgradeableDatabase {
     storeName: string,
     indexes: readonly IDBIndexDefinition[],
   ) => Effect.Effect<void, unknown>;
+  readonly upgrade: (
+    upgrades: readonly IDBUpgrade[],
+  ) => Effect.Effect<void, unknown>;
 }
 
 /** Creates the store when missing, then adds or replaces the secondary indexes the topology declares. */
 export const reconcileIDBStore = (
-  database: UpgradeableDatabase,
+  database: Pick<UpgradeableDatabase, 'setup'>,
   table: TableSource,
   storeName: string,
 ) => database.setup(storeName, tableIndexes(table));
+
+/**
+ * Creates the store, with the topology's indexes, when it is missing, in the
+ * same version change as `upgrades`; an existing store's indexes are left as
+ * they are. Fails, changing nothing, when the store can never take the table.
+ */
+export const ensureIDBStore = (
+  database: Pick<UpgradeableDatabase, 'upgrade'>,
+  table: TableSource,
+  storeName: string,
+  upgrades: readonly IDBUpgrade[],
+) =>
+  database.upgrade([ensureStore(storeName, tableIndexes(table)), ...upgrades]);
 
 export const makeIDBSetup = (connection: {
   readonly open: () => Promise<IDBDatabase>;
@@ -51,20 +62,19 @@ export const makeIDBSetup = (connection: {
 }) => {
   let queue: Promise<void> = Promise.resolve();
 
-  // Upgrades run one at a time, each until its inspection finds nothing left.
-  const upgradeUntil = (
-    inspect: (database: IDBDatabase) => ReturnType<typeof inspectUpgrade>,
-  ): Promise<void> => {
+  // Upgrades run one at a time, each until the open database needs none of
+  // its version changes: another tab may have made them, or more, meanwhile.
+  const upgradeUntil = (upgrades: readonly IDBUpgrade[]): Promise<void> => {
     const run = queue.then(async () => {
       for (;;) {
         const database = await connection.open();
-        const plan = inspect(database);
-        if (plan === null) return;
+        const needed = upgrades.filter((upgrade) => upgrade.needed(database));
+        if (needed.length === 0) return;
         const nextVersion = database.version + 1;
         database.close();
-        await connection.upgrade(nextVersion, (next, transaction) =>
-          upgradeDatabase(next, transaction, plan),
-        );
+        await connection.upgrade(nextVersion, (next, transaction) => {
+          for (const upgrade of needed) upgrade.apply(next, transaction);
+        });
       }
     });
     queue = run.catch(() => undefined);
@@ -75,19 +85,8 @@ export const makeIDBSetup = (connection: {
     setup: (
       storeName: string,
       indexes: readonly IDBIndexDefinition[],
-    ): Promise<void> => {
-      if (indexes.some(({ name }) => name === '_entity'))
-        return Promise.reject(
-          new Error('IndexedDB index slot name "_entity" is reserved'),
-        );
-      if (storeName === CONTRACT_STORE)
-        return Promise.reject(
-          new Error(`IndexedDB Store name "${CONTRACT_STORE}" is reserved`),
-        );
-      return upgradeUntil((database) =>
-        inspectUpgrade(database, storeName, indexes),
-      );
-    },
-    prepareContract: (): Promise<void> => upgradeUntil(inspectContractStore),
+    ): Promise<void> => upgradeUntil([reconcileStore(storeName, indexes)]),
+    upgrade: (upgrades: readonly IDBUpgrade[]): Promise<void> =>
+      upgradeUntil(upgrades),
   };
 };

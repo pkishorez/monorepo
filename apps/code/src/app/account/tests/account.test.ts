@@ -354,6 +354,12 @@ const world = (
 const wait = (ms = 20) =>
   Effect.promise(() => new Promise((done) => setTimeout(done, ms)));
 
+/** Waits, a little at a time, until `holds`, for a few seconds at most. */
+const until = (holds: () => boolean) =>
+  Effect.gen(function* () {
+    for (let tries = 0; tries < 150 && !holds(); tries++) yield* wait();
+  });
+
 /** The cache alone, as `Storage` holds it, for a test to read and write. */
 class Cache extends Context.Service<Cache, Storage['Service']['cache']>()(
   'test/Cache',
@@ -781,7 +787,9 @@ describe('the Account, by who is active', () => {
         );
         const the = world(Effect.succeed([]), null, stream);
         const app = yield* start(the);
-        yield* wait();
+        // Active comes from the device's own IndexedDB table, whose setup
+        // checks its stored snapshot first, so it is not there at once.
+        yield* until(() => stateOf(app)._tag === 'Active');
         expect(stateOf(app)._tag).toBe('Active');
         yield* SubscriptionRef.set(ref, signedIn('a2', 'a1'));
         yield* wait();
@@ -978,12 +986,6 @@ describe('the Account, Active again', () => {
 
   const sessionOf = (app: Runtime) =>
     walk(app.snapshot.root).find(({ actor }) => actor === 'Session')!;
-
-  /** Waits, a little at a time, until `holds`, for a few seconds at most. */
-  const until = (holds: () => boolean) =>
-    Effect.gen(function* () {
-      for (let tries = 0; tries < 150 && !holds(); tries++) yield* wait();
-    });
 
   it('closes every socket as it leaves Active, the page open, and reads its page’s records anew over a new one once it is Active again', async () => {
     await run(

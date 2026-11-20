@@ -10,6 +10,7 @@ export {
   type DynamoDBCredentials,
   type DynamoDBCredentialsInput,
   type GetItemOutput,
+  type KeySchemaElement,
   type ScanOutput,
   type TransactWriteItem,
   type UpdateItemOutput,

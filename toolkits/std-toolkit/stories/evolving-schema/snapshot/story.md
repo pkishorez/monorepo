@@ -14,4 +14,4 @@ Each change is judged on its own. [Adding a version is safe](std-toolkit/evolvin
 
 A version is yours to change until it ships, but [dropping one strands the rows saved with it](std-toolkit/evolving-schema/snapshot/dropping-an-unshipped-version-strands-its-rows), so try drafts on the memory adapter.
 
-A snapshot [saves as JSON and reads back the same](std-toolkit/evolving-schema/snapshot/a-snapshot-saves-as-json-and-reads-back), and [one broken by hand is refused](std-toolkit/evolving-schema/snapshot/a-hand-broken-snapshot-is-refused). Deploying with alchemy keeps the accepted snapshot for you and stops a breaking deploy.
+A snapshot [saves as JSON and reads back the same](std-toolkit/evolving-schema/snapshot/a-snapshot-saves-as-json-and-reads-back), and [one broken by hand is refused](std-toolkit/evolving-schema/snapshot/a-hand-broken-snapshot-is-refused). Every table also keeps the snapshot its rows were saved under inside itself, so setup, or a deploy with alchemy, stops a breaking change even when the file was edited by hand.

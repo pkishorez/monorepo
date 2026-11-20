@@ -17,11 +17,12 @@ const table = {
 
 const item = (
   pk: string,
+  entity = 'person',
 ): Record<string, ReturnType<typeof marshall>[string]> =>
   marshall({
     pk,
     sk: 'main',
-    _e: 'person',
+    _e: entity,
     _v: '1',
     _u: '1',
     _d: false,
@@ -57,6 +58,29 @@ describe('DynamoDB runtime deletion', () => {
       ),
     ).toBe(2);
     expect(scans[0]).toEqual({ TableName: 'people' });
+  });
+
+  it('keeps the internal entities, which describe the table itself', async () => {
+    const deletes: DeleteItemInput[] = [];
+    const client = clientWith(
+      () =>
+        Effect.succeed({
+          Items: [item('1'), item('2', '__snapshot'), item('3', '__x')],
+        }),
+      (input) => {
+        deletes.push(input);
+        return Effect.succeed({});
+      },
+    );
+
+    expect(
+      await Effect.runPromise(
+        makeTableContract(client, table, 'people').hardDeleteAllItems(),
+      ),
+    ).toBe(1);
+    expect(deletes.map((input) => input.Key)).toEqual([
+      marshall({ pk: '1', sk: 'main' }),
+    ]);
   });
 
   it('scans every page and accumulates the deleted count', async () => {

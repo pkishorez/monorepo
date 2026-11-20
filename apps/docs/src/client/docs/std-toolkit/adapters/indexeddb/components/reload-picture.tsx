@@ -11,7 +11,7 @@ import {
  * A page with three tasks, and the IndexedDB Store under it that holds
  * them. The page reloads: its list fades out, and the Store does not
  * move. The page opens again; first setup checks the table against the
- * Stored contract, then the tasks are read back, all three. The list
+ * snapshot the Store keeps, then the tasks are read back, all three. The list
  * keeps its rows' room while it is blank, so nothing moves but them.
  */
 
@@ -40,7 +40,7 @@ const STEPS: ReadonlyArray<Step> = [
     shown: false,
     checked: true,
     caption:
-      'On the next open, setup checks the table against the Stored contract. It matches.',
+      'On the next open, setup checks the table against the snapshot the Store keeps. It matches.',
   },
   {
     shown: true,
@@ -91,11 +91,11 @@ export function ReloadPicture() {
             <p className="flex items-center justify-between gap-2 text-[12px]">
               <span className="font-medium">IndexedDB</span>
               <span className="font-mono text-[10px] whitespace-nowrap text-muted-foreground">
-                store 'board' · 3 rows
+                store 'board' · 3 tasks
               </span>
             </p>
             <p className="mt-1 flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground">
-              _std_contract
+              __snapshot
               <motion.span
                 initial={false}
                 animate={
