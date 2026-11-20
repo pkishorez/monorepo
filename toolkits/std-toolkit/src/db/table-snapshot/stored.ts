@@ -492,8 +492,8 @@ export const writeTableSnapshot = (
     const version = yield* nextUlid;
     const writes = yield* writesFor(values, stored, version, hash);
     let skipped = false;
-    for (const write of writes)
-      yield* contract.writeItem(write).pipe(
+    const put = (write: (typeof writes)[number]) =>
+      contract.writeItem(write).pipe(
         Effect.catchIf(isConditionFailure, (cause) =>
           alreadyWritten(contract, write.item).pipe(
             Effect.flatMap((same) => {
@@ -503,13 +503,27 @@ export const writeTableSnapshot = (
           ),
         ),
       );
+    // The closing `__snapshot` write records the hash, so it waits until the
+    // table is known to hold every other item.
+    const last = writes.at(-1);
+    const closes = last?.item.meta._e === SnapshotEntities.snapshot.name;
+    for (const write of closes ? writes.slice(0, -1) : writes)
+      yield* put(write);
+    let closing = closes && last !== undefined ? [last] : [];
     // An item left to another setup proves only itself: the other may have
-    // written items this one never read, such as a newer version. The table
-    // holds this snapshot only if nothing is left to write.
+    // written items this one never read, such as a newer version. The hash
+    // is recorded only if nothing but `__snapshot` is then left to write.
     if (skipped) {
       const after = yield* readStoredSnapshot(contract);
-      if ((yield* writesFor(values, after, version, hash)).length > 0)
+      const remaining = yield* writesFor(values, after, version, hash);
+      if (
+        remaining.some(
+          ({ item }) => item.meta._e !== SnapshotEntities.snapshot.name,
+        )
+      )
         return yield* Effect.fail(conditionFailed());
+      closing = remaining;
     }
+    for (const write of closing) yield* put(write);
     return writes.length;
   });
