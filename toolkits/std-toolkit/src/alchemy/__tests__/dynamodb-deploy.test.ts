@@ -4,7 +4,10 @@ import type { ProviderService } from 'alchemy/Provider';
 import { describe, expect, it } from 'vitest';
 import { DynamoDB as DynamoDBAdapter } from '../../db/dynamodb/index.js';
 import { StdTable } from '../../db/index.js';
-import { StdTableService } from '../../db/std-table/contract/index.js';
+import {
+  StdTableService,
+  type StoredItem,
+} from '../../db/std-table/contract/index.js';
 import {
   readStoredSnapshot,
   type StoredSnapshot,
@@ -207,6 +210,32 @@ const versions = (stored: StoredSnapshot) =>
       .map((item) => [item.sk, item.meta._u]),
   );
 
+/** Writes one internal item over, as no setup would. */
+const rewrite = (
+  tableName: string,
+  sk: string,
+  data: (data: StoredItem['data']) => StoredItem['data'],
+) =>
+  Effect.runPromise(
+    contract(tableName).pipe(
+      Effect.flatMap((table) =>
+        readStoredSnapshot(table).pipe(
+          Effect.flatMap((stored) => {
+            const item = [
+              stored.snapshot,
+              ...stored.entities,
+              ...stored.versions,
+            ].find((each) => each?.sk === sk)!;
+            return table.writeItem({
+              item: { ...item, data: data(item.data) },
+              condition: { kind: 'updated', value: item.meta._u },
+            });
+          }),
+        ),
+      ),
+    ),
+  );
+
 const storedVersionIds = async (tableName: string) =>
   (await storedItems(tableName)).versions
     .filter((item) => !item.meta._d)
@@ -263,20 +292,42 @@ describe.skipIf(endpoint === undefined)('DynamoDB.table at deploy', () => {
     expect(versions(await storedItems(tableName))).toEqual(before);
   });
 
-  it('passes an additive change and writes only the new items', async () => {
+  it('takes an unchanged redeploy on __snapshot alone, in both resources', async () => {
+    const tableName = newTableName();
+    await deploy(newStage(), tasks(), { tableName });
+    // A version item neither resource could read, under the code's hash:
+    // only a check that reads it would refuse the deploy.
+    await rewrite(tableName, 'Task@v1', () => ({ _v: 'v1', id: 7 }));
+    await deploy(newStage(), tasks(), { tableName });
+
+    await rewrite(tableName, 'single', (data) => ({ ...data, hash: null }));
+    expect(
+      await refusal(deploy(newStage(), tasks(), { tableName })),
+    ).toMatchObject({
+      _tag: 'SetupRefused',
+      reason: 'unreadable',
+    });
+  });
+
+  it('passes an additive change and writes only the new items, and __snapshot for its hash', async () => {
     const tableName = newTableName();
     const stage = newStage();
     await deploy(stage, tasks(), { tableName });
     const before = versions(await storedItems(tableName));
+    const hash = (await storedItems(tableName)).snapshot?.data.hash;
     await deploy(stage, tasks({ taskV2: true }), { tableName });
-    const after = versions(await storedItems(tableName));
+    const stored = await storedItems(tableName);
+    const after = versions(stored);
     const written = Object.keys(after).filter(
       (key) => after[key] !== before[key],
     );
-    expect(written).toEqual(
-      Object.keys(after).filter((key) => before[key] === undefined),
-    );
+    expect(written).toEqual([
+      'single',
+      ...Object.keys(after).filter((key) => before[key] === undefined),
+    ]);
     expect(written.some((key) => key.endsWith('Task@v2'))).toBe(true);
+    expect(stored.snapshot?.data.hash).toMatch(/^[0-9a-f]{64}$/);
+    expect(stored.snapshot?.data.hash).not.toBe(hash);
   });
 
   it('refuses a breaking change before the table is touched, and keeps its rows', async () => {

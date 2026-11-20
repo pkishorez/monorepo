@@ -259,6 +259,20 @@
                 }
               },
               {
+                "name": "hash",
+                "type": {
+                  "type": "union",
+                  "members": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              {
                 "name": "localSecondaryIndexes",
                 "type": {
                   "type": "array",

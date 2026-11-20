@@ -1129,6 +1129,45 @@ export const runConformanceSuite = (
       );
     });
 
+    it('takes an unchanged table on one read of __snapshot', async () => {
+      await run(
+        Effect.gen(function* () {
+          const { contract } = yield* StdTableService(
+            conformanceTable.logicalName,
+          );
+          for (const entity of Object.values(SnapshotEntities))
+            yield* contract.hardDeleteEntityItems(entity.name);
+          const reads = { getItem: 0, queryItems: 0, scanItems: 0 };
+          const counted: typeof contract = {
+            ...contract,
+            getItem: (key, options) => {
+              reads.getItem++;
+              return contract.getItem(key, options);
+            },
+            queryItems: (query) => {
+              reads.queryItems++;
+              return contract.queryItems(query);
+            },
+            scanItems: (scan) => {
+              reads.scanItems++;
+              return contract.scanItems(scan);
+            },
+          };
+          const check = checkTableSnapshot({
+            contract: counted,
+            snapshot: TableSnapshot.capture(conformanceTable),
+            mode: 'persistent',
+            wipe: () => Effect.die('a persistent table is never wiped'),
+          });
+          expect(yield* check).toEqual({ kind: 'first', adopted: false });
+          expect(reads.queryItems).toBeGreaterThan(0);
+          reads.getItem = reads.queryItems = reads.scanItems = 0;
+          expect(yield* check).toEqual({ kind: 'unchanged' });
+          expect(reads).toEqual({ getItem: 1, queryItems: 0, scanItems: 0 });
+        }),
+      );
+    });
+
     it('supports every portable sort condition and direction', async () => {
       await run(
         Effect.gen(function* () {

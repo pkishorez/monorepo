@@ -63,7 +63,8 @@ const inOrder = <T extends { readonly name: string }>(
  * `localIndexOrder` is the order the table declares its local secondary
  * indexes in, which the snapshot does not keep (it sorts them by name) but
  * DynamoDB replaces a table on; `__snapshot` keeps them in it. It defaults
- * to the snapshot's order.
+ * to the snapshot's order. `__snapshot`'s hash is left null: only the write
+ * that records every item sets it (`writeTableSnapshot`).
  */
 export const splitTableSnapshot = (
   snapshot: TableSnapshot,
@@ -79,6 +80,7 @@ export const splitTableSnapshot = (
       localIndexOrder,
     ),
     globalSecondaryIndexes: snapshot.topology.globalSecondaryIndexes,
+    hash: null,
   },
   entities: snapshot.entities,
   versions: snapshot.schemas.flatMap((schema) =>

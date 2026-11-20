@@ -72,6 +72,7 @@ const snapshotDefault = (
     primary: { pk: topology.primary.pk, sk: topology.primary.sk },
     localSecondaryIndexes: indexes(topology.localSecondaryIndexes),
     globalSecondaryIndexes: indexes(topology.globalSecondaryIndexes),
+    hash: null,
   };
 };
 

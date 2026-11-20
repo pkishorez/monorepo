@@ -1,9 +1,6 @@
 import { Effect, Stream } from 'effect';
 import { Migrations } from '../../migrations/index.js';
-import {
-  TableSnapshot,
-  type TableSource as SnapshotSource,
-} from '../../snapshot/index.js';
+import type { TableSource as SnapshotSource } from '../../snapshot/index.js';
 import {
   ConditionFailure,
   contractLayer,
@@ -12,6 +9,7 @@ import {
 } from '../std-table/contract/index.js';
 import type { TableDefinition } from '../std-table/definition/index.js';
 import {
+  captureTable,
   checkTableSnapshot,
   type BackfillChoice,
   type StoredSnapshot,
@@ -146,7 +144,7 @@ const prepareStore = <Name extends string>(
 ): Effect.Effect<void, unknown> =>
   Effect.gen(function* () {
     const connection = config.database;
-    const snapshot = TableSnapshot.capture(table);
+    const snapshot = captureTable(table);
     const upgrades = yield* Migrations.idb({ storeName });
     yield* ensureIDBStore(connection, table, storeName, upgrades);
     const wipe = (stored: StoredSnapshot) =>

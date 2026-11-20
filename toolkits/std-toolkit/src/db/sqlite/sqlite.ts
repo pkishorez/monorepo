@@ -8,7 +8,11 @@ import {
   TableSnapshot,
   type TableSource as SnapshotSource,
 } from '../../snapshot/index.js';
-import type { SetupRefused, TableMode } from '../table-snapshot/index.js';
+import {
+  captureTable,
+  type SetupRefused,
+  type TableMode,
+} from '../table-snapshot/index.js';
 import type { SQLiteDriver } from './database/index.js';
 import { makeTableContract } from './table/index.js';
 import { setUpSQLiteTable } from './setup/index.js';
@@ -76,7 +80,7 @@ const setup = <Name extends string>(
       config.database,
       table,
       config.tableName ?? table.logicalName,
-      TableSnapshot.capture(table),
+      captureTable(table),
       config.mode,
     ),
   );

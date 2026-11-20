@@ -17,7 +17,7 @@ A comparison of a current **table snapshot** with an earlier one, yielding **sna
 _Avoid_: Safety assessment, snapshot approval, approved snapshot file, contract file, enforcement baseline, Stored contract and Deployed contract (retired terms), Deploy guard (retired).
 
 **Snapshot document format**:
-The versioned shape of a serialized **table snapshot** itself (the committed file, a deploy resource's props), distinct from the **versions** of the schemas it describes. A document written under an older format is read forward into the current one, so it never becomes unreadable because the toolkit moved on. The [[db]] **Stored snapshot** does not use it: its format is the internal entities' own ESchemas, which change by a new version like any entity's.
+The versioned shape of a serialized **table snapshot** itself (the committed file, a deploy resource's props), distinct from the **versions** of the schemas it describes. A document written under an older format is read forward into the current one, so it never becomes unreadable because the toolkit moved on. The [[db]] **Stored snapshot** does not use it: its format is the internal entities' own ESchemas, which change by a new version like any entity's. Its hash, which lets setup skip the comparison on an unchanged table, is taken over those entities' values, not over this document.
 _Avoid_: Retired format, snapshot schema version.
 
 **Snapshot type**:
