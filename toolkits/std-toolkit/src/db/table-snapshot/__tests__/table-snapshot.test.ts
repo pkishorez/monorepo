@@ -286,7 +286,8 @@ describe('the internal entities', () => {
     );
     for (const item of items) {
       expect(item.meta._u).not.toBe('');
-      expect(item.data._v).toBe('v1');
+      // Each at its ESchema's latest version: `__snapshot` gained `hash` in v2.
+      expect(item.data._v).toBe(item.meta._e === '__snapshot' ? 'v2' : 'v1');
     }
     const entitySks = items
       .filter(({ meta }) => meta._e === '__snapshot_entity')
@@ -303,6 +304,29 @@ describe('the internal entities', () => {
       .map(({ sk }) => sk);
     expect(versionSks).toContain('__snapshot_version@v1');
     expect(await stored(table)).toEqual(snapshotOf(v1, 'persistent'));
+  });
+
+  it('reads a `__snapshot` written before the hash, checks it in full once, and records it at v2', async () => {
+    const table = physical();
+    await check(table, v1, 'persistent');
+    // As a table set up before `__snapshot` gained `hash` holds it.
+    const [key, current] = [...table.items].find(
+      ([, item]) => item.meta._e === '__snapshot',
+    )!;
+    const { hash: _, ...before } = current.data;
+    table.items.set(key, { ...current, data: { ...before, _v: 'v1' } });
+    table.log.length = 0;
+
+    expect(await check(table, v1, 'persistent')).toEqual({ kind: 'unchanged' });
+    // The full check found nothing to change, so only `__snapshot` is written.
+    expect(table.log).toEqual(['__snapshot single']);
+    const upgraded = table.items.get(key)!;
+    expect(upgraded.data._v).toBe('v2');
+    expect(typeof upgraded.data.hash).toBe('string');
+
+    table.log.length = 0;
+    expect(await check(table, v1, 'persistent')).toEqual({ kind: 'unchanged' });
+    expect(table.log).toEqual([]);
   });
 });
 

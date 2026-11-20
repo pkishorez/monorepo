@@ -312,6 +312,114 @@
                 }
               },
               {
+                "name": "localSecondaryIndexes",
+                "type": {
+                  "type": "array",
+                  "element": {
+                    "type": "struct",
+                    "fields": [
+                      {
+                        "name": "name",
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      {
+                        "name": "pk",
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      {
+                        "name": "sk",
+                        "type": {
+                          "type": "string"
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "name": "logicalName",
+                "type": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "mode",
+                "type": {
+                  "type": "union",
+                  "members": [
+                    {
+                      "type": "literal",
+                      "value": "persistent"
+                    },
+                    {
+                      "type": "literal",
+                      "value": "disposable"
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "primary",
+                "type": {
+                  "type": "struct",
+                  "fields": [
+                    {
+                      "name": "pk",
+                      "type": {
+                        "type": "string"
+                      }
+                    },
+                    {
+                      "name": "sk",
+                      "type": {
+                        "type": "string"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "version": "v2",
+          "shape": {
+            "type": "struct",
+            "fields": [
+              {
+                "name": "globalSecondaryIndexes",
+                "type": {
+                  "type": "array",
+                  "element": {
+                    "type": "struct",
+                    "fields": [
+                      {
+                        "name": "name",
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      {
+                        "name": "pk",
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      {
+                        "name": "sk",
+                        "type": {
+                          "type": "string"
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
                 "name": "hash",
                 "type": {
                   "type": "union",
