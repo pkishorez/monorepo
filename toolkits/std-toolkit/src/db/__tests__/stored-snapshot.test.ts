@@ -134,4 +134,22 @@ describe('the Stored snapshot, read by the app', () => {
     for (const surface of [snapshot, entity, version])
       expect(Object.isFrozen(surface)).toBe(true);
   });
+
+  it('refuses to drift or reindex an internal item an app built itself', async () => {
+    const table = makeTable();
+    const { layer } = Memory.make(table);
+    const internal = {
+      pk: '__snapshot',
+      sk: 'single',
+      meta: { _e: '__snapshot', _u: 'u1', _d: false },
+      data: { _v: 'v2' },
+      keys: {},
+    };
+    for (const effect of [table.drift(internal), table.reindex(internal)]) {
+      const result = await run(layer, Effect.result(effect));
+      expect(result._tag).toBe('Failure');
+      if (result._tag === 'Failure')
+        expect(result.failure.reason._tag).toBe('EntityNotFound');
+    }
+  });
 });

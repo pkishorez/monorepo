@@ -317,9 +317,12 @@ export const decorateTable = <Name extends string>(
     },
     drift(item: StoredItem) {
       return Effect.gen(function* () {
-        const found = definition.registeredEntities.find(
-          (candidate) => candidate.name === item.meta._e,
-        );
+        // Only setup writes the internal entities, so they are not found here.
+        const found = isInternalEntity(item.meta._e)
+          ? undefined
+          : definition.registeredEntities.find(
+              (candidate) => candidate.name === item.meta._e,
+            );
         if (found === undefined)
           return yield* failReason(
             new EntityNotFound({ entity: item.meta._e }),
@@ -355,6 +358,10 @@ export const decorateTable = <Name extends string>(
     },
     reindex(currentForm: StoredItem) {
       return Effect.gen(function* () {
+        if (isInternalEntity(currentForm.meta._e))
+          return yield* failReason(
+            new EntityNotFound({ entity: currentForm.meta._e }),
+          );
         const contract = (yield* StdTableService(definition.logicalName))
           .contract;
         yield* contract

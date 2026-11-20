@@ -824,6 +824,44 @@ describe('checkTableSnapshot', () => {
       );
     });
 
+    it('record no hash over items another setup left, even when every item of its own was there already', async () => {
+      const table = physical();
+      // The other setup runs newer code (Note gains a v2) and stops before
+      // its `__snapshot`, so every item this one writes is already there.
+      const stopsBeforeSnapshot: StdTableContract = {
+        ...table.contract,
+        writeItem: (put) =>
+          put.item.meta._e === '__snapshot'
+            ? Effect.fail(new OperationFailure({ cause: 'stopped' }))
+            : table.contract.writeItem(put),
+      };
+      let raced = false;
+      const contract: StdTableContract = {
+        ...table.contract,
+        writeItem: (put) =>
+          Effect.gen(function* () {
+            if (!raced) {
+              raced = true;
+              yield* Effect.promise(() =>
+                check(table, makeTable({ noteV2: true }), 'persistent', {
+                  contract: stopsBeforeSnapshot,
+                }).catch(() => undefined),
+              );
+            }
+            return yield* table.contract.writeItem(put);
+          }),
+      };
+
+      const refused = await refusal(
+        check(table, v1, 'persistent', { contract }),
+      );
+      expect(refused.reason).toBe('breaking');
+      // No hash stands over the extra item, so the next setup of this code
+      // checks in full and refuses again, rather than taking it on its hash.
+      const again = await refusal(check(table, v1, 'persistent'));
+      expect(again.reason).toBe('breaking');
+    });
+
     it('gives up after starting over three times', async () => {
       const table = physical();
       let attempts = 0;
