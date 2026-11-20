@@ -1,4 +1,4 @@
-import { Effect } from 'effect';
+import { Effect, Layer } from 'effect';
 import { makeBetterSQLite3 } from '../drivers/better-sqlite3/index.js';
 import { makeNodeSQLite } from '../drivers/node/index.js';
 import { SQLite } from '../index.js';
@@ -7,12 +7,12 @@ import {
   runConformanceSuite,
 } from '../../std-table/__tests__/conformance.js';
 
-const makeLayer = (database: ReturnType<typeof makeNodeSQLite>) => {
-  Effect.runSync(
-    SQLite.setup(conformanceTable, { mode: 'persistent', database }),
+const makeLayer = (database: ReturnType<typeof makeNodeSQLite>) =>
+  Layer.unwrap(
+    SQLite.setup(conformanceTable, { mode: 'persistent', database }).pipe(
+      Effect.as(SQLite.make(conformanceTable, { database }).layer),
+    ),
   );
-  return SQLite.make(conformanceTable, { database }).layer;
-};
 
 runConformanceSuite({
   name: 'SQLite node',

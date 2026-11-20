@@ -6,7 +6,6 @@ import {
   conditionFailed,
   isInternalEntity,
   type ContractFailure,
-  type JsonValue,
   type StdTableContract,
   type StoredData,
   type StoredItem,
@@ -32,6 +31,7 @@ import {
   encodeCompositeKey,
   valueReader,
 } from '../std-table/key/index.js';
+import { canonical, snapshotHash } from './hash.js';
 import type { TableMode } from './refusal.js';
 import {
   joinTableSnapshot,
@@ -76,13 +76,26 @@ const readPartition = (contract: StdTableContract, entity: string) =>
     }
   });
 
-/** Reads every item of the three internal entities. */
+/** Reads the `__snapshot` item alone, tombstone included. */
+export const readSnapshotRecord = (
+  contract: StdTableContract,
+): Effect.Effect<StoredItem | null, ContractFailure> =>
+  contract.getItem(snapshotKey, { consistent: true });
+
+/**
+ * Reads every item of the three internal entities; `__snapshot` only when it
+ * is not given, as already read.
+ */
 export const readStoredSnapshot = (
   contract: StdTableContract,
+  snapshot?: StoredItem | null,
 ): Effect.Effect<StoredSnapshot, ContractFailure> =>
   Effect.all(
     {
-      snapshot: contract.getItem(snapshotKey, { consistent: true }),
+      snapshot:
+        snapshot === undefined
+          ? readSnapshotRecord(contract)
+          : Effect.succeed(snapshot),
       entities: readPartition(contract, SnapshotEntities.entity.name),
       versions: readPartition(contract, SnapshotEntities.version.name),
     },
@@ -208,16 +221,6 @@ export const tableHasRows = (
 
 const compare = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
-/** JSON with its keys sorted, so key order never reads as a change. */
-const canonical = (value: JsonValue): string =>
-  JSON.stringify(value, (_, each: unknown) =>
-    typeof each === 'object' && each !== null && !Array.isArray(each)
-      ? Object.fromEntries(
-          Object.entries(each).sort(([a], [b]) => compare(a, b)),
-        )
-      : each,
-  );
-
 interface Desired {
   readonly entity: string;
   readonly key: StoredKey;
@@ -284,11 +287,11 @@ const inWriteOrder = (versions: readonly SnapshotVersionValue[]) => {
 };
 
 /**
- * The stored `__snapshot` with the indexes the code adds, and nothing else
- * changed, the mode included. Written before any entity item, it leaves no
- * item naming an index `__snapshot` lacks. One that does not read, which
- * only a disposable table's wipe writes over, becomes the code's under the
- * stored mode.
+ * The stored `__snapshot` with the indexes the code adds and no hash, and
+ * nothing else changed, the mode included. Written before any entity item,
+ * it leaves no item naming an index `__snapshot` lacks, and no hash the
+ * items no longer match. One that does not read, which only a disposable
+ * table's wipe writes over, becomes the code's under the stored mode.
  */
 const widenedSnapshot = (
   record: StoredItem,
@@ -308,6 +311,7 @@ const widenedSnapshot = (
       ) => indexes.filter(({ name }) => !taken.has(name));
       return {
         ...prior,
+        hash: null,
         localSecondaryIndexes: [
           ...prior.localSecondaryIndexes,
           ...added(code.localSecondaryIndexes),
@@ -318,7 +322,11 @@ const widenedSnapshot = (
         ],
       };
     }),
-    Effect.orElseSucceed(() => ({ ...code, mode: storedMode(record) })),
+    Effect.orElseSucceed(() => ({
+      ...code,
+      mode: storedMode(record),
+      hash: null,
+    })),
   );
 
 interface Write {
@@ -398,29 +406,47 @@ const alreadyWritten = (contract: StdTableContract, item: StoredItem) =>
 /**
  * Every write that takes the stored items to the code's, in an order where
  * every prefix joins into a stored snapshot the next setup can compare
- * against, whether it runs this code or the code before:
+ * against, whether it runs this code or the code before, and where
+ * `__snapshot` holds the code's hash only once every item matches it:
  *
- * 1. When `__snapshot` is stored, `widenedSnapshot`: the indexes the code
- *    adds. With none stored, the check reads entity and version items under
- *    the code's topology.
+ * 1. When `__snapshot` is stored and any item below changes,
+ *    `widenedSnapshot`: the indexes the code adds, and no hash. With none
+ *    stored, the check reads entity and version items under the code's
+ *    topology.
  * 2. Versions, in `inWriteOrder`.
  * 3. Entities, which may then name any new index and any new version.
  * 4. Tombstones for the entities, then the versions, the code no longer has.
  *    Only a wipe leads to them, and it leaves no rows a stopped write could
  *    strand: a prefix that does not join is wiped again.
- * 5. `__snapshot` as the code has it, last: its mode, and the indexes it
- *    removes, which no entity names by now.
+ * 5. `__snapshot` as the code has it, last: its mode, the indexes it
+ *    removes, which no entity names by now, and its hash.
  */
 const writesFor = (
   values: SnapshotValues,
   stored: StoredSnapshot,
   version: string,
+  hash: string,
 ) =>
   Effect.gen(function* () {
     const record = recordedSnapshot(stored);
     const recorded = stored.snapshot === null ? [] : [stored.snapshot];
+    const versions = yield* Effect.forEach(
+      inWriteOrder(values.versions),
+      (value) => encodeKeyed(SnapshotEntities.version, value),
+    );
+    const entities = yield* Effect.forEach(values.entities, (value) =>
+      encodeKeyed(SnapshotEntities.entity, value),
+    );
+    const items = [
+      ...putsFor(versions, stored.versions, version),
+      ...putsFor(entities, stored.entities, version),
+      ...tombstonesFor(entities, stored.entities, version),
+      ...tombstonesFor(versions, stored.versions, version),
+    ];
+    // With no item to change, the last write is the only one, and no prefix
+    // needs `__snapshot` widened first.
     const opening =
-      record === null
+      record === null || items.length === 0
         ? []
         : putsFor(
             [
@@ -432,25 +458,11 @@ const writesFor = (
             version,
           );
     const closing = putsFor(
-      [yield* encodeSnapshot(values.snapshot)],
+      [yield* encodeSnapshot({ ...values.snapshot, hash })],
       opening.length === 0 ? recorded : opening.map(({ item }) => item),
       version,
     );
-    const versions = yield* Effect.forEach(
-      inWriteOrder(values.versions),
-      (value) => encodeKeyed(SnapshotEntities.version, value),
-    );
-    const entities = yield* Effect.forEach(values.entities, (value) =>
-      encodeKeyed(SnapshotEntities.entity, value),
-    );
-    return [
-      ...opening,
-      ...putsFor(versions, stored.versions, version),
-      ...putsFor(entities, stored.entities, version),
-      ...tombstonesFor(entities, stored.entities, version),
-      ...tombstonesFor(versions, stored.versions, version),
-      ...closing,
-    ];
+    return [...opening, ...items, ...closing];
   }).pipe(Effect.orDie);
 
 /**
@@ -461,8 +473,11 @@ const writesFor = (
  * reads. A condition that fails means another setup wrote first. An item it
  * wrote just as this one would is left, and the table is read again at the
  * end: the write fails with `ConditionFailure` unless the table then holds
- * exactly this snapshot. `localIndexOrder` is as `splitTableSnapshot` takes
- * it. Returns how many items were written.
+ * exactly this snapshot. The last write records the code's `snapshotHash`
+ * in `__snapshot`, and any earlier write to it sets no hash, so a hash
+ * stands only over items that all match it.
+ * `localIndexOrder` is as `splitTableSnapshot` takes it. Returns how many
+ * items were written.
  */
 export const writeTableSnapshot = (
   contract: StdTableContract,
@@ -473,8 +488,9 @@ export const writeTableSnapshot = (
 ): Effect.Effect<number, ContractFailure> =>
   Effect.gen(function* () {
     const values = splitTableSnapshot(current, mode, localIndexOrder);
+    const hash = yield* snapshotHash(current, localIndexOrder);
     const version = yield* nextUlid;
-    const writes = yield* writesFor(values, stored, version);
+    const writes = yield* writesFor(values, stored, version, hash);
     let skipped = false;
     for (const write of writes)
       yield* contract.writeItem(write).pipe(
@@ -492,7 +508,7 @@ export const writeTableSnapshot = (
     // holds this snapshot only if nothing is left to write.
     if (skipped) {
       const after = yield* readStoredSnapshot(contract);
-      if ((yield* writesFor(values, after, version)).length > 0)
+      if ((yield* writesFor(values, after, version, hash)).length > 0)
         return yield* Effect.fail(conditionFailed());
     }
     return writes.length;

@@ -10,10 +10,12 @@ import {
   type BackfillChoice,
   type TableMode,
 } from './refusal.js';
+import { isCurrent, snapshotHash } from './hash.js';
 import { joinTableSnapshot, splitTableSnapshot } from './split.js';
 import {
   decodeStoredItems,
   hasStoredItems,
+  readSnapshotRecord,
   readStoredSnapshot,
   recordedSnapshot,
   storedMode,
@@ -157,6 +159,35 @@ export const planTableSnapshot = <E, R>(
     return { kind: 'apply', backfill };
   });
 
+/**
+ * Reads what a check needs. `__snapshot` comes first: when it holds the
+ * code's hash and mode, every other item is as the code has it (ADR 0020), so
+ * `current` is true, nothing else is read, and `stored` holds `__snapshot`
+ * alone. Otherwise every item is read, for `planTableSnapshot`.
+ */
+export const readForCheck = (
+  contract: StdTableContract,
+  snapshot: TableSnapshot,
+  mode: TableMode,
+  localIndexOrder?: readonly string[],
+): Effect.Effect<
+  { readonly current: boolean; readonly stored: StoredSnapshot },
+  ContractFailure
+> =>
+  Effect.gen(function* () {
+    const hash = yield* snapshotHash(snapshot, localIndexOrder);
+    const record = yield* readSnapshotRecord(contract);
+    if (isCurrent(record, hash, mode))
+      return {
+        current: true,
+        stored: { snapshot: record, entities: [], versions: [] },
+      };
+    return {
+      current: false,
+      stored: yield* readStoredSnapshot(contract, record),
+    };
+  });
+
 export interface CheckOptions<E, R> {
   /** The physical table, through the StdTable contract. */
   readonly contract: StdTableContract;
@@ -191,6 +222,9 @@ export interface CheckOptions<E, R> {
    * backfills does it here, so a setup stopped before the write owes the
    * backfill again on its next run. A wipe it makes must keep the internal
    * entities' items, and hold only while `__snapshot` is still the one read.
+   * It runs on an unchanged table too; when `__snapshot` showed the table is
+   * current (`readForCheck`), only it was read, and `stored` holds no entity
+   * or version item.
    */
   readonly prepare?: (
     plan: TableSnapshotPlan,
@@ -207,10 +241,12 @@ const isConditionFailure = (cause: unknown): cause is ConditionFailure =>
 /**
  * Checks a physical table against the code's snapshot, using the snapshot
  * the table keeps in its own internal entities (ADR 0020), and records the
- * code's. It reads the stored items, plans, and then: refuses with nothing
- * written; or wipes, then writes; or writes. It writes only the items that
- * changed, each under its own condition, in an order where every prefix is a
- * stored snapshot the next run reads (`writeTableSnapshot`). When a
+ * code's. When `__snapshot` holds the code's hash and mode, the table is
+ * unchanged on that one read. Otherwise it reads every stored item, plans,
+ * and then: refuses with nothing written; or wipes, then writes; or writes.
+ * It writes only the items that changed, each under its own condition, in an
+ * order where every prefix is a stored snapshot the next run reads
+ * (`writeTableSnapshot`). When a
  * condition fails, another setup wrote first: an item it wrote just as this
  * one would is left as it is, and any other starts it over from the read, at
  * most three times. No step needs a transaction.
@@ -225,7 +261,19 @@ export const checkTableSnapshot = <E = never, R = never>(
   const hasRows: Effect.Effect<boolean, E | ContractFailure, R> =
     options.hasRows ?? tableHasRows(contract);
   const attempt = Effect.gen(function* () {
-    let stored = yield* readStoredSnapshot(contract);
+    const read = yield* readForCheck(
+      contract,
+      snapshot,
+      mode,
+      options.localIndexOrder,
+    );
+    if (read.current) {
+      const plan: TableSnapshotPlan = { kind: 'unchanged' };
+      if (options.prepare !== undefined)
+        yield* options.prepare(plan, read.stored);
+      return plan;
+    }
+    let stored = read.stored;
     const plan = yield* planTableSnapshot({
       stored,
       current: snapshot,

@@ -13,11 +13,13 @@ import {
 } from '../../std-table/contract/index.js';
 import { StdTable } from '../../std-table/table/index.js';
 import {
+  captureTable,
   checkTableSnapshot,
   decodeStoredSnapshot,
   joinTableSnapshot,
   readStoredSnapshot,
   SetupRefused,
+  snapshotHash,
   splitTableSnapshot,
   type BackfillChoice,
   type TableMode,
@@ -169,6 +171,59 @@ const snapshotOf = (code: ReturnType<typeof makeTable>, mode: TableMode) => ({
   mode,
   localIndexOrder: [],
 });
+
+const hashOf = (
+  snapshot: TableSnapshot,
+  localIndexOrder: readonly string[] = [],
+) => Effect.runPromise(snapshotHash(snapshot, localIndexOrder));
+
+/** The hash `__snapshot` holds; `undefined` when none is stored. */
+const storedHash = (table: Physical) =>
+  [...table.items.values()].find(({ meta }) => meta._e === '__snapshot')?.data
+    .hash;
+
+/**
+ * The invariant the fast path rests on: `__snapshot` holds a hash only when
+ * every stored item is as the code with that hash has it.
+ */
+const expectHashHolds = async (table: Physical) => {
+  const hash = storedHash(table);
+  if (hash === undefined || hash === null) return;
+  const joined = await stored(table);
+  expect(joined).toBeDefined();
+  expect(hash).toBe(await hashOf(joined!.snapshot, joined!.localIndexOrder));
+  const values = splitTableSnapshot(
+    joined!.snapshot,
+    joined!.mode,
+    joined!.localIndexOrder,
+  );
+  // Every live item, not just what joins: nothing is left over.
+  const live = [...table.items.values()].filter(
+    ({ meta }) => !meta._d && meta._e.startsWith('__snapshot_'),
+  );
+  expect(live).toHaveLength(values.entities.length + values.versions.length);
+};
+
+/** The table's contract, counting its reads. */
+const counted = (table: Physical) => {
+  const reads = { getItem: 0, queryItems: 0, scanItems: 0 };
+  const contract: StdTableContract = {
+    ...table.contract,
+    getItem: (key, options) => {
+      reads.getItem++;
+      return table.contract.getItem(key, options);
+    },
+    queryItems: (query) => {
+      reads.queryItems++;
+      return table.contract.queryItems(query);
+    },
+    scanItems: (scan) => {
+      reads.scanItems++;
+      return table.contract.scanItems(scan);
+    },
+  };
+  return { contract, reads };
+};
 
 const insertNote = (table: Physical) =>
   Effect.runPromise(
@@ -328,6 +383,89 @@ describe('split and join', () => {
   });
 });
 
+// ─── The snapshot hash ──────────────────────────────────────────────────────
+
+describe('the snapshot hash', () => {
+  it('is the same for the same table, built apart, in any registration order', async () => {
+    const one = StdTable.make('notes').primary('pk', 'sk').build();
+    const two = StdTable.make('notes').primary('pk', 'sk').build();
+    const Note = EntityESchema.make('Note', 'noteId', {
+      title: Schema.String,
+    }).build();
+    const Tag = EntityESchema.make('Tag', 'tagId', {
+      label: Schema.String,
+    }).build();
+    one.entity(Note).primary().build();
+    one.entity(Tag).primary().build();
+    two.entity(Tag).primary().build();
+    two.entity(Note).primary().build();
+    const hash = await hashOf(TableSnapshot.capture(one));
+    expect(hash).toMatch(/^[0-9a-f]{64}$/);
+    expect(await hashOf(TableSnapshot.capture(two))).toBe(hash);
+  });
+
+  it('is the same for a snapshot serialized and parsed back, as a deploy carries it', async () => {
+    const snapshot = TableSnapshot.capture(makeTable({ zed: true }));
+    const carried = await Effect.runPromise(
+      TableSnapshot.serialize(snapshot).pipe(
+        Effect.map((encoded) => JSON.parse(JSON.stringify(encoded)) as unknown),
+        Effect.flatMap(TableSnapshot.parse),
+      ),
+    );
+    expect(carried).not.toBe(snapshot);
+    expect(await hashOf(carried)).toBe(await hashOf(snapshot));
+  });
+
+  it('differs when anything the check compares differs', async () => {
+    const lsis = (order: readonly ['LSI1' | 'LSI2', 'LSI1' | 'LSI2']) => {
+      const builder = StdTable.make('notes').primary('pk', 'sk');
+      return TableSnapshot.capture(
+        builder
+          .lsi(order[0], `${order[0]}SK`)
+          .lsi(order[1], `${order[1]}SK`)
+          .build(),
+      );
+    };
+    const hashes = [
+      await hashOf(TableSnapshot.capture(v1)),
+      // A version's shape: a check loosened.
+      await hashOf(
+        TableSnapshot.capture(
+          makeTable({ title: Schema.String.check(Schema.isMaxLength(20)) }),
+        ),
+      ),
+      // A new version.
+      await hashOf(TableSnapshot.capture(makeTable({ noteV2: true }))),
+      // An access pattern.
+      await hashOf(TableSnapshot.capture(makeTable({ byTitle: true }))),
+      // An index.
+      await hashOf(TableSnapshot.capture(makeTable({ gsi2: true }))),
+      // An entity.
+      await hashOf(TableSnapshot.capture(makeTable({ tag: true }))),
+      // The order the local secondary indexes are declared in.
+      await hashOf(lsis(['LSI1', 'LSI2']), ['LSI1', 'LSI2']),
+      await hashOf(lsis(['LSI2', 'LSI1']), ['LSI2', 'LSI1']),
+    ];
+    expect(new Set(hashes).size).toBe(hashes.length);
+    // The snapshot alone sorts the indexes by name; only the order differs.
+    expect(lsis(['LSI2', 'LSI1'])).toEqual(lsis(['LSI1', 'LSI2']));
+  });
+
+  it('is captured again once an entity registers after the table is built', () => {
+    const table = StdTable.make('later').primary('pk', 'sk').build();
+    const first = captureTable(table);
+    expect(captureTable(table)).toBe(first);
+    table
+      .entity(EntityESchema.make('Late', 'id', { a: Schema.String }).build())
+      .primary()
+      .build();
+    const second = captureTable(table);
+    expect(second).not.toBe(first);
+    expect(second.entities.map(({ name }) => name)).toContain('Late');
+    expect(second).toEqual(TableSnapshot.capture(table));
+  });
+});
+
 // ─── The check ──────────────────────────────────────────────────────────────
 
 describe('checkTableSnapshot', () => {
@@ -354,7 +492,85 @@ describe('checkTableSnapshot', () => {
     expect(table.log).toEqual([]);
   });
 
-  it('passes an additive change and writes only the new items', async () => {
+  describe('on its hash', () => {
+    it("records the code's hash with the first snapshot", async () => {
+      const table = physical();
+      await check(table, v1, 'persistent');
+      expect(storedHash(table)).toBe(await hashOf(TableSnapshot.capture(v1)));
+      await expectHashHolds(table);
+    });
+
+    it('takes an unchanged table on one read of __snapshot, and writes nothing', async () => {
+      const table = physical();
+      await check(table, v1, 'persistent');
+      table.log.length = 0;
+      const { contract, reads } = counted(table);
+      expect(
+        await check(table, makeTable(), 'persistent', { contract }),
+      ).toEqual({
+        kind: 'unchanged',
+      });
+      expect(reads).toEqual({ getItem: 1, queryItems: 0, scanItems: 0 });
+      expect(table.log).toEqual([]);
+    });
+
+    it('checks a changed table in full and records its new hash, so the next setup takes one read', async () => {
+      const table = physical();
+      await check(table, v1, 'persistent');
+      const next = makeTable({ noteV2: true, tag: true });
+      const changed = counted(table);
+      await check(table, next, 'persistent', { contract: changed.contract });
+      expect(changed.reads.queryItems).toBeGreaterThan(0);
+      expect(storedHash(table)).toBe(await hashOf(TableSnapshot.capture(next)));
+      await expectHashHolds(table);
+
+      const again = counted(table);
+      await check(table, next, 'persistent', { contract: again.contract });
+      expect(again.reads).toEqual({ getItem: 1, queryItems: 0, scanItems: 0 });
+    });
+
+    it('records a missing or stale hash on a full check that finds nothing changed, in one write', async () => {
+      for (const hash of [null, 'stale']) {
+        const table = physical();
+        await check(table, v1, 'persistent');
+        for (const [key, item] of table.items)
+          if (item.meta._e === '__snapshot')
+            table.items.set(key, { ...item, data: { ...item.data, hash } });
+        table.log.length = 0;
+        const { contract, reads } = counted(table);
+        expect(await check(table, v1, 'persistent', { contract })).toEqual({
+          kind: 'unchanged',
+        });
+        expect(reads.queryItems).toBeGreaterThan(0);
+        expect(table.log).toEqual(['__snapshot single']);
+        expect(storedHash(table)).toBe(await hashOf(TableSnapshot.capture(v1)));
+      }
+    });
+
+    it('checks in full when the mode differs, though the hash is equal', async () => {
+      const table = physical();
+      await check(table, v1, 'persistent');
+      const persistent = counted(table);
+      expect(
+        (await refusal(check(table, v1, 'disposable', persistent))).reason,
+      ).toBe('mode-change');
+      expect(persistent.reads.queryItems).toBeGreaterThan(0);
+
+      const disposable = physical();
+      await check(disposable, v1, 'disposable');
+      disposable.log.length = 0;
+      expect(await check(disposable, v1, 'persistent')).toEqual({
+        kind: 'apply',
+        backfill: [],
+      });
+      expect(disposable.log).toEqual(['__snapshot single']);
+      const { contract, reads } = counted(disposable);
+      await check(disposable, v1, 'persistent', { contract });
+      expect(reads).toEqual({ getItem: 1, queryItems: 0, scanItems: 0 });
+    });
+  });
+
+  it('passes an additive change and writes only the new items, between unsetting and recording the hash', async () => {
     const table = physical();
     await check(table, v1, 'persistent');
     table.log.length = 0;
@@ -363,11 +579,13 @@ describe('checkTableSnapshot', () => {
       kind: 'apply',
       backfill: [],
     });
-    expect(table.log.sort()).toEqual([
+    expect(table.log[0]).toBe('__snapshot single');
+    expect(table.log.slice(1, -1).sort()).toEqual([
       '__snapshot_entity Tag',
       '__snapshot_version Note@v2',
       '__snapshot_version Tag@v1',
     ]);
+    expect(table.log.at(-1)).toBe('__snapshot single');
     expect(await stored(table)).toEqual(snapshotOf(next, 'persistent'));
   });
 
@@ -382,7 +600,11 @@ describe('checkTableSnapshot', () => {
       kind: 'apply',
       backfill: [],
     });
-    expect(table.log).toEqual(['__snapshot_version Note@v1']);
+    expect(table.log).toEqual([
+      '__snapshot single',
+      '__snapshot_version Note@v1',
+      '__snapshot single',
+    ]);
   });
 
   it('refuses a breaking change to a persistent table and writes nothing', async () => {
@@ -489,10 +711,18 @@ describe('checkTableSnapshot', () => {
   });
 
   describe('a stored snapshot that does not read', () => {
+    // As a release that stores another format would leave it: under its own
+    // hash, which this code does not have.
     const corrupt = (table: Physical) => {
-      for (const [key, item] of table.items)
+      for (const [key, item] of table.items) {
         if (item.sk === 'Note@v1')
           table.items.set(key, { ...item, data: { _v: 'v1', id: 7 } });
+        if (item.meta._e === '__snapshot')
+          table.items.set(key, {
+            ...item,
+            data: { ...item.data, hash: 'another release' },
+          });
+      }
     };
 
     it('is refused on a persistent table', async () => {
@@ -659,7 +889,9 @@ describe('checkTableSnapshot', () => {
               contract: failingAfter(table, stopAfter),
             }),
           ).rejects.toBeInstanceOf(OperationFailure);
+          await expectHashHolds(table);
           await check(table, next, mode);
+          await expectHashHolds(table);
           expect(await stored(table)).toEqual(snapshotOf(next, mode));
           expect(await check(table, next, mode)).toEqual({
             kind: 'unchanged',
@@ -772,7 +1004,9 @@ describe('checkTableSnapshot', () => {
 
           for (let writes = 1; writes <= total; writes++) {
             const same = await stoppedAt(previous, next, mode, writes);
+            await expectHashHolds(same);
             await check(same, next, mode, reindexed);
+            await expectHashHolds(same);
             expect(same.log).not.toContain('wipe');
             expect(await stored(same)).toEqual(snapshotOf(next, mode));
 
@@ -801,9 +1035,34 @@ describe('checkTableSnapshot', () => {
               expect(await stored(reverted)).toEqual(
                 snapshotOf(previous, mode),
               );
+            await expectHashHolds(reverted);
             await check(reverted, next, mode, reindexed);
+            await expectHashHolds(reverted);
             expect(await stored(reverted)).toEqual(snapshotOf(next, mode));
           }
         });
+
+    it('leaves no hash after the first write of a change that adds an index, so the next setup checks in full, under either code', async () => {
+      const previous = makeTable();
+      const next = makeTable({ gsi2: true });
+      for (const code of [previous, next]) {
+        const table = await stoppedAt(previous, next, 'persistent', 1);
+        expect(table.log).toEqual(['__snapshot single']);
+        const [record] = [...table.items.values()].filter(
+          ({ meta }) => meta._e === '__snapshot',
+        );
+        expect(record?.data.globalSecondaryIndexes).toContainEqual(
+          expect.objectContaining({ name: 'GSI2' }),
+        );
+        expect(storedHash(table)).toBeNull();
+        const { contract, reads } = counted(table);
+        await check(table, code, 'persistent', { ...reindexed, contract });
+        expect(reads.queryItems).toBeGreaterThan(0);
+        expect(storedHash(table)).toBe(
+          await hashOf(TableSnapshot.capture(code)),
+        );
+        await expectHashHolds(table);
+      }
+    });
   });
 });

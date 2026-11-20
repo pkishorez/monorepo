@@ -32,13 +32,21 @@ const KeyDerivationFields = {
  */
 const Shape = ESchema.fromType<SnapshotType>();
 
-/** One item per physical table: its topology and its mode. */
+/**
+ * One item per physical table: its topology and its mode, and the hash of the
+ * snapshot every item matches, when they all match one.
+ */
 export const SnapshotRecord = ESchema.make('__snapshot', {
   logicalName: Schema.String,
   mode: Schema.Literals(['persistent', 'disposable']),
   primary: Schema.Struct({ pk: Schema.String, sk: Schema.String }),
   localSecondaryIndexes: Schema.Array(IndexRecord),
   globalSecondaryIndexes: Schema.Array(IndexRecord),
+  /**
+   * The hash of the code's snapshot, set by the last write of a setup, once
+   * every item is as that code has it; null while a setup writes the others.
+   */
+  hash: Schema.NullOr(Schema.String),
 }).build();
 
 /** One item per entity, keyed by its name, as a table snapshot records it. */

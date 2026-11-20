@@ -11,9 +11,8 @@ import { StdTableService } from '../../db/std-table/contract/index.js';
 import {
   checkTableSnapshot,
   decodeStoredSnapshot,
-  joinTableSnapshot,
   planTableSnapshot,
-  readStoredSnapshot,
+  readForCheck,
   SetupRefused,
   type StoredSnapshot,
   type TableMode,
@@ -116,19 +115,22 @@ const layoutOf = (props: TableSnapshotProps) =>
     })),
   );
 
-// The plan read the same items, so they decode and join.
+// The layout is `__snapshot`'s alone, so it reads when the check read
+// nothing else; the plan read the same item, so it decodes.
 const storedLayout = (stored: StoredSnapshot) =>
-  decodeStoredSnapshot(stored).pipe(
-    Effect.flatMap((values) =>
-      values === undefined
-        ? Effect.succeed(undefined)
-        : joinTableSnapshot(values).pipe(
-            Effect.map((joined): Layout => ({
-              topology: joined.snapshot.topology,
-              localIndexOrder: joined.localIndexOrder,
-            })),
-          ),
-    ),
+  decodeStoredSnapshot({ ...stored, entities: [], versions: [] }).pipe(
+    Effect.map((values): Layout | undefined => {
+      if (values === undefined) return undefined;
+      const { snapshot } = values;
+      return {
+        topology: {
+          primary: snapshot.primary,
+          localSecondaryIndexes: byName(snapshot.localSecondaryIndexes),
+          globalSecondaryIndexes: byName(snapshot.globalSecondaryIndexes),
+        },
+        localIndexOrder: snapshot.localSecondaryIndexes.map(({ name }) => name),
+      };
+    }),
     Effect.orDie,
   );
 
@@ -212,9 +214,15 @@ export const checkLiveTable = (
     const live = yield* DynamoDBAdapter.describeTable(config);
     if (live === undefined) return;
     yield* refuseReplacement(liveLayout(live), current, snapshot.logicalName);
-    const stored = yield* readStoredSnapshot(
+    // A table whose `__snapshot` holds the code's hash and mode stores the
+    // code's layout too: there is nothing more to compare.
+    const { current: unchanged, stored } = yield* readForCheck(
       yield* openTable(config, snapshot),
+      snapshot,
+      props.mode,
+      props.localIndexOrder,
     );
+    if (unchanged) return;
     const plan = yield* planTableSnapshot({
       ...planOptions(props),
       current: snapshot,

@@ -11,6 +11,7 @@ Every table keeps its snapshot inside itself, as three internal entities, and on
 - `DeployGuard` and `DeployGuard.table` are removed. A Durable Object or IndexedDB table is checked when it is set up; to catch a breaking change before it ships, run `expectTableShippable` in CI. Alchemy deletes the old `StdToolkit.DeployGuard` and `StdToolkit.SnapshotGuard` resources on the next deploy.
 - `DynamoDB.table` is three resources: `<id>SnapshotCheck`, Alchemy's table, and `<id>SnapshotRecord`. It needs AWS's providers under std-toolkit's: `providers().pipe(Layer.provideMerge(AWS.providers()))`. An existing DynamoDB table has no snapshot yet, so its first deploy records the code's; a change only a new table could make is still refused, against the live table's keys. It does not work under `alchemy dev` yet.
 - `D1.table` and `DynamoDB.table` keep the order a table declares its local secondary indexes in.
+- `__snapshot` holds the SHA-256 of the snapshot its table's items match, so an unchanged table is checked on that one read. `SQLite.setup` now runs asynchronously, as it hashes through WebCrypto.
 
 **Added**
 
