@@ -10,8 +10,9 @@ Connect is one simple tree, tied to the User's login, and a Connection Key rotat
 - A Connection runs only while its User is signed in. Once Connect Cloud says the Sign-in is gone, the Connection, its tunnel and its Plugins stop until a new Sign-in. An outage changes nothing.
 - A Connection Key rotates: a new one at each start and every hour, kept only in memory. A socket already open stays open. A new socket offering any other key closes with 4401, and a plain request gets 401. An App told 4401 asks Connect Cloud for the list, and reconnects with the key as listed.
 - `ConnectionStatus` is v2, the Tunnel's own State: `SettingUp` with a `step` of `Downloading { elapsed, received }`, `Opening` or `Failed { at, problem }`, or `Ready` with a `url` and a `check` of `Unchecked`, `Reachable { at }` or `Unreachable { at, problem }`. A v1 status still reads. An older Worker cannot read a v2 status, so its Reports go unsent and Plugins wait: deploy Connect Cloud first.
-- The Plugin list comes only from Connect Cloud. `wanted.json` is gone. If Connect Cloud is down at start, Plugins wait for it to answer, though sign-in can still use the kept `auth.json`. The answer is the whole list: a Plugin no longer named stops within a Heartbeat, and a deploy that names none stops every Plugin. A Report that fails changes nothing.
+- The Plugin list comes only from Connect Cloud. `wanted.json` is gone. If Connect Cloud is down at start, Plugins wait for it to answer, though sign-in can still use the Auth Worker it kept. The answer is the whole list: a Plugin no longer named stops within a Heartbeat, and a deploy that names none stops every Plugin. A Report that fails changes nothing.
 - A Report carries only the Connection Status, and is answered, at `ReportAnswer` v2, with only the Release of each Plugin to run: the Minimum Connect is no longer in it. An older `ke-connect` cannot read that answer, so it must be installed again.
+- A Connection keeps one file, `ke-connect.db`, in place of `connection.json`, `auth.json`, `connect.db` and `wanted.json`. `serve` and `remove` move a folder from before into it once, keeping the Connection, its id and its Sign-in, and then delete the old files. The code Plugin's data is untouched. Going back to an older `ke-connect` is not supported: it would make a new Connection.
 - `Connection` no longer has `plugins`. An App no longer shows a Plugin's download progress or a crash.
 - `ActorPlugin` Emits `Reported { state }` to its parent, and requires only `Downloads`. The `Plugins` Capability is gone from `@kestack/cli-platform/plugins` and `@kestack/cli-platform/plugins/contract`.
 - Connect Cloud's deployed names change, so a deploy makes new ones: its Worker, database and bucket are `ConnectCloud`, `connect-cloud-<stage>` and `connect-releases-<stage>`. The new database starts empty: every Connection reports itself again, but Display Names are gone, and a Connection forgotten while its computer was off can come back.
@@ -30,9 +31,10 @@ Connect is one simple tree, tied to the User's login, and a Connection Key rotat
 
 - Cloud Connect is now Connect Cloud, and the Shelf is now Release Files.
 - `src/contracts` holds what the parts say to each other: `heartbeat`, what `ke-connect` and Connect Cloud say, `app-api`, what Connect Cloud and an App say, and `link`, how an App reaches a Plugin through a Connection. `src/cloud` is Connect Cloud, and `src/connection` holds the CLI and its Plugins, so neither imports the other. `pnpm tree` checks that parts using each other are at most three in a folder. The Actor tree is Identity, Connection, then its Tunnel and Plugins, side by side, so a broken tunnel never stops a Plugin.
-- `connection.json` is v2 and keeps no Connection Key: an old key reads, and is dropped at the next start. Connect Cloud's Connection record is v4, with the new status.
+- The Connection keeps no Connection Key: an old key is dropped as it moves into `ke-connect.db`. Connect Cloud's Connection record is v4, with the new status.
 - A Plugin with no file says `<name> <hash> has no file; run the build`.
 - `ke-connect remove` on a `ke-connect` Connect Cloud refuses says so: it prints Connect Cloud's line, and that the Connection stays listed until it is forgotten from the App. It still signs out and deletes the Connection's files.
+- Errors about the Connection no longer name a file: "This Connection is Ada's, not Bob's…" and "This Connection is one of `<cloud>`…".
 
 **Fixed**
 

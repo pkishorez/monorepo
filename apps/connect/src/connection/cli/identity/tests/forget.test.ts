@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync } from 'node:fs';
+import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Effect } from 'effect';
@@ -8,7 +8,7 @@ import { fakeGuard } from '@kestack/auth-toolkit/fake';
 import { SQLite } from '@kestack/std-toolkit/db/sqlite';
 import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
 import { connectionsTable, serveOver } from '../../../../cloud/worker/index.js';
-import { forget, identify } from '../identity.js';
+import { forget, identify, kept } from '../identity.js';
 
 /*
  * Forgetting a Connection, as `ke-connect remove` does, against a Connect
@@ -74,8 +74,7 @@ describe('forgetting a Connection Connect Cloud refuses as Outdated', () => {
     const folder = mkdtempSync(join(tmpdir(), 'connect-forget-'));
     const where = {
       cloud: CLOUD,
-      db: join(folder, 'connect.db'),
-      connectionFile: join(folder, 'connection.json'),
+      db: join(folder, 'ke-connect.db'),
       version: '0.0.6',
     };
     try {
@@ -84,7 +83,7 @@ describe('forgetting a Connection Connect Cloud refuses as Outdated', () => {
           identify({ ...where, firstName: 'laptop', startedAt: 1 }),
         ).pipe(Effect.provideService(FetchHttpClient.Fetch, fake.fetch)),
       );
-      expect(existsSync(where.connectionFile)).toBe(true);
+      expect(await Effect.runPromise(kept(where.db))).not.toBeNull();
 
       await Effect.runPromise(
         forget(where).pipe(
@@ -95,7 +94,7 @@ describe('forgetting a Connection Connect Cloud refuses as Outdated', () => {
         'ke-connect 0.0.6 is older than Connect Cloud accepts (99.0.0): run `npm i -g @kestack/connect@latest`, then start it again.\nConnect Cloud still lists laptop, as this ke-connect is too old to have it forgotten: forget it from the app.',
       ]);
       expect(fake.calls).toContain('/sign-out');
-      expect(existsSync(where.connectionFile)).toBe(false);
+      expect(await Effect.runPromise(kept(where.db))).toBeNull();
     } finally {
       vi.unstubAllGlobals();
     }

@@ -1,7 +1,7 @@
 import { Effect, Scope } from 'effect';
 import type { ConnectionStatus } from '../../../contracts/heartbeat/index.js';
 import { cloud } from './cloud/index.js';
-import { belongsTo, identify } from './identity.js';
+import { identify } from './identity.js';
 
 /*
  * What Identity stands on: the User's account on Connect Cloud, for as long
@@ -16,10 +16,8 @@ import { belongsTo, identify } from './identity.js';
 export interface AccountOptions {
   /** Connect Cloud's base URL. */
   readonly cloud: string;
-  /** The SQLite database file, which keeps the Sign-in. */
+  /** ke-connect.db, which keeps the Connection and its Sign-in. */
   readonly db: string;
-  /** The Connection's connection.json. */
-  readonly connectionFile: string;
   /** This `ke-connect`'s version. */
   readonly version: string;
   /** The Connection's name on this computer. */
@@ -50,7 +48,6 @@ export const account = (options: AccountOptions) =>
     } | null = null;
 
     const signIn = Effect.gen(function* () {
-      yield* belongsTo(options.connectionFile, options.cloud);
       const identified = yield* identify(options);
       const { connection, user, session } = identified;
       yield* Effect.log(`Connection ${connection.name} (${connection.id})`);

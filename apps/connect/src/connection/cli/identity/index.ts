@@ -1,6 +1,5 @@
 export { account, type AccountOptions } from './account.js';
 export {
-  belongsTo,
   type ConnectionFolders,
   connectionFolders,
   connectionNames,
@@ -8,4 +7,5 @@ export {
   forget,
   hostName,
   kept,
+  migrate,
 } from './identity.js';

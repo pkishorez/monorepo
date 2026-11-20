@@ -57,7 +57,7 @@ A folder on a Connection that Sessions run in. It knows whether its folder is th
 _Avoid_: workspace, repo
 
 **Connection**:
-One running Connect on a computer, signed in as one User to one Connect Cloud, with its own tunnel, folders and Plugins. It runs only while its User is signed in. A computer can run several Connections, each by a name of its own there, and each name runs once. It keeps the same id across restarts. One that signed in before starts while Connect Cloud cannot be reached, and reports once it can; its Plugins wait until then.
+One running Connect on a computer, signed in as one User to one Connect Cloud, with its own tunnel, folders and Plugins. It runs only while its User is signed in. A computer can run several Connections, each by a name of its own there, and each name runs once. It keeps the same id across restarts, in `ke-connect.db` with its Sign-in. One that signed in before starts while Connect Cloud cannot be reached, and reports once it can; its Plugins wait until then.
 _Avoid_: machine, server, host, device, instance
 
 **Signed Out**:

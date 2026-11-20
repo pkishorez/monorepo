@@ -1,13 +1,9 @@
-import { chmodSync, existsSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { Console, Context, Effect, Layer } from 'effect';
 import { HeartbeatClient } from './cloud/index.js';
-import {
-  claim,
-  forget as forgetHere,
-  found,
-  ofCloud,
-} from './connection-file/index.js';
+import { claim, forget as forgetHere, found, ofCloud } from './connection.js';
 import { signIn, stored } from './sign-in/index.js';
+import { openStore } from './store/index.js';
 
 export {
   type ConnectionFolders,
@@ -15,29 +11,26 @@ export {
   connectionNames,
   deleteFolders,
 } from './folders.js';
-export { hostName } from './connection-file/index.js';
+export { hostName } from './connection.js';
+export { migrate } from './migrations/index.js';
 
 /*
  * Who this Connection is, before and without its Actor tree: its folders
- * (folders.ts), the one Connection its connection.json is
- * (connection-file/), and the User it is signed in as (sign-in/).
+ * (folders.ts), ke-connect.db (store/) and what moves an older folder into
+ * it (migrations/), the one Connection it keeps (connection.ts), and the
+ * User it is signed in as (sign-in/).
  *
- * `identify` comes first: it signs in, finds the Connection, and gives Connect
- * Cloud's client signed as that User. `forget` undoes both; `kept` reads the
- * Connection without signing in, for `list` and `remove`.
+ * `identify` comes first: it opens ke-connect.db, signs in, finds the
+ * Connection, and gives Connect Cloud's client signed as that User.
+ * `forget` undoes both; `kept` reads the Connection without signing in, for
+ * `list` and `remove`.
  */
-
-/** Fails unless the Connection kept in `connectionFile`, if any, belongs to `cloud`; before anyone signs in. */
-export const belongsTo = (connectionFile: string, cloud: string) =>
-  ofCloud({ file: connectionFile, cloud });
 
 interface Where {
   /** Connect Cloud's base URL. */
   readonly cloud: string;
-  /** The SQLite database file, which keeps the Sign-in. */
+  /** ke-connect.db, which keeps the Connection and its Sign-in. */
   readonly db: string;
-  /** The Connection's connection.json. */
-  readonly connectionFile: string;
   /** This Connect's version. */
   readonly version: string;
 }
@@ -54,32 +47,26 @@ const clientAt = (
     (context) => Context.get(context, HeartbeatClient),
   );
 
-/** Keeps the database 0600 once it is there. */
-const ownDb = (db: string) =>
-  Effect.sync(() => {
-    if (existsSync(db)) chmodSync(db, 0o600);
-  });
-
 /**
  * Signs in and finds which Connection this is, making it on the first run,
  * named `firstName`, for as long as the Scope: the Connection (its id and
  * name), the User, the Sign-in, and Connect Cloud's client signed with it.
+ * A Connection of another Connect Cloud is refused before anyone signs in.
  */
 export const identify = (
   options: Where & { readonly firstName: string; readonly startedAt: number },
 ) =>
   Effect.gen(function* () {
-    const session = yield* signIn(options);
+    const store = yield* openStore(options.db);
+    yield* ofCloud(store, options.cloud);
+    const session = yield* signIn({ ...options, store });
     const owner = { id: session.user.id, email: session.user.email };
-    const connection = yield* claim({
-      file: options.connectionFile,
+    const connection = yield* claim(store, {
       owner,
       cloud: options.cloud,
       firstName: options.firstName,
       startedAt: options.startedAt,
     });
-    // Signing in opened the database first.
-    yield* ownDb(options.db);
     const client = yield* clientAt(options, session.signing);
     return { ...options, connection, user: session.user, session, client };
   });
@@ -94,9 +81,9 @@ export const identify = (
 export const forget = (options: Where) =>
   Effect.scoped(
     Effect.gen(function* () {
-      const kept = { file: options.connectionFile };
-      const connection = yield* found(kept);
-      const session = yield* stored(options);
+      const store = yield* openStore(options.db);
+      const connection = yield* found(store);
+      const session = yield* stored({ ...options, store });
       if (connection !== null && session.signing !== null) {
         const client = yield* clientAt(options, session.signing);
         yield* client.Forget({ id: connection.id }).pipe(
@@ -114,9 +101,12 @@ export const forget = (options: Where) =>
         );
       }
       yield* session.signOut;
-      yield* forgetHere(kept);
+      yield* forgetHere(store);
     }),
   );
 
-/** The Connection kept in `connectionFile`, without signing in; null when there is none yet. */
-export const kept = (connectionFile: string) => found({ file: connectionFile });
+/** The Connection kept in `db`, without signing in; null when there is none yet. A `db` not there is not made. */
+export const kept = (db: string) =>
+  existsSync(db)
+    ? Effect.scoped(Effect.flatMap(openStore(db), found))
+    : Effect.succeed(null);

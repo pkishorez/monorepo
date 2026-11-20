@@ -22,6 +22,7 @@ import {
   forget,
   hostName,
   kept,
+  migrate,
 } from './identity/index.js';
 import { DEFAULT_ORIGINS } from '../../contracts/link/index.js';
 import { run } from './run.js';
@@ -139,10 +140,11 @@ const serve = (options: ServeFlags) =>
     const serving = Effect.gen(function* () {
       yield* Effect.log(`ke-connect ${version}: ${options.name}`);
       yield* Effect.log(`data in ${own.data}`);
+      // It alone holds the control socket, so no other ke-connect uses the folder.
+      yield* migrate(own.data);
       const signedIn = yield* account({
         cloud: options.cloud,
         db: own.db,
-        connectionFile: own.connectionFile,
         version,
         name: options.name,
         firstName:
@@ -204,9 +206,7 @@ const list = () =>
     for (const name of names) {
       const own = yield* connectionFolders(name);
       const running = yield* runningOf(own);
-      const record = yield* kept(own.connectionFile).pipe(
-        Effect.orElseSucceed(() => null),
-      );
+      const record = yield* kept(own.db).pipe(Effect.orElseSucceed(() => null));
       yield* Console.log(
         [
           name,
@@ -249,14 +249,19 @@ const remove = (name: string) =>
         }),
       );
     }
-    const record = yield* kept(own.connectionFile).pipe(
-      Effect.orElseSucceed(() => null),
+    // Stopped, so no other ke-connect uses the folder: one still in the old
+    // layout is moved first, so it is forgotten in Connect Cloud too. One
+    // that cannot be moved is still removed.
+    yield* migrate(own.data).pipe(
+      Effect.catch((error) =>
+        Effect.logWarning(`Could not read ${name}'s old files`, error),
+      ),
     );
+    const record = yield* kept(own.db).pipe(Effect.orElseSucceed(() => null));
     if (record !== null)
       yield* forget({
         cloud: record.cloud,
         db: own.db,
-        connectionFile: own.connectionFile,
         version,
       }).pipe(
         Effect.catch((error) =>

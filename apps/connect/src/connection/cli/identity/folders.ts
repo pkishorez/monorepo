@@ -6,9 +6,8 @@ import { folders, names, socketPath } from '@kestack/cli-platform/files';
 
 /*
  * Where each Connection keeps its files, as cli-platform lays them out for
- * the app `connect`: its data folder holds `connection.json`,
- * `connect.db`, the Sign-in, with `auth.json` beside it, and each Plugin's
- * data; its state folder holds
+ * the app `connect`: its data folder holds `ke-connect.db`, the
+ * Connection and its Sign-in, and each Plugin's data; its state folder holds
  * the logs; the cache is shared by every Connection; its sockets are in the
  * runtime folder, named by the first 8 characters of the sha256 of its
  * name, since names such as `worktree-agent-…` share their first ones.
@@ -27,8 +26,7 @@ export const connectionFolders = (name: string) =>
         ...own,
         name,
         socketId,
-        connectionFile: join(own.data, 'connection.json'),
-        db: join(own.data, 'connect.db'),
+        db: join(own.data, 'ke-connect.db'),
         log: join(own.state, 'connect.log'),
         /** The control socket, which the running Connection holds. */
         control: socketPath(own.runtime, socketId, CONTROL),

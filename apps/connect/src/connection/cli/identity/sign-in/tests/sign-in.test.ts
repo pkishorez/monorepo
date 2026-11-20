@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Effect, Layer } from 'effect';
@@ -12,6 +12,7 @@ import {
   serveOver,
 } from '../../../../../cloud/worker/index.js';
 import { HeartbeatClient } from '../../cloud/index.js';
+import { authWorker, openStore, type Store } from '../../store/index.js';
 import { signIn } from '../index.js';
 
 /*
@@ -79,8 +80,12 @@ const fakes = async () => {
   return { auth, stalled, calls, fetch };
 };
 
-const keptAuth = (db: string) =>
-  JSON.parse(readFileSync(join(db, '..', 'auth.json'), 'utf8')) as unknown;
+/** The Auth Worker ke-connect.db keeps. */
+const keptAuth = (store: Store) =>
+  Effect.map(
+    Effect.provide(authWorker.get(), store.table),
+    ({ value }) => value.authWorker,
+  );
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -91,14 +96,19 @@ describe('signIn', () => {
     vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     const db = join(
       mkdtempSync(join(tmpdir(), 'connect-sign-in-')),
-      'connect.db',
+      'ke-connect.db',
     );
     await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
-          const session = yield* signIn({ cloud: CLOUD, db, version: '0.0.0' });
+          const store = yield* openStore(db);
+          const session = yield* signIn({
+            cloud: CLOUD,
+            store,
+            version: '0.0.0',
+          });
           expect(session.user).toMatchObject({ id: 'ada' });
-          expect(keptAuth(db)).toEqual({
+          expect(yield* keptAuth(store)).toEqual({
             cloud: CLOUD,
             url: 'https://auth-a.test',
           });
@@ -110,7 +120,7 @@ describe('signIn', () => {
           const again = yield* session.signInAgain;
           expect(again).toMatchObject({ id: 'ada' });
           expect(fake.calls).toContain('https://auth-b.test/device/token');
-          expect(keptAuth(db)).toEqual({
+          expect(yield* keptAuth(store)).toEqual({
             cloud: CLOUD,
             url: 'https://auth-b.test',
           });

@@ -1,20 +1,19 @@
 import { Context, Data, Effect, Layer } from 'effect';
 import { Accounts, type AccountsState } from '@kestack/auth-toolkit/client';
 import { device } from '@kestack/auth-toolkit/client/device';
-import { keepAuthInfo, keptAuthInfo } from './auth-file.js';
-import { authInfo } from './auth-info.js';
-import { signInStore } from './sign-in-store.js';
+import type { Store } from '../store/index.js';
+import { authInfo, keepAuthInfo, keptAuthInfo } from './auth-info.js';
 
 /*
  * How a Connection signs in to Connect Cloud, which says how when asked
  * (auth-info.ts): through the Auth Worker it names, as a Device whose one
- * Sign-in is kept in the database file and reused on later runs. The
- * result signs every Connect Cloud call with a bearer.
+ * Sign-in is kept in ke-connect.db and reused on later runs. The result
+ * signs every Connect Cloud call with a bearer.
  *
- * What Connect Cloud says is kept beside the Sign-in (auth-file.ts), so a
- * Connection started while Connect Cloud cannot be asked signs in as it
- * last did, with the Sign-in it kept, and starts offline. A first Sign-in
- * still needs Connect Cloud.
+ * What Connect Cloud says is kept beside the Sign-in, so a Connection
+ * started while Connect Cloud cannot be asked signs in as it last did, with
+ * the Sign-in it kept, and starts offline. A first Sign-in still needs
+ * Connect Cloud.
  */
 
 /** Signing in could not go ahead as asked. */
@@ -25,8 +24,8 @@ export class SignInRefused extends Data.TaggedError('SignInRefused')<{
 export interface SignInOptions {
   /** Connect Cloud's base URL. */
   readonly cloud: string;
-  /** The database file, which keeps the Sign-in. */
-  readonly db: string;
+  /** ke-connect.db, open, which keeps the Sign-in. */
+  readonly store: Store;
   readonly version: string;
 }
 
@@ -39,7 +38,7 @@ const DISCOVERY = '5 seconds';
 const CHECKING = '5 seconds';
 
 /** How `cloud` says to sign in, kept for the next run; as it last said when it cannot be asked. */
-const discover = (options: Pick<SignInOptions, 'cloud' | 'db'>) =>
+const discover = (options: Pick<SignInOptions, 'cloud' | 'store'>) =>
   authInfo(options.cloud).pipe(
     // A Connect Cloud that takes the call and never answers is one that
     // cannot be asked.
@@ -52,9 +51,9 @@ const discover = (options: Pick<SignInOptions, 'cloud' | 'db'>) =>
           ),
         ),
     }),
-    Effect.tap((info) => keepAuthInfo(options.db, options.cloud, info)),
+    Effect.tap((info) => keepAuthInfo(options.store, options.cloud, info)),
     Effect.catch((error) =>
-      Effect.flatMap(keptAuthInfo(options.db, options.cloud), (kept) =>
+      Effect.flatMap(keptAuthInfo(options.store, options.cloud), (kept) =>
         kept === null
           ? Effect.fail(error)
           : Effect.as(
@@ -70,19 +69,18 @@ const discover = (options: Pick<SignInOptions, 'cloud' | 'db'>) =>
 const activeOf = (state: AccountsState) =>
   state._tag === 'SignedIn' ? state.active : null;
 
-/** auth-toolkit's Device for the Auth Worker `url` names at each call, its one Sign-in kept in the database file: its Context, and its Accounts. */
+/** auth-toolkit's Device for the Auth Worker `url` names at each call, its one Sign-in kept in ke-connect.db: its Context, and its Accounts. */
 const deviceAt = (
-  options: Pick<SignInOptions, 'db' | 'version'>,
+  options: Pick<SignInOptions, 'store' | 'version'>,
   url: Effect.Effect<string>,
 ) =>
   Effect.gen(function* () {
-    const storage = yield* signInStore(options.db);
     const context = yield* Layer.build(
       device({
         url,
         app: APP,
         version: options.version,
-        storage,
+        storage: options.store.signIn,
         maxAccounts: 1,
       }),
     );

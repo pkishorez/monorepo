@@ -1,7 +1,13 @@
 import { Effect, Schema } from 'effect';
 import { AUTH_PATH, AuthInfo } from '../../../../contracts/heartbeat/index.js';
+import { authWorker, type Store } from '../store/index.js';
 
-/* How Connect Cloud says to sign in, asked at its `GET /auth`. */
+/*
+ * How Connect Cloud says to sign in, asked at its `GET /auth`, and what it
+ * last said, kept in ke-connect.db with the Connect Cloud that said it: a
+ * Connection started while Connect Cloud cannot be asked signs in the same
+ * way, with the Sign-in it kept.
+ */
 
 /** `base` without a trailing slash, then `path`. */
 const at = (base: string, path: string) => `${base.replace(/\/+$/, '')}${path}`;
@@ -33,6 +39,37 @@ export const authInfo = (cloud: string) =>
       Effect.mapError(
         Schema.decodeUnknownEffect(AuthInfo.schema)(body),
         (cause) => new Error(`${cloud} gave no AuthInfo`, { cause }),
+      ),
+    ),
+  );
+
+/** The AuthInfo `cloud` last gave; null when it gave none, or the store cannot say, with a warning. */
+export const keptAuthInfo = (store: Store, cloud: string) =>
+  authWorker.get().pipe(
+    Effect.map(({ value }): AuthInfo | null =>
+      value.authWorker?.cloud === cloud ? { url: value.authWorker.url } : null,
+    ),
+    Effect.provide(store.table),
+    Effect.catch((error) =>
+      Effect.as(
+        Effect.logWarning(
+          'Could not read the Auth Worker kept; it is ignored',
+          error,
+        ),
+        null,
+      ),
+    ),
+  );
+
+/** Keeps `info` as the AuthInfo `cloud` gave; a failure is only logged. */
+export const keepAuthInfo = (store: Store, cloud: string, info: AuthInfo) =>
+  authWorker.put({ authWorker: { cloud, url: info.url } }).pipe(
+    Effect.provide(store.table),
+    Effect.asVoid,
+    Effect.catch((error) =>
+      Effect.logWarning(
+        'Could not keep the Auth Worker Connect Cloud named',
+        error,
       ),
     ),
   );

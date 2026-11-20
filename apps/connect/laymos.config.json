@@ -13,6 +13,12 @@
     "src/connection/cli/actor-identity/actor-connection": [
       "src/connection/cli/actor-identity/capabilities"
     ],
+    "src/connection/cli/identity/migrations": [
+      "src/connection/cli/identity/store"
+    ],
+    "src/connection/cli/identity/sign-in": [
+      "src/connection/cli/identity/store"
+    ],
     "src/connection/cli/control": [
       "src/connection/cli/actor-identity/capabilities"
     ],
