@@ -42,12 +42,18 @@ export const SnapshotRecord = ESchema.make('__snapshot', {
   primary: Schema.Struct({ pk: Schema.String, sk: Schema.String }),
   localSecondaryIndexes: Schema.Array(IndexRecord),
   globalSecondaryIndexes: Schema.Array(IndexRecord),
+})
   /**
    * The hash of the code's snapshot, set by the last write of a setup, once
    * every item is as that code has it; null while a setup writes the others.
+   * An item from before the hash reads as null, so its table is checked in
+   * full once.
    */
-  hash: Schema.NullOr(Schema.String),
-}).build();
+  .evolve('v2', { hash: Schema.NullOr(Schema.String) }, (v1) => ({
+    ...v1,
+    hash: null,
+  }))
+  .build();
 
 /** One item per entity, keyed by its name, as a table snapshot records it. */
 export const SnapshotEntityRecord = EntityESchema.make(
