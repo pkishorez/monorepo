@@ -55,36 +55,72 @@ fake mode, bar what a browser cannot do, listed.
   `engine/services/file-system/` with the key, `node.ts` (node:fs) and
   `fake/` (a tree of entries over a std-toolkit table, one per computer).
   Folders and attachments (Disk) become real code over it. Controls: add a
-  sample project (a git repo with branches and files), add a folder, make a
-  folder unreadable / readable.
+  sample project (a git repo with branches and files), add a folder (a
+  hidden one, many at once to pass the 100 a listing holds), make a
+  folder unreadable / readable, make a folder fail to list (`FolderUnreadable`),
+  remove or move a folder and put it back (a Project's folder missing),
+  add a symlink (inside home, or pointing outside it).
 - **Git edge** stays (the git command). Its fake keeps state where git
   does, in the File System: `.git/HEAD`, `.git/refs/heads/*`, worktrees.
+  Its Controls are the File System Fake's, as its state is: switch a
+  repo's branch outside Code, add a local or an Origin branch (seen after
+  the next fetch), push a branch (so its `ke-code/<slug>` rename is
+  skipped), make the next git step fail (`GitFailed`), git missing.
 - **Harness sign-ins** (`binaryAt`, `checkBinary`, `configFolderOf`) go
   behind one key in ai-toolkit's harness; the real one under `/node`. The
   code Plugin's harness accounts take it from outside.
 - **Agent**: one fake harness in `ai-toolkit/harness/fake`, playing Claude
   Code, Codex or both (data, not code): installed, signed in, accounts,
   models from the real catalog, the next reply from a Script. Scripts are
-  recorded from real runs, at the Harness contract level.
+  recorded from real runs, at the Harness contract level. Controls the
+  checklist adds: not installed (with its reason), not signed in (Turns
+  fail with the harness's login error, models fall back to models.dev),
+  which binary paths run (`InvalidBinary` on save), a config folder from
+  the computer's environment (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`), models
+  fail, Skills per folder or failing, fails to open (`HarnessFailed` on
+  start), hang until stopped, a Title (and its regeneration failing), a Btw
+  answer or `AskFailed`, context usage and plan limits, a Turn the agent
+  starts on its own, a Background Job's output and end (done, failed),
+  stopping a job fails, a question answered elsewhere, answering fails.
 - **Speech**: `ai-toolkit/speech/fake`: download fails, what a Take turns
-  into.
+  into; and download progress, words heard as it goes, nothing heard,
+  transcription fails, stops answering (a Take timing out).
 - **Sign-in**: auth-toolkit keeps one Sign-in fake (`@kestack/auth-toolkit/fake`).
   Test Users go (the test sign-in form, `testUsers`, `isTestEmail`, the test
   label, `TEST_USERS_OFF`), and so do the `kestack-fake-auth` export
   condition and its doors, web-platform's `dev-auth`, Connect's fake dev
   sign-in, and `dev:real`. The production check stays, generalised: a
-  production bundle carrying any fake fails.
+  production bundle carrying any fake fails. Controls: sign in as (or
+  cancel), sign-in fails, sign out / switch / add an Account from another
+  tab, Auth Worker out of reach (slow, then answering another).
 - **Computers**: `@kestack/connect/fake`. The list of computers, whether
-  each is online, and more as the checklist asks (an older `ke-connect`,
-  another Release, an expired key). Each computer owns its File System fake.
+  each is online, and more as the checklist asks. Each computer owns its File System fake.
   `@kestack/connect/browser` runs Connect Cloud and a code Plugin per online
   computer in the tab, and sends each online computer's heartbeat to the
-  real Cloud handlers, as `ke-connect` would.
+  real Cloud handlers, as `ke-connect` would. Controls: add a computer
+  (Computer Name, `ke-connect` version) and remove it; online / offline,
+  with its last seen pushed back so it is Down at once; tunnel state
+  (SettingUp: Downloading with progress, Opening, Failed; Ready: Unchecked,
+  Reachable, Unreachable with a problem); tunnel moves to a new address;
+  key rotates (`KEY_EXPIRED`); update `ke-connect`; runs another Release of
+  the code Plugin (`PLUGIN_MISMATCH`); restart (a running Turn ends
+  interrupted and is Resumed, jobs and Takes are cut off); forgets itself
+  (Heartbeat `Forget`); and a Forget from Code must stop it
+  (`ConnectionForgotten`). Connect Cloud's own: out of reach / back, the
+  Minimum Connect, the code Plugin's wanted Release (this Code's, another,
+  or one it has never heard of), forget or rename a computer as from
+  another device; and another device acts (starts a Session, settles one,
+  answers a question), a client of the in-tab code Plugin.
 - **Code's own edges come from the root**: `Recorder` (built today inside
   the Voice Actor) and the socket opener (built today inside the Account
   Actor, `reach`) come from `start.tsx`'s Layer, like `Accounts` and
   `CloudClient`. Microphone fake beside the recorder (`recorder/fake/`),
-  New build fake beside web-platform's PWA (`pwa/fake/`).
+  New build fake beside web-platform's PWA (`pwa/fake/`). Microphone
+  Controls: inputs (add, remove or unplug, the system default), permission
+  (prompt, allowed, denied), slow to open, broken, blocked (as iOS Safari),
+  loud or silent. New build Controls: a newer build out or none; moving to
+  the newest build (`OnOutdated`, Code Stale) must end the Stale world, or
+  each load reloads again.
 - **A reload keeps the world**: in fake mode the tables are on IndexedDB,
   and the Fake World saves each Fake's Snapshot on change and starts from it
   (`Runtime.make({ snapshot })`). A reply running at reload ends interrupted,
@@ -214,6 +250,7 @@ connected.
 
 ## Progress
 
-| Task | Status | Commit | Notes    |
-| ---- | ------ | ------ | -------- |
-| 0    | done   |        | this doc |
+| Task | Status | Commit | Notes                                                                                    |
+| ---- | ------ | ------ | ---------------------------------------------------------------------------------------- |
+| 0    | done   |        | this doc                                                                                 |
+| 1    | done   |        | `fake-mode-checklist.md`, 13 areas; Controls added above; open: two tabs run two middles |
