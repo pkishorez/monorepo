@@ -29,6 +29,7 @@ import {
   mismatchTold,
   RELINK_SLOWLY,
   relinkDue,
+  opened,
   relinksSlowly,
   Sockets,
   standingAnswered,
@@ -206,14 +207,7 @@ const said = (connectionId: string) =>
 
 /** 6. Sync: the one socket to the Connection, open for as long as it runs. */
 const socket = (connectionId: string) =>
-  Layer.effect(
-    CodeClients,
-    Effect.gen(function* () {
-      const clients = yield* (yield* Sockets).open;
-      yield* clients.hold(connectionId);
-      return clients;
-    }),
-  );
+  Layer.effect(CodeClients, opened(connectionId));
 
 export const ConnectionLive = Connection.build({
   init: ({ accountId, connectionId }) => ({

@@ -54,7 +54,10 @@ Read it depth first: a part, then what is inside it, then the next part.
 
 Kabuki Start draws the app: the router, the root page's View, the Document,
 and what lives as long as the page. It gives `Accounts` (who is signed in),
-`CloudClient` (Connect Cloud), `Preferences`, `Storage` and `OnOutdated`.
+`CloudClient` (Connect Cloud), `Preferences`, `Storage` and `OnOutdated`,
+and the page's edges to the outside world: `Recorder` (the browser's
+microphone) and `Sockets` (what opens a Connection's WebSocket). Each key
+stays where it is used; only its real Layer is built here.
 
 ### `app/` ◆ the root page
 
@@ -138,6 +141,7 @@ outside `Active`. Everything else borrows it while it runs.
 
 1. **`link/`**: how it is reached: `reach/` (its socket, at the code
    Plugin's Release this Code was built with, what opens it, `Sockets`,
+   which `start.tsx` gives,
    how the pages borrow it, `borrow.ts`, and who is behind when it runs
    another), `health/` (how it stands) and `refusal/` (why a call was
    refused).
@@ -168,7 +172,8 @@ two Exceptions.
    `voice/` ◆, recording from anywhere, which lives as long as the header,
    around every page: `dictation/` ◆ (the one Dictation, and its Takes),
    `microphone/` ◆ (the Microphone Picker) and `recorder/` (the browser's
-   microphone, which the other two use). Voice gives `Recorder`; the
+   microphone, which the other two use, its key and the browser's Layer
+   `start.tsx` gives as `Recorder`); the
    header shows its cancel while a Dictation is going.
 3. **`pickers/`** ◆: what the keys open: `projects/` ◆ (the Project
    Picker, and the folders it lists), `sessions/` ◆ (the Session Switcher)

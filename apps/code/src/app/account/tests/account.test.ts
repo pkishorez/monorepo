@@ -19,6 +19,7 @@ import {
 import {
   CodeClient,
   CodeClients,
+  type ConnectionAddress,
   KEY_EXPIRED,
   PLUGIN_MISMATCH,
 } from '@kestack/connect/code';
@@ -51,7 +52,7 @@ import {
   type SetupParts,
 } from '../account.ts';
 import {
-  accountWith,
+  AccountLive,
   CHECK_FOR,
   knownOf,
   ON_ITS_WAY,
@@ -60,14 +61,8 @@ import {
   type Who,
   whoOf,
 } from '../actor.ts';
-import { PLUGIN_CODE } from '../connection/link/index.ts';
-import {
-  addressAt,
-  borrowing,
-  byConnection,
-  RELINK_SLOWLY,
-  Sockets,
-} from '../connection/link/reach/index.ts';
+import { RELINK_SLOWLY, Sockets } from '../connection/link/reach/index.ts';
+import { Recorder, recorder } from '../frame/header/voice/recorder/index.ts';
 import { ListShelf } from '../commands.ts';
 import { SetupShelf } from '../connection/commands.ts';
 
@@ -129,34 +124,33 @@ const signedIn = (active: string, ...others: ReadonlyArray<string>) =>
     accounts: [active, ...others].map(person),
   });
 
-/** The page of `a1`, at `page` under it, as the root page holds it. */
+/**
+ * The page of `a1`, at `page` under it, as the root page holds it, with
+ * what the page's root Layer gives it: what opens each socket, `clients`
+ * at the address asked, and the browser's microphone.
+ */
 const OwnerOf = (
-  clients: Layer.Layer<CodeClients, never, never>,
+  clients: Layer.Layer<CodeClients, never, ConnectionAddress>,
   page: unknown,
 ) =>
   Actor.define('Owner', {}).build({
+    provides: {
+      capabilities: [Sockets, Recorder],
+      layer: () => Layer.merge(Sockets.from(clients), recorder),
+    },
     children: {
-      account: Actor.child(
-        accountWith(
-          Layer.mergeAll(
-            byConnection,
-            borrowing,
-            Sockets.from(clients),
-          ) as never,
-        ),
-        {
-          props: () => ({
+      account: Actor.child(AccountLive, {
+        props: () => ({
+          params: { accountId: 'a1' },
+          query: {},
+          route: {
+            name: 'Account',
             params: { accountId: 'a1' },
-            query: {},
-            route: {
-              name: 'Account',
-              params: { accountId: 'a1' },
-              ...(page === undefined ? {} : { page: page as never }),
-              notFound: null,
-            },
-          }),
-        },
-      ),
+            ...(page === undefined ? {} : { page: page as never }),
+            notFound: null,
+          },
+        }),
+      }),
     },
   });
 
@@ -1466,10 +1460,7 @@ describe('the Account, its socket refused for its Release', () => {
     vi.stubGlobal('WebSocket', WebSocket);
     const the = world(Effect.succeed([connection('m1', Date.now())]));
     the.standing.answer = () => Effect.succeed({ _tag: tag });
-    const OwnerLive = OwnerOf(
-      CodeClients.layer.pipe(Layer.provide(addressAt(PLUGIN_CODE))) as never,
-      undefined,
-    );
+    const OwnerLive = OwnerOf(CodeClients.layer, undefined);
     await run(
       Effect.gen(function* () {
         yield* start({ OwnerLive, layer: the.layer, over: the.over });
@@ -1524,10 +1515,7 @@ describe('the Account, a Connection Outdated', () => {
         { ...connection('m1', Date.now()), version, minConnect: '0.0.2' },
       ]),
     );
-    const OwnerLive = OwnerOf(
-      CodeClients.layer.pipe(Layer.provide(addressAt(PLUGIN_CODE))) as never,
-      undefined,
-    );
+    const OwnerLive = OwnerOf(CodeClients.layer, undefined);
     const linkOf = (app: Runtime) =>
       (list(app).model as { readonly links: Readonly<Record<string, string>> })
         .links.m1;
@@ -1689,10 +1677,7 @@ describe('the Account, its Connection Key expired', () => {
         ];
       }),
     );
-    const OwnerLive = OwnerOf(
-      CodeClients.layer.pipe(Layer.provide(addressAt(PLUGIN_CODE))) as never,
-      undefined,
-    );
+    const OwnerLive = OwnerOf(CodeClients.layer, undefined);
     await run(
       Effect.gen(function* () {
         const app = yield* start({ OwnerLive, layer, over });
