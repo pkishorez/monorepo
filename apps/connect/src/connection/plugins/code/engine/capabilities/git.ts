@@ -5,8 +5,9 @@ import { Context, Data, type Effect } from 'effect';
  * Session's branch, and the few changes a start or a Title makes. Git
  * missing or failing reads as "not git" everywhere: a question answers
  * null, and a fetch is dropped. Only a change fails, with GitError, which a
- * start refuses on. The implementation is services/git/, the only code
- * that runs git.
+ * start refuses on. The implementation is services/git/: `git.ts` runs
+ * the git on PATH, the only code that does; `fake/` reads and writes `.git`
+ * in a browser tab's fake File System.
  */
 
 /** What every branch a Session's new Worktree is made on starts with. */

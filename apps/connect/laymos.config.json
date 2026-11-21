@@ -57,6 +57,9 @@
       "src/connection/plugins/code/engine/capabilities",
       "src/connection/plugins/code/engine/paths"
     ],
+    "src/connection/plugins/code/engine/services/git/fake": [
+      "src/connection/plugins/code/engine/services/file-system/fake"
+    ],
     "src/contracts/app-api": ["src/contracts/heartbeat"]
   },
   "exceptions": [
