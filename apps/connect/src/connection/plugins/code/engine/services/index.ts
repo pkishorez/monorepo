@@ -22,3 +22,4 @@ export {
   OutsideHome,
   PermissionDenied,
 } from './folders/index.js';
+export { nodeFileSystem } from './file-system/index.js';
