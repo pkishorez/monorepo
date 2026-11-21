@@ -22,8 +22,8 @@ import {
   TranscriptionFailed,
   UnknownAccount,
   type StartStep,
-} from '../api/contract/index.js';
-import { Engine } from '../engine/index.js';
+} from '../../api/contract/index.js';
+import { Engine } from '../../engine/index.js';
 import { Speech } from '@kestack/ai-toolkit/speech';
 import { Harnesses, Models } from '@kestack/ai-toolkit/harness';
 import { JsonSchema } from '@kestack/ai-toolkit/contract';
@@ -33,6 +33,9 @@ import * as Read from './feeds.js';
  * The API's handlers. Commands go to the Engine, which hands them to its
  * actors, and Speech to Text's to Speech; feeds read the Store; none
  * decides anything itself. Their failures become the contract's errors of the same name.
+ *
+ * Browser-safe, as the Engine is: serve/ runs them on a computer, over its
+ * Node edges, and `@kestack/connect/browser` in a tab, over fakes.
  */
 
 type Listed = Effect.Error<ReturnType<Engine['Service']['listFolder']>>;

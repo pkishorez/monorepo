@@ -8,14 +8,15 @@ import { sherpa, speechLayer } from '@kestack/ai-toolkit/speech/node';
 import { CodeApi } from '../api/contract/index.js';
 import { Engine } from '../engine/index.js';
 import { nodeEdges, storeLayer } from '../engine/node.js';
-import { CodeApiLive } from './handlers.js';
+import { CodeApiLive } from './handlers/index.js';
 
 /*
  * The code Plugin: what a Connection runs for Code. The Store on its
  * SQLite file, the engine over it, the harnesses and this computer's edges
  * (engine/node.ts), Attachments, Folders under the home folder, new
  * Worktrees, the models each harness runs, Speech to Text, and the API's
- * handlers over them. Whoever serves it, main.ts on the socket
+ * handlers over them (handlers/, which a browser tab runs too). Whoever
+ * serves it, main.ts on the socket
  * Connect gives, says where each file goes; left out, they sit beside the
  * database. When it stops, the engine stops every turn, and the Store
  * closes last.
