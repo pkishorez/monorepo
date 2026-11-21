@@ -1,23 +1,30 @@
-import { Context, Effect, Layer } from 'effect';
+import { Context, Effect, Layer, Schedule } from 'effect';
 import type { StdTableService } from '@kestack/std-toolkit/db';
 import type { IDBTableSource } from '@kestack/std-toolkit/db/idb';
 import { Memory } from '@kestack/std-toolkit/db/memory';
 import type { Dial } from '@kestack/rpc-toolkit/rpc/websocket';
-import type { CloudClient } from '../cloud/client/index.js';
+import { addressOf, CloudClient } from '../cloud/client/index.js';
 import { connectionsTable } from '../cloud/worker/store/index.js';
 import {
   CodeClients,
-  type ConnectionAddress,
+  ConnectionAddress,
+  pluginPath,
 } from '../connection/plugins/code/api/index.js';
 import { aiTable } from '../connection/plugins/code/engine/index.js';
 import { cloudOver, type CloudOptions } from './cloud.js';
-import { Computers } from './computers/index.js';
+import {
+  type AgentEdges,
+  Computers,
+  type ConnectCloud,
+} from './computers/index.js';
 import { runs } from './runs.js';
 
 /*
  * Connect in a browser tab, for fake mode: everything between an App and
- * the computers runs here for real, and only the computers themselves are
- * given, as `Computers`.
+ * the computers runs here for real, and only the outside world is given:
+ * the computers (`Computers`), what Connect Cloud is deployed with
+ * (`ConnectCloud`), and the Agent's and Speech's edges every computer's
+ * code Plugin shares (`AgentEdges`).
  *
  * 1. Cloud    Connect Cloud's handlers over its table, in-process
  *             (cloud.ts): `CloudClient`, which an App calls as it calls
@@ -26,14 +33,19 @@ import { runs } from './runs.js';
  *             to that Connect Cloud, so it is listed, Ready at its tunnel's
  *             address, and Down once it stops reporting (runs.ts).
  * 3. Plugin   each online computer's code Plugin, the real Engine and
- *             handlers over the computer's edges, started for its first
- *             socket and shared by every other, stopped as the computer
- *             goes offline, is removed or starts again.
+ *             handlers over the computer's edges and the shared ones,
+ *             started for its first socket and shared by every other,
+ *             stopped as the computer goes offline, is removed or starts
+ *             again.
  * 4. Tunnels  what dials a computer's tunnel, `https://<name>.computers.fake`:
  *             a socket held in memory, answered as `ke-connect`'s server
  *             answers it (key, Release), so an App's own socket code runs
  *             as it does over the network. `tunnelClients` is `CodeClients`
  *             over them, in place of `CodeClients.layer`.
+ * 5. Another  once it all runs, `Computers` is given how another device
+ *             of the signed-in User reaches it: Connect Cloud's client, and
+ *             each Connection's code Plugin at the App's Release, at the
+ *             address Connect Cloud lists.
  *
  * Each table is kept by `tables`, by the name of its database: Connect
  * Cloud's, and each computer's code Plugin's own. Memory unless given.
@@ -62,13 +74,20 @@ export class Tunnels extends Context.Service<
   { readonly dial: Dial }
 >()('@kestack/connect/Tunnels') {}
 
+/** How often another device asks Connect Cloud for a Connection's address, until it is listed up at one. */
+const UNTIL_LISTED = Schedule.spaced('1 second');
+
 /**
- * Connect in this tab over `Computers`: Connect Cloud's client, and what
- * dials the computers' tunnels, for as long as the Layer.
+ * Connect in this tab over the outside world: Connect Cloud's client, and
+ * what dials the computers' tunnels, for as long as the Layer.
  */
 export const inTab = (
   options: InTabOptions = {},
-): Layer.Layer<CloudClient | Tunnels, never, Computers> =>
+): Layer.Layer<
+  CloudClient | Tunnels,
+  never,
+  Computers | ConnectCloud | AgentEdges
+> =>
   Layer.unwrap(
     Effect.gen(function* () {
       const kept = new Map<string, unknown>();
@@ -88,12 +107,43 @@ export const inTab = (
         tableIn(connectionsTable, 'connect-cloud'),
         options,
       );
-      const { dial } = yield* runs(yield* Computers, {
+      const computers = yield* Computers;
+      const { dial } = yield* runs(computers, {
         heartbeat: cloud.heartbeat,
+        pushBack: cloud.pushBack,
         storeOf: (id) => tableIn(aiTable, `code-plugin ${id}`),
+        shared: Layer.succeedContext(yield* Effect.context<AgentEdges>()),
         every: HEARTBEAT,
       });
-      return Layer.merge(cloud.client, Layer.succeed(Tunnels, { dial }));
+
+      // 5. Another
+      const release = options.wanted?.['code']?.hash;
+      const address = Layer.succeed(ConnectionAddress, {
+        of: (id) =>
+          Effect.gen(function* () {
+            const listed = yield* cloud.client.List({});
+            const found = listed.find((each) => each.id === id);
+            const tunnel = found && addressOf(found.status);
+            if (!found || !tunnel || release === undefined)
+              return yield* Effect.fail('not up yet');
+            return {
+              url: `${tunnel}${pluginPath('code', release)}`,
+              key: found.key,
+            };
+          }).pipe(Effect.retry(UNTIL_LISTED), Effect.orDie),
+      });
+      const code = yield* Layer.build(
+        CodeClients.dialing(dial).pipe(Layer.provide(address)),
+      );
+      yield* computers.anotherDevice({
+        cloud: cloud.client,
+        code: Context.get(code, CodeClients),
+      });
+
+      return Layer.mergeAll(
+        Layer.succeed(CloudClient, cloud.client),
+        Layer.succeed(Tunnels, { dial }),
+      );
     }),
   );
 
