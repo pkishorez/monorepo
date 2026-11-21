@@ -1,1 +1,1 @@
-export { nodeFolders } from './folders.js';
+export { homeFolders } from './folders.js';

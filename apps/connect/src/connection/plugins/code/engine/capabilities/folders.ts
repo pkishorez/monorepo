@@ -5,8 +5,8 @@ import { Context, Data, type Effect } from 'effect';
  * below it, never anything above. `list` reads one folder's sub-folders
  * the way a picker walks them; `create` makes one new folder in a folder
  * that exists, never its parents. Every path is checked inside home with
- * its symlinks resolved. The implementation is services/folders/, on this
- * computer's disk.
+ * its symlinks resolved. The implementation is services/folders/, over
+ * the File System, whose home it is: the engine runs it itself.
  */
 
 export class FolderNotFound extends Data.TaggedError('FolderNotFound')<{
@@ -30,11 +30,6 @@ export class FolderUnreadable extends Data.TaggedError('FolderUnreadable')<{
   readonly path: string;
   readonly message: string;
 }> {}
-
-export interface FoldersOptions {
-  /** The folder nothing may leave. */
-  readonly home: string;
-}
 
 /** One folder's sub-folders, name-sorted, at most 100 of them. */
 export interface Listing {

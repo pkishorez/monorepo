@@ -20,7 +20,7 @@ import {
 
 /*
  * The File System of this computer, over `node:fs/promises`, home as
- * `node:os` says. Node's error codes become the key's four errors: a path
+ * `node:os` says unless given. Node's error codes become the key's four errors: a path
  * not there, or through a file, is NotFound; one this user may not touch is
  * AccessDenied; EEXIST from a new folder is AlreadyExists; anything else is
  * an IoError with Node's words.
@@ -62,8 +62,7 @@ const kindOf = (found: {
 const byName = (a: { name: string }, b: { name: string }) =>
   a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
 
-const service: FileSystem['Service'] = {
-  home: homedir(),
+const service: Omit<FileSystem['Service'], 'home'> = {
   list: (path) =>
     attempt(path, () => readdir(path, { withFileTypes: true })).pipe(
       Effect.map((dirents) =>
@@ -109,8 +108,8 @@ const service: FileSystem['Service'] = {
     ),
 };
 
-/** The File System of the computer this runs on. */
-export const nodeFileSystem: Layer.Layer<FileSystem> = Layer.succeed(
-  FileSystem,
-  service,
-);
+/** The File System of the computer this runs on, at home in `options.home` when given. */
+export const nodeFileSystem = (
+  options: { readonly home?: string | undefined } = {},
+): Layer.Layer<FileSystem> =>
+  Layer.succeed(FileSystem, { ...service, home: options.home ?? homedir() });

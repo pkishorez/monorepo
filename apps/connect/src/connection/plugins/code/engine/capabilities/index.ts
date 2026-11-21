@@ -29,6 +29,5 @@ export {
   InvalidFolderName,
   OutsideHome,
   PermissionDenied,
-  type FoldersOptions,
   type Listing,
 } from './folders.js';

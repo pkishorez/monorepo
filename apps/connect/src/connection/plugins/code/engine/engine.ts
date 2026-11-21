@@ -66,6 +66,7 @@ import {
   agents,
   allAccounts,
   answers,
+  homeFolders,
   InvalidAccount,
   removeAccount,
   saveAccount,
@@ -96,11 +97,11 @@ import {
  *    Session Instance; what the answer changes is a Message after it, such
  *    as AddSession for a Fork. A question for a harness alone, its Skills
  *    or a Harness Account's binary, is asked of the harness as that account; one about the folders
- *    under home, of Folders (see services/folders/).
+ *    under home, of Folders (see services/folders/), over the File System.
  *
  * What only the computer has comes from outside, as the Layer's
  * Requirements, `EngineEdges`: the Store, the harnesses, git, the
- * File System, Folders and the Harness Host. engine/node.ts gives the real
+ * File System and the Harness Host. engine/node.ts gives the real
  * ones; a browser tab gives fakes, and nothing here imports Node.
  */
 
@@ -893,7 +894,6 @@ export type EngineEdges =
   | OneShotPrompt
   | Git
   | FileSystem
-  | Folders
   | HarnessHost;
 
 export class Engine extends Context.Service<Engine, EngineService>()(
@@ -907,6 +907,8 @@ export class Engine extends Context.Service<Engine, EngineService>()(
     options: EngineOptions,
   ): Layer.Layer<Engine, never, EngineEdges> =>
     Layer.effect(Engine, make(options)).pipe(
-      Layer.provide(Layer.mergeAll(storedHarnessAccounts, agents, answers)),
+      Layer.provide(
+        Layer.mergeAll(storedHarnessAccounts, agents, answers, homeFolders),
+      ),
     );
 }
