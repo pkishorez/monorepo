@@ -15,6 +15,7 @@ import {
   keepSubscribed,
   status,
   type ConnectionStatus,
+  type Dial,
   type SocketClose,
   type SocketWatch,
 } from '@kestack/rpc-toolkit/rpc/websocket';
@@ -127,14 +128,23 @@ export class ConnectionAddress extends Context.Service<
 /** One Connection's API and its socket, as `CodeClients` holds them. */
 export type ConnectionClient = Context.Context<CodeClient | RpcConnection>;
 
-/** One Connection's socket, at the address `of` gives for it on each connect, each socket told to `watch`. */
-const socketTo = (of: Effect.Effect<Address>, watch: SocketWatch) =>
+/**
+ * One Connection's socket, at the address `of` gives for it on each
+ * connect, opened by `dial`, the browser's WebSocket unless given, each
+ * socket told to `watch`.
+ */
+const socketTo = (
+  of: Effect.Effect<Address>,
+  watch: SocketWatch,
+  dial: Dial | undefined,
+) =>
   Layer.effect(CodeClient, versionedClient(CodeApi)).pipe(
     Layer.provideMerge(
       client(CodeApi, {
         url: Effect.map(of, ({ url }) => url),
         protocols: Effect.map(of, ({ key }) => protocolsOf(key)),
         watch,
+        dial,
       }),
     ),
   );
@@ -239,15 +249,25 @@ export class CodeClients extends Context.Service<
       }),
     );
 
-  /** Each Connection's socket at the address `ConnectionAddress` gives for its id. */
-  static readonly layer: Layer.Layer<CodeClients, never, ConnectionAddress> =
+  /**
+   * Each Connection's socket at the address `ConnectionAddress` gives for
+   * its id, opened by `dial` in place of the browser's WebSocket: a tab's
+   * own tunnels, in fake mode (`@kestack/connect/browser`).
+   */
+  static readonly dialing = (
+    dial: Dial | undefined,
+  ): Layer.Layer<CodeClients, never, ConnectionAddress> =>
     Layer.unwrap(
       Effect.map(ConnectionAddress, ({ of }) =>
         CodeClients.make((connectionId, watch) =>
-          socketTo(of(connectionId), watch),
+          socketTo(of(connectionId), watch, dial),
         ),
       ),
     );
+
+  /** Each Connection's socket at the address `ConnectionAddress` gives for its id. */
+  static readonly layer: Layer.Layer<CodeClients, never, ConnectionAddress> =
+    CodeClients.dialing(undefined);
 
   /** One Connection's API and socket for everything under a Layer, held while it is built. */
   static readonly connection = (

@@ -4,6 +4,19 @@
   "ignoredPaths": ["src/connection/cli/tests/fixtures"],
   "fileModules": ["src/connection/plugins/code/engine/node.ts"],
   "rules": {
+    "src/browser": [
+      "src/cloud/client",
+      "src/cloud/worker/app",
+      "src/cloud/worker/heartbeat",
+      "src/cloud/worker/store",
+      "src/connection/cli/identity/cloud",
+      "src/connection/plugins/code/api",
+      "src/connection/plugins/code/engine",
+      "src/connection/plugins/code/serve/handlers",
+      "src/contracts/app-api",
+      "src/contracts/heartbeat",
+      "src/contracts/link"
+    ],
     "src/cloud": ["src/contracts/heartbeat"],
     "src/cloud/client": ["src/contracts/app-api"],
     "src/cloud/worker": ["src/contracts/app-api", "src/contracts/link"],
