@@ -1,10 +1,11 @@
 import { Effect } from 'effect';
-import { DEV_PREFIX, connectionName } from '../auth.js';
+import { DEV_PREFIX, connectionName } from '../name.js';
 
 /*
  * The development Connections whose branch has no checkout any more. Each
- * branch's are `dev-<branch>` and `dev-<branch>-real`; a `dev-` Connection
- * that is neither for any branch `git worktree list` shows is gone, and is
+ * branch's is `dev-<branch>`; a `dev-` Connection that is not one for any
+ * branch `git worktree list` shows is gone (an older `dev-<branch>-real`
+ * too), and is
  * removed as `ke-connect remove` removes one: forgotten in its Connect
  * Cloud when that still answers, its folders deleted either way. When
  * the branches cannot be listed, nothing is removed.
@@ -15,11 +16,7 @@ export const goneOf = (
   names: ReadonlyArray<string>,
   slugs: ReadonlySet<string>,
 ): ReadonlyArray<string> => {
-  const kept = new Set(
-    [...slugs].flatMap((slug) =>
-      (['fake', 'real'] as const).map((auth) => connectionName(slug, auth)),
-    ),
-  );
+  const kept = new Set([...slugs].map(connectionName));
   return names
     .filter((name) => name.startsWith(DEV_PREFIX) && !kept.has(name))
     .sort();

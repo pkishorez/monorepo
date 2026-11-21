@@ -50,8 +50,12 @@ export interface World<Out = any, E = any, R = any> {
   subscribe(listener: () => void): () => void;
 }
 
+// Its prefix holds the mark every fake carries: a production build that has it fails.
 const warn = (fake: Fake, what: string, error: unknown) =>
-  console.warn(`[@kestack/devtools-kabuki/fake] ${fake.name}: ${what}`, error);
+  console.warn(
+    `[kestack-fake @kestack/devtools-kabuki/fake] ${fake.name}: ${what}`,
+    error,
+  );
 
 // 1. Start
 const startOf = (fake: Fake, saved: SavedFakes | undefined) =>

@@ -24,7 +24,7 @@ pnpm add -D @tailwindcss/vite @vitejs/plugin-react
 
 An app's stylesheet imports `@kestack/web-platform/ui/theme/global.css`, which also points Tailwind at the Package's own classes. `app/vite` bundles the Package for the server too; an app that lists `start()` and `pwa()` itself adds `@kestack/web-platform` to `ssr.noExternal`.
 
-- `@kestack/auth-toolkit`: `./recipes/account-switcher` follows its `Accounts`, by the sign-in service's cookie or as Fake Accounts.
+- `@kestack/auth-toolkit`: `./recipes/account-switcher` follows its `Accounts`, by the sign-in service's cookie, or over its Sign-in fake.
 - `react`, `react-dom`: every component, Recipe and the Document render with React 19.
 - `@kestack/use-gesture`: the platform-free gesture core that `./ui/input`'s web gestures and the Thumb Picker run on.
 - `@kestack/use-keys` (optional): the Binding and Shortcut types `./ui/input` shows, and the `createKeys` keyboard `./recipes/keyboard` shows. `./ui/theme/global.css` draws every `keys.Surface` from its data attributes, so a `keys.Provider` needs no `appearance` (also alone as `./ui/theme/keys.css`).
@@ -367,9 +367,9 @@ The Dock devtools sit in. Kabuki's Inspector is in [`@kestack/devtools-kabuki/in
 
 ### `@kestack/web-platform/app/vite`
 
-| Export | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `app`  | Every Vite plugin a kestack app needs: Tailwind, React, Kabuki Start and the PWA (`pwa: false` for none), with the Web Platform bundled for the server. Under `vite dev` it signs in with auth-toolkit's Fake, serves every backend at `/rpc-<name>` on the site's origin and pipes a Kabuki Session's socket at `/__devtools/kabuki/connect` to the DevTools Server (`devtools`, `http://127.0.0.1:14400` by default, `false` for none), nothing else of DevTools, and it fails any build that carries the Fake. |
+| Export | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `app`  | Every Vite plugin a kestack app needs: Tailwind, React, Kabuki Start and the PWA (`pwa: false` for none), with the Web Platform bundled for the server. Under `vite dev` it pipes a Kabuki Session's socket at `/__devtools/kabuki/connect` to the DevTools Server (`devtools`, `http://127.0.0.1:14400` by default, `false` for none), nothing else of DevTools, and it fails any build that carries a fake (`kestack-fake`), a lazy chunk too. |
 
 ### `@kestack/web-platform/app/document`
 
@@ -379,15 +379,15 @@ The Dock devtools sit in. Kabuki's Inspector is in [`@kestack/devtools-kabuki/in
 
 ### `@kestack/web-platform/app/alchemy`
 
-| Export              | What it does                                                                                                                              |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `Site`              | A Kabuki Start app as a Cloudflare Website: on its domain on a deployed Stage, on Portless's port under `alchemy dev`.                    |
-| `State`             | Where alchemy keeps a Stack's state: Cloudflare's state store for a deployed Stage, `.alchemy/state` on disk for anyone's own.            |
-| `where`             | Where the Stage being run serves the site and its API Workers, once it is checked it may be run.                                          |
-| `isDeployedStage`   | Whether a Stage reaches the world: `prod`, `demo` or a pull request's `prN`.                                                              |
-| `assertStageIsSafe` | Refuses a deployed Stage unless `ALLOW_DEPLOY=true`.                                                                                      |
-| `portlessPort`      | The `PORT` `portless run` gives `pnpm dev`; throws when there is none.                                                                    |
-| `backend`           | A backend Worker's `build`: auth-toolkit's Fake under `alchemy dev` (unless `KESTACK_AUTH=real`), and failing elsewhere if it carries it. |
+| Export              | What it does                                                                                                                   |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `Site`              | A Kabuki Start app as a Cloudflare Website: on its domain on a deployed Stage, on Portless's port under `alchemy dev`.         |
+| `State`             | Where alchemy keeps a Stack's state: Cloudflare's state store for a deployed Stage, `.alchemy/state` on disk for anyone's own. |
+| `where`             | Where the Stage being run serves the site and its API Workers, once it is checked it may be run.                               |
+| `isDeployedStage`   | Whether a Stage reaches the world: `prod`, `demo` or a pull request's `prN`.                                                   |
+| `assertStageIsSafe` | Refuses a deployed Stage unless `ALLOW_DEPLOY=true`.                                                                           |
+| `portlessPort`      | The `PORT` `portless run` gives `pnpm dev`; throws when there is none.                                                         |
+| `backend`           | A backend Worker's `build`: anywhere but `alchemy dev`, failing if it carries a fake (`kestack-fake`).                         |
 
 ## Usage
 

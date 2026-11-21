@@ -90,6 +90,8 @@ export const inTab = (
 > =>
   Layer.unwrap(
     Effect.gen(function* () {
+      // The mark every fake carries: a production build that has it fails.
+      yield* Effect.logDebug('kestack-fake: Connect runs in this tab');
       const kept = new Map<string, unknown>();
       // One Layer per database, so a Memory table outlives each start.
       const tableIn = <Name extends string>(

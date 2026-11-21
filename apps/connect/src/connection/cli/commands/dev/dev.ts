@@ -11,7 +11,6 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { NodeRuntime } from '@effect/platform-node';
 import { folders } from '@kestack/cli-platform/files';
-import { assertResolves, type DevAuth, devAuth, nodeFlags } from './auth.js';
 import { branchOf } from './branch.js';
 import { live, runs, take } from './leases.js';
 import { withLock } from './lock.js';
@@ -80,12 +79,10 @@ const starting = (
   pid: number,
   cloud: string,
   mode: ConnectRecord['mode'],
-  auth: DevAuth,
 ): ConnectRecord => ({
   pid,
   mode,
   cloud,
-  auth,
   port: 0,
   connection: null,
   ready: false,
@@ -93,16 +90,13 @@ const starting = (
   version,
 });
 
-/** Starts the shared supervisor, detached, signing in as `auth` says, writing to `log`; its pid. */
-const spawnSupervisor = (cwd: string, log: string, auth: DevAuth): number => {
+/** Starts the shared supervisor, detached, writing to `log`; its pid. */
+const spawnSupervisor = (cwd: string, log: string): number => {
   const fd = openSync(log, 'w', 0o600);
   try {
     const child = spawn(
       process.execPath,
-      [
-        ...nodeFlags(auth),
-        fileURLToPath(new URL('./supervisor.js', import.meta.url)),
-      ],
+      [fileURLToPath(new URL('./supervisor.js', import.meta.url))],
       { cwd, detached: true, stdio: ['ignore', fd, fd], env: process.env },
     );
     if (child.pid === undefined)
@@ -134,10 +128,6 @@ const bindRelease = (release: () => void): (() => void) => {
     for (const unbind of bound) unbind();
   };
 };
-
-/** Why a run cannot use this branch's Connect, which signs in as `running` says. */
-const mixedAuth = (running: DevAuth) =>
-  `This branch's Connect signs in with ${running === 'fake' ? 'the Fake' : 'real auth'}; stop every \`pnpm dev${running === 'fake' ? '' : ':real'}\` on it first.`;
 
 /** Waits until the Connect in `dir` is alive, showing the shared one's log meanwhile; fails if it stops first, or is not ready in 10 minutes. */
 const waitAlive = async (dir: string, log: string): Promise<ConnectRecord> => {
@@ -174,7 +164,6 @@ const waitAlive = async (dir: string, log: string): Promise<ConnectRecord> => {
 /** `ensureConnect`, also returning the function that stops a signal giving the lease back. */
 const ensure = async (app: string, cwd: string) => {
   const { cloud, dir, log } = await devOf(cwd);
-  const auth = devAuth();
   let release: (() => void) | undefined;
   let told = false;
   for (;;) {
@@ -185,12 +174,8 @@ const ensure = async (app: string, cwd: string) => {
       if (standing.kind === 'stopping') return undefined;
       if (standing.kind === 'absent') {
         if (!(await proxyUp(cloud))) throw new Error(PROXY_DOWN);
-        writeRecord(
-          dir,
-          starting(spawnSupervisor(cwd, log, auth), cloud, 'shared', auth),
-        );
-      } else if ((standing.record.auth ?? 'real') !== auth)
-        throw new Error(mixedAuth(standing.record.auth ?? 'real'));
+        writeRecord(dir, starting(spawnSupervisor(cwd, log), cloud, 'shared'));
+      }
       return take(dir, app);
     });
     if (release !== undefined) break;
@@ -324,8 +309,6 @@ export const runConnectDev = async ({
   if (!existsSync(join(ROOT, 'alchemy.run.ts')))
     throw new Error('runConnectDev runs only in the monorepo');
   const { slug, cloud, dir, log } = await devOf(ROOT);
-  const auth = devAuth();
-  assertResolves(auth);
   let other:
     | { readonly standing: Standing; readonly release?: () => void }
     | undefined;
@@ -333,11 +316,9 @@ export const runConnectDev = async ({
     other = await withLock(dir, async () => {
       const standing = await standingOf(readRecord(dir));
       if (standing.kind === 'absent' || standing.record.pid === process.pid) {
-        writeRecord(dir, starting(process.pid, cloud, mode, auth));
+        writeRecord(dir, starting(process.pid, cloud, mode));
         return undefined;
       }
-      if ((standing.record.auth ?? 'real') !== auth)
-        throw new Error(mixedAuth(standing.record.auth ?? 'real'));
       // Leased under the lock that saw it running, so it cannot decide to
       // stop in between.
       return standing.kind === 'stopping' || mode === 'shared'
@@ -355,6 +336,6 @@ export const runConnectDev = async ({
   if (mode === 'foreground' && live(dir).length > 0)
     process.stdout.write('Apps are waiting on this Connect.\n');
   NodeRuntime.runMain(
-    supervise({ root: ROOT, dir, slug, cloud, mode, version, auth }),
+    supervise({ root: ROOT, dir, slug, cloud, mode, version }),
   );
 };

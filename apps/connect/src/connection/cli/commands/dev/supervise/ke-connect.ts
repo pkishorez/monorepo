@@ -3,14 +3,12 @@ import { createServer } from 'node:net';
 import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
 import { Duration, Effect } from 'effect';
-import { type DevAuth, nodeFlags } from '../auth.js';
 
 /*
  * The `ke-connect` this checkout built, run as a process of its own, as a
  * user runs it: `serve` for the branch's Connection, `remove` for one whose
- * branch is gone. It runs tsc's build, not bin/'s bundle, so the Node flags
- * can still pick auth-toolkit's Fake. Each runs with the Node flags of how its Connection signs
- * in, and its output goes where this process's goes.
+ * branch is gone. It runs tsc's build, not bin/'s bundle, and its output
+ * goes where this process's goes.
  */
 
 const KILL_AFTER = Duration.seconds(10);
@@ -38,13 +36,13 @@ const stop = (child: ChildProcess) =>
     clearTimeout(killer);
   });
 
-/** `ke-connect <args>` from `root` (apps/connect), signing in as `auth` says. */
-const keConnect = (root: string, auth: DevAuth, args: ReadonlyArray<string>) =>
-  spawn(
-    process.execPath,
-    [...nodeFlags(auth), join(root, 'scripts', 'ke-connect.mjs'), ...args],
-    { cwd: root, stdio: 'inherit', env: process.env },
-  );
+/** `ke-connect <args>` from `root` (apps/connect). */
+const keConnect = (root: string, args: ReadonlyArray<string>) =>
+  spawn(process.execPath, [join(root, 'scripts', 'ke-connect.mjs'), ...args], {
+    cwd: root,
+    stdio: 'inherit',
+    env: process.env,
+  });
 
 /** A port on 127.0.0.1 that is free now. */
 export const freePort = Effect.promise(
@@ -61,7 +59,6 @@ export const freePort = Effect.promise(
 
 export interface Serving {
   readonly root: string;
-  readonly auth: DevAuth;
   readonly name: string;
   readonly cloud: string;
   readonly port: number;
@@ -77,7 +74,7 @@ export const serving = (options: Serving) =>
   Effect.map(
     Effect.acquireRelease(
       Effect.sync(() =>
-        keConnect(options.root, options.auth, [
+        keConnect(options.root, [
           'serve',
           options.name,
           '--cloud',
@@ -93,9 +90,9 @@ export const serving = (options: Serving) =>
   );
 
 /** `ke-connect remove <name>`, until it exits or a minute passes: whether it removed it. */
-export const removing = (root: string, auth: DevAuth, name: string) =>
+export const removing = (root: string, name: string) =>
   Effect.acquireUseRelease(
-    Effect.sync(() => keConnect(root, auth, ['remove', name])),
+    Effect.sync(() => keConnect(root, ['remove', name])),
     (child) => Effect.promise(() => exitOf(child)),
     stop,
   ).pipe(

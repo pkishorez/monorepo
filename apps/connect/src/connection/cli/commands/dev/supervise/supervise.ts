@@ -1,7 +1,7 @@
 import { type ChildProcess, spawn } from 'node:child_process';
 import { Effect } from 'effect';
 import { names } from '@kestack/cli-platform/files';
-import { type DevAuth, authOf, connectionName } from '../auth.js';
+import { connectionName } from '../name.js';
 import { worktreeSlugs } from '../branch.js';
 import { removeGone } from './gone.js';
 import { freePort, removing, serving } from './ke-connect.js';
@@ -36,7 +36,6 @@ export interface Supervised {
   readonly cloud: string;
   readonly mode: ConnectRecord['mode'];
   readonly version: string;
-  readonly auth: DevAuth;
 }
 
 const RETRY_MS = 500;
@@ -182,13 +181,13 @@ const removeGoneConnections = (root: string) =>
   removeGone({
     slugs: Effect.tryPromise(() => worktreeSlugs(root)),
     names: () => names('connect'),
-    remove: (name) => removing(root, authOf(name), name),
+    remove: (name) => removing(root, name),
   }).pipe(Effect.forkScoped);
 
 /** Runs Connect as `options` says, until it stops; `connect.json` goes with it. */
 export const supervise = (options: Supervised) =>
   Effect.gen(function* () {
-    const { root, dir, slug, cloud, mode, version, auth } = options;
+    const { root, dir, slug, cloud, mode, version } = options;
     const startedAt = new Date().toISOString();
     yield* removeGoneConnections(root);
     yield* Effect.log('Building the code Plugin');
@@ -197,17 +196,9 @@ export const supervise = (options: Supervised) =>
     const running = Effect.gen(function* () {
       yield* Effect.log(`Waiting for Connect Cloud at ${cloud}`);
       yield* Effect.raceFirst(answering(cloud, 'auth'), exited(alchemy));
-      const name = connectionName(slug, auth);
+      const name = connectionName(slug);
       const port = yield* freePort;
-      const ended = yield* serving({
-        root,
-        auth,
-        name,
-        cloud,
-        port,
-        // A page through a Cloudflare tunnel, which only the Fake signs in.
-        origins: auth === 'fake' ? ['https://*.trycloudflare.com'] : [],
-      });
+      const ended = yield* serving({ root, name, cloud, port, origins: [] });
       const ready = healthy(port).pipe(
         Effect.andThen(
           Effect.sync(() =>
@@ -215,7 +206,6 @@ export const supervise = (options: Supervised) =>
               pid: process.pid,
               mode,
               cloud,
-              auth,
               port,
               connection: name,
               ready: true,

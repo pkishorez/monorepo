@@ -76,9 +76,9 @@
     "src/ui/theme/model.ts"
   ],
   "rules": {
-    "src/app/alchemy": ["src/app/dev-auth"],
+    "src/app/alchemy": ["src/app/no-fake"],
     "src/app/document": ["src/pwa/page", "src/ui/input/device", "src/ui/theme"],
-    "src/app/vite": ["src/pwa/vite", "src/app/dev-auth"],
+    "src/app/vite": ["src/pwa/vite", "src/app/no-fake"],
     "src/pwa/contract/config": [
       "src/pwa/contract/build",
       "src/ui/theme/model.ts"

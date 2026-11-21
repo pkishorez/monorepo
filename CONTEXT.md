@@ -41,8 +41,8 @@ One user signed in on this device, as the device sees them: never a token. Sever
 _Avoid_: Signed-in Account, OpenAccount, GateUser, remembered account, local account
 
 **Fake Account**:
-An Account signed in by naming an email at `kestack.test`, through auth-toolkit's Fake, with no Auth Worker; the same email is always the same user. Every app signs in with one under `pnpm dev`. Anyone may be any Fake Account, so it never guards real data.
-_Avoid_: Named Account, Local Account (the former names), test user (a Test User is a real User at a real Auth Worker)
+An Account signed in by naming an email at `kestack.test`, through auth-toolkit's Sign-in fake, with no Auth Worker; the same email is always the same user. Only an app's fake mode signs in with one. Anyone may be any Fake Account, so it never guards real data.
+_Avoid_: Named Account, Local Account (the former names), test user, Test User (gone)
 
 **Recipe**:
 One whole interaction the Web Platform ships ready to use, such as the Sidebar, the Thumb Picker or Local Sign-In.
@@ -69,7 +69,7 @@ Whether the open Account has been confirmed by its Sign-in since the Session ope
 _Avoid_: auth state, loading, confirmed (the word for the Account, not the status)
 
 **API**:
-One of an app's named ways to call a Backend, at the address the app's infra gives it. Under `pnpm dev` every API is on the site's own origin, so one address reaches the whole app. Every API is signed by the one auth; which calls need it is the Guard's business.
+One of an app's named ways to call a Backend, at the address the app's infra gives it. Every API is signed by the one auth; which calls need it is the Guard's business.
 _Avoid_: endpoint, service, client
 
 **Open First**:
