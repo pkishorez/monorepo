@@ -42,19 +42,19 @@ Each door exports plain names, so an app imports only what it uses and two doors
 
 ### `@kestack/rpc-toolkit/rpc/websocket`
 
-| Export                   | What it does                                                                                                                                                                 |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `client`                 | Layer that provides an `RpcClient.Protocol` over a WebSocket speaking JSON, plus the `RpcConnection` that tracks it; a `url` given as an Effect is run before every connect. |
-| `connection`             | The `RpcConnection` service: the connection's status, `keepSubscribed`, and the hooks the transport drives.                                                                  |
-| `status`                 | Stream of `connecting`, `connected` or `reconnecting`, deduplicated and primed with the current value.                                                                       |
-| `keepSubscribed`         | Re-runs a subscription stream after every reconnect until the consumer interrupts it.                                                                                        |
-| `server`                 | Serves a group over a Durable Object's hibernatable WebSockets, returning its `accept`, `message` and `close` callbacks.                                                     |
-| `checkpoint`             | Inside a streaming handler, gives `get`, `put` and `clear` for a small cursor that survives hibernation; on other Transports it remembers nothing.                           |
-| `attachmentStreamStore`  | The default Stream Store: each socket's record and open streams live in its attachment (about 2 KB per socket).                                                              |
-| `sqliteStreamStore`      | A Stream Store on a Durable Object's SQLite: the attachment keeps only the client id, records and streams are rows it creates itself.                                        |
-| `RESUME_LOST`            | Close code (4000) the server sends a live socket whose record is missing, so the client reconnects and resubscribes.                                                         |
-| `fromDurableObjectState` | Builds the server's `state` and `upgrade` from a raw workerd `DurableObjectState` when Alchemy is not in use.                                                                |
-| `InvocationKind`         | Context reference the server sets to `fresh` or `replay`; middleware reads it to skip admission on Hibernation Replay.                                                       |
+| Export                   | What it does                                                                                                                                                                                                                                  |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `client`                 | Layer that provides an `RpcClient.Protocol` over a WebSocket speaking JSON, plus the `RpcConnection` that tracks it; a `url` given as an Effect is run before every connect, and `dial` opens each socket in place of the global `WebSocket`. |
+| `connection`             | The `RpcConnection` service: the connection's status, `keepSubscribed`, and the hooks the transport drives.                                                                                                                                   |
+| `status`                 | Stream of `connecting`, `connected` or `reconnecting`, deduplicated and primed with the current value.                                                                                                                                        |
+| `keepSubscribed`         | Re-runs a subscription stream after every reconnect until the consumer interrupts it.                                                                                                                                                         |
+| `server`                 | Serves a group over a Durable Object's hibernatable WebSockets, returning its `accept`, `message` and `close` callbacks.                                                                                                                      |
+| `checkpoint`             | Inside a streaming handler, gives `get`, `put` and `clear` for a small cursor that survives hibernation; on other Transports it remembers nothing.                                                                                            |
+| `attachmentStreamStore`  | The default Stream Store: each socket's record and open streams live in its attachment (about 2 KB per socket).                                                                                                                               |
+| `sqliteStreamStore`      | A Stream Store on a Durable Object's SQLite: the attachment keeps only the client id, records and streams are rows it creates itself.                                                                                                         |
+| `RESUME_LOST`            | Close code (4000) the server sends a live socket whose record is missing, so the client reconnects and resubscribes.                                                                                                                          |
+| `fromDurableObjectState` | Builds the server's `state` and `upgrade` from a raw workerd `DurableObjectState` when Alchemy is not in use.                                                                                                                                 |
+| `InvocationKind`         | Context reference the server sets to `fresh` or `replay`; middleware reads it to skip admission on Hibernation Replay.                                                                                                                        |
 
 ### `@kestack/rpc-toolkit/rpc/in-process`
 

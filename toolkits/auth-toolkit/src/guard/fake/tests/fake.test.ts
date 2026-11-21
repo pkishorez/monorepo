@@ -18,6 +18,7 @@ import {
   fakeAccountsTable,
   fakeChooser,
   fakeGuard,
+  fakeSignIn,
 } from '../index.js';
 import { fakeToken } from '../token.js';
 
@@ -358,6 +359,36 @@ describe('fakeGuard', () => {
           Effect.scoped(callWith({ id: 'real-user-id', email, name: 'x' })),
         ),
       ).toMatchObject({ failure: { _tag: 'Unauthenticated' } });
+  });
+
+  it('puts a fake User on a Sign-in of its own behind every call, as a device holds one', async () => {
+    const WhoSignedIn = Rpc.make('WhoSignedIn', {
+      success: Schema.String,
+    }).pipe(Authz.required);
+    const Signed = RpcGroup.make(WhoSignedIn);
+    const as = fakeSignIn('Ada@kestack.test', 'laptop');
+    const result = await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const client = yield* RpcTest.makeClient(Signed);
+          return yield* client.WhoSignedIn();
+        }).pipe(
+          Effect.provide(
+            Signed.toLayer({
+              WhoSignedIn: () =>
+                Effect.map(Authz.User, (principal) =>
+                  principal.kind === 'session'
+                    ? `${principal.user.id} ${principal.session.id}`
+                    : 'token',
+                ),
+            }),
+          ),
+          Effect.provide(fakeGuard.rpc({ as })),
+        ),
+      ),
+    );
+    expect(result).toBe('local_YWRhQGtlc3RhY2sudGVzdA laptop');
+    expect(fakeSignIn('ada@example.com', 'laptop')).toBeNull();
   });
 
   it('is unauthenticated for any other credential', async () => {

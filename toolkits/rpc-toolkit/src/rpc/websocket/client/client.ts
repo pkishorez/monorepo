@@ -34,6 +34,20 @@ export interface SocketWatch {
   readonly closed?: ((close: SocketClose) => void) | undefined;
 }
 
+/**
+ * Opens one socket at a URL, offering subprotocols: the global `WebSocket`
+ * unless `client` is given another, such as an in-memory one that reaches
+ * a server in the same page.
+ */
+export type Dial = (
+  url: string,
+  protocols: Array<string> | undefined,
+) => Socket.WebSocketLike;
+
+/** The global `WebSocket`. */
+const globalDial: Dial = (url, protocols) =>
+  new globalThis.WebSocket(url, protocols);
+
 // Retain the established service identity across the package migration.
 export class RpcConnection
   extends /*#__PURE__*/ Context.Service<RpcConnection, RpcConnectionService>()(
@@ -69,20 +83,23 @@ export const keepSubscribed = <A, E, R>(
     ),
   );
 
-/** A socket at `at`, offering `protocols`, told to `watch` as it answers and closes. */
+/** A socket at `at`, opened by `dial` offering `protocols`, told to `watch` as it answers and closes. */
 const open = (
+  dial: Dial,
   at: string,
   protocols: Array<string> | undefined,
   watch: SocketWatch | undefined,
 ) => {
-  const socket = new globalThis.WebSocket(at, protocols);
+  const socket = dial(at, protocols);
   const { answered, closed } = watch ?? {};
   if (answered !== undefined)
     socket.addEventListener('message', () => answered(), { once: true });
   if (closed !== undefined)
     socket.addEventListener(
       'close',
-      (event) => closed({ code: event.code, reason: event.reason }),
+      // A close with no code was not a clean one, as the browser says 1006.
+      (event) =>
+        closed({ code: event.code ?? 1006, reason: event.reason ?? '' }),
       { once: true },
     );
   return socket;
@@ -100,6 +117,7 @@ const socketLayer = (
     | Effect.Effect<ReadonlyArray<string>>
     | undefined,
   watch: SocketWatch | undefined,
+  dial: Dial,
 ) => {
   const resolved =
     typeof url === 'string'
@@ -109,7 +127,7 @@ const socketLayer = (
     protocols === undefined || Effect.isEffect(protocols)
       ? undefined
       : [...protocols];
-  const dial = Effect.isEffect(protocols)
+  const address = Effect.isEffect(protocols)
     ? Effect.zipWith(resolved, protocols, (at, list) => {
         offered = [...list];
         return at;
@@ -118,10 +136,10 @@ const socketLayer = (
   // Effect runs this inside a socket's uninterruptible acquire. It makes no
   // socket yet, so a URL that waits must stay interruptible, or closing the
   // client would wait with it.
-  return Socket.layerWebSocket(Effect.interruptible(dial)).pipe(
+  return Socket.layerWebSocket(Effect.interruptible(address)).pipe(
     Layer.provide(
       Layer.succeed(Socket.WebSocketConstructor)((at) =>
-        open(at, offered, watch),
+        open(dial, at, offered, watch),
       ),
     ),
   );
@@ -159,6 +177,8 @@ export const client = <Rpcs extends Rpc.Any>(
     readonly retryTransientErrors?: boolean | undefined;
     /** Told of each socket's first frame in, and how it closed. */
     readonly watch?: SocketWatch | undefined;
+    /** Opens each socket; the global `WebSocket` unless given. */
+    readonly dial?: Dial | undefined;
   },
 ): Layer.Layer<
   RpcClient.Protocol | RpcConnection | RpcClient.ConnectionHooks
@@ -170,7 +190,12 @@ export const client = <Rpcs extends Rpc.Any>(
       }).pipe(
         Layer.provide(
           Layer.mergeAll(
-            socketLayer(options.url, options.protocols, options.watch),
+            socketLayer(
+              options.url,
+              options.protocols,
+              options.watch,
+              options.dial ?? globalDial,
+            ),
             RpcSerialization.layerJson,
           ),
         ),

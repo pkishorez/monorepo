@@ -8,7 +8,7 @@ A coding agent runs on a computer, but its User wants to reach it from a phone o
 
 `ke-connect` itself stays small and rarely changes. What a Connection serves comes in Plugins: separate programs it runs, each downloaded at the version Connect Cloud names in its answer to every Heartbeat, and swapped for a new one while the tunnel stays up, through [`@kestack/cli-platform`](../../platforms/cli-platform/README.md). The Connection checks the Connection Key and passes each Plugin's requests to that Plugin's own socket without reading them. The `code` Plugin keeps Projects and Sessions for [Code](../code/README.md): it runs each Session's Agent through [`@kestack/ai-toolkit`](../../toolkits/ai-toolkit/README.md), with the Claude Code or Codex installed on the computer and as one of its Harness Accounts, orders its Turns, stores its Raw records, and sends them to the browser through a [std-toolkit](../../toolkits/std-toolkit/README.md) Replica over [rpc-toolkit](../../toolkits/rpc-toolkit/README.md). Sign-in comes from [auth-toolkit](../../toolkits/auth-toolkit/README.md). Why Connect owns this and ai-toolkit stops at the harness is [root ADR 0011](../../docs/adr/0011-ai-toolkit-stops-at-the-harness-connect-owns-the-rest.md).
 
-Each Connection has a name on its computer, `main` unless given, and keeps its files in its own folders, as cli-platform lays them out; one name runs as one process. In development each branch has its own Connection, `dev-<branch>`, and its own Connect Cloud, and every App's `pnpm dev` starts or reuses them: see [docs/dev.md](docs/dev.md).
+Each Connection has a name on its computer, `main` unless given, and keeps its files in its own folders, as cli-platform lays them out; one name runs as one process. In development each branch has its own Connection, `dev-<branch>`, and its own Connect Cloud, and every App's `pnpm dev` starts or reuses them: see [docs/dev.md](docs/dev.md). In an App's fake mode, `./browser` runs Connect Cloud, each computer's Heartbeat and its code Plugin in the App's own tab instead, over the computers it is given, so nothing runs outside the browser ([Code's fake mode plan](../code/docs/fake-mode-plan.md)).
 
 The words are in [CONTEXT.md](CONTEXT.md), and the decisions in [docs/adr/](docs/adr/).
 
@@ -44,6 +44,7 @@ Every value an RPC sends is an ESchema, so the newer side reads what an older on
 | `ConnectionAddress`      | Service the App gives: where a Connection's socket is, by Connection id, and its Connection Key, on each connect.                                    |
 | `CodeClients`            | Service holding every Connection's client by Connection id, one socket each, shared by whatever holds it.                                            |
 | `CodeClients.layer`      | Layer of `CodeClients` opening each Connection's socket at the address `ConnectionAddress` gives.                                                    |
+| `CodeClients.dialing`    | Layer of `CodeClients` as `CodeClients.layer`, each socket opened by a given dial in place of the browser's WebSocket.                               |
 | `CodeClients.make`       | Layer of `CodeClients` opening each Connection with a given Layer, for one server or a test.                                                         |
 | `CodeClients.connection` | Layer of one Connection's `CodeClient` and its socket, for everything under it.                                                                      |
 | `CodeClients.on`         | Runs an Effect that needs `CodeClient` against one Connection, by its id.                                                                            |
@@ -133,6 +134,19 @@ What an App imports to reach Connect Cloud: its client, and the Connections it l
 | `serve`            | Connect Cloud on a Worker's D1 database, and Release Files from its R2 bucket.    |
 | `serveOver`        | The same over any std-toolkit SQLite driver and auth Guard, for tests.            |
 | `connectionsTable` | The std Table Connect Cloud keeps Connections in, for `SQLite.setup` and deploys. |
+
+### `./browser`
+
+Connect in a browser tab, for an App's fake mode: Connect Cloud's handlers over tables, each online computer's Heartbeat, and its code Plugin, the real Engine and handlers over the computer's edges, all in the tab. Only the computers are given, as `Computers`; a computer's tunnel is at `https://<name>.computers.fake`, which only the tab's own sockets reach, answered as `ke-connect` answers them.
+
+| Export          | What it does                                                                                                                                                                   |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `inTab`         | Layer of Connect in this tab over `Computers`: `CloudClient`, signed by the App's Accounts, and `Tunnels`; its tables in memory unless given a driver.                         |
+| `Tunnels`       | Service that dials a computer's tunnel in this tab, in place of the browser's WebSocket.                                                                                       |
+| `tunnelClients` | Layer of `CodeClients` over this tab's tunnels, at the address `ConnectionAddress` gives, in place of `CodeClients.layer`.                                                     |
+| `Computers`     | Service of the computers a person has, each with its `ke-connect` version, whether it is online, its tunnel, its Connection Key and its edges; told when one stops on its own. |
+| `tunnelOf`      | A computer's tunnel address in a tab, by a name of it.                                                                                                                         |
+| `TUNNELS`       | The suffix of every tunnel address in a tab, `.computers.fake`.                                                                                                                |
 
 ### `./dev`
 

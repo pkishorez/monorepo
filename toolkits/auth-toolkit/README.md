@@ -155,6 +155,7 @@ Peer dependencies, all optional; install the ones your doors need:
 | `fakeAccountsTable` | The StdTable `fakeAccounts` keeps Fake Accounts in.                                                                                                                     |
 | `fakeGuard.rpc`     | The Guard's server half for Effect RPC that reads each call's Fake Token, or puts `as` behind every call, and asks no one.                                              |
 | `fakeGuard.http`    | The same for Effect HttpApi.                                                                                                                                            |
+| `fakeSignIn`        | A fake User on a Sign-in of its own, as a device signed in as them holds one, to put behind every call with `fakeGuard.rpc({ as })`; null outside kestack.test.         |
 
 ### `@kestack/auth-toolkit/google-button`
 

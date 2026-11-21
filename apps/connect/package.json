@@ -29,6 +29,10 @@
       "types": "./dist/cloud/client/index.d.ts",
       "default": "./dist/cloud/client/index.js"
     },
+    "./browser": {
+      "types": "./dist/browser/index.d.ts",
+      "default": "./dist/browser/index.js"
+    },
     "./worker": {
       "types": "./dist/cloud/worker/index.d.ts",
       "default": "./dist/cloud/worker/index.js"
