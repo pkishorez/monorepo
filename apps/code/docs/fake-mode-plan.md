@@ -52,16 +52,22 @@ fake mode, bar what a browser cannot do, listed.
 ## Decisions settled
 
 - **File System edge** in connect, beside Folders:
-  `engine/services/file-system/` with the key, `node.ts` (node:fs) and
-  `fake/` (a tree of entries over a std-toolkit table, one per computer).
-  Folders and attachments (Disk) become real code over it. Controls: add a
+  `engine/services/file-system/` with the key (in `engine/capabilities/`),
+  `node.ts` (node:fs) and `fake/`, one per computer. The fake's tree is
+  its Actor's Model, entries by path (no table): its Snapshot is the disk,
+  so a reload keeps it (task 20). Folders and attachments (Disk) become
+  real code over it. Controls: add a
   sample project (a git repo with branches and files), add a folder (a
   hidden one, many at once to pass the 100 a listing holds), make a
   folder unreadable / readable, make a folder fail to list (`FolderUnreadable`),
   remove or move a folder and put it back (a Project's folder missing),
   add a symlink (inside home, or pointing outside it).
 - **Git edge** stays (the git command). Its fake keeps state where git
-  does, in the File System: `.git/HEAD`, `.git/refs/heads/*`, worktrees.
+  does, in the File System: `.git/HEAD`, `.git/config`, `.git/refs/heads/*`,
+  `.git/refs/remotes/origin/*`, worktrees; Origin a bare repository outside
+  home (`/srv/origin<repo>.git`) that a fetch copies from; git missing and
+  the next step failing as files under `/.fake/git/`. The layout is in
+  `file-system/fake/git.ts`.
   Its Controls are the File System Fake's, as its state is: switch a
   repo's branch outside Code, add a local or an Origin branch (seen after
   the next fetch), push a branch (so its `ke-code/<slug>` rename is
@@ -239,7 +245,7 @@ connected.
 3. **ai-toolkit, harness sign-ins.** One key over `binaryAt`,
    `checkBinary`, `configFolderOf`; the real one under `/harness/node`.
 4. **connect, File System edge.** The key and `node.ts`.
-5. **connect, File System fake.** The tree over a table, its Actor and
+5. **connect, File System fake.** The tree in its Actor's Model, its
    Controls, as a Fake.
 6. **connect, the Engine takes its edges.** Store over a table
    (`storeOver(table)`), Git, harness sign-ins, File System from outside;
@@ -291,4 +297,5 @@ connected.
 | 1    | done   |             | `fake-mode-checklist.md`, 13 areas; Controls added above; open: two tabs run two middles                              |
 | 2    | done   | `5c54839f6` | Node code under `/harness/node`, `/speech/node`; `Models.layer` → `modelsLayer`, `Speech.layer` → `speechLayer`       |
 | 3    | done   |             | `HarnessHost` key in `/harness`, `harnessHostLayer` in `/harness/node`; connect still calls the functions (Task 6)    |
-| 4    | done   |             | `FileSystem` key in `engine/capabilities/`, `nodeFileSystem` in `services/file-system/`; nothing uses it yet (Task 7) |
+| 4    | done   | `e424a418e` | `FileSystem` key in `engine/capabilities/`, `nodeFileSystem` in `services/file-system/`; nothing uses it yet (Task 7) |
+| 5    | done   |             | `fileSystem` from `file-system/fake/`; tree in the Model; git layout and `/.fake/git/` switches in `fake/git.ts`      |
