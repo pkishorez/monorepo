@@ -7,7 +7,8 @@ import { type Harness, Harnesses } from './contract/index.js';
  * only what runs in a browser too. The contract every harness meets (an
  * Agent, its Turns, Forks, Asks, a One-shot Prompt), the Models a program
  * asks for, and two ways to use a list of harnesses: as the `Harnesses` a
- * program is given, and to project the Raw records each one wrote. Claude
+ * program is given, and to project the Raw records each one wrote. The
+ * Harness Host a Harness Account stands on is a key here too. Claude
  * Code, Codex and the catalog's Node parts are `./node.ts`
  * (`@kestack/ai-toolkit/harness/node`).
  */
@@ -17,6 +18,7 @@ export {
   HarnessAccount,
   HarnessError,
   Harnesses,
+  HarnessHost,
   InvalidBinary,
   Models,
   ModelsError,

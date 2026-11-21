@@ -5,6 +5,7 @@ export {
   QuestionNotAsked,
   harnesses,
   Harnesses,
+  HarnessHost,
   InvalidBinary,
   isRecord,
   Models,

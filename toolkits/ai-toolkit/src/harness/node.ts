@@ -8,6 +8,7 @@
 export {
   checkBinary,
   configFolderOf,
+  harnessHostLayer,
   modelsLayer,
   type ModelsOptions,
 } from './catalog/index.js';
