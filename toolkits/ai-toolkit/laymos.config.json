@@ -19,13 +19,23 @@
     ],
     "src/speech/actor-speech-model": ["src/speech/capabilities"],
     "src/speech/sherpa": ["src/speech/contract"],
-    "src/speech/fake": ["src/speech/contract"],
+    "src/speech/fake": [
+      "src/speech/capabilities",
+      "src/speech/contract",
+      "src/speech/front"
+    ],
     "src/speech/takes": ["src/speech/contract"],
     "src/harness/fake": [
       "src/harness/claude/project",
       "src/harness/codex/app-server",
       "src/harness/codex/project",
       "src/harness/codex/record-kinds"
+    ],
+    "src/speech/front": [
+      "src/speech/actor-speech-model",
+      "src/speech/capabilities",
+      "src/speech/contract",
+      "src/speech/takes"
     ]
   }
 }
