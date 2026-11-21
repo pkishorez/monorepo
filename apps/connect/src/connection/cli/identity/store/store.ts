@@ -1,4 +1,5 @@
 import { chmodSync, closeSync, existsSync, openSync } from 'node:fs';
+import { DatabaseSync } from 'node:sqlite';
 import { Effect } from 'effect';
 import { deviceAccountsTable } from '@kestack/auth-toolkit/client/device';
 import { SQLite } from '@kestack/std-toolkit/db/sqlite';
@@ -17,7 +18,12 @@ import { keConnectTable } from './table.js';
  * Each table keeps its own snapshot, so a wipe of one never touches the
  * other. A folder from before this file is moved into it by ../migrations/,
  * which `serve` and `remove` run while no other `ke-connect` uses the folder.
+ * `list` reads it with `readStore`, which never sets it up, while `serve`
+ * may be using it.
  */
+
+/** How long a call waits for another `ke-connect` holding the file to let go, before SQLite fails it as busy. */
+const BUSY_TIMEOUT = 5_000;
 
 /** Makes `db` 0600 before SQLite opens it, so the Sign-in is never in a file others may read. */
 const ownFile = (db: string) =>
@@ -30,10 +36,11 @@ const ownFile = (db: string) =>
 export const openStore = (db: string) =>
   Effect.gen(function* () {
     yield* ownFile(db);
-    const database = yield* Effect.acquireRelease(
-      Effect.sync(() => makeNodeSQLite({ path: db })),
-      (database) => Effect.sync(() => database.close?.()),
+    const file = yield* Effect.acquireRelease(
+      Effect.sync(() => new DatabaseSync(db, { timeout: BUSY_TIMEOUT })),
+      (file) => Effect.sync(() => file.close()),
     );
+    const database = makeNodeSQLite({ database: file });
     yield* SQLite.setup(keConnectTable, { database, mode: 'persistent' }).pipe(
       Effect.mapError(
         (cause) => new Error(`${db} cannot be opened: ${cause.message}`),
@@ -42,7 +49,11 @@ export const openStore = (db: string) =>
     yield* SQLite.setup(deviceAccountsTable, {
       database,
       mode: 'disposable',
-    }).pipe(Effect.orDie);
+    }).pipe(
+      Effect.mapError(
+        (cause) => new Error(`${db} cannot keep a Sign-in: ${cause.message}`),
+      ),
+    );
     return {
       /** The `ke-connect` table. */
       table: SQLite.make(keConnectTable, { database }).layer,
@@ -52,3 +63,24 @@ export const openStore = (db: string) =>
   });
 
 export type Store = Effect.Success<ReturnType<typeof openStore>>;
+
+/**
+ * The `ke-connect` table in the ke-connect.db at `db`, opened read-only and
+ * never set up, for as long as the Scope: a reader beside a running `serve`
+ * changes nothing in its file.
+ */
+export const readStore = (db: string) =>
+  Effect.map(
+    Effect.acquireRelease(
+      Effect.try({
+        try: () =>
+          new DatabaseSync(db, { readOnly: true, timeout: BUSY_TIMEOUT }),
+        catch: (cause) => new Error(`${db} cannot be read`, { cause }),
+      }),
+      (file) => Effect.sync(() => file.close()),
+    ),
+    (file) =>
+      SQLite.make(keConnectTable, {
+        database: makeNodeSQLite({ database: file }),
+      }).layer,
+  );

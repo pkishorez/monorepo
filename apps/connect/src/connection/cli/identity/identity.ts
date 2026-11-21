@@ -3,7 +3,11 @@ import { Console, Context, Effect, Layer } from 'effect';
 import { HeartbeatClient } from './cloud/index.js';
 import { claim, forget as forgetHere, found, ofCloud } from './connection.js';
 import { signIn, stored } from './sign-in/index.js';
-import { openStore } from './store/index.js';
+import {
+  connection as connectionEntity,
+  openStore,
+  readStore,
+} from './store/index.js';
 
 export {
   type ConnectionFolders,
@@ -105,8 +109,19 @@ export const forget = (options: Where) =>
     }),
   );
 
-/** The Connection kept in `db`, without signing in; null when there is none yet. A `db` not there is not made. */
+/**
+ * The Connection kept in `db`, without signing in; null when there is none
+ * yet. `db` is only read, never made or set up, so `list` can read it while
+ * `serve` runs.
+ */
 export const kept = (db: string) =>
   existsSync(db)
-    ? Effect.scoped(Effect.flatMap(openStore(db), found))
+    ? Effect.scoped(
+        Effect.flatMap(readStore(db), (table) =>
+          connectionEntity.get().pipe(
+            Effect.map(({ value }) => value.connection),
+            Effect.provide(table),
+          ),
+        ),
+      )
     : Effect.succeed(null);
