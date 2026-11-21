@@ -1,6 +1,9 @@
 import { Context, Effect, Layer, Option, type Scope, Stream } from 'effect';
-import { pluginPath } from '@kestack/connect/cloud';
-import { CodeClients, ConnectionAddress } from '@kestack/connect/code';
+import {
+  CodeClients,
+  ConnectionAddress,
+  pluginPath,
+} from '@kestack/connect/code';
 import { Replicas } from '@kestack/std-toolkit/replica';
 import { Connections } from '../../../account.ts';
 import { PLUGIN_CODE } from './release.ts';
@@ -23,10 +26,15 @@ import { PLUGIN_CODE } from './release.ts';
  *             `/code/<sha256>/rpc` (`release.ts`), offering its Connection
  *             Key as listed on each connect, so a Connection that comes
  *             back at a new address, as a quick tunnel does, is reached
- *             there. Until it is listed with one, its socket waits. A
- *             Connection running another Release closes it at once; who is
- *             behind is `release.ts`'s to say. `Sockets` opens it, and only
- *             a Connection Actor asks it to.
+ *             there, and with a Connection Key that rotated, which the
+ *             Account's page asks for once a socket is closed for an expired
+ *             key. Until it is listed with one, its socket waits, and so it
+ *             does while its Link is held: a Connection running another
+ *             Release closes it at once, and Connect Cloud is asked who is
+ *             behind (`release.ts`) before it is dialled again. Nor is a
+ *             Connection dialled while it is Outdated, its `ke-connect` older
+ *             than Connect Cloud accepts, until a list says it was updated.
+ *             `Sockets` opens it, and only a Connection Actor asks it to.
  * 3. Borrow   what the Account's page gives everything under it,
  *             `CodeClients`, holds no socket of its own: each call or
  *             stream on a Connection waits until that Connection runs,
@@ -44,7 +52,7 @@ export const byConnection = Layer.effect(
   ),
 );
 
-/** 2. Socket: where each Connection's code Plugin is, at `release`, as listed, once it is. */
+/** 2. Socket: where each Connection's code Plugin is, at `release`, as listed, once it is and its Link is not held. */
 export const addressAt = (release: string) =>
   Layer.effect(
     ConnectionAddress,
@@ -99,10 +107,22 @@ const firstOf = <A>(stream: Stream.Stream<A | null>): Effect.Effect<A> =>
     ),
   );
 
+/** What `read` says of a Connection's clients while it runs, and `none` while it does not. */
+const whileRunning = <A>(
+  clients: Stream.Stream<CodeClients['Service'] | null>,
+  none: A,
+  read: (running: CodeClients['Service']) => Stream.Stream<A>,
+) =>
+  clients.pipe(
+    Stream.switchMap((running) =>
+      running === null ? Stream.make(none) : read(running),
+    ),
+  );
+
 /**
  * 3. Borrow: every Connection's socket, borrowed from its Connection while
- * it runs. A hold waits until it runs; its mismatch is none while it does
- * not.
+ * it runs. A hold waits until it runs; it is neither mismatched nor expired
+ * while it does not.
  */
 export const borrowing = Layer.effect(
   CodeClients,
@@ -113,13 +133,12 @@ export const borrowing = Layer.effect(
           running.hold(connectionId),
         ),
       mismatch: (connectionId) =>
-        clients(connectionId).pipe(
-          Stream.switchMap((running) =>
-            running === null
-              ? Stream.make(null)
-              : running.mismatch(connectionId),
-          ),
-          Stream.changes,
+        whileRunning(clients(connectionId), null, (running) =>
+          running.mismatch(connectionId),
+        ),
+      expired: (connectionId) =>
+        whileRunning(clients(connectionId), false, (running) =>
+          running.expired(connectionId),
         ),
     }),
   ),

@@ -51,9 +51,14 @@ lives only in this browser, like a draft nobody else has, is persistent.
 ## Setup happens on open
 
 The first time a table opens its database, the adapter prepares the Store.
-It compares the table with the **Stored contract**, kept in a reserved
-`_std_contract` store, and decides what the change means under the mode.
-Then it creates what's missing and records the new contract.
+It compares the table with the **Stored snapshot**, the shape it was last
+set up under, kept as a few records of the Store itself, and decides what
+the change means under the mode. Then it creates what's missing and
+records the new snapshot.
+
+Earlier releases kept that record in a separate `_std_contract` store. The
+first open deletes it, so a disposable Store from before is wiped once and
+fetched again.
 
 IndexedDB makes a version change wait for other open tabs. If you'd rather
 choose that moment, call `IDB.setup(table, config)` yourself, and handle a

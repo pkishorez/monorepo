@@ -131,12 +131,27 @@ describe('portable Table definition', () => {
           primary: { pk: [], sk: [] },
           accessPatterns: [],
         },
+        // The table's own snapshot, which every table registers (ADR 0020).
+        { name: '__snapshot', kind: 'single' },
+        {
+          name: '__snapshot_entity',
+          kind: 'keyed',
+          primary: { pk: [], sk: ['name'] },
+        },
+        {
+          name: '__snapshot_version',
+          kind: 'keyed',
+          primary: { pk: [], sk: ['id'] },
+        },
       ],
     });
     expect(snapshot.schemas.map(({ identity }) => identity)).toEqual([
       'Address',
       'Person',
       'Settings',
+      '__snapshot',
+      '__snapshot_entity',
+      '__snapshot_version',
     ]);
     expect('adapter' in snapshot).toBe(false);
     expect(JSON.stringify(snapshot)).not.toContain('light');

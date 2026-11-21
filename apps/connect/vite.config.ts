@@ -6,8 +6,8 @@
  * - `dist/plugin/code.mjs` (pnpm build:plugin): the code Plugin as
  *   Connect downloads it. sherpa-onnx is loaded at run time from the
  *   Speech to Text folder, never bundled.
- * - `dist/cli/ke-connect.mjs`: the `ke-connect` command, as `bin/` runs it.
- *   It sits two folders down, as `dist/connection/` does, so it finds
+ * - `dist/cli/bin/ke-connect.mjs`: the `ke-connect` command, as `bin/` runs
+ *   it. It sits three folders down, as `dist/connection/cli/` does, so it finds
  *   `package.json` where `tsc`'s build does. `shims` gives it `__dirname`,
  *   which the cloudflared package reads as it loads.
  */
@@ -26,13 +26,13 @@ export default {
   pack: [
     {
       ...bundled,
-      entry: { code: 'src/plugins/code/serve/main.ts' },
+      entry: { code: 'src/connection/plugins/code/serve/main.ts' },
       outDir: 'dist/plugin',
     },
     {
       ...bundled,
-      entry: { 'ke-connect': 'src/connection/index.ts' },
-      outDir: 'dist/cli',
+      entry: { 'ke-connect': 'src/connection/cli/index.ts' },
+      outDir: 'dist/cli/bin',
       shims: true,
     },
   ],

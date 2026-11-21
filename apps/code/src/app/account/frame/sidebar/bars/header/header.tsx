@@ -51,8 +51,8 @@ const TUNNEL: Record<string, string> = {
   Unreachable: 'Tunnel unreachable',
   Unchecked: 'Tunnel up, not checked yet',
   Opening: 'Opening its tunnel',
-  Installing: 'Installing cloudflared',
-  OpenFailed: 'Tunnel failed to open',
+  Downloading: 'Downloading cloudflared',
+  Failed: 'Tunnel failed to open',
 };
 
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
@@ -96,9 +96,14 @@ function useInfos(
       about:
         [
           record?.displayName == null ? null : record.name,
-          noticePillOf(record ?? null, Date.now(), behind?.[id] ?? null)?.[0] ??
-            null,
-          record === undefined ? null : (TUNNEL[record.status._tag] ?? null),
+          noticePillOf(record ?? null, behind?.[id] ?? null)?.[0] ?? null,
+          record === undefined
+            ? null
+            : (TUNNEL[
+                record.status._tag === 'SettingUp'
+                  ? record.status.step._tag
+                  : record.status.check._tag
+              ] ?? null),
           record?.version ? `Connect ${record.version}` : null,
         ]
           .filter((each) => each !== null)

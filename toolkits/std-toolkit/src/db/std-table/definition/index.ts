@@ -24,3 +24,12 @@ export {
   type TotalKeyPath,
 } from './definition.js';
 export { keyPathKind } from './key-path-shape.js';
+export {
+  SnapshotEntities,
+  SnapshotEntityRecord,
+  SnapshotRecord,
+  SnapshotVersionRecord,
+  type SnapshotEntityValue,
+  type SnapshotValue,
+  type SnapshotVersionValue,
+} from './snapshot-entities.js';

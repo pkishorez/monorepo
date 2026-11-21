@@ -1,7 +1,8 @@
 import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import type { QueryRequest } from '../../../std-table/contract/index.js';
-import type { QueryInput } from '../../client/generated/types.js';
+import { readStoredSnapshot } from '../../../table-snapshot/index.js';
+import type { GetItemInput, QueryInput } from '../../client/generated/types.js';
 import type { DynamoDBClient } from '../../client/index.js';
 import { makeTableContract } from '../table.js';
 
@@ -226,5 +227,82 @@ describe('DynamoDB runtime query', () => {
     );
 
     expect(result).toEqual({ items: [], hasMore: false });
+  });
+
+  describe('a consistent query', () => {
+    const consistently = async (
+      query: QueryRequest,
+    ): Promise<QueryInput | undefined> => {
+      let input: QueryInput | undefined;
+      const runtime = makeTableContract(
+        capturingClient((sent) => (input = sent)),
+        table,
+        'people',
+      );
+      await Effect.runPromise(runtime.queryItems(query));
+      return input;
+    };
+
+    it('asks for ConsistentRead on the table and a local secondary index', async () => {
+      expect(
+        (await consistently({ ...request(undefined), consistent: true }))
+          ?.ConsistentRead,
+      ).toBe(true);
+      expect(
+        (
+          await consistently({
+            ...request(undefined),
+            index: 'lsi1',
+            consistent: true,
+          })
+        )?.ConsistentRead,
+      ).toBe(true);
+      expect(await consistently(request(undefined))).not.toHaveProperty(
+        'ConsistentRead',
+      );
+    });
+
+    it('is refused on a global secondary index, which has none', async () => {
+      let sent = false;
+      const runtime = makeTableContract(
+        capturingClient(() => (sent = true)),
+        table,
+        'people',
+      );
+      const exit = await Effect.runPromiseExit(
+        runtime.queryItems({
+          ...request(undefined),
+          index: 'gsi1',
+          consistent: true,
+        }),
+      );
+      expect(exit._tag).toBe('Failure');
+      expect(sent).toBe(false);
+    });
+
+    it('is how the stored snapshot is read', async () => {
+      const queries: QueryInput[] = [];
+      const gets: GetItemInput[] = [];
+      const client = new Proxy({} as DynamoDBClient, {
+        get: (_target, property) =>
+          property === 'query'
+            ? (query: QueryInput) => {
+                queries.push(query);
+                return Effect.succeed({ Items: [] });
+              }
+            : property === 'getItem'
+              ? (get: GetItemInput) => {
+                  gets.push(get);
+                  return Effect.succeed({});
+                }
+              : undefined,
+      });
+      await Effect.runPromise(
+        readStoredSnapshot(makeTableContract(client, table, 'people')),
+      );
+      expect(queries).toHaveLength(2);
+      for (const query of queries) expect(query.ConsistentRead).toBe(true);
+      expect(gets.map(({ ConsistentRead }) => ConsistentRead)).toEqual([true]);
+    });
   });
 });

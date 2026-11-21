@@ -1,5 +1,6 @@
 export {
   ConditionFailure,
+  INTERNAL_ENTITY_PREFIX,
   StoredDataSchema,
   StoredItemSchema,
   StoredKeySchema,
@@ -9,6 +10,7 @@ export {
   conditionFailed,
   conditionHolds,
   contractLayer,
+  isInternalEntity,
   itemOutcomes,
   transactItemKey,
   type ConditionalPut,

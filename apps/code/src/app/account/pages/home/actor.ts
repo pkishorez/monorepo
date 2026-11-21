@@ -19,7 +19,7 @@ const Known = Schema.Struct({
   read: Schema.Boolean,
   /** The listed Connections' ids; null before any list. */
   connectionIds: Schema.NullOr(Schema.Array(Schema.String)),
-  /** Why Cloud Connect could not list them, while nothing is listed. */
+  /** Why Connect Cloud could not list them, while nothing is listed. */
   problem: Schema.NullOr(Schema.String),
 });
 
@@ -52,7 +52,7 @@ interface Read {
  * What home draws: nothing, until the list kept here and each Connection's
  * projects are read, or while the Connections say why there are none; a
  * loading line while a Connection never synced here, or none was ever listed and
- * Cloud Connect is asked; no project yet, only once that is known; or the
+ * Connect Cloud is asked; no project yet, only once that is known; or the
  * projects.
  */
 export const showingOf = (

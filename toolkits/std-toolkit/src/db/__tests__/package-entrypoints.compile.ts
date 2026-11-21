@@ -1,4 +1,8 @@
-import { StdTable, type TableDefinition } from '@kestack/std-toolkit/db';
+import {
+  StdTable,
+  storedTableSnapshot,
+  type TableDefinition,
+} from '@kestack/std-toolkit/db';
 import type { DynamoDBConfig } from '@kestack/std-toolkit/db/dynamodb';
 import type { IDBConfig } from '@kestack/std-toolkit/db/idb';
 import { Memory, type MemoryTable } from '@kestack/std-toolkit/db/memory';
@@ -24,6 +28,7 @@ const people = StdTable.make('people').primary('pk', 'sk').build();
 
 const definition: TableDefinition<'people'> = people;
 const memory: MemoryTable<'people'> = Memory.make(people);
+const stored = storedTableSnapshot(people);
 
 type PackageEntrypoints =
   | BetterSQLite3Config
@@ -38,4 +43,4 @@ type PackageEntrypoints =
   | NodeSQLiteDriver
   | SQLiteConfig;
 
-export { definition, memory, type PackageEntrypoints };
+export { definition, memory, stored, type PackageEntrypoints };

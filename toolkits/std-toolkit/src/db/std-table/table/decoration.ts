@@ -23,14 +23,17 @@ import {
 } from '../error/index.js';
 import {
   ConditionFailure,
+  isInternalEntity,
   StdTableService,
   type ContractFailure,
   type StoredItem,
   type TransactItem,
 } from '../contract/index.js';
-import type {
-  KeyedEntityDefinition,
-  TableDefinition as DefinitionTableDefinition,
+import {
+  SnapshotEntities,
+  type KeyedEntityDefinition,
+  type SingleEntityDefinition,
+  type TableDefinition as DefinitionTableDefinition,
 } from '../definition/index.js';
 import {
   broadcast,
@@ -45,7 +48,7 @@ import {
   type AnyTransactOp,
 } from '../entity/index.js';
 import { scanStream } from './scan.js';
-import type { ScanOptions, StdTable } from './table.js';
+import type { ScanOptions, StdTable, StoredSnapshotReads } from './table.js';
 
 type AnyEntity = Entity<object> | SingletonEntity<object>;
 
@@ -145,12 +148,50 @@ const decorateEntityBuilder = (
   },
 });
 
+/**
+ * The internal entities' surfaces with only their reads kept, so nothing an
+ * app holds can write them: only setup does, through the contract.
+ */
+const storedSnapshotReads = <Name extends string>(
+  definition: DefinitionTableDefinition<Name>,
+): StoredSnapshotReads<Name> => {
+  const registered = (name: string) =>
+    definition.registeredEntities.find((entity) => entity.name === name);
+  const consistent = { consistent: true };
+  const snapshot = makeSingleEntity(
+    registered(SnapshotEntities.snapshot.name) as SingleEntityDefinition,
+    consistent,
+  );
+  const keyed = (name: string) => {
+    const { schema, get, query } = makeKeyedEntity(
+      registered(name) as KeyedEntityDefinition<
+        Name,
+        AnyEntityESchema,
+        readonly string[],
+        readonly [string]
+      >,
+      consistent,
+    );
+    return Object.freeze({ name, schema, get, query });
+  };
+  return Object.freeze({
+    snapshot: Object.freeze({
+      name: snapshot.name,
+      schema: snapshot.schema,
+      get: snapshot.get,
+    }),
+    entity: keyed(SnapshotEntities.entity.name),
+    version: keyed(SnapshotEntities.version.name),
+  }) as unknown as StoredSnapshotReads<Name>;
+};
+
 export const decorateTable = <Name extends string>(
   definition: DefinitionTableDefinition<Name>,
 ): StdTable<Name> => {
   const attributes = { entity: definition.logicalName };
   const table = {
     ...definition,
+    storedSnapshot: storedSnapshotReads(definition),
     entity<S extends AnyEntityESchema>(schema: S) {
       const builder = definition.entity(schema);
       return {
@@ -243,8 +284,10 @@ export const decorateTable = <Name extends string>(
     },
     // Table-wide: every entity broadcasting through this Broadcaster, not
     // just this table's — Entity Meta carries no table identity to filter by.
+    // The internal entities describe a table, not its rows, so it skips them.
     subscribe: (): Stream.Stream<ChangeNotice> =>
       changesOrEmpty().pipe(
+        Stream.filter((notice) => !isInternalEntity(notice.meta._e)),
         Stream.withSpan('StdTable.subscribe', { attributes }),
       ),
     dangerouslyRemoveAllItems(_confirmation: 'I KNOW WHAT I AM DOING') {
@@ -274,9 +317,12 @@ export const decorateTable = <Name extends string>(
     },
     drift(item: StoredItem) {
       return Effect.gen(function* () {
-        const found = definition.registeredEntities.find(
-          (candidate) => candidate.name === item.meta._e,
-        );
+        // Only setup writes the internal entities, so they are not found here.
+        const found = isInternalEntity(item.meta._e)
+          ? undefined
+          : definition.registeredEntities.find(
+              (candidate) => candidate.name === item.meta._e,
+            );
         if (found === undefined)
           return yield* failReason(
             new EntityNotFound({ entity: item.meta._e }),
@@ -312,6 +358,10 @@ export const decorateTable = <Name extends string>(
     },
     reindex(currentForm: StoredItem) {
       return Effect.gen(function* () {
+        if (isInternalEntity(currentForm.meta._e))
+          return yield* failReason(
+            new EntityNotFound({ entity: currentForm.meta._e }),
+          );
         const contract = (yield* StdTableService(definition.logicalName))
           .contract;
         yield* contract

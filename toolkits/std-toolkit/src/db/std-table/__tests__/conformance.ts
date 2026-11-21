@@ -20,6 +20,12 @@ import { EntityESchema, ESchema } from '../../../eschema/index.js';
 import { encodeCompositeKey } from '../key/index.js';
 import { StdTable } from '../table/index.js';
 import { StdTableService } from '../contract/index.js';
+import { SnapshotEntities } from '../definition/index.js';
+import { TableSnapshot } from '../../../snapshot/index.js';
+import {
+  checkTableSnapshot,
+  readStoredSnapshot,
+} from '../../table-snapshot/index.js';
 
 export const conformanceTable = StdTable.make('portable-conformance')
   .primary('pk', 'sk')
@@ -1059,7 +1065,9 @@ export const runConformanceSuite = (
           });
           expect(
             yield* item.dangerouslyRemoveAllItems('I KNOW WHAT I AM DOING'),
-          ).toEqual({ itemsDeleted: 1 });
+          ).toEqual({
+            itemsDeleted: 1,
+          });
           expect(
             yield* item.get({ itemId: 'remove', category: 'a' }),
           ).toBeNull();
@@ -1074,6 +1082,88 @@ export const runConformanceSuite = (
           expect(
             yield* otherItem.get({ itemId: 'keep', category: 'a' }),
           ).toBeNull();
+        }),
+      );
+    });
+
+    it('records its snapshot as internal entities that scans and table-wide removal skip', async () => {
+      await run(
+        Effect.gen(function* () {
+          const { contract } = yield* StdTableService(
+            conformanceTable.logicalName,
+          );
+          // An adapter whose setup recorded the snapshot already starts over.
+          for (const entity of Object.values(SnapshotEntities))
+            yield* contract.hardDeleteEntityItems(entity.name);
+          const check = checkTableSnapshot({
+            contract,
+            snapshot: TableSnapshot.capture(conformanceTable),
+            mode: 'persistent',
+            wipe: () => Effect.die('a persistent table is never wiped'),
+          });
+          expect(yield* check).toEqual({ kind: 'first', adopted: false });
+          const stored = yield* readStoredSnapshot(contract);
+          expect(stored.snapshot?.meta._e).toBe('__snapshot');
+          expect(stored.entities.map(({ meta }) => meta._e)).toContain(
+            '__snapshot_entity',
+          );
+          expect(stored.versions.length).toBeGreaterThan(0);
+
+          yield* otherItem.insert({
+            itemId: 'row',
+            category: 'a',
+            label: 'row',
+          });
+          const scanned = Array.from(
+            yield* Stream.runCollect(conformanceTable.scan()),
+          );
+          expect(scanned.map(({ meta }) => meta._e)).toEqual(['OtherItem']);
+          expect(
+            yield* conformanceTable.dangerouslyRemoveAllItems(
+              'I KNOW WHAT I AM DOING',
+            ),
+          ).toEqual({ itemsDeleted: 1 });
+          expect(yield* readStoredSnapshot(contract)).toEqual(stored);
+          expect(yield* check).toEqual({ kind: 'unchanged' });
+        }),
+      );
+    });
+
+    it('takes an unchanged table on one read of __snapshot', async () => {
+      await run(
+        Effect.gen(function* () {
+          const { contract } = yield* StdTableService(
+            conformanceTable.logicalName,
+          );
+          for (const entity of Object.values(SnapshotEntities))
+            yield* contract.hardDeleteEntityItems(entity.name);
+          const reads = { getItem: 0, queryItems: 0, scanItems: 0 };
+          const counted: typeof contract = {
+            ...contract,
+            getItem: (key, options) => {
+              reads.getItem++;
+              return contract.getItem(key, options);
+            },
+            queryItems: (query) => {
+              reads.queryItems++;
+              return contract.queryItems(query);
+            },
+            scanItems: (scan) => {
+              reads.scanItems++;
+              return contract.scanItems(scan);
+            },
+          };
+          const check = checkTableSnapshot({
+            contract: counted,
+            snapshot: TableSnapshot.capture(conformanceTable),
+            mode: 'persistent',
+            wipe: () => Effect.die('a persistent table is never wiped'),
+          });
+          expect(yield* check).toEqual({ kind: 'first', adopted: false });
+          expect(reads.queryItems).toBeGreaterThan(0);
+          reads.getItem = reads.queryItems = reads.scanItems = 0;
+          expect(yield* check).toEqual({ kind: 'unchanged' });
+          expect(reads).toEqual({ getItem: 1, queryItems: 0, scanItems: 0 });
         }),
       );
     });

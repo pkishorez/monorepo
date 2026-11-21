@@ -4,13 +4,15 @@ import {
   OperationFailure,
 } from '../std-table/contract/index.js';
 import type { TableDefinition } from '../std-table/definition/index.js';
-import type { TableSource as SnapshotSource } from '../../snapshot/index.js';
 import {
-  captureContract,
-  contractFromSnapshot,
+  TableSnapshot,
+  type TableSource as SnapshotSource,
+} from '../../snapshot/index.js';
+import {
+  captureTable,
   type SetupRefused,
   type TableMode,
-} from '../stored-contract/index.js';
+} from '../table-snapshot/index.js';
 import type { SQLiteDriver } from './database/index.js';
 import { makeTableContract } from './table/index.js';
 import { setUpSQLiteTable } from './setup/index.js';
@@ -56,27 +58,30 @@ const make = <Name extends string>(
 };
 
 /**
- * Prepares the physical table under its Stored contract, kept beside the data
- * in the database. A persistent table refuses a breaking change and is never
- * wiped; a disposable table is wiped and recreated on any change its stored
- * rows cannot take. Then it creates the table when missing, adds missing
- * index columns and indexes, and replaces incompatible ones. Run it where no
- * request pays for it: at deploy (the Alchemy D1 target does), at process
- * start, or on a Durable Object's first access. An unchanged contract skips
- * the comparison.
+ * Prepares the physical table under the snapshot it keeps in its own internal
+ * entities (ADR 0020). A persistent table refuses a breaking change and is
+ * never wiped, and a refusal changes nothing; a disposable table is dropped
+ * and recreated on any change its stored rows cannot take. Then it adds
+ * missing index columns and indexes, and replaces incompatible ones. A table
+ * kept under the retired `_std_contract` table is migrated first.
+ *
+ * Run it where no request pays for it, before the table is used: at process
+ * start for a SQLite file, at deploy for D1 (the Alchemy `D1.table` resource
+ * does), and in a Durable Object's constructor, inside
+ * `ctx.blockConcurrencyWhile`, so no request reaches the object before its
+ * table is set up.
  */
 const setup = <Name extends string>(
   table: TableSource<Name> & SnapshotSource,
   config: SQLiteSetupConfig,
 ): Effect.Effect<void, OperationFailure | SetupRefused> =>
-  captureContract(table, config.mode).pipe(
-    Effect.flatMap((contract) =>
-      setUpSQLiteTable(
-        config.database,
-        table,
-        config.tableName ?? table.logicalName,
-        contract,
-      ),
+  Effect.suspend(() =>
+    setUpSQLiteTable(
+      config.database,
+      table,
+      config.tableName ?? table.logicalName,
+      captureTable(table),
+      config.mode,
     ),
   );
 
@@ -89,10 +94,16 @@ export const setUpFromSnapshot = (
   snapshot: unknown,
   config: SQLiteSetupConfig & { readonly tableName: string },
 ): Effect.Effect<void, OperationFailure | SetupRefused> =>
-  contractFromSnapshot(snapshot, config.mode).pipe(
+  TableSnapshot.parse(snapshot).pipe(
     Effect.mapError((cause) => new OperationFailure({ cause })),
-    Effect.flatMap((contract) =>
-      setUpSQLiteTable(config.database, topology, config.tableName, contract),
+    Effect.flatMap((parsed) =>
+      setUpSQLiteTable(
+        config.database,
+        topology,
+        config.tableName,
+        parsed,
+        config.mode,
+      ),
     ),
   );
 

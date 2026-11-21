@@ -29,7 +29,7 @@ import { drawnOf, type Read } from './list/order/drawn.ts';
  * Connection, and what this device marks of them.
  *
  * 1. Connections  the list, as `Connections` says it, for the Connection Filter at
- *              its top, and Reload, which asks Cloud Connect again.
+ *              its top, and Reload, which asks Connect Cloud again.
  * 2. Choose    the Connection chosen is the Account's Connection Filter, kept
  *              in its database; one no longer listed shows every Connection.
  *              Nothing is chosen until both the list kept on this device
@@ -61,7 +61,7 @@ import { drawnOf, type Read } from './list/order/drawn.ts';
  * 8. Ready     once its width and every Connection shown are read from this
  *              device, rows and marks, it can be drawn whole, and its View
  *              says so (`readyOf`), once: the frame waits for it, never for
- *              Cloud Connect or a Connection to answer.
+ *              Connect Cloud or a Connection to answer.
  */
 
 const Listed = Schema.Struct({ id: Schema.String, name: Schema.String });
@@ -80,7 +80,7 @@ const Model = Schema.Struct({
   listRead: Schema.Boolean,
   /** The listed Connections; null before any list. */
   connections: Schema.NullOr(Schema.Array(Listed)),
-  /** Why Cloud Connect could not list them, while nothing is listed. */
+  /** Why Connect Cloud could not list them, while nothing is listed. */
   problem: Schema.NullOr(Schema.String),
   /** Whether the Connection Filter has been read. */
   filterRead: Schema.Boolean,

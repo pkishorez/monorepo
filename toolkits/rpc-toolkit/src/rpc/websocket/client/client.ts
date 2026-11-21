@@ -115,7 +115,10 @@ const socketLayer = (
         return at;
       })
     : resolved;
-  return Socket.layerWebSocket(dial).pipe(
+  // Effect runs this inside a socket's uninterruptible acquire. It makes no
+  // socket yet, so a URL that waits must stay interruptible, or closing the
+  // client would wait with it.
+  return Socket.layerWebSocket(Effect.interruptible(dial)).pipe(
     Layer.provide(
       Layer.succeed(Socket.WebSocketConstructor)((at) =>
         open(at, offered, watch),
@@ -136,7 +139,8 @@ const socketLayer = (
  * The URL is relative (resolved against `location`, `http(s)` swapped for
  * `ws(s)`) or absolute, and is resolved lazily at layer build time, which
  * keeps a module-level `ManagedRuntime` safe to construct during SSR. Given
- * as an Effect, it is run before every connect instead.
+ * as an Effect, it is run before every connect instead, and may wait: closing
+ * the client interrupts it.
  */
 export const client = <Rpcs extends Rpc.Any>(
   group: RpcGroup.RpcGroup<Rpcs>,

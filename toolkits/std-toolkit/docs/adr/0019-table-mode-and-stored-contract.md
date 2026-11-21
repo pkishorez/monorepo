@@ -1,5 +1,7 @@
 # Every physical table has a mode, and setup checks a contract stored with the data
 
+Amended by ADR 0020: the Stored contract and the Deployed contract are replaced by a snapshot each table keeps as three internal entities in itself, checked at deploy for D1 and DynamoDB and at setup elsewhere; `DeployGuard.table` is removed. The two table modes stand.
+
 Every physical table is declared `persistent` or `disposable`, and adapter setup compares the table's contract with the **Stored contract** kept beside the data before it changes anything. This supersedes ADR 0012's "nothing is stored inside the table" and "setup never checks a snapshot", and ADR 0018's `acceptBreaking`.
 
 ADR 0012 kept the only baseline in Alchemy state. That cannot protect a table Alchemy never sees. Each browser's IndexedDB and each Durable Object holds its own data at its own version: a device that last opened the app at v3 meets v5 directly, while the deploy guard only ever compared v3→v4 and v4→v5. A baseline in Alchemy state also outlives nothing it protects: lose the state and the guard starts fresh while the data remains. The baseline has to live exactly as long as the data does, so it lives with the data. The cold-start objection in ADR 0012 no longer applies, because setup runs only where no request pays for it: at deploy for D1, at process start for a SQLite file, on app open for IndexedDB, and on first access for a Durable Object. A hash beside the contract makes an unchanged contract one read with no comparison.

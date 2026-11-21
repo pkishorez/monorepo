@@ -1,26 +1,28 @@
 import { Effect, Stream } from 'effect';
+import { Migrations } from '../../migrations/index.js';
+import type { TableSource as SnapshotSource } from '../../snapshot/index.js';
 import {
+  ConditionFailure,
   contractLayer,
   type StdTableService,
   type StoredItem,
 } from '../std-table/contract/index.js';
 import type { TableDefinition } from '../std-table/definition/index.js';
-import type { TableSource as SnapshotSource } from '../../snapshot/index.js';
 import {
-  captureContract,
-  planSetup,
+  captureTable,
+  checkTableSnapshot,
   type BackfillChoice,
-  type CurrentContract,
+  type StoredSnapshot,
   type TableMode,
-} from '../stored-contract/index.js';
+} from '../table-snapshot/index.js';
 import {
   makeIDBDatabase,
   type IDBDatabaseConfig,
   type IDBConnection,
 } from './database/index.js';
 import { prune } from './prune/index.js';
-import { makeTableContract } from './table/index.js';
-import { reconcileIDBStore } from './upgrade/index.js';
+import { makeTableContract, wipeStore } from './table/index.js';
+import { ensureIDBStore, reconcileIDBStore } from './upgrade/index.js';
 
 export interface IDBConfig {
   readonly database: IDBConnection;
@@ -106,96 +108,87 @@ const reindexAll = <Name extends string>(
     ),
   );
 
-class ContractMoved extends Error {}
-
-const prepareOnce = <Name extends string>(
-  table: IDBTableSource<Name>,
-  config: IDBConfig,
-  storeName: string,
-  contract: CurrentContract,
-) =>
-  Effect.gen(function* () {
-    const connection = config.database;
-    const stored = yield* connection.readContract(storeName);
-    const backfill =
-      config.mode === 'persistent'
-        ? 'reindex'
-        : (config.onBackfill ?? 'reindex');
-    const plan = yield* planSetup({
-      current: contract,
-      stored,
-      loadStoredSnapshot: Effect.succeed(stored?.snapshot),
-      backfill,
-    });
-    // Every write of the contract holds only while it is the one read above,
-    // so a setup deciding on a stale read never wipes or overwrites.
-    const record = (wipe: boolean) =>
-      connection
-        .swapContract(storeName, stored, contract.record, { wipe })
-        .pipe(
-          Effect.flatMap((swapped) =>
-            swapped ? Effect.void : Effect.fail(new ContractMoved()),
-          ),
-        );
-    const wipe = Effect.logWarning(
-      `std-toolkit: wiped disposable IndexedDB store "${storeName}" for a change its stored rows cannot take`,
-    ).pipe(Effect.andThen(record(true)));
-    if (plan.kind === 'wipe') yield* wipe;
-    yield* reconcileIDBStore(connection, table, storeName);
-    if (plan.kind !== 'apply') return;
-    if (plan.backfill.length > 0) {
-      const reindexed = reindexAll(table, connection, storeName);
-      // Disposable rows that cannot be reindexed are thrown away instead.
-      if (config.mode === 'persistent') yield* reindexed;
-      else {
-        const result = yield* Effect.result(reindexed);
-        if (result._tag === 'Failure') return yield* wipe;
-      }
-    }
-    yield* record(false);
-  });
-
-const ATTEMPTS = 3;
+// The internal entities have no secondary keys, so the check reads and
+// writes through the store's primary key alone.
+const baseTopology = {
+  localSecondaryIndexes: {},
+  globalSecondaryIndexes: {},
+} as const;
 
 /**
- * Prepares the store under its Stored contract, kept in the same database:
- * a persistent store refuses a breaking change and is never wiped; a
- * disposable one is wiped on any change its stored rows cannot take. Then it
- * creates the store and its indexes, reindexes stored rows when a change
- * needs it, and records the new contract. An unchanged contract is one read
- * and skips the comparison; the store is still checked. A setup that loses a
- * race with another tab starts over from the contract that tab recorded.
+ * Prepares the store under the snapshot it keeps in its own internal
+ * entities (ADR 0020), in this order:
+ *
+ * 1. Runs the registered migrations, and creates the store with its indexes
+ *    when it is missing, in one version change; an existing store is only
+ *    checked, and its indexes are left as they are.
+ * 2. Checks the stored snapshot against the code's. A refusal changes
+ *    nothing. A disposable store's wipe deletes its rows in one transaction
+ *    that holds only while `__snapshot` is still the one read.
+ * 3. Adds or replaces the indexes the topology declares, and reindexes the
+ *    stored rows when a change needs a backfill: a persistent store always
+ *    does, a disposable one as `onBackfill` chooses, and throws its rows away
+ *    if they cannot be reindexed.
+ * 4. Writes the changed snapshot items, last, so a setup stopped before then
+ *    reindexes again on its next run.
+ *
+ * Index changes wait for step 3, so a refused change leaves the store, its
+ * indexes and its rows as they were. Another tab setting up the same store
+ * at once makes a write's or a wipe's condition fail, and the check starts
+ * over from what that tab recorded.
  */
 const prepareStore = <Name extends string>(
   table: IDBTableSource<Name>,
   config: IDBConfig,
   storeName: string,
-) =>
+): Effect.Effect<void, unknown> =>
   Effect.gen(function* () {
-    const contract = yield* captureContract(table, config.mode);
-    for (let attempt = 1; ; attempt++) {
-      const result = yield* prepareOnce(
-        table,
-        config,
-        storeName,
-        contract,
-      ).pipe(Effect.result);
-      if (result._tag === 'Success') return;
-      if (!(result.failure instanceof ContractMoved))
-        return yield* Effect.fail(result.failure);
-      if (attempt === ATTEMPTS)
-        return yield* Effect.fail(
-          new Error(
-            `IndexedDB setup for Store "${storeName}" kept racing another tab`,
-          ),
-        );
-    }
+    const connection = config.database;
+    const snapshot = captureTable(table);
+    const upgrades = yield* Migrations.idb({ storeName });
+    yield* ensureIDBStore(connection, table, storeName, upgrades);
+    const wipe = (stored: StoredSnapshot) =>
+      wipeStore(connection, storeName, stored.snapshot?.meta._u);
+    yield* checkTableSnapshot<unknown>({
+      contract: makeTableContract(connection, baseTopology, storeName),
+      snapshot,
+      mode: config.mode,
+      localIndexOrder: Object.keys(table.localSecondaryIndexes),
+      backfill:
+        config.mode === 'persistent'
+          ? 'reindex'
+          : (config.onBackfill ?? 'reindex'),
+      wipe,
+      prepare: (plan, stored) =>
+        Effect.gen(function* () {
+          yield* reconcileIDBStore(connection, table, storeName);
+          if (plan.kind !== 'apply' || plan.backfill.length === 0) return;
+          const reindexed = reindexAll(table, connection, storeName);
+          if (config.mode === 'persistent') return yield* reindexed;
+          // Disposable rows that cannot be reindexed are thrown away instead.
+          const result = yield* Effect.result(reindexed);
+          if (result._tag === 'Failure') {
+            yield* Effect.logWarning(
+              `std-toolkit: wiped disposable IndexedDB store "${storeName}": its rows could not be reindexed`,
+            );
+            yield* wipe(stored);
+          }
+        }),
+    }).pipe(
+      Effect.mapError((cause) =>
+        cause instanceof ConditionFailure
+          ? new Error(
+              `IndexedDB setup for Store "${storeName}" kept racing another tab`,
+            )
+          : cause,
+      ),
+    );
   });
 
 /**
  * Realizes a StdTable on one IndexedDB database. The store is prepared under
- * its Stored contract the first time the table opens the connection, which is
- * how IndexedDB itself works: schema lives in the open request.
+ * the snapshot it keeps the first time the table opens the connection, which
+ * is how IndexedDB itself works: schema lives in the open request.
  */
 const make = <Name extends string>(
   table: IDBTableSource<Name>,

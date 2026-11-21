@@ -12,11 +12,15 @@ import type { DatabaseError } from '../error/index.js';
 import type { StoredItem, StdTableService } from '../contract/index.js';
 import {
   Table as DefinitionTable,
+  type AccessPatternDefinition,
   type GlobalSecondaryIndex,
   type GlobalSecondaryIndexMap,
   type LocalSecondaryIndex,
   type LocalSecondaryIndexMap,
   type PrimaryIndex,
+  type SnapshotEntityRecord,
+  type SnapshotRecord,
+  type SnapshotVersionRecord,
   type TableBuilder as DefinitionTableBuilder,
   type TableDefinition as DefinitionTableDefinition,
   type TableTopologyBuilder as DefinitionTopologyBuilder,
@@ -24,7 +28,9 @@ import {
 import type {
   AnyTransactOp,
   KeyedBuilderStart,
+  KeyedEntity,
   SingleBuilder,
+  SingleEntity,
   TableEffect,
   TransactOp,
 } from '../entity/index.js';
@@ -37,6 +43,44 @@ export interface ScanOptions {
 export interface DriftResult {
   readonly drifted: boolean;
   readonly currentForm: StoredItem;
+}
+
+/** An internal keyed entity's one access pattern: a single partition, sorted by its id. */
+type InternalPrimary<Id extends string> = Record<
+  'primary',
+  AccessPatternDefinition<undefined, 'primary', readonly [], readonly [Id]>
+>;
+
+/**
+ * Read-only surfaces over the three internal entities that hold the table's
+ * Stored snapshot (ADR 0020). Only setup writes them, so they have no write
+ * method, and every read is strongly consistent. `snapshot.get()` reads like
+ * any single entity's: before setup first writes it, it returns the code's
+ * topology under `persistent`, with `meta._u` empty.
+ */
+export interface StoredSnapshotReads<Name extends string> {
+  readonly snapshot: Pick<
+    SingleEntity<Name, typeof SnapshotRecord>,
+    'name' | 'schema' | 'get'
+  >;
+  readonly entity: Pick<
+    KeyedEntity<
+      Name,
+      typeof SnapshotEntityRecord,
+      readonly [],
+      InternalPrimary<'name'>
+    >,
+    'name' | 'schema' | 'get' | 'query'
+  >;
+  readonly version: Pick<
+    KeyedEntity<
+      Name,
+      typeof SnapshotVersionRecord,
+      readonly [],
+      InternalPrimary<'id'>
+    >,
+    'name' | 'schema' | 'get' | 'query'
+  >;
 }
 
 type TableStream<A, Name extends string> = Stream.Stream<
@@ -56,6 +100,7 @@ export interface StdTable<
   readonly localSecondaryIndexes: Lsis;
   readonly globalSecondaryIndexes: Gsis;
   readonly registeredEntities: DefinitionTableDefinition<Name>['registeredEntities'];
+  readonly storedSnapshot: StoredSnapshotReads<Name>;
   entity<S extends AnyEntityESchema>(
     schema: S,
   ): KeyedBuilderStart<Name, S, Lsis, Gsis>;

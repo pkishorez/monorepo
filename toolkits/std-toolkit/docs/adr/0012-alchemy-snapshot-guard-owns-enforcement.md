@@ -1,6 +1,6 @@
 # An Alchemy snapshot guard owns enforcement, at deploy only
 
-Superseded by ADR 0019: setup checks a Stored contract kept with the data, and the snapshot guard is now the deploy guard, an earlier check ahead of it.
+Superseded by ADR 0019: setup checks a Stored contract kept with the data, and the snapshot guard is now the deploy guard, an earlier check ahead of it. Then by ADR 0020: nothing is kept in Alchemy state, and every table keeps its own snapshot inside itself.
 
 Table-level enforcement moves out of the table and out of every adapter. `@kestack/std-toolkit/alchemy` is a new top-level module and the only place snapshot meets a deploy. It has one folder per deploy target, `dynamodb` and `d1`, plus a shared `snapshot-guard`. On each deploy, the toolkit captures the table snapshot, diffs it against the accepted one, and fails with `SnapshotIncompatible` when the change is `breaking` or `unverifiable`. A `requires-backfill` change is accepted with a warning. The physical identity is a DynamoDB table name or a D1 database id and table name. A new target starts a fresh baseline. `DynamoDB.table` puts a guard resource before Alchemy's native table resource. `D1.table` registers one custom resource whose provider checks the snapshot before it calls `SQLite.setup`; the accepted snapshot is saved only when setup succeeds. Neither target changes a physical table after the snapshot check refuses it. This supersedes ADR 0010: the DynamoDB table resource moves from `@kestack/std-toolkit/db/dynamodb/alchemy` into `@kestack/std-toolkit/alchemy`.
 

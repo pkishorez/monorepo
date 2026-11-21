@@ -40,6 +40,10 @@
       "types": "./dist/rpc/in-process/index.d.ts",
       "default": "./dist/rpc/in-process/index.js"
     },
+    "./rpc/version-gap": {
+      "types": "./dist/rpc/version-gap/index.d.ts",
+      "default": "./dist/rpc/version-gap/index.js"
+    },
     "./http-api": {
       "types": "./dist/http-api/index.d.ts",
       "default": "./dist/http-api/index.js"

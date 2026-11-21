@@ -40,8 +40,8 @@ a request never pays for setup.
 ```
 
 Setup takes the same mode IndexedDB does. It compares the table with the
-**Stored contract**, the record of the shape last set up, kept in a
-reserved `_std_contract` table:
+**Stored snapshot**, the shape it was last set up under, kept as a few
+rows of the table itself:
 
 - `persistent`: a breaking change fails with `SetupRefused`, and the table
   is never wiped.
@@ -49,14 +49,19 @@ reserved `_std_contract` table:
   again. SQLite can't backfill, so that includes a change that needs one.
 
 Then setup creates the table if it's missing, adds index columns and
-indexes, and records the new contract.
+indexes, and records the new snapshot.
+
+A table set up by an earlier release kept that record in a separate
+`_std_contract` table. The next setup moves it into the table and drops
+`_std_contract` once it's empty, so there's nothing for you to do.
 
 ## Where setup runs
 
 Run setup once, where no request waits on it:
 
 - On Node or Bun, when the process starts, as above.
-- In a Durable Object, on the object's first access.
+- In a Durable Object, in its constructor, inside
+  `ctx.blockConcurrencyWhile`, so no request reaches the object first.
 - On D1, at deploy. `D1.table` does it for you; see
   [Deploying](/std-toolkit/deploying).
 

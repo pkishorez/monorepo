@@ -1,7 +1,6 @@
 import { Effect } from 'effect';
 import { isResolved, Resource, RuntimeContext } from 'alchemy';
 import * as Cloudflare from '@alchemy.run/cloudflare';
-import * as Output from 'alchemy/Output';
 import * as Provider from 'alchemy/Provider';
 import {
   setUpFromSnapshot,
@@ -11,7 +10,7 @@ import {
 import { makeD1SQLite } from '../../db/sqlite/drivers/d1/index.js';
 import { TableSnapshot } from '../../snapshot/index.js';
 import type { TableSource } from '../../snapshot/index.js';
-import { guardContract, type Providers } from '../deploy-guard/index.js';
+import type { Providers } from '../collection/index.js';
 
 interface D1TableOptions {
   readonly table: TableSource;
@@ -27,6 +26,8 @@ interface D1TableProps {
   readonly tableName: string;
   readonly mode: TableMode;
   readonly snapshot: unknown;
+  /** The order the table declares its local secondary indexes in, which the snapshot does not keep. */
+  readonly localIndexOrder: readonly string[];
 }
 
 export type D1Table = Resource<
@@ -39,14 +40,22 @@ export type D1Table = Resource<
 
 export const D1Table = Resource<D1Table>('StdToolkit.D1.Table');
 
-const topologyFromSnapshot = (snapshot: TableSnapshot) => ({
+// SQLite setup keeps the local secondary indexes in the order the topology
+// lists them.
+const topologyFromSnapshot = (
+  snapshot: TableSnapshot,
+  localIndexOrder: readonly string[],
+) => ({
   logicalName: snapshot.logicalName,
   primary: snapshot.topology.primary,
   localSecondaryIndexes: Object.fromEntries(
-    snapshot.topology.localSecondaryIndexes.map((index) => [
-      index.name,
-      { ...index, kind: 'lsi' as const },
-    ]),
+    [...snapshot.topology.localSecondaryIndexes]
+      .sort(
+        (left, right) =>
+          localIndexOrder.indexOf(left.name) -
+          localIndexOrder.indexOf(right.name),
+      )
+      .map((index) => [index.name, { ...index, kind: 'lsi' as const }]),
   ),
   globalSecondaryIndexes: Object.fromEntries(
     snapshot.topology.globalSecondaryIndexes.map((index) => [
@@ -62,11 +71,15 @@ export const setUpD1Table = <R>(
 ) =>
   Effect.gen(function* () {
     const snapshot = yield* TableSnapshot.parse(props.snapshot);
-    yield* setUpFromSnapshot(topologyFromSnapshot(snapshot), props.snapshot, {
-      database: yield* database,
-      tableName: props.tableName,
-      mode: props.mode,
-    });
+    yield* setUpFromSnapshot(
+      topologyFromSnapshot(snapshot, props.localIndexOrder),
+      props.snapshot,
+      {
+        database: yield* database,
+        tableName: props.tableName,
+        mode: props.mode,
+      },
+    );
     return props;
   });
 
@@ -102,32 +115,23 @@ export const D1TableProvider = () =>
   });
 
 /**
- * Creates or updates the table in D1 at deploy, under its Stored contract
- * kept in the same database: setup refuses a persistent table's breaking
- * change and wipes a disposable one's. A persistent table also gets a deploy
- * guard, which refuses the change before setup runs.
+ * Creates or updates the table in D1 at deploy, running SQLite setup against
+ * the database with the table's serialized snapshot: the table checks the
+ * snapshot it keeps in its own internal entities, so setup refuses a
+ * persistent table's breaking change, with nothing changed, and wipes a
+ * disposable one's.
  */
 const table = (id: string, options: D1TableOptions) =>
   Effect.gen(function* () {
-    const tableName = options.tableName ?? options.table.logicalName;
-    const snapshot =
-      options.mode === 'persistent'
-        ? (yield* guardContract(
-            `${id}DeployGuard`,
-            options.table,
-            'persistent',
-            {
-              target: Output.interpolate`${options.database.databaseId}/${tableName}`,
-            },
-          )).snapshot
-        : yield* TableSnapshot.serialize(
-            TableSnapshot.capture(options.table),
-          ).pipe(Effect.orDie);
+    const snapshot = yield* TableSnapshot.serialize(
+      TableSnapshot.capture(options.table),
+    ).pipe(Effect.orDie);
     return yield* D1Table(id, {
       databaseId: options.database.databaseId,
-      tableName,
+      tableName: options.tableName ?? options.table.logicalName,
       mode: options.mode,
       snapshot,
+      localIndexOrder: Object.keys(options.table.localSecondaryIndexes),
     });
   });
 

@@ -15,6 +15,8 @@ on:
         required: true
         type: string
 
+# The group of code's deploy job in deploy-connect.yml, so a preview is not
+# destroyed while it deploys.
 concurrency:
   group: code-pr${{ inputs.pr || github.event.number }}
   cancel-in-progress: false

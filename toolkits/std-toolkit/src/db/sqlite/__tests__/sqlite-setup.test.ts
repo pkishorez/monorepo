@@ -25,11 +25,7 @@ describe('SQLite setup', () => {
         "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name",
       ),
     );
-    expect(rows.map(({ name }) => name)).toEqual([
-      '_std_contract',
-      'orders',
-      'people',
-    ]);
+    expect(rows.map(({ name }) => name)).toEqual(['orders', 'people']);
   });
 
   it('additively creates missing index columns without backfilling', async () => {
@@ -189,7 +185,7 @@ describe('SQLite setup', () => {
       SQLite.setup(table, { mode: 'persistent', database }),
     );
     await Effect.runPromise(
-      database.run('CREATE UNIQUE INDEX external_unique ON items (_e)'),
+      database.run('CREATE UNIQUE INDEX external_unique ON items (data)'),
     );
 
     const result = await Effect.runPromise(

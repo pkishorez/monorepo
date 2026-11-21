@@ -11,8 +11,10 @@ import {
 import { makeTableContract } from './table/index.js';
 import {
   DynamoDBNativeError,
+  describeDynamoTable,
   ensureDynamoTable,
   getTableDefinition,
+  type DynamoTableKeys,
 } from './setup/index.js';
 
 export interface DynamoDBConfig {
@@ -71,14 +73,26 @@ const deleteTable = (
       ),
     );
 
+/**
+ * Adapter-native: the keys the physical table has, read from DynamoDB itself;
+ * `undefined` when it does not exist.
+ */
+const describeTable = (
+  config: DynamoDBConfig,
+): Effect.Effect<DynamoTableKeys | undefined, DynamoDBNativeError> =>
+  describeDynamoTable(makeDynamoDBClient(config), config.tableName);
+
 export const DynamoDB = {
   make,
   createTable,
   deleteTable,
+  describeTable,
   getTableDefinition,
 } as const;
 
 export {
   DynamoDBNativeError,
+  type DynamoIndexKeys,
+  type DynamoTableKeys,
   type DynamoTableTopology,
 } from './setup/index.js';
