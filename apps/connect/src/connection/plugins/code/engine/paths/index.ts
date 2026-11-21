@@ -1,1 +1,8 @@
-export { absolute, basename, join, relative } from './paths.js';
+export {
+  absolute,
+  basename,
+  dirname,
+  isWithin,
+  join,
+  relative,
+} from './paths.js';

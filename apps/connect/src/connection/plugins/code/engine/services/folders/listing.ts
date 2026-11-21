@@ -1,5 +1,11 @@
-import { readdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import { Effect } from 'effect';
+import type {
+  AccessDenied,
+  FileSystem,
+  IoError,
+  NotFound,
+} from '../../capabilities/index.js';
+import { join } from '../../paths/index.js';
 import { resolveFolder } from './home.js';
 
 /*
@@ -22,44 +28,53 @@ const collator = new Intl.Collator(undefined, {
   sensitivity: 'base',
 });
 
-/** The sub-folders of the real folder `path`; throws as `readdir` does. */
-export const listEntries = async (input: {
-  readonly home: string;
-  readonly path: string;
-  readonly query: string;
-  readonly limit: number;
-}): Promise<{
-  readonly entries: Array<Entry>;
-  readonly truncated: boolean;
-}> => {
-  const showHidden = input.query.startsWith('.');
-  const needle = input.query.toLowerCase();
-  const wanted = (name: string) =>
-    (showHidden || !name.startsWith('.')) &&
-    name.toLowerCase().includes(needle);
-  const dirents = (await readdir(input.path, { withFileTypes: true })).filter(
-    (dirent) => wanted(dirent.name),
-  );
-  const found = await Promise.all(
-    dirents.map(async (dirent): Promise<Entry | null> => {
-      const hidden = dirent.name.startsWith('.');
-      if (dirent.isDirectory())
-        return { name: dirent.name, hidden, link: false };
-      if (!dirent.isSymbolicLink()) return null;
-      const target = await resolveFolder(
-        input.home,
-        join(input.path, dirent.name),
-      );
-      return target._tag === 'Folder'
-        ? { name: dirent.name, hidden, link: true }
-        : null;
-    }),
-  );
-  const entries = found
-    .filter((entry) => entry !== null)
-    .sort((a, b) => collator.compare(a.name, b.name));
-  return {
-    entries: entries.slice(0, input.limit),
-    truncated: entries.length > input.limit,
-  };
-};
+/** The sub-folders of the real folder `path`; fails as the File System's `list` does. */
+export const listEntries = (
+  files: FileSystem['Service'],
+  input: {
+    readonly home: string;
+    readonly path: string;
+    readonly query: string;
+    readonly limit: number;
+  },
+): Effect.Effect<
+  { readonly entries: Array<Entry>; readonly truncated: boolean },
+  NotFound | AccessDenied | IoError
+> =>
+  Effect.gen(function* () {
+    const showHidden = input.query.startsWith('.');
+    const needle = input.query.toLowerCase();
+    const wanted = (name: string) =>
+      (showHidden || !name.startsWith('.')) &&
+      name.toLowerCase().includes(needle);
+    const listed = (yield* files.list(input.path)).filter((entry) =>
+      wanted(entry.name),
+    );
+    const found = yield* Effect.forEach(
+      listed,
+      (entry): Effect.Effect<Entry | null> => {
+        if (entry.kind === 'folder')
+          return Effect.succeed({
+            name: entry.name,
+            hidden: entry.hidden,
+            link: false,
+          });
+        if (entry.kind !== 'symlink') return Effect.succeed(null);
+        return Effect.map(
+          resolveFolder(files, input.home, join(input.path, entry.name)),
+          (target) =>
+            target._tag === 'Folder'
+              ? { name: entry.name, hidden: entry.hidden, link: true }
+              : null,
+        );
+      },
+      { concurrency: 'unbounded' },
+    );
+    const entries = found
+      .filter((entry) => entry !== null)
+      .sort((a, b) => collator.compare(a.name, b.name));
+    return {
+      entries: entries.slice(0, input.limit),
+      truncated: entries.length > input.limit,
+    };
+  });

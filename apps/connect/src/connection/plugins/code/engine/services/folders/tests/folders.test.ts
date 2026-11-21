@@ -10,14 +10,16 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Effect } from 'effect';
+import { Effect, Layer } from 'effect';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Folders } from '../../../capabilities/index.js';
-import { nodeFolders } from '../index.js';
+import { nodeFileSystem } from '../../file-system/index.js';
+import { homeFolders } from '../index.js';
 
 /*
- * Folders over a made-up home: what a listing holds and hides, that
- * nothing leaves home, and how a new folder is made.
+ * Folders over this computer's File System at a made-up home: what a
+ * listing holds and hides, that nothing leaves home, and how a new folder
+ * is made. fake.test.ts runs it over the File System fake.
  */
 
 const made: Array<string> = [];
@@ -43,7 +45,11 @@ const homeWith = (names: ReadonlyArray<string> = []) => {
 };
 
 const run = <A, E>(home: string, effect: Effect.Effect<A, E, Folders>) =>
-  Effect.runPromise(effect.pipe(Effect.provide(nodeFolders({ home }))));
+  Effect.runPromise(
+    effect.pipe(
+      Effect.provide(homeFolders.pipe(Layer.provide(nodeFileSystem({ home })))),
+    ),
+  );
 
 const list = (home: string, path: string, query?: string) =>
   run(

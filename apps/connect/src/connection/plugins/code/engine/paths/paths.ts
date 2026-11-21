@@ -21,6 +21,9 @@ const normalize = (path: string) => {
 export const join = (first: string, ...rest: ReadonlyArray<string>) =>
   normalize([first, ...rest].join('/'));
 
+/** The folder `path` is in; `/` for `/`. */
+export const dirname = (path: string) => join(path, '..');
+
 /** The last part of `path`: its file or folder's name. */
 export const basename = (path: string) => partsOf(path).at(-1) ?? '';
 
@@ -31,6 +34,13 @@ export const relative = (from: string, to: string) => {
   let same = 0;
   while (same < a.length && same < b.length && a[same] === b[same]) same++;
   return [...a.slice(same).map(() => '..'), ...b.slice(same)].join('/');
+};
+
+/** Whether `path` is `folder` or below it; both absolute. */
+export const isWithin = (folder: string, path: string) => {
+  const inner = normalize(folder);
+  const outer = normalize(path);
+  return inner === '/' || outer === inner || outer.startsWith(`${inner}/`);
 };
 
 /** A path the user gave, made absolute: `~` is `home`, as is the folder a relative path starts in. */

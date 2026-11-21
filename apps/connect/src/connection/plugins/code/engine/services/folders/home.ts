@@ -1,27 +1,13 @@
-import { realpath, stat } from 'node:fs/promises';
-import { isAbsolute, join, relative, resolve } from 'node:path';
+import { Effect } from 'effect';
+import type { FileSystem } from '../../capabilities/index.js';
+import { isWithin } from '../../paths/index.js';
 
 /*
  * Paths inside the home folder. A path is written as the user would: `~`,
- * `~/code`, absolute, or relative to home. It counts as inside only once
- * its symlinks are resolved, so a link never leads out of home.
+ * `~/code`, absolute, or relative to home (paths' `absolute`). It counts as
+ * inside only once its symlinks are resolved, so a link never leads out of
+ * home.
  */
-
-/** A path as the user wrote it, made absolute against `home`. */
-export const expand = (home: string, path: string) =>
-  path === '~'
-    ? home
-    : path.startsWith('~/')
-      ? join(home, path.slice(2))
-      : isAbsolute(path)
-        ? resolve(path)
-        : join(home, path);
-
-/** Whether `path` is `home` or below it; both already absolute. */
-export const isInside = (home: string, path: string) => {
-  const between = relative(home, path);
-  return between === '' || (!between.startsWith('..') && !isAbsolute(between));
-};
 
 /** What a path is, its symlinks resolved. */
 export type Resolved =
@@ -30,29 +16,29 @@ export type Resolved =
   | { readonly _tag: 'Denied' }
   | { readonly _tag: 'Outside'; readonly path: string };
 
-const codeOf = (error: unknown) =>
-  typeof error === 'object' && error !== null && 'code' in error
-    ? String(error.code)
-    : '';
-
-/** Whether a Node error says this user may not. */
-export const isDenied = (error: unknown) =>
-  ['EACCES', 'EPERM', 'EROFS'].includes(codeOf(error));
-
-export const isExisting = (error: unknown) => codeOf(error) === 'EEXIST';
-
-/** The folder `path` stands for, if it is one and inside `home` (real). */
-export const resolveFolder = async (
+/**
+ * The folder `path` stands for, if it is one and inside `home` (real).
+ * Nothing there, a file, or any failure but AccessDenied is Missing.
+ */
+export const resolveFolder = (
+  files: FileSystem['Service'],
   home: string,
   path: string,
-): Promise<Resolved> => {
-  try {
-    const real = await realpath(path);
-    if (!isInside(home, real)) return { _tag: 'Outside', path: real };
-    return (await stat(real)).isDirectory()
-      ? { _tag: 'Folder', path: real }
-      : { _tag: 'Missing' };
-  } catch (error) {
-    return isDenied(error) ? { _tag: 'Denied' } : { _tag: 'Missing' };
-  }
-};
+): Effect.Effect<Resolved> =>
+  Effect.gen(function* () {
+    const real = yield* files.realpath(path);
+    if (!isWithin(home, real))
+      return { _tag: 'Outside', path: real } satisfies Resolved;
+    const found = yield* files.stat(real);
+    return found.kind === 'folder'
+      ? ({ _tag: 'Folder', path: real } satisfies Resolved)
+      : ({ _tag: 'Missing' } satisfies Resolved);
+  }).pipe(
+    Effect.catch((error) =>
+      Effect.succeed<Resolved>(
+        error._tag === 'AccessDenied'
+          ? { _tag: 'Denied' }
+          : { _tag: 'Missing' },
+      ),
+    ),
+  );

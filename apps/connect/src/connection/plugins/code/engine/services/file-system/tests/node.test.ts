@@ -39,7 +39,7 @@ const temp = () => {
 };
 
 const run = <A, E>(effect: Effect.Effect<A, E, FileSystem>) =>
-  Effect.runPromise(effect.pipe(Effect.provide(nodeFileSystem)));
+  Effect.runPromise(effect.pipe(Effect.provide(nodeFileSystem())));
 
 const fs = <A, E>(use: (fs: FileSystem['Service']) => Effect.Effect<A, E>) =>
   run(Effect.flatMap(FileSystem, use));
@@ -49,8 +49,15 @@ const failure = <A, E>(
 ) => run(Effect.flip(Effect.flatMap(FileSystem, use)));
 
 describe('the File System of this computer', () => {
-  it('is at home where Node says', async () => {
+  it('is at home where Node says, unless given another', async () => {
     expect(await fs((each) => Effect.succeed(each.home))).toBe(homedir());
+    expect(
+      await Effect.runPromise(
+        Effect.map(FileSystem, (each) => each.home).pipe(
+          Effect.provide(nodeFileSystem({ home: '/srv/ada' })),
+        ),
+      ),
+    ).toBe('/srv/ada');
   });
 
   it('lists a folder name-sorted, each entry with its kind and whether it is hidden', async () => {

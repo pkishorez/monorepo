@@ -1,6 +1,13 @@
 import { posix } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { absolute, basename, join, relative } from '../index.js';
+import {
+  absolute,
+  basename,
+  dirname,
+  isWithin,
+  join,
+  relative,
+} from '../index.js';
 
 /* The engine's own path operations agree with Node's POSIX ones. */
 
@@ -22,6 +29,20 @@ describe('paths', () => {
   it('names the last part as Node does', () => {
     for (const path of ['/a/b', '/a/b/', '/', '/a'])
       expect(basename(path)).toBe(posix.basename(path));
+  });
+
+  it('names the folder a path is in as Node does', () => {
+    for (const path of ['/a/b', '/a/b/', '/', '/a'])
+      expect(dirname(path)).toBe(posix.dirname(path.replace(/(.)\/$/, '$1')));
+  });
+
+  it('tells a path below a folder from one beside it', () => {
+    expect(isWithin('/home/ada', '/home/ada')).toBe(true);
+    expect(isWithin('/home/ada', '/home/ada/code')).toBe(true);
+    expect(isWithin('/home/ada', '/home/ada2')).toBe(false);
+    expect(isWithin('/home/ada', '/home/ada/..foo')).toBe(true);
+    expect(isWithin('/home/ada', '/home')).toBe(false);
+    expect(isWithin('/', '/srv')).toBe(true);
   });
 
   it('finds the path between two as Node does', () => {
