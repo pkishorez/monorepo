@@ -90,10 +90,17 @@ Claude Code and Codex are not dependencies: install the ones you use, and sign i
 
 ### `@kestack/ai-toolkit/harness/fake`
 
-| Export            | What it does                                                                           |
-| ----------------- | -------------------------------------------------------------------------------------- |
-| `makeFakeHarness` | A fake `claude` harness for tests, scripted Turn by Turn, with a fake One-shot Prompt. |
-| `FAKE_SKILLS`     | The Skills the fake harness offers.                                                    |
+| Export            | What it does                                                                                                                                    |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `agent`           | The Agent fake, a Fake the Fake World runs: Claude Code and Codex as one computer has them, each reply played from a Script, with its Controls. |
+| `agentOver`       | Layer of `Harnesses`, `OneShotPrompt`, `HarnessHost` and `Models` over the running Agent fake, with the home its config folders are under.      |
+| `AgentFake`       | The Agent fake's Kabuki Actor: what is installed and signed in, the replies running, Background Jobs, the next Title and Btw answer.            |
+| `AGENT_CONTROLS`  | The Message tags the bubble offers as the Agent fake's Controls.                                                                                |
+| `blank`           | The Agent fake's Model as it starts: both harnesses installed and signed in, every reply an echo.                                               |
+| `SCRIPTS`         | The Script library: words, every tool kind, a plan, subagents, questions, Background Jobs, compaction, a long reply, failing and cut off.       |
+| `SCRIPT_NAMES`    | The names a Control picks a Script by, `echo` first.                                                                                            |
+| `makeFakeHarness` | A fake `claude` harness for tests, scripted Turn by Turn, with a fake One-shot Prompt.                                                          |
+| `FAKE_SKILLS`     | The Skills the fake harness offers.                                                                                                             |
 
 ### `@kestack/ai-toolkit/speech`
 

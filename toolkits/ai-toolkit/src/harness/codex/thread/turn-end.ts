@@ -1,33 +1,8 @@
 import type { TurnEnd } from '../../contract/index.js';
-import type { TurnEndStatus } from '../../../contract/projection/index.js';
-import {
-  isNotification,
-  type Notification,
-  type TurnStatus,
-} from '../app-server/index.js';
+import { isNotification, type Notification } from '../app-server/index.js';
+import { readableError, TURN_END } from '../record-kinds/index.js';
 
-export const TURN_END: Record<TurnStatus, TurnEndStatus> = {
-  completed: 'done',
-  interrupted: 'cancelled',
-  failed: 'failed',
-  inProgress: 'failed',
-};
-
-/**
- * An error as a person reads it: Codex passes a provider's rejection on as
- * its JSON body (`{"type":"error","status":400,"error":{"message":…}}`).
- */
-export const readableError = (message: string): string => {
-  let body: unknown;
-  try {
-    body = JSON.parse(message);
-  } catch {
-    return message;
-  }
-  const inner = (body as { error?: { message?: unknown } } | null)?.error
-    ?.message;
-  return typeof inner === 'string' && inner !== '' ? inner : message;
-};
+export { readableError, TURN_END } from '../record-kinds/index.js';
 
 /**
  * How a main-thread turn ended, from its `turn/completed`, with the turn's
