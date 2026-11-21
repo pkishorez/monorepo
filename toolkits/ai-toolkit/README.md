@@ -60,31 +60,33 @@ Claude Code and Codex are not dependencies: install the ones you use, and sign i
 
 ### `@kestack/ai-toolkit/harness`
 
-| Export                        | What it does                                                                                |
-| ----------------------------- | ------------------------------------------------------------------------------------------- |
-| `Harnesses`                   | Service listing the Coding Harnesses a program runs, each found by name.                    |
-| `harnesses`                   | Layer of `Harnesses` from a list of harnesses.                                              |
-| `HarnessAccount`              | Service saying which Harness Account a call runs as: its binary and config folder.          |
-| `HarnessAccount.layerDefault` | Layer running the installed harness from PATH, on its own config folder.                    |
-| `binaryAt`                    | What a harness's binary resolves to, run as a given Harness Account.                        |
-| `InvalidBinary`               | Error: the path is missing, not executable, or its `--version` failed.                      |
-| `OneShotPrompt`               | Service answering a prompt with no Agent behind it and nothing kept.                        |
-| `HarnessError`                | Error: a Coding Harness failed.                                                             |
-| `isRecord`                    | Whether something in a Turn's stream is a record of the agent's, not a fact about the Turn. |
-| `projectRaw`                  | One Raw record to its Message form, by the harness in a list that wrote it.                 |
-| `Models`                      | Service listing the Language Models each harness can run, from models.dev and the account.  |
-| `ModelsError`                 | Error: the models could not be listed.                                                      |
+| Export                        | What it does                                                                                 |
+| ----------------------------- | -------------------------------------------------------------------------------------------- |
+| `Harnesses`                   | Service listing the Coding Harnesses a program runs, each found by name.                     |
+| `harnesses`                   | Layer of `Harnesses` from a list of harnesses.                                               |
+| `HarnessAccount`              | Service saying which Harness Account a call runs as: its binary and config folder.           |
+| `HarnessAccount.layerDefault` | Layer running the installed harness from PATH, on its own config folder.                     |
+| `binaryAt`                    | What a harness's binary resolves to, run as a given Harness Account.                         |
+| `HarnessHost`                 | Service saying whether a Harness Binary runs and which config folder an account really uses. |
+| `InvalidBinary`               | Error: the path is missing, not executable, or its `--version` failed.                       |
+| `OneShotPrompt`               | Service answering a prompt with no Agent behind it and nothing kept.                         |
+| `HarnessError`                | Error: a Coding Harness failed.                                                              |
+| `isRecord`                    | Whether something in a Turn's stream is a record of the agent's, not a fact about the Turn.  |
+| `projectRaw`                  | One Raw record to its Message form, by the harness in a list that wrote it.                  |
+| `Models`                      | Service listing the Language Models each harness can run, from models.dev and the account.   |
+| `ModelsError`                 | Error: the models could not be listed.                                                       |
 
 ### `@kestack/ai-toolkit/harness/node`
 
-| Export           | What it does                                                                                    |
-| ---------------- | ----------------------------------------------------------------------------------------------- |
-| `claude`         | The Claude Code harness, through the Agent SDK.                                                 |
-| `codex`          | The Codex harness, through `codex app-server`.                                                  |
-| `codexOneShot`   | Layer of `OneShotPrompt` answered by Codex on a small model, read-only, in a temp folder.       |
-| `checkBinary`    | A path the user gave, expanded, once it runs as the harness's binary.                           |
-| `configFolderOf` | The config folder an account really uses: its own, else the environment's, else the harness's.  |
-| `modelsLayer`    | Layer of `Models` from models.dev and the account, keeping its copy in a file the caller names. |
+| Export             | What it does                                                                                    |
+| ------------------ | ----------------------------------------------------------------------------------------------- |
+| `claude`           | The Claude Code harness, through the Agent SDK.                                                 |
+| `codex`            | The Codex harness, through `codex app-server`.                                                  |
+| `codexOneShot`     | Layer of `OneShotPrompt` answered by Codex on a small model, read-only, in a temp folder.       |
+| `checkBinary`      | A path the user gave, expanded, once it runs as the harness's binary.                           |
+| `configFolderOf`   | The config folder an account really uses: its own, else the environment's, else the harness's.  |
+| `harnessHostLayer` | Layer of `HarnessHost` on this computer: it runs binaries and reads the environment.            |
+| `modelsLayer`      | Layer of `Models` from models.dev and the account, keeping its copy in a file the caller names. |
 
 ### `@kestack/ai-toolkit/harness/fake`
 

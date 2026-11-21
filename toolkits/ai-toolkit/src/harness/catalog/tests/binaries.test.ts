@@ -6,9 +6,10 @@ import { describe, expect, it } from 'vitest';
 import {
   binaryAt,
   HarnessAccount,
+  HarnessHost,
   type Harness,
 } from '../../contract/index.js';
-import { checkBinary, configFolderOf } from '../index.js';
+import { checkBinary, configFolderOf, harnessHostLayer } from '../index.js';
 
 const folder = mkdtempSync(join(tmpdir(), 'ai-toolkit-binaries-'));
 /** A harness whose binary runs wherever it is set. */
@@ -55,6 +56,27 @@ describe('Harness Binaries', () => {
     expect(await Effect.runPromise(checkBinary(harness, ` ${good} `))).toBe(
       good,
     );
+  });
+});
+
+describe('the Harness Host on this computer', () => {
+  it('runs binaries and reads the config folder as the functions do', async () => {
+    const [missing, info, folder] = await Effect.runPromise(
+      Effect.gen(function* () {
+        const host = yield* HarnessHost;
+        return [
+          yield* Effect.flip(host.checkBinary(harness, '/no/such/binary')),
+          yield* host.binaryAt(harness, {
+            binary: '/x/claude',
+            configFolder: undefined,
+          }),
+          yield* host.configFolderOf('claude', '/home/me/.claude-work'),
+        ] as const;
+      }).pipe(Effect.provide(harnessHostLayer)),
+    );
+    expect(missing.message).toBe('Nothing is at /no/such/binary');
+    expect(info.path).toBe('/x/claude');
+    expect(folder).toEqual({ path: '/home/me/.claude-work', from: 'account' });
   });
 });
 

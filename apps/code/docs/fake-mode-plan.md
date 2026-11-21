@@ -261,8 +261,9 @@ connected.
 
 ## Progress
 
-| Task | Status | Commit | Notes                                                                                                           |
-| ---- | ------ | ------ | --------------------------------------------------------------------------------------------------------------- |
-| 0    | done   |        | this doc                                                                                                        |
-| 1    | done   |        | `fake-mode-checklist.md`, 13 areas; Controls added above; open: two tabs run two middles                        |
-| 2    | done   |        | Node code under `/harness/node`, `/speech/node`; `Models.layer` → `modelsLayer`, `Speech.layer` → `speechLayer` |
+| Task | Status | Commit      | Notes                                                                                                              |
+| ---- | ------ | ----------- | ------------------------------------------------------------------------------------------------------------------ |
+| 0    | done   |             | this doc                                                                                                           |
+| 1    | done   |             | `fake-mode-checklist.md`, 13 areas; Controls added above; open: two tabs run two middles                           |
+| 2    | done   | `5c54839f6` | Node code under `/harness/node`, `/speech/node`; `Models.layer` → `modelsLayer`, `Speech.layer` → `speechLayer`    |
+| 3    | done   |             | `HarnessHost` key in `/harness`, `harnessHostLayer` in `/harness/node`; connect still calls the functions (Task 6) |
