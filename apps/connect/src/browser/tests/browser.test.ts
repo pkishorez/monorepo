@@ -239,7 +239,7 @@ describe('Connect in a tab', () => {
                 Stream.flattenIterable,
                 Stream.map(({ value }) => JSON.stringify(value)),
                 Stream.filter((each) =>
-                  each.includes('echo:hello from the tab'),
+                  each.includes('echo: hello from the tab'),
                 ),
                 Stream.runHead,
               );
@@ -271,7 +271,7 @@ describe('Connect in a tab', () => {
         yield* change('laptop', { release: null });
         expect(
           (yield* Fiber.join(answered)).map(({ account }) => account),
-        ).toEqual(['claude']);
+        ).toEqual(['claude', 'codex']);
 
         // Its key rotated: the socket open stays open, and a new one
         // offering the old key is closed KEY_EXPIRED.
@@ -280,7 +280,7 @@ describe('Connect in a tab', () => {
           const [laptop] = await Effect.runPromise(cloud.List({}));
           expect(laptop?.key).toBe('n'.repeat(32));
         });
-        expect(yield* on('laptop', harnesses)).toHaveLength(1);
+        expect(yield* on('laptop', harnesses)).toHaveLength(2);
         const stale = Context.get(
           yield* Layer.build(
             tunnelClients.pipe(
@@ -331,7 +331,7 @@ describe('Connect in a tab', () => {
 
         yield* change('laptop', { online: true });
         yield* eventually(() => expect(links.at(-1)).toBe('linked'));
-        expect(yield* on('laptop', harnesses)).toHaveLength(1);
+        expect(yield* on('laptop', harnesses)).toHaveLength(2);
         expect(stops).toEqual([]);
       }),
     ));

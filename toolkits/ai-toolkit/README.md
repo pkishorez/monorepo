@@ -120,10 +120,17 @@ Claude Code and Codex are not dependencies: install the ones you use, and sign i
 
 ### `@kestack/ai-toolkit/speech/fake`
 
-| Export             | What it does                                                         |
-| ------------------ | -------------------------------------------------------------------- |
-| `makeFakeSpeech`   | A fake `SpeechToText` for tests, its download held or failed on cue. |
-| `FAKE_MODEL_BYTES` | How many bytes the fake model's download reports.                    |
+| Export               | What it does                                                                                                                  |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `speech`             | The Speech fake, a Fake the Fake World runs: Speech to Text on a computer, its download and what it hears, with its Controls. |
+| `speechFakeOver`     | Layer of `Speech` over the running Speech fake: the real speech model and Takes on it.                                        |
+| `SpeechFake`         | The Speech fake's Kabuki Actor: the wish and model on disk, the download running, and how the model hears.                    |
+| `SPEECH_CONTROLS`    | The Message tags the bubble offers as the Speech fake's Controls.                                                             |
+| `blank`              | The Speech fake's Model as it starts: switched off, nothing on disk, downloads running by themselves.                         |
+| `HEARD_TEXT`         | What a Take turns into until a Control says otherwise.                                                                        |
+| `SPEECH_MODEL_BYTES` | How many bytes the Speech fake's model download reports.                                                                      |
+| `makeFakeSpeech`     | A fake `SpeechToText` for tests, its download held or failed on cue.                                                          |
+| `FAKE_MODEL_BYTES`   | How many bytes the fake model's download reports.                                                                             |
 
 ## Usage
 
