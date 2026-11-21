@@ -34,7 +34,8 @@ import { PLUGIN_CODE } from './release.ts';
  *             behind (`release.ts`) before it is dialled again. Nor is a
  *             Connection dialled while it is Outdated, its `ke-connect` older
  *             than Connect Cloud accepts, until a list says it was updated.
- *             `Sockets` opens it, and only a Connection Actor asks it to.
+ *             `Sockets` opens it, given by the page's root Layer as
+ *             `Accounts` is, and only a Connection Actor asks it to.
  * 3. Borrow   what the Account's page gives everything under it,
  *             `CodeClients`, holds no socket of its own: each call or
  *             stream on a Connection waits until that Connection runs,
@@ -52,50 +53,83 @@ export const byConnection = Layer.effect(
   ),
 );
 
-/** 2. Socket: where each Connection's code Plugin is, at `release`, as listed, once it is and its Link is not held. */
+/** 2. Socket: where each Connection's code Plugin is, at `release`, as `connections` lists it, once it is and its Link is not held. */
+const addressOver = (
+  { reachable }: Connections['Service'],
+  release: string,
+): ConnectionAddress['Service'] =>
+  ConnectionAddress.of({
+    of: (connectionId) =>
+      Effect.map(reachable(connectionId), ({ tunnel, key }) => ({
+        url: `${tunnel}${pluginPath('code', release)}`,
+        key,
+      })),
+  });
+
+/** 2. Socket: where each Connection's code Plugin is, at `release`, as listed. */
 export const addressAt = (release: string) =>
   Layer.effect(
     ConnectionAddress,
-    Effect.map(Connections, ({ reachable }) =>
-      ConnectionAddress.of({
-        of: (connectionId) =>
-          Effect.map(reachable(connectionId), ({ tunnel, key }) => ({
-            url: `${tunnel}${pluginPath('code', release)}`,
-            key,
-          })),
-      }),
-    ),
+    Effect.map(Connections, (connections) => addressOver(connections, release)),
   );
 
 /**
- * 2. Socket: what opens a Connection's sockets, in the Scope that asks:
- * they close as it closes. Only a Connection Actor asks, in its own.
+ * 2. Socket: what opens a Connection's sockets, at the address it is
+ * given, in the Scope that asks: they close as it closes. Only a
+ * Connection Actor asks, in its own (`opened`). The page's root Layer
+ * gives it: the browser's WebSockets (`sockets`), or a test's, or fake
+ * mode's.
  */
 export class Sockets extends Context.Service<
   Sockets,
   {
-    readonly open: Effect.Effect<CodeClients['Service'], never, Scope.Scope>;
+    readonly open: (
+      address: ConnectionAddress['Service'],
+    ) => Effect.Effect<CodeClients['Service'], never, Scope.Scope>;
   }
 >()('code/Sockets') {
-  /** Sockets as `pool` opens them: each Connection's own, or a test's. */
-  static readonly from = <R>(pool: Layer.Layer<CodeClients, never, R>) =>
+  /** Sockets as `pool` opens them at each address: each Connection's own, or a test's. */
+  static readonly from = <R>(
+    pool: Layer.Layer<CodeClients, never, ConnectionAddress | R>,
+  ): Layer.Layer<Sockets, never, Exclude<R, ConnectionAddress>> =>
     Layer.effect(
       Sockets,
-      Effect.map(Effect.context<R>(), (context) =>
+      Effect.map(Effect.context<Exclude<R, ConnectionAddress>>(), (context) =>
         Sockets.of({
-          open: Effect.map(
-            Layer.build(Layer.provide(pool, Layer.succeedContext(context))),
-            (built) => Context.get(built, CodeClients),
-          ),
+          open: (address) =>
+            Effect.map(
+              Layer.build(
+                Layer.provide(
+                  pool,
+                  Layer.succeedContext(
+                    Context.add(context, ConnectionAddress, address),
+                  ),
+                ) as Layer.Layer<CodeClients>,
+              ),
+              (built) => Context.get(built, CodeClients),
+            ),
         }),
       ),
     );
 }
 
-/** 2. Socket: each Connection's own, at the address it is listed at. */
-export const sockets = Sockets.from(
-  CodeClients.layer.pipe(Layer.provide(addressAt(PLUGIN_CODE))),
-);
+/** 2. Socket: each Connection's own WebSocket, at the address it is given. */
+export const sockets = Sockets.from(CodeClients.layer);
+
+/** 2. Socket: the Connection's sockets, at this Code's Release, as listed, open for as long as the Scope. */
+export const opened = (
+  connectionId: string,
+): Effect.Effect<
+  CodeClients['Service'],
+  never,
+  Scope.Scope | Sockets | Connections
+> =>
+  Effect.gen(function* () {
+    const address = addressOver(yield* Connections, PLUGIN_CODE);
+    const clients = yield* (yield* Sockets).open(address);
+    yield* clients.hold(connectionId);
+    return clients;
+  });
 
 /** The first of `stream` that is not null; waits for one, for ever if need be. */
 const firstOf = <A>(stream: Stream.Stream<A | null>): Effect.Effect<A> =>
@@ -144,5 +178,5 @@ export const borrowing = Layer.effect(
   ),
 );
 
-/** What the Account's page gives everything under it: every listed Connection's records and socket, borrowed, and what opens them. */
-export const reach = Layer.mergeAll(byConnection, borrowing, sockets);
+/** What the Account's page gives everything under it: every listed Connection's records and socket, borrowed. */
+export const reach = Layer.merge(byConnection, borrowing);

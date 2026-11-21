@@ -4,12 +4,12 @@ import { Ask, Voice } from './voice.ts';
 import { askDictation } from './commands.ts';
 import { Dictation } from './dictation/index.ts';
 import { Microphone } from './microphone/index.ts';
-import { Recorder, recorder } from './recorder/index.ts';
 
 /*
  * Voice: recording from anywhere, a Child of the header, which is drawn
  * around every page, so it carries on while the user moves between pages,
- * Settings too. It gives its Children the microphone (`recorder/`).
+ * Settings too. Its Children record from the page's microphone,
+ * `Recorder` (`recorder/`), which the page's root Layer gives.
  *
  * 1. Dictation  the one Dictation, which records, has it written out, and
  *               keeps the text for the field that started it until that
@@ -29,7 +29,6 @@ const Spoken = Actor.define('Voice', {
 });
 
 export const VoiceLive = Spoken.build({
-  provides: { capabilities: [Recorder], layer: () => recorder },
   children: {
     // 1. Dictation
     dictation: Actor.child(Dictation.actor),

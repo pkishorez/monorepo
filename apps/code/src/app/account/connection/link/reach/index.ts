@@ -2,6 +2,7 @@ export {
   addressAt,
   borrowing,
   byConnection,
+  opened,
   reach,
   Sockets,
   sockets,

@@ -20,7 +20,6 @@ import {
   moves,
   Moves,
   reach,
-  Sockets,
   toNewest,
 } from './connection/index.ts';
 import {
@@ -111,7 +110,8 @@ import { Settings } from './pages/settings/index.ts';
  *             socket and records, borrowed from the Connection that owns
  *             them while it runs (`reach`), and the Moves on their way to
  *             them; and the Dictation's asks (`voice`). No socket is open
- *             outside `Active`: each is its Connection's own.
+ *             outside `Active`: each is its Connection's own, opened by
+ *             the page's `Sockets`.
  * 9. Frame    while `Active`, once its keyboard is read from Preferences,
  *             so it draws at once (`frame/`).
  * 10. Pages   home, Settings, and a project of one Connection and its
@@ -481,338 +481,332 @@ const signIn = Command.make('SignInHere', {
 
 /**
  * The Account's page, reaching each Connection, its socket and its
- * records, through `to`: `reach`, or a test's stand-in.
+ * records (`reach`); what opens each socket, `Sockets`, is the page's.
  */
-export const accountWith = (to: typeof reach) =>
-  Account.build({
-    init: () => ({
-      model: {
-        who: null,
-        leaving: null,
-        problem: null,
-        signingIn: false,
-        keyboard: null,
-        ...fresh,
-      },
-      state: { _tag: 'Away', why: { _tag: 'NotHere' } },
-    }),
-    pages: {
-      Home: Home.actor,
-      Settings: Settings.actor,
-      Project: Project.actor,
+export const AccountLive = Account.build({
+  init: () => ({
+    model: {
+      who: null,
+      leaving: null,
+      problem: null,
+      signingIn: false,
+      keyboard: null,
+      ...fresh,
     },
-    // 8. Share
-    provides: {
-      capabilities: [
-        Replicas,
-        CodeClients,
-        Sockets,
-        Moves,
-        ...Voice.capabilities,
-        Connections,
-      ],
-      layer: (self) =>
-        Layer.mergeAll(moves.pipe(Layer.provideMerge(to)), voice).pipe(
-          Layer.provideMerge(
-            Layer.effect(
-              Connections,
-              connectionsOf({
-                known: Stream.map(self.changes, knownOf),
-                current: Effect.map(self.get, knownOf),
-                send: self.send,
-              }),
+    state: { _tag: 'Away', why: { _tag: 'NotHere' } },
+  }),
+  pages: {
+    Home: Home.actor,
+    Settings: Settings.actor,
+    Project: Project.actor,
+  },
+  // 8. Share
+  provides: {
+    capabilities: [
+      Replicas,
+      CodeClients,
+      Moves,
+      ...Voice.capabilities,
+      Connections,
+    ],
+    layer: (self) =>
+      Layer.mergeAll(moves.pipe(Layer.provideMerge(reach)), voice).pipe(
+        Layer.provideMerge(
+          Layer.effect(
+            Connections,
+            connectionsOf({
+              known: Stream.map(self.changes, knownOf),
+              current: Effect.map(self.get, knownOf),
+              send: self.send,
+            }),
+          ),
+        ),
+      ),
+  },
+  workers: {
+    // 1. Who
+    accounts: {
+      run: (self) =>
+        Effect.flatMap(Accounts, ({ state }) =>
+          state.pipe(
+            Stream.mapEffect((now) =>
+              now._tag === 'Checking'
+                ? Effect.map(keptAccounts, (kept) => whoOf(now, kept))
+                : Effect.succeed(whoOf(now, [])),
             ),
+            Stream.runForEach((who) => self.send({ _tag: 'Heard', who })),
           ),
         ),
     },
-    workers: {
-      // 1. Who
-      accounts: {
-        run: (self) =>
-          Effect.flatMap(Accounts, ({ state }) =>
-            state.pipe(
-              Stream.mapEffect((now) =>
-                now._tag === 'Checking'
-                  ? Effect.map(keptAccounts, (kept) => whoOf(now, kept))
-                  : Effect.succeed(whoOf(now, [])),
-              ),
-              Stream.runForEach((who) => self.send({ _tag: 'Heard', who })),
-            ),
-          ),
-      },
-      // 9. Frame
-      keyboard: {
-        run: (self) =>
-          Stream.runForEach(Frame.keyboard, (keyboard) =>
-            self.send({ _tag: 'KeyboardRead', keyboard }),
-          ),
-      },
+    // 9. Frame
+    keyboard: {
+      run: (self) =>
+        Stream.runForEach(Frame.keyboard, (keyboard) =>
+          self.send({ _tag: 'KeyboardRead', keyboard }),
+        ),
     },
-    states: {
-      Active: {
-        workers: {
-          // 2. Kept
-          kept: {
-            while: ({ model }) => !model.list.keptRead,
-            run: (self) =>
-              Effect.gen(function* () {
-                const { props } = yield* self.get;
-                const connections = yield* (yield* Storage).cache.read(
-                  ListShelf,
-                  {
-                    accountId: props.params.accountId,
-                    connectionId: null,
-                    projectId: null,
-                  },
-                );
-                yield* self.send({ _tag: 'KeptRead', connections });
-              }),
-          },
-          // 3. Fetch
-          fetch: {
-            each: ({ model }) => copying.asking(model.list),
-            run: (self, since) =>
-              Effect.flatMap(list(Number(since)), self.send),
-          },
-          // 5. Recheck: the wait starts over whenever the pace changes, so
-          // a Connection that comes on its way while another is down is
-          // asked after at its own pace.
-          recheck: {
-            while: ({ model }) => !fetching(model) && anyDown(model),
-            run: (self) =>
-              self.changes.pipe(
-                Stream.mapEffect(({ model }) =>
-                  Effect.map(Clock.currentTimeMillis, (now) =>
-                    recheckIn(
-                      model.list.value ?? [],
-                      model.links,
-                      model.checked,
-                      now,
-                    ),
+  },
+  states: {
+    Active: {
+      workers: {
+        // 2. Kept
+        kept: {
+          while: ({ model }) => !model.list.keptRead,
+          run: (self) =>
+            Effect.gen(function* () {
+              const { props } = yield* self.get;
+              const connections = yield* (yield* Storage).cache.read(
+                ListShelf,
+                {
+                  accountId: props.params.accountId,
+                  connectionId: null,
+                  projectId: null,
+                },
+              );
+              yield* self.send({ _tag: 'KeptRead', connections });
+            }),
+        },
+        // 3. Fetch
+        fetch: {
+          each: ({ model }) => copying.asking(model.list),
+          run: (self, since) => Effect.flatMap(list(Number(since)), self.send),
+        },
+        // 5. Recheck: the wait starts over whenever the pace changes, so
+        // a Connection that comes on its way while another is down is
+        // asked after at its own pace.
+        recheck: {
+          while: ({ model }) => !fetching(model) && anyDown(model),
+          run: (self) =>
+            self.changes.pipe(
+              Stream.mapEffect(({ model }) =>
+                Effect.map(Clock.currentTimeMillis, (now) =>
+                  recheckIn(
+                    model.list.value ?? [],
+                    model.links,
+                    model.checked,
+                    now,
                   ),
                 ),
-                Stream.changes,
-                Stream.switchMap((pace) =>
-                  pace === null
-                    ? Stream.empty
-                    : Stream.fromEffect(
-                        Effect.sleep(pace).pipe(
-                          Effect.andThen(self.send({ _tag: 'RecheckDue' })),
-                        ),
+              ),
+              Stream.changes,
+              Stream.switchMap((pace) =>
+                pace === null
+                  ? Stream.empty
+                  : Stream.fromEffect(
+                      Effect.sleep(pace).pipe(
+                        Effect.andThen(self.send({ _tag: 'RecheckDue' })),
                       ),
-                ),
-                Stream.runDrain,
+                    ),
               ),
-          },
-          // 5. Recheck: back after a while away, the list is checked again.
-          back: {
-            run: (self) =>
-              Stream.runForEach(back, () => self.send({ _tag: 'Back' })),
-          },
-          // 5. Recheck: the kept list believed anyway, once Connect Cloud
-          // has been waited on for long enough.
-          check: {
-            while: ({ model }) => !model.checked,
-            run: (self) =>
-              Effect.sleep(CHECK_FOR).pipe(
-                Effect.andThen(self.send({ _tag: 'CheckWaited' })),
-              ),
-          },
+              Stream.runDrain,
+            ),
         },
-        children: {
-          // 4. Links: each listed Connection.
-          connection: Actor.child(ConnectionActor.actor, {
-            each: ({ model }) => idsOf(model),
-            input: ({ props }, connectionId) => ({
-              accountId: props.params.accountId,
-              connectionId,
-            }),
-          }),
-          // 9. Frame
-          frame: Actor.child(Frame.actor, {
-            while: ({ model }) => model.keyboard !== null,
-            input: ({ model }) => ({
-              keyboard: model.keyboard ?? Frame.keysOf(nothing),
-            }),
-            props: ({ state, props }) => ({
-              accountId: props.params.accountId,
-              email: state.email,
-              place: draftAt(props.route.page),
-            }),
-          }),
+        // 5. Recheck: back after a while away, the list is checked again.
+        back: {
+          run: (self) =>
+            Stream.runForEach(back, () => self.send({ _tag: 'Back' })),
+        },
+        // 5. Recheck: the kept list believed anyway, once Connect Cloud
+        // has been waited on for long enough.
+        check: {
+          while: ({ model }) => !model.checked,
+          run: (self) =>
+            Effect.sleep(CHECK_FOR).pipe(
+              Effect.andThen(self.send({ _tag: 'CheckWaited' })),
+            ),
         },
       },
+      children: {
+        // 4. Links: each listed Connection.
+        connection: Actor.child(ConnectionActor.actor, {
+          each: ({ model }) => idsOf(model),
+          input: ({ props }, connectionId) => ({
+            accountId: props.params.accountId,
+            connectionId,
+          }),
+        }),
+        // 9. Frame
+        frame: Actor.child(Frame.actor, {
+          while: ({ model }) => model.keyboard !== null,
+          input: ({ model }) => ({
+            keyboard: model.keyboard ?? Frame.keysOf(nothing),
+          }),
+          props: ({ state, props }) => ({
+            accountId: props.params.accountId,
+            email: state.email,
+            place: draftAt(props.route.page),
+          }),
+        }),
+      },
     },
-    on: {
-      // 1. Who: the list starts afresh each time the page is `Active`. A
-      // switch from the header, while `Active`, leaves for the new
-      // Account's home; so does one to another chosen here, once it is
-      // active.
-      Heard: ({ who }, { model, state, props }) => {
-        const now = standOf(props.params.accountId, who, state);
-        const anew = state._tag !== 'Active' && now._tag === 'Active';
-        const wanted = now._tag === 'Active' ? who.switchingTo : model.leaving;
-        // A switch seen under way that ended on another Account leaves
-        // nothing wanted, so a later switch elsewhere never moves this tab.
-        const ended =
-          model.who !== null &&
-          model.who.switchingTo !== null &&
-          who.switchingTo === null &&
-          who.active?.id !== wanted;
-        const leaving = ended ? null : wanted;
-        const arrived =
-          leaving !== null &&
-          who.active?.id === leaving &&
-          model.who?.active?.id !== leaving;
-        return {
-          model: { ...model, ...(anew ? fresh : {}), who, leaving },
-          state: now,
-          ...(arrived ? { command: Router.replace(home(leaving)) } : {}),
-        };
-      },
-      ChooseAsked: ({ id }, { model, props }) => {
-        const { who } = model;
-        if (who === null || !who.answered || who.switchingTo !== null)
-          return {};
-        const own = id === props.params.accountId;
-        if (who.active?.id === id)
-          return own
-            ? {}
-            : {
-                model: { ...model, leaving: id },
-                command: Router.replace(home(id)),
-              };
-        return {
-          model: { ...model, leaving: own ? null : id, problem: null },
-          command: switchTo({ id }),
-        };
-      },
-      SignInAsked: (_, { model }) =>
-        model.signingIn
+  },
+  on: {
+    // 1. Who: the list starts afresh each time the page is `Active`. A
+    // switch from the header, while `Active`, leaves for the new
+    // Account's home; so does one to another chosen here, once it is
+    // active.
+    Heard: ({ who }, { model, state, props }) => {
+      const now = standOf(props.params.accountId, who, state);
+      const anew = state._tag !== 'Active' && now._tag === 'Active';
+      const wanted = now._tag === 'Active' ? who.switchingTo : model.leaving;
+      // A switch seen under way that ended on another Account leaves
+      // nothing wanted, so a later switch elsewhere never moves this tab.
+      const ended =
+        model.who !== null &&
+        model.who.switchingTo !== null &&
+        who.switchingTo === null &&
+        who.active?.id !== wanted;
+      const leaving = ended ? null : wanted;
+      const arrived =
+        leaving !== null &&
+        who.active?.id === leaving &&
+        model.who?.active?.id !== leaving;
+      return {
+        model: { ...model, ...(anew ? fresh : {}), who, leaving },
+        state: now,
+        ...(arrived ? { command: Router.replace(home(leaving)) } : {}),
+      };
+    },
+    ChooseAsked: ({ id }, { model, props }) => {
+      const { who } = model;
+      if (who === null || !who.answered || who.switchingTo !== null) return {};
+      const own = id === props.params.accountId;
+      if (who.active?.id === id)
+        return own
           ? {}
           : {
-              model: { ...model, problem: null, signingIn: true },
-              command: signIn(),
-            },
-      SignInEnded: (_, { model }) => ({
-        model: { ...model, signingIn: false },
-      }),
-      Refused: ({ problem }, { model }) => ({
-        model: { ...model, leaving: null, signingIn: false, problem },
-      }),
-      KeyboardRead: ({ keyboard }, { model }) => ({
-        model: { ...model, keyboard },
-      }),
-      KeptRead: ({ connections }, { model }) => ({
-        model: { ...model, list: copying.read(model.list, connections) },
-      }),
-      // An answer asked before a later ask, or a Forget, is dropped.
-      Fetched: ({ since, connections, at }, { model, props }) => {
-        if (!copying.latest(model.list, since)) return {};
-        const { accountId } = props.params;
-        const next = {
-          ...model,
-          list: copying.answered(model.list, since, connections),
-          fetchedAt: at,
-          checked: true,
-        };
-        return {
-          model: next,
-          command: [
-            keepList({ accountId, connections }),
-            ...(model.fetchedAt === null
-              ? [
-                  pruneUnlisted({
-                    accountId,
-                    connectionIds: connections.map(({ id }) => id),
-                  }),
-                ]
-              : []),
-          ],
-        };
-      },
-      Failed: ({ since, problem }, { model }) => ({
-        model: { ...model, list: copying.refused(model.list, since, problem) },
-      }),
-      // Reload: asked at once.
-      ReloadAsked: (_, { model }) => ({
-        model: { ...model, list: copying.ask(model.list) },
-      }),
-      CheckWaited: (_, { model }) => ({ model: { ...model, checked: true } }),
-      Back: (_, { model }) => ({
-        model: { ...model, checked: false, list: copying.ask(model.list) },
-      }),
-      RecheckDue: (_, { model }) => ({
-        model: { ...model, list: copying.ask(model.list) },
-      }),
-      // 4. Links: what a Connection says, its link with it; this Code found
-      // Stale moves to its newest build.
-      Said: ({ connectionId, said }, { model }) => {
-        const next = {
-          ...model,
-          said: { ...model.said, [connectionId]: said },
-          links: { ...model.links, [connectionId]: said.link },
-        };
-        // 5. Recheck: a Connection whose key just expired asks at once,
-        // unless an ask is already out; one that answers with the old key
-        // leaves it relinking, so the recheck asks again at its pace.
-        const expired =
-          said.expired && model.said[connectionId]?.expired !== true;
-        return {
-          model:
-            expired && !fetching(next)
-              ? { ...next, list: copying.ask(next.list) }
-              : next,
-          ...(stale(next) && !stale(model) ? { command: toNewest({}) } : {}),
-        };
-      },
-      // 6. Forget
-      ForgetAsked: ({ id }, { model }) =>
-        model.forgetting !== null && model.forgetting.problem === null
-          ? {}
-          : {
-              model: { ...model, forgetting: { id, problem: null } },
-              command: forget({ id }),
-            },
-      // Out of the list first, so its Connection stops and no Query reads its
-      // Instance as it goes.
-      Forgot: ({ id }, { model, props }) => {
-        const { accountId } = props.params;
-        const connections = (model.list.value ?? []).filter(
-          (each) => each.id !== id,
-        );
-        const { [id]: _said, ...said } = model.said;
-        return {
-          model: {
-            ...model,
-            list: copying.changed(model.list, connections),
-            forgetting: null,
-            said,
+              model: { ...model, leaving: id },
+              command: Router.replace(home(id)),
+            };
+      return {
+        model: { ...model, leaving: own ? null : id, problem: null },
+        command: switchTo({ id }),
+      };
+    },
+    SignInAsked: (_, { model }) =>
+      model.signingIn
+        ? {}
+        : {
+            model: { ...model, problem: null, signingIn: true },
+            command: signIn(),
           },
-          command: [
-            keepList({ accountId, connections }),
-            dropForgotten({ accountId, id }),
-          ],
-        };
-      },
-      ForgetFailed: ({ id, problem }, { model }) =>
-        model.forgetting?.id === id
-          ? { model: { ...model, forgetting: { id, problem } } }
-          : {},
-      ForgetDismissed: (_, { model }) => ({
-        model: { ...model, forgetting: null },
-      }),
-      // 7. Rename
-      Renamed: ({ id, displayName }, { model, props }) => {
-        const connections = (model.list.value ?? []).map((each) =>
-          each.id === id ? { ...each, displayName } : each,
-        );
-        return {
-          model: { ...model, list: copying.changed(model.list, connections) },
-          command: keepList({ accountId: props.params.accountId, connections }),
-        };
-      },
+    SignInEnded: (_, { model }) => ({
+      model: { ...model, signingIn: false },
+    }),
+    Refused: ({ problem }, { model }) => ({
+      model: { ...model, leaving: null, signingIn: false, problem },
+    }),
+    KeyboardRead: ({ keyboard }, { model }) => ({
+      model: { ...model, keyboard },
+    }),
+    KeptRead: ({ connections }, { model }) => ({
+      model: { ...model, list: copying.read(model.list, connections) },
+    }),
+    // An answer asked before a later ask, or a Forget, is dropped.
+    Fetched: ({ since, connections, at }, { model, props }) => {
+      if (!copying.latest(model.list, since)) return {};
+      const { accountId } = props.params;
+      const next = {
+        ...model,
+        list: copying.answered(model.list, since, connections),
+        fetchedAt: at,
+        checked: true,
+      };
+      return {
+        model: next,
+        command: [
+          keepList({ accountId, connections }),
+          ...(model.fetchedAt === null
+            ? [
+                pruneUnlisted({
+                  accountId,
+                  connectionIds: connections.map(({ id }) => id),
+                }),
+              ]
+            : []),
+        ],
+      };
     },
-  });
-
-export const AccountLive = accountWith(reach);
+    Failed: ({ since, problem }, { model }) => ({
+      model: { ...model, list: copying.refused(model.list, since, problem) },
+    }),
+    // Reload: asked at once.
+    ReloadAsked: (_, { model }) => ({
+      model: { ...model, list: copying.ask(model.list) },
+    }),
+    CheckWaited: (_, { model }) => ({ model: { ...model, checked: true } }),
+    Back: (_, { model }) => ({
+      model: { ...model, checked: false, list: copying.ask(model.list) },
+    }),
+    RecheckDue: (_, { model }) => ({
+      model: { ...model, list: copying.ask(model.list) },
+    }),
+    // 4. Links: what a Connection says, its link with it; this Code found
+    // Stale moves to its newest build.
+    Said: ({ connectionId, said }, { model }) => {
+      const next = {
+        ...model,
+        said: { ...model.said, [connectionId]: said },
+        links: { ...model.links, [connectionId]: said.link },
+      };
+      // 5. Recheck: a Connection whose key just expired asks at once,
+      // unless an ask is already out; one that answers with the old key
+      // leaves it relinking, so the recheck asks again at its pace.
+      const expired =
+        said.expired && model.said[connectionId]?.expired !== true;
+      return {
+        model:
+          expired && !fetching(next)
+            ? { ...next, list: copying.ask(next.list) }
+            : next,
+        ...(stale(next) && !stale(model) ? { command: toNewest({}) } : {}),
+      };
+    },
+    // 6. Forget
+    ForgetAsked: ({ id }, { model }) =>
+      model.forgetting !== null && model.forgetting.problem === null
+        ? {}
+        : {
+            model: { ...model, forgetting: { id, problem: null } },
+            command: forget({ id }),
+          },
+    // Out of the list first, so its Connection stops and no Query reads its
+    // Instance as it goes.
+    Forgot: ({ id }, { model, props }) => {
+      const { accountId } = props.params;
+      const connections = (model.list.value ?? []).filter(
+        (each) => each.id !== id,
+      );
+      const { [id]: _said, ...said } = model.said;
+      return {
+        model: {
+          ...model,
+          list: copying.changed(model.list, connections),
+          forgetting: null,
+          said,
+        },
+        command: [
+          keepList({ accountId, connections }),
+          dropForgotten({ accountId, id }),
+        ],
+      };
+    },
+    ForgetFailed: ({ id, problem }, { model }) =>
+      model.forgetting?.id === id
+        ? { model: { ...model, forgetting: { id, problem } } }
+        : {},
+    ForgetDismissed: (_, { model }) => ({
+      model: { ...model, forgetting: null },
+    }),
+    // 7. Rename
+    Renamed: ({ id, displayName }, { model, props }) => {
+      const connections = (model.list.value ?? []).map((each) =>
+        each.id === id ? { ...each, displayName } : each,
+      );
+      return {
+        model: { ...model, list: copying.changed(model.list, connections) },
+        command: keepList({ accountId: props.params.accountId, connections }),
+      };
+    },
+  },
+});

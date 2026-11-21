@@ -8,6 +8,8 @@ import { document } from '@kestack/web-platform/app/document';
 import { App } from './app/index.ts';
 import { WaitScreen } from './app/sign-in/index.ts';
 import { fitted } from './app/account/frame/commands.ts';
+import { sockets } from './app/account/connection/index.ts';
+import { recorder } from './app/account/frame/header/voice/recorder/index.ts';
 import { accounts, preferencesIdb, storageIdb } from './app/storage/index.ts';
 import { Devtools } from './ui/page/devtools/index.ts';
 import { Theme } from './ui/page/theme/index.ts';
@@ -22,9 +24,11 @@ import './styles.css';
  * device keeps of each Account and Connection, in databases named by their
  * place (`Storage`: the Unseen marks and Saved Drafts, the cache, the sync
  * Stores, and what deletes what a level no longer lists, all from
- * `app/storage/`), and `OnOutdated` (`newestBuild`). Who is signed in is
- * the root page's to say (`app/`); what an Account has, its own page's
- * (`app/account/`). No Connection's socket is here: each is its
+ * `app/storage/`), `OnOutdated` (`newestBuild`), and the page's edges to
+ * the outside world: the browser's microphone (`Recorder`) and what opens
+ * a Connection's WebSocket (`Sockets`). Who is signed in is the root
+ * page's to say (`app/`); what an Account has, its own page's
+ * (`app/account/`). No Connection's socket is open here: each is its
  * Connection's own, open only while its Account is the one active.
  *
  * Attached beside it while developing, the DevTools Server, as a Kabuki
@@ -56,6 +60,8 @@ const layer = Layer.mergeAll(
   preferencesIdb(fitted),
   storageIdb,
   newestBuild,
+  recorder,
+  sockets,
 ).pipe(Layer.provideMerge(accounts));
 
 export default Start.app({
