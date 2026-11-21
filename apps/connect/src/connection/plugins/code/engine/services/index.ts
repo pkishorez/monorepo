@@ -1,7 +1,6 @@
 export { agents } from './agents/index.js';
 export { answers } from './answers/index.js';
-export { git } from './git/index.js';
-export { storeLayer } from './store/index.js';
+export { aiTable, storeOver, type StoreTable } from './store/index.js';
 export {
   accountOf,
   accountRow,
@@ -13,13 +12,3 @@ export {
   type AccountInput,
   type HarnessAccountRow,
 } from './harness-accounts/index.js';
-export {
-  FolderExists,
-  FolderNotFound,
-  Folders,
-  FolderUnreadable,
-  InvalidFolderName,
-  OutsideHome,
-  PermissionDenied,
-} from './folders/index.js';
-export { nodeFileSystem } from './file-system/index.js';

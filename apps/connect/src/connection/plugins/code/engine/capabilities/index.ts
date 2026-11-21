@@ -21,3 +21,14 @@ export {
   type MadeBranch,
   type Worktree,
 } from './git.js';
+export {
+  FolderExists,
+  FolderNotFound,
+  Folders,
+  FolderUnreadable,
+  InvalidFolderName,
+  OutsideHome,
+  PermissionDenied,
+  type FoldersOptions,
+  type Listing,
+} from './folders.js';

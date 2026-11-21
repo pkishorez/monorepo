@@ -27,10 +27,10 @@ import { EVERY } from '../actor-code/actor-session/branch.js';
 import {
   Engine,
   Store,
-  storeLayer,
   type StartSession,
   type StartStepReport,
 } from '../index.js';
+import { nodeEdges, storeLayer } from '../node.js';
 
 /*
  * Sessions in a git Project, against a real clone of an Origin of its own:
@@ -119,8 +119,8 @@ const run = <A, E>(
   );
   const world = Layer.merge(
     base,
-    Engine.layer({ attachments: temp(), home: temp(), worktrees }).pipe(
-      Layer.provide(base),
+    Engine.layer({ attachments: temp(), worktrees }).pipe(
+      Layer.provide(Layer.merge(base, nodeEdges({ home: temp() }))),
     ),
   );
   return Effect.runPromise(

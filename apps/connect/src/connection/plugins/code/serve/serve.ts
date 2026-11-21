@@ -6,14 +6,16 @@ import { modelsLayer } from '@kestack/ai-toolkit/harness/node';
 import type { SpeechToText } from '@kestack/ai-toolkit/speech';
 import { sherpa, speechLayer } from '@kestack/ai-toolkit/speech/node';
 import { CodeApi } from '../api/contract/index.js';
-import { Engine, storeLayer } from '../engine/index.js';
+import { Engine } from '../engine/index.js';
+import { nodeEdges, storeLayer } from '../engine/node.js';
 import { CodeApiLive } from './handlers.js';
 
 /*
  * The code Plugin: what a Connection runs for Code. The Store on its
- * SQLite file, the engine over it and the harnesses, Attachments, Folders
- * under the home folder, new Worktrees, the models each harness runs, Speech to Text, and
- * the API's handlers over them. Whoever serves it, main.ts on the socket
+ * SQLite file, the engine over it, the harnesses and this computer's edges
+ * (engine/node.ts), Attachments, Folders under the home folder, new
+ * Worktrees, the models each harness runs, Speech to Text, and the API's
+ * handlers over them. Whoever serves it, main.ts on the socket
  * Connect gives, says where each file goes; left out, they sit beside the
  * database. When it stops, the engine stops every turn, and the Store
  * closes last.
@@ -41,11 +43,14 @@ export interface CodePluginOptions {
 export const codePlugin = (options: CodePluginOptions) => {
   const beside = (name: string) => join(dirname(options.db), name);
   const base = Layer.merge(storeLayer(options.db), options.harnesses);
+  const edges = Layer.merge(
+    base,
+    nodeEdges({ home: options.home ?? homedir() }),
+  );
   const engine = Engine.layer({
     attachments: options.attachments ?? beside('attachments'),
-    home: options.home ?? homedir(),
     worktrees: options.worktrees ?? beside('worktrees'),
-  }).pipe(Layer.provide(base));
+  }).pipe(Layer.provide(edges));
   const models = modelsLayer({
     cacheFile: options.modelsCache ?? beside('models.json'),
   });

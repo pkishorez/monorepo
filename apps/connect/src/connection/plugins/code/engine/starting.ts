@@ -1,13 +1,13 @@
-import { realpath } from 'node:fs/promises';
-import { join, relative } from 'node:path';
 import { Data, Effect } from 'effect';
 import type { Project } from '../records/index.js';
 import {
   BRANCH_PREFIX,
+  FileSystem,
   Git,
   type GitError,
   type MadeBranch,
 } from './capabilities/index.js';
+import { join, relative } from './paths/index.js';
 
 /*
  * Where a new Session runs, and the git step that puts it there, run
@@ -87,6 +87,12 @@ export const step = <A, E, R>(
 const failed = (name: StartStepName) => (error: GitError) =>
   new GitFailed({ step: name, message: error.message });
 
+/** `path` with its symlinks resolved; itself when it cannot be. */
+const realpathOf = (path: string) =>
+  Effect.flatMap(FileSystem, (files) => files.realpath(path)).pipe(
+    Effect.orElseSucceed(() => path),
+  );
+
 /** Puts a new Session `id` in place in `project`, on the branch picked. */
 export const place = (
   input: {
@@ -99,7 +105,7 @@ export const place = (
     readonly worktrees: string;
   },
   report: ReportStep,
-): Effect.Effect<Placed, GitFailed, Git> =>
+): Effect.Effect<Placed, GitFailed, Git | FileSystem> =>
   Effect.gen(function* () {
     const git = yield* Git;
     const { project, branch: picked } = input;
@@ -108,9 +114,7 @@ export const place = (
       return { worktree: null, branch: null, madeWorktree: null };
     // The Project's folder within its Worktree: '' at its top.
     const top = yield* git.top(project.path);
-    const here = yield* Effect.promise(() =>
-      realpath(project.path).catch(() => project.path),
-    );
+    const here = yield* realpathOf(project.path);
     const within = top === null ? '' : relative(top, here);
     const inside = (worktree: string) => join(worktree, within);
     // Only a branch the Project lists reaches git; the one its folder is on
@@ -144,9 +148,7 @@ export const place = (
           .addWorktree(project.path, { at, branch, from: picked ?? 'HEAD' })
           .pipe(Effect.mapError(failed('makingWorktree'))),
       );
-      const worktree = yield* Effect.promise(() =>
-        realpath(at).catch(() => at),
-      );
+      const worktree = yield* realpathOf(at);
       return {
         worktree: inside(worktree),
         branch,

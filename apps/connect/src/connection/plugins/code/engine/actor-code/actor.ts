@@ -1,7 +1,7 @@
 import { Effect, Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
 import { PROJECT_FOLDERS, ProjectSchema } from '../../records/index.js';
-import { Store } from '../capabilities/index.js';
+import { FileSystem, Store } from '../capabilities/index.js';
 import { Prompt, Session, SessionInput } from './actor-session/index.js';
 import { check, failures, sweep } from './checks/index.js';
 import { Remove, Save } from './commands.js';
@@ -70,7 +70,7 @@ const cwdOf = (
 };
 
 export const Code = Actor.define('Code', {
-  requires: [Store],
+  requires: [Store, FileSystem],
   model: Model,
   state: State,
   message: Message,

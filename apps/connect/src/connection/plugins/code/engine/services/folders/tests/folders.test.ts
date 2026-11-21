@@ -12,7 +12,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Effect } from 'effect';
 import { afterEach, describe, expect, it } from 'vitest';
-import { Folders } from '../index.js';
+import { Folders } from '../../../capabilities/index.js';
+import { nodeFolders } from '../index.js';
 
 /*
  * Folders over a made-up home: what a listing holds and hides, that
@@ -42,7 +43,7 @@ const homeWith = (names: ReadonlyArray<string> = []) => {
 };
 
 const run = <A, E>(home: string, effect: Effect.Effect<A, E, Folders>) =>
-  Effect.runPromise(effect.pipe(Effect.provide(Folders.layer({ home }))));
+  Effect.runPromise(effect.pipe(Effect.provide(nodeFolders({ home }))));
 
 const list = (home: string, path: string, query?: string) =>
   run(
