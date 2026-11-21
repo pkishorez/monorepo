@@ -27,7 +27,11 @@
       "types": "./dist/inspector/index.d.ts",
       "default": "./dist/inspector/index.js"
     },
-    "./inspector/sources.css": "./dist/inspector/sources.css"
+    "./inspector/sources.css": "./dist/inspector/sources.css",
+    "./fake": {
+      "types": "./dist/fake/index.d.ts",
+      "default": "./dist/fake/index.js"
+    }
   },
   "files": [
     "dist/",

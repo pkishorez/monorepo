@@ -34,3 +34,11 @@ _Avoid_: static tree, schema, map
 **Attachment**:
 A function Kabuki calls with each runtime it starts, which returns how to stop it; given through the app's `attach` option. `connect` given only its options is one.
 _Avoid_: plugin, hook, extension
+
+**Fake**:
+One thing in the outside world a person would name (a computer, a sign-in, a microphone), run in the tab: a Kabuki Actor that Requires nothing and starts blank, the Messages a person may Send it (its Controls), and the Layer of the edges it serves over its running Actor. Written beside the edge it fakes, it never imports this package.
+_Avoid_: mock, stub, double
+
+**Fake World**:
+The flat list of Fakes an app picks, run in one tab: each on a Runtime of its own, one Layer of every edge they fake, each Snapshot kept across reloads until Start fresh.
+_Avoid_: fake mode (the app's mode, not the list), sandbox
