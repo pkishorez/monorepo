@@ -143,6 +143,30 @@ fake mode, bar what a browser cannot do, listed.
   that calls the in-tab middle's public contract as a second client (rule
   4), never another Fake.
 
+## The shape of a Fake
+
+Every Fake has the same shape, so the Fake World (task 11) runs any of
+them, and none imports devtools-kabuki:
+
+```ts
+// <service>/fake/index.ts
+export const fileSystem = {
+  name: 'File System',
+  actor: FileSystemFakeLive, // a built Kabuki Actor; Requires nothing; starts blank
+  controls: ['AddSampleProject', 'AddFolder', 'MakeUnreadable'] as const, // its Message tags the bubble offers
+  serve: (runtime) => fileSystemOver(handleOf(runtime)), // Runtime<actor> → Layer<edge keys>
+};
+```
+
+- `serve` takes the Fake's running Kabuki `Runtime` (its `root` Instance,
+  `snapshot`, `changes`, `send`).
+- A Fake that can also be a child of another (a computer's File System)
+  exports the layer-maker under it, over a small handle (read the Model
+  now, follow its changes, send a Message), so the parent's `serve` builds
+  each child's edges from the child Instance.
+- Messages that are Controls are written in plain words a person would use;
+  their Schemas give the bubble its forms, so each field has a clear name.
+
 ## Where things live
 
 | What                                      | Where                                                         |
@@ -261,9 +285,10 @@ connected.
 
 ## Progress
 
-| Task | Status | Commit      | Notes                                                                                                              |
-| ---- | ------ | ----------- | ------------------------------------------------------------------------------------------------------------------ |
-| 0    | done   |             | this doc                                                                                                           |
-| 1    | done   |             | `fake-mode-checklist.md`, 13 areas; Controls added above; open: two tabs run two middles                           |
-| 2    | done   | `5c54839f6` | Node code under `/harness/node`, `/speech/node`; `Models.layer` → `modelsLayer`, `Speech.layer` → `speechLayer`    |
-| 3    | done   |             | `HarnessHost` key in `/harness`, `harnessHostLayer` in `/harness/node`; connect still calls the functions (Task 6) |
+| Task | Status | Commit      | Notes                                                                                                                 |
+| ---- | ------ | ----------- | --------------------------------------------------------------------------------------------------------------------- |
+| 0    | done   |             | this doc                                                                                                              |
+| 1    | done   |             | `fake-mode-checklist.md`, 13 areas; Controls added above; open: two tabs run two middles                              |
+| 2    | done   | `5c54839f6` | Node code under `/harness/node`, `/speech/node`; `Models.layer` → `modelsLayer`, `Speech.layer` → `speechLayer`       |
+| 3    | done   |             | `HarnessHost` key in `/harness`, `harnessHostLayer` in `/harness/node`; connect still calls the functions (Task 6)    |
+| 4    | done   |             | `FileSystem` key in `engine/capabilities/`, `nodeFileSystem` in `services/file-system/`; nothing uses it yet (Task 7) |
