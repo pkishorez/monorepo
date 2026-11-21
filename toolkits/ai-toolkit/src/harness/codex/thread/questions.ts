@@ -13,24 +13,17 @@ import {
   type UserInputRequest,
   type UserInputResponse,
 } from '../app-server/index.js';
+import {
+  QUESTION_ANSWERED,
+  QUESTION_ASKED,
+  type QuestionAnswered,
+} from '../record-kinds/index.js';
 
-/**
- * Codex keeps no item for a question it asks, so the harness records its
- * own: one when it is asked, its params as Codex sent them, and one when it
- * is answered, declined or dropped.
- */
-export const QUESTION_ASKED = 'question.asked';
-export const QUESTION_ANSWERED = 'question.answered';
-
-/** What `question.answered` holds: null answers, it got none. */
-export interface QuestionAnswered {
-  readonly threadId: string;
-  readonly turnId: string;
-  readonly itemId: string;
-  /** Each question's header, by its id, so the answers read on their own. */
-  readonly headers: Readonly<Record<string, string>>;
-  readonly answers: QuestionAnswer | null;
-}
+export {
+  QUESTION_ANSWERED,
+  QUESTION_ASKED,
+  type QuestionAnswered,
+} from '../record-kinds/index.js';
 
 /** The Agent Question a request asks, by its tool call's item id. */
 export const toQuestion = (

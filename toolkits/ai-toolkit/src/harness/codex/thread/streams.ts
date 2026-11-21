@@ -10,11 +10,9 @@ import {
   type Notification,
   type ThreadItem,
 } from '../app-server/index.js';
+import { TEXT_CHUNK, type Channel } from '../record-kinds/index.js';
 
-export type Channel = 'text' | 'reasoning';
-
-/** The kind of the Raw record one streamed chunk is kept as. */
-export const TEXT_CHUNK = 'text.chunk';
+export { TEXT_CHUNK, type Channel } from '../record-kinds/index.js';
 
 /** One `text.chunk` record's payload. */
 export interface TextChunk {

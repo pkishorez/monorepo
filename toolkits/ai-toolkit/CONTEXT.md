@@ -92,6 +92,10 @@ _Avoid_: tool status, plugin status
 How much of an Agent's context window is filled, and the account's remaining rate limits.
 _Avoid_: tokens left, quota
 
+**Script**:
+What the Agent fake replies with: the steps an agent takes (words, reasoning, each kind of tool, a subagent, an Agent Question, a Background Job) and how the Turn ends (done, failed, or cut off), written once and turned into each Coding Harness's own records, so the real projection draws them.
+_Avoid_: fixture, recording, canned reply
+
 **Speech to Text**:
 Turning spoken audio into text, on the computer itself. It knows nothing of Agents or Coding Harnesses.
 _Avoid_: transcription service, STT, voice

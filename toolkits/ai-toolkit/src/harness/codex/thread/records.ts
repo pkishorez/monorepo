@@ -1,36 +1,9 @@
 import type { Schema } from 'effect';
 import type { RawOut } from '../../contract/index.js';
 import type { Notification, ThreadItem } from '../app-server/index.js';
+import { isToolItem } from '../record-kinds/index.js';
 
-/** Items that are something the agent does; their start is worth showing. */
-const TOOL_ITEM_TYPES: ReadonlySet<string> = new Set([
-  'commandExecution',
-  'fileChange',
-  'mcpToolCall',
-  'dynamicToolCall',
-  'collabAgentToolCall',
-  'webSearch',
-  'imageView',
-  'imageGeneration',
-] satisfies ReadonlyArray<ThreadItem['type']>);
-
-export type ToolItem = Extract<
-  ThreadItem,
-  {
-    type:
-      | 'commandExecution'
-      | 'fileChange'
-      | 'mcpToolCall'
-      | 'dynamicToolCall'
-      | 'collabAgentToolCall'
-      | 'webSearch'
-      | 'imageView'
-      | 'imageGeneration';
-  }
->;
-
-export const isToolItem = (item: ThreadItem): item is ToolItem =>
-  TOOL_ITEM_TYPES.has(item.type);
+export { isToolItem, type ToolItem } from '../record-kinds/index.js';
 
 /** Whole records kept as Raw. Every delta and status ping is left out. */
 const KEPT = new Set([
