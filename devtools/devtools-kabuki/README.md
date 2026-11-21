@@ -23,8 +23,15 @@ any live Kabuki Session the same questions. The in-page dock asks the same
 Api in memory, with nothing serialized. Why the app serves and DevTools
 asks is in [ADR 0001](./docs/adr/0001-the-app-serves-devtools-calls.md).
 
-The words used here (Kabuki Session, Kabuki Session Api, Attachment) are
-defined in [CONTEXT.md](./CONTEXT.md).
+It also runs an app's Fakes in the tab, in `./fake`. A Fake is one thing
+in the outside world (a computer, a sign-in) faked as a Kabuki Actor, with
+the Messages a person may Send it and the Layer of the edges it serves; the
+package that fakes an edge writes it and never imports this one. The Fake
+World runs each on a Runtime of its own, gives one Layer of every edge, and
+keeps each Snapshot across reloads.
+
+The words used here (Kabuki Session, Kabuki Session Api, Attachment, Fake,
+Fake World) are defined in [CONTEXT.md](./CONTEXT.md).
 
 ## Install
 
@@ -131,6 +138,20 @@ through the Api.
 | `KabukiSession`   | The one Capability the Inspector Requires: a Kabuki Session Api client, Provided by whoever places it.                                               |
 | `Story`           | The type of a Story, with `Scene`, `Moment` and `Part`: data only, as the Inspector plays none for now.                                              |
 | `sources.css`     | `@kestack/devtools-kabuki/inspector/sources.css`: import it beside the Web Platform's Theme so the app's Tailwind generates the Inspector's classes. |
+
+### `@kestack/devtools-kabuki/fake`
+
+Fake mode: an app's Fakes run in the tab. Browser-safe; `FakeWorld.make` runs anywhere.
+
+| Export                  | What it does                                                                                                                |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `FakeWorld.make`        | Runs a list of Fakes, each on a Kabuki Runtime of its own: one Layer of every edge they fake, and the Runtimes running now. |
+| `FakeWorld.indexedDb`   | Where each Fake's Snapshot is kept across reloads: the tab's IndexedDB, a Snapshot per Fake.                                |
+| `FakeWorld.startFresh`  | Asks the next start to begin with nothing kept, and reloads the tab.                                                        |
+| `FakeWorld.beforeStart` | When Start fresh was asked, deletes every IndexedDB database of the origin, localStorage and sessionStorage; call it first. |
+| `SAVE_AFTER`            | How long a change waits for the next before its Fake's Snapshot is saved, in milliseconds.                                  |
+| `DATABASE`              | The IndexedDB database `FakeWorld.indexedDb()` keeps Snapshots in.                                                          |
+| `FRESH`                 | The sessionStorage key that asks the next start to begin fresh.                                                             |
 
 ## Usage
 
@@ -289,3 +310,44 @@ inspector: {
   }),
 },
 ```
+
+### Run an app's Fakes in the tab
+
+A Fake is a plain object, `{ name, actor, controls, serve, kept? }`, that
+its own package exports from a `fake` door. The app lists the ones it
+needs, makes one Fake World, and provides its Layer where the real edges
+would be. Before anything opens storage it calls `beforeStart`, so Start
+fresh clears the origin first.
+
+```ts
+import { Layer } from 'effect';
+import { computers } from '@kestack/connect/fake';
+import { FakeWorld } from '@kestack/devtools-kabuki/fake';
+import type { Fake } from '@kestack/devtools-kabuki/fake';
+
+await FakeWorld.beforeStart();
+
+const fakes = [computers] satisfies ReadonlyArray<Fake>;
+export const world = FakeWorld.make(fakes, { saved: FakeWorld.indexedDb() });
+
+// Layer<Computers | ConnectCloud>
+export const edges = world.layer;
+```
+
+How it works:
+
+- Building `world.layer` runs each Fake's Actor with `Runtime.scoped`, in
+  the Layer's Scope, then its `serve(runtime)`; every Fake's Layer is
+  merged into one. Build it once, in a Scope that lasts as long as the app.
+- `world.runtimes` lists the Fakes running, in the order given, each with
+  its Runtime: empty until the Layer is built. `world.subscribe` tells when
+  it changes.
+- With `saved`, each Fake starts from the Snapshot saved under its `name`;
+  one that no longer fits its Actor's code is set aside with a warning, and
+  the Fake starts blank. Each change is saved `SAVE_AFTER` after the Fake
+  settles, many as one, and one waiting is saved as the page hides and as
+  the Scope closes. A Fake's `kept(snapshot)` says what a reload keeps,
+  else the whole Snapshot.
+- `startFresh()` sets `FRESH` in sessionStorage and reloads;
+  `beforeStart()` on the next start deletes what the origin keeps, and says
+  whether it did.
