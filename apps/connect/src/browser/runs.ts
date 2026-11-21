@@ -3,6 +3,7 @@ import {
   Effect,
   Exit,
   FiberSet,
+  type Layer,
   Scope,
   Semaphore,
   Stream,
@@ -13,7 +14,7 @@ import { fakeSignIn } from '@kestack/auth-toolkit/fake';
 import type { Dial } from '@kestack/rpc-toolkit/rpc/websocket';
 import type { StoreTable } from '../connection/plugins/code/engine/index.js';
 import type { HeartbeatClient } from '../connection/cli/identity/cloud/index.js';
-import type { Computer, Computers } from './computers/index.js';
+import type { AgentEdges, Computer, Computers } from './computers/index.js';
 import { heartbeat } from './heartbeat.js';
 import { codePlugin } from './plugin.js';
 import { End } from './sockets.js';
@@ -25,11 +26,15 @@ import { answerOf, askedOf, hostOf } from './tunnel.js';
  * removed, starts again, or stops on its own.
  *
  * 1. Follow  each list of `Computers` starts a Run for a computer online
- *            with none, stops the Run of one no longer online or started
- *            again, and tells every other Run its computer as it is now.
- *            A Run that stopped on its own, as `ke-connect` exits, is not
- *            started again until its computer is: offline and back, or a
- *            new `startedAt`. `Computers` is told why it stopped.
+ *            with none, stops the Run of one no longer online, removed or
+ *            started again, and tells every other Run its computer as it
+ *            is now. A Run that stopped on its own, as `ke-connect` exits,
+ *            is not started again until its computer is: offline and back,
+ *            or a new `startedAt`. `Computers` is told why it stopped. A
+ *            computer gone offline with `silentFor` has its Last Seen
+ *            pushed back that far, once; one whose `ke-connect` was
+ *            removed asks Connect Cloud to forget it, once, as
+ *            `ke-connect remove` does, as soon as it is online.
  * 2. Beat    a Run sends its computer's Heartbeat (heartbeat.ts), signed
  *            in on a Sign-in of its own, which it keeps across restarts;
  *            its code Plugin runs the Release Connect Cloud last named,
@@ -50,8 +55,12 @@ export interface RunsOptions {
     signIn: Principal | null,
     version: () => string,
   ) => Effect.Effect<HeartbeatClient['Service'], never, Scope.Scope>;
+  /** Sets a Connection's Last Seen `by` milliseconds back from now. */
+  readonly pushBack: (id: string, by: number) => Effect.Effect<void>;
   /** The table a computer's code Plugin keeps its Store on, by its Connection id. */
   readonly storeOf: (id: string) => StoreTable;
+  /** The edges every computer's code Plugin shares. */
+  readonly shared: Layer.Layer<AgentEdges>;
   /** How long between Heartbeats. */
   readonly every: Duration.Input;
 }
@@ -90,6 +99,10 @@ export const runs = (computers: Computers['Service'], options: RunsOptions) =>
     const lock = yield* Semaphore.make(1);
     const running = new Map<string, Run>();
     const stopped = new Set<string>();
+    /** The computers offline whose Last Seen was pushed back, by id. */
+    const pushed = new Set<string>();
+    /** The computers removed that asked Connect Cloud to forget them, by id. */
+    const left = new Set<string>();
 
     const stop = (run: Run) =>
       Effect.suspend(() => {
@@ -109,9 +122,11 @@ export const runs = (computers: Computers['Service'], options: RunsOptions) =>
           current: computer,
           wanted: null,
           plugin: yield* Effect.cached(
-            codePlugin(computer.edges, options.storeOf(computer.id)).pipe(
-              Scope.provide(own),
-            ),
+            codePlugin(
+              computer.edges,
+              options.shared,
+              options.storeOf(computer.id),
+            ).pipe(Scope.provide(own)),
           ),
           open: new Map(),
         };
@@ -155,12 +170,23 @@ export const runs = (computers: Computers['Service'], options: RunsOptions) =>
         }).pipe(Effect.flatMap(stopOnItsOwn), Effect.forkIn(own));
       });
 
+    /** Asks Connect Cloud to forget `computer`, as `ke-connect remove` does: told nothing back. */
+    const forget = (computer: Computer) =>
+      Effect.scoped(
+        Effect.flatMap(
+          options.heartbeat(signInOf(computer), () => computer.version),
+          (client) => client.Forget({ id: computer.id }),
+        ),
+      ).pipe(Effect.catchCause(() => Effect.void));
+
     // 1. Follow
     const follow = (list: ReadonlyArray<Computer>) =>
       lock.withPermit(
         Effect.gen(function* () {
           const online = new Map(
-            list.filter(({ online }) => online).map((each) => [each.id, each]),
+            list
+              .filter(({ online, removed }) => online && !removed)
+              .map((each) => [each.id, each]),
           );
           for (const run of running.values()) {
             const computer = online.get(run.id);
@@ -179,6 +205,17 @@ export const runs = (computers: Computers['Service'], options: RunsOptions) =>
           for (const computer of online.values())
             if (!running.has(computer.id) && !stopped.has(startedOf(computer)))
               yield* start(computer);
+          for (const computer of list) {
+            if (computer.online) pushed.delete(computer.id);
+            else if (computer.silentFor !== null && !pushed.has(computer.id)) {
+              pushed.add(computer.id);
+              yield* options.pushBack(computer.id, computer.silentFor);
+            }
+            if (computer.removed && computer.online && !left.has(computer.id)) {
+              left.add(computer.id);
+              fork(forget(computer));
+            }
+          }
         }),
       );
     yield* Effect.forkScoped(Stream.runForEach(computers.changes, follow));

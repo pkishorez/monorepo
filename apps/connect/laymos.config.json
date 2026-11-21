@@ -17,6 +17,7 @@
       "src/contracts/heartbeat",
       "src/contracts/link"
     ],
+    "src/browser/fake": ["src/browser/computers"],
     "src/cloud": ["src/contracts/heartbeat"],
     "src/cloud/client": ["src/contracts/app-api"],
     "src/cloud/worker": ["src/contracts/app-api", "src/contracts/link"],

@@ -10,12 +10,13 @@ import {
   type StoreTable,
 } from '../connection/plugins/code/engine/index.js';
 import { CodeApiLive } from '../connection/plugins/code/serve/handlers/index.js';
-import type { ComputerEdges } from './computers/index.js';
+import type { AgentEdges, ComputerEdges } from './computers/index.js';
 import { End } from './sockets.js';
 
 /*
  * One computer's code Plugin in a tab: the real Engine over the computer's
- * edges and a Store on its own table, and the real handlers, served as the
+ * own edges, the ones every computer shares, and a Store on its own table,
+ * and the real handlers, served as the
  * Plugin serves them on its socket, Effect RPC's websocket protocol in
  * JSON, to every socket its tunnel passes on. When the Scope closes, the
  * engine stops every Turn, and every socket drops, as when the computer
@@ -45,14 +46,15 @@ const acceptedFrom = (
     ),
 });
 
-/** The code Plugin over `edges` and the Store on `table`, for as long as the Scope: `pass` gives it a socket's server end. */
+/** The code Plugin over `edges`, the `shared` ones and the Store on `table`, for as long as the Scope: `pass` gives it a socket's server end. */
 export const codePlugin = (
   edges: Layer.Layer<ComputerEdges>,
+  shared: Layer.Layer<AgentEdges>,
   table: StoreTable,
 ) =>
   Effect.gen(function* () {
     const accepted = yield* Queue.unbounded<Socket.Socket>();
-    const base = Layer.merge(storeOver(table), edges);
+    const base = Layer.mergeAll(storeOver(table), edges, shared);
     const engine = Engine.layer({
       attachments: ATTACHMENTS,
       worktrees: WORKTREES,

@@ -15,9 +15,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Runtime } from '@kestack/kabuki';
 import { Accounts } from '@kestack/auth-toolkit/client';
 import { fakeAccounts } from '@kestack/auth-toolkit/fake';
-import { HarnessHost, Models } from '@kestack/ai-toolkit/harness';
-import { makeFakeHarness } from '@kestack/ai-toolkit/harness/fake';
-import { Speech } from '@kestack/ai-toolkit/speech';
 import { addressOf, CloudClient } from '../../cloud/client/index.js';
 import {
   CodeClient,
@@ -31,9 +28,11 @@ import {
   HOME,
 } from '../../connection/plugins/code/engine/services/file-system/fake/index.js';
 import { fakeGit } from '../../connection/plugins/code/engine/services/git/fake/index.js';
+import { agentEdges } from './agent.js';
 import {
   type Computer,
   Computers,
+  ConnectCloud,
   inTab,
   type Stopped,
   tunnelClients,
@@ -42,8 +41,8 @@ import {
 
 /*
  * Connect in a tab over computers made of the File System and Git fakes,
- * the fake harness, and a Harness Host, Models and Speech that answer
- * plainly: a computer that comes online is listed Ready through Connect
+ * sharing the fake harness, and a Harness Host, Models and Speech that
+ * answer plainly: a computer that comes online is listed Ready through Connect
  * Cloud's handlers; its code Plugin answers through `tunnelClients`, as Code
  * dials it, with the Release and the Connection Key checked as its tunnel
  * checks them; and once it goes offline its socket drops, and its Last
@@ -69,42 +68,6 @@ afterEach(async () => {
   await Promise.all(opened.splice(0).map((runtime) => runtime.dispose()));
 });
 
-/** A Harness Host where every binary runs and each harness keeps its config under home. */
-const host = Layer.succeed(HarnessHost, {
-  binaryAt: (harness) =>
-    Effect.succeed({
-      path: `/usr/local/bin/${harness.name}`,
-      version: '1.0.0',
-      error: null,
-      isDefault: true,
-    }),
-  checkBinary: (_, given) => Effect.succeed(given),
-  configFolderOf: (harness, configFolder) =>
-    Effect.succeed(
-      configFolder === undefined
-        ? { path: `${HOME}/.${harness}`, from: 'default' }
-        : { path: configFolder, from: 'account' },
-    ),
-});
-
-const models = Layer.succeed(Models, {
-  list: () =>
-    Effect.succeed([
-      { id: 'claude-test', name: 'Claude Test', releaseDate: null },
-    ]),
-  defaultModel: (harness) => Effect.succeed(harness.defaultModel),
-});
-
-const speech = Layer.succeed(Speech, {
-  enable: Effect.void,
-  disable: Effect.void,
-  watch: Stream.make({ _tag: 'Off' } as const),
-  transcribe: () => Effect.succeed(''),
-  watchTake: () => Stream.empty,
-  addTakeAudio: () => Effect.void,
-  endTake: () => Effect.void,
-});
-
 /** A computer online with the sample project at `~/code/shop`. */
 const computer = (id: string, more: Partial<Computer> = {}): Computer => {
   const runtime = Runtime.make(fileSystem.actor);
@@ -117,6 +80,8 @@ const computer = (id: string, more: Partial<Computer> = {}): Computer => {
     email: EMAIL,
     version: '0.0.9',
     online: true,
+    silentFor: null,
+    removed: false,
     startedAt: 1,
     key: KEY,
     status: {
@@ -125,14 +90,7 @@ const computer = (id: string, more: Partial<Computer> = {}): Computer => {
       check: { _tag: 'Reachable', at: 1 },
     },
     release: null,
-    edges: Layer.mergeAll(
-      files,
-      fakeGit.pipe(Layer.provide(files)),
-      makeFakeHarness().layer,
-      host,
-      models,
-      speech,
-    ),
+    edges: Layer.merge(files, fakeGit.pipe(Layer.provide(files))),
     ...more,
   };
 };
@@ -144,6 +102,7 @@ const world = Effect.gen(function* () {
   const layer = Layer.succeed(Computers, {
     changes: SubscriptionRef.changes(list),
     stopped: (id, why) => Effect.sync(() => void stops.push([id, why])),
+    anotherDevice: () => Effect.void,
   });
   const set = (...computers: ReadonlyArray<Computer>) =>
     SubscriptionRef.set(list, computers);
@@ -159,7 +118,9 @@ const app = (computers: Layer.Layer<Computers>) =>
   Effect.gen(function* () {
     const accounts = fakeAccounts({ choose: Effect.succeed({ email: EMAIL }) });
     const middle = inTab({ wanted: WANTED }).pipe(
-      Layer.provide(computers),
+      Layer.provide(
+        Layer.mergeAll(computers, ConnectCloud.deployed, agentEdges()),
+      ),
       Layer.provideMerge(accounts),
     );
     const built = yield* Layer.build(middle);

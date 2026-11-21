@@ -11,6 +11,7 @@
     "src/cloud/client/index.ts",
     "src/cloud/worker/index.ts",
     "src/browser/index.ts",
+    "src/browser/fake/index.ts",
     "src/connection/cli/commands/dev/index.ts"
   ]
 }

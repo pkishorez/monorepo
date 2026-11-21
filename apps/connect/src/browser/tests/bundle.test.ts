@@ -4,8 +4,8 @@ import { rolldown, type Plugin } from 'vite/rolldown';
 import { describe, expect, it } from 'vitest';
 
 /*
- * `@kestack/connect/browser` bundled as a browser bundles it, from its
- * source and every package it reaches: not one import of a Node built-in,
+ * `@kestack/connect/browser` and `@kestack/connect/fake` bundled as a
+ * browser bundles them, from their source and every package they reach: not one import of a Node built-in,
  * nor of a package that only runs on Node, nor one the bundle could not
  * find. Each one found is named with the file that imports it. The real
  * engine's edges, `engine/node.ts`, bundled the same way, are caught.
@@ -68,6 +68,10 @@ const nodeReached = async (entry: string) => {
 describe('@kestack/connect/browser', () => {
   it('bundles for the browser without reaching Node', async () => {
     expect(await nodeReached(at('../index.ts'))).toEqual([]);
+  }, 60_000);
+
+  it('bundles the Computers fake, `./fake`, without reaching Node', async () => {
+    expect(await nodeReached(at('../fake/index.ts'))).toEqual([]);
   }, 60_000);
 
   it("catches what reaches Node, as the real engine's edges do", async () => {
