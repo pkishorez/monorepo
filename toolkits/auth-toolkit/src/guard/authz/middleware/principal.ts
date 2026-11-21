@@ -13,8 +13,6 @@ export interface SignInPrincipal {
   readonly kind: 'session';
   readonly user: User;
   readonly session: SignIn;
-  /** Whether the User is a Test User: their email ends in `.test`. */
-  readonly test: boolean;
 }
 
 /** A Principal established by an Access Token: the User, the OAuth Client
@@ -24,8 +22,6 @@ export interface TokenPrincipal {
   readonly user: User;
   readonly client: { readonly id: string };
   readonly scopes: ReadonlyArray<string>;
-  /** Whether the User is a Test User: their email ends in `.test`. */
-  readonly test: boolean;
 }
 
 export type Principal = SignInPrincipal | TokenPrincipal;

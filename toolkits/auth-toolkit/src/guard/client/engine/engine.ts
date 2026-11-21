@@ -6,7 +6,6 @@ import {
   AccountsState,
   type SignInOptions,
 } from '../accounts/index.js';
-import { isTestEmail } from '../../../contract/index.js';
 import { acting } from './acting.js';
 import { signing } from './signing.js';
 import {
@@ -76,7 +75,6 @@ const accountOf = ({ id, email, name, image }: SourceAccount): Account => ({
   email,
   name,
   image,
-  test: isTestEmail(email),
 });
 
 const stateOf = (snapshot: Snapshot): AccountsState => {

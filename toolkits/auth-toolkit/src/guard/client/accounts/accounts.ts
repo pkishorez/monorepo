@@ -7,8 +7,6 @@ export {
   AuthWorkerRejected,
   AuthWorkerUnavailable,
   DeviceLoginFailed,
-  TestSignInRefused,
-  TestSignInUnsupported,
   type AccountsError,
 } from './errors.js';
 
@@ -18,8 +16,6 @@ export interface Account {
   readonly email: string;
   readonly name: string;
   readonly image: string | null;
-  /** Whether this is a Test User: their email ends in `.test`. */
-  readonly test: boolean;
 }
 
 /** Who is signed in on this client.
@@ -43,19 +39,14 @@ export type AccountsState = Data.TaggedEnum<{
 
 export const AccountsState = /*#__PURE__*/ Data.taggedEnum<AccountsState>();
 
-/** How to sign one more Account in. A Browser uses `provider`, `returnTo`
- * or `test`; a Device uses `account` and `open`, and fails
- * TestSignInUnsupported for `test`. Each ignores the rest. */
+/** How to sign one more Account in. A Browser uses `provider` and
+ * `returnTo`; a Device uses `account` and `open`. Each ignores the rest. */
 export interface SignInOptions {
   /** Browser: signs in with this identity provider at once, from the
    * app's own screen, without the Login Screen: the page leaves for it,
    * and it comes back to `returnTo`. A sign-in it fails lands on the Login
-   * Screen, saying why. Under the Fake, the same as without it. */
+   * Screen, saying why. Under the Sign-in fake, the same as without it. */
   readonly provider?: 'google';
-  /** Signs this Test User in at once, without the Login Screen: `email`
-   * ends in `.test`, and `key` is the Auth Worker's Test User key when it
-   * asks for one. Fails TestSignInRefused when the Auth Worker says no. */
-  readonly test?: { readonly email: string; readonly key?: string };
   /** Browser: where the sign-in comes back to; unless given, the
    * `browser` Layer's own `returnTo`, else the current page. */
   readonly returnTo?: string;
@@ -82,9 +73,8 @@ export class Accounts
       readonly check: Effect.Effect<AccountsState, AccountsError>;
       /** Signs one more Account in and makes it active. A Browser leaves the
        * page for the Login Screen, or for the identity provider at once
-       * (`provider`), so it never completes, unless it signs a Test User in
-       * (`test`), which completes once the Auth Worker answers; a Device
-       * completes once its Device Login is approved. */
+       * (`provider`), so it never completes; a Device completes once its
+       * Device Login is approved. */
       readonly signIn: (
         options?: SignInOptions,
       ) => Effect.Effect<void, AccountsError>;

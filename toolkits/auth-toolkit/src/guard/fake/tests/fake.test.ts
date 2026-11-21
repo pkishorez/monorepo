@@ -1,4 +1,3 @@
-import { Memory } from '@kestack/std-toolkit/db/memory';
 import { NodeHttpPlatform, NodeServices } from '@effect/platform-node';
 import { Effect, Fiber, Layer, Schema, type Scope, Stream } from 'effect';
 import { Etag } from 'effect/http';
@@ -13,13 +12,7 @@ import { Rpc, RpcGroup, RpcTest } from 'effect/rpc';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Authz } from '../../authz/index.js';
 import { Accounts, AccountsState } from '../../client/accounts/index.js';
-import {
-  fakeAccounts,
-  fakeAccountsTable,
-  fakeChooser,
-  fakeGuard,
-  fakeSignIn,
-} from '../index.js';
+import { fakeAccounts, fakeGuard, fakeSignIn } from '../index.js';
 import { fakeToken } from '../token.js';
 
 /** Signs in whoever is next in line, as a test's stand-in for a dialog. */
@@ -147,49 +140,14 @@ describe('fakeAccounts', () => {
     expect(none).toEqual([]);
   });
 
-  it('keeps fake Accounts in the storage it is given', async () => {
-    const storage = Memory.make(fakeAccountsTable).layer;
-    await run(
-      Effect.flatMap(Accounts, (accounts) => accounts.signIn()),
-      fakeAccounts({ choose: queue({ email: 'ada@kestack.test' }), storage }),
-    );
-    expect(
-      await run(listed, fakeAccounts({ choose: queue(), storage })),
-    ).toEqual([['ada@kestack.test', 'ada', true]]);
-  });
-
-  it('signs a named User in at once, as a Test User', async () => {
-    const state = await run(
-      Effect.gen(function* () {
-        const accounts = yield* Accounts;
-        yield* accounts.signIn({ test: { email: 'tess@kestack.test' } });
-        yield* accounts.signIn({
-          test: { email: 'Ada@Kestack.Test', key: 'ignored' },
-        });
-        return yield* accounts.current;
-      }),
-      fakeAccounts({ choose: Effect.die('never asked') }),
-    );
-    expect(state).toMatchObject({
-      _tag: 'SignedIn',
-      active: { email: 'ada@kestack.test', test: true },
-      accounts: [
-        { email: 'tess@kestack.test', test: true },
-        { email: 'ada@kestack.test', test: true },
-      ],
-    });
-  });
-
   it('keeps the formats devices hold', async () => {
-    const storage = Memory.make(fakeAccountsTable).layer;
     const state = await run(
       Effect.gen(function* () {
         yield* (yield* Accounts).signIn();
         return yield* (yield* Accounts).current;
       }),
-      fakeAccounts({ choose: queue({ email: 'ada@kestack.test' }), storage }),
+      fakeAccounts({ choose: queue({ email: 'ada@kestack.test' }) }),
     );
-    expect(fakeAccountsTable.logicalName).toBe('auth-local-accounts');
     const ada = state._tag === 'SignedIn' ? state.active : null;
     expect(ada?.id).toBe('local_YWRhQGtlc3RhY2sudGVzdA');
     const token = fakeToken.make({
@@ -212,7 +170,6 @@ describe('fakeAccounts', () => {
     const assign = vi.fn();
     const here = 'https://app.example.com/a/ada';
     vi.stubGlobal('window', { location: { href: here, assign } });
-    const storage = Memory.make(fakeAccountsTable).layer;
     /** Signs in as the next chosen, and says whether it completed here. */
     const signIn = (options?: { readonly returnTo: string }) =>
       Effect.gen(function* () {
@@ -231,10 +188,9 @@ describe('fakeAccounts', () => {
         { email: 'bob@kestack.test' },
         { email: 'cy@kestack.test' },
       ),
-      storage,
       returnTo: 'https://app.example.com/',
     });
-    const done = await run(
+    const [done, kept] = await run(
       Effect.gen(function* () {
         // On this page: signed in in place.
         const inPlace = yield* signIn({ returnTo: here });
@@ -244,11 +200,9 @@ describe('fakeAccounts', () => {
         const asked = yield* signIn({
           returnTo: 'https://app.example.com/a/cy',
         });
-        // A Test User, always in place.
-        yield* (yield* Accounts).signIn({
-          test: { email: 'tess@kestack.test' },
-        });
-        return [inPlace, home, asked];
+        // The pages it left for read them anew.
+        yield* (yield* Accounts).check;
+        return [[inPlace, home, asked], yield* listed] as const;
       }),
       layer,
     );
@@ -257,27 +211,27 @@ describe('fakeAccounts', () => {
       'https://app.example.com/',
       'https://app.example.com/a/cy',
     ]);
-    // Each is kept, for the page it left for to read.
-    expect(
-      await run(listed, fakeAccounts({ choose: queue(), storage })),
-    ).toEqual([
-      ['ada@kestack.test', 'ada', false],
-      ['bob@kestack.test', 'bob', false],
-      ['cy@kestack.test', 'cy', false],
-      ['tess@kestack.test', 'tess', true],
+    // Each is signed in, for the page it left for to read.
+    expect(kept.map(([email]) => email)).toEqual([
+      'ada@kestack.test',
+      'bob@kestack.test',
+      'cy@kestack.test',
     ]);
   });
 
-  it('signs nobody in at an email outside kestack.test', async () => {
-    const state = await run(
+  it('fails a sign-in at an email outside kestack.test, signing nobody in', async () => {
+    const [exit, state] = await run(
       Effect.gen(function* () {
         const accounts = yield* Accounts;
-        yield* accounts.signIn();
-        yield* accounts.signIn({ test: { email: 'tess@example.test' } });
-        return yield* accounts.current;
+        const exit = yield* Effect.exit(accounts.signIn());
+        return [exit, yield* accounts.check] as const;
       }),
       fakeAccounts({ choose: queue({ email: 'ada@example.com' }) }),
     );
+    expect(exit).toMatchObject({
+      _tag: 'Failure',
+      cause: { reasons: [{ error: { _tag: 'AuthWorkerRejected' } }] },
+    });
     expect(state).toEqual(AccountsState.SignedOut());
   });
 });
@@ -288,8 +242,7 @@ describe('fakeGuard', () => {
   );
   const Api = RpcGroup.make(WhoAmI);
   const Handlers = Api.toLayer({
-    WhoAmI: () =>
-      Effect.map(Authz.User, ({ user, test }) => `${user.email} ${test}`),
+    WhoAmI: () => Effect.map(Authz.User, ({ user }) => user.email),
   });
   const call = Effect.gen(function* () {
     const client = yield* RpcTest.makeClient(Api);
@@ -303,16 +256,21 @@ describe('fakeGuard', () => {
         const before = yield* call;
         yield* accounts.signIn();
         const ada = yield* call;
-        yield* accounts.signIn({ test: { email: 'tess@kestack.test' } });
+        yield* accounts.signIn();
         return [before, ada, yield* call] as const;
       }),
-      fakeAccounts({ choose: queue({ email: 'ada@kestack.test' }) }),
+      fakeAccounts({
+        choose: queue(
+          { email: 'ada@kestack.test' },
+          { email: 'tess@kestack.test' },
+        ),
+      }),
     );
     expect(before).toMatchObject({
       failure: { _tag: 'Unauthenticated', reason: 'Not signed in' },
     });
-    expect(ada).toMatchObject({ success: 'ada@kestack.test true' });
-    expect(tess).toMatchObject({ success: 'tess@kestack.test true' });
+    expect(ada).toMatchObject({ success: 'ada@kestack.test' });
+    expect(tess).toMatchObject({ success: 'tess@kestack.test' });
   });
 
   const callWith = (user: { id: string; email: string; name: string }) =>
@@ -411,14 +369,12 @@ describe('fakeGuard', () => {
     class HttpApiFake extends HttpApi.make('fake-api').add(Group) {}
     const HttpHandlers = HttpApiBuilder.group(HttpApiFake, 'fake', (handlers) =>
       handlers.handle('me', () =>
-        Effect.map(Authz.User, ({ user, test }) => `${user.email} ${test}`),
+        Effect.map(Authz.User, ({ user }) => user.email),
       ),
     );
     const result = await run(
       Effect.gen(function* () {
-        yield* (yield* Accounts).signIn({
-          test: { email: 'tess@kestack.test' },
-        });
+        yield* (yield* Accounts).signIn();
         const client = yield* HttpApiTest.groups(HttpApiFake, ['fake']);
         return yield* client.fake.me();
       }).pipe(
@@ -432,30 +388,8 @@ describe('fakeGuard', () => {
           ),
         ),
       ),
-      fakeAccounts({ choose: queue() }),
+      fakeAccounts({ choose: queue({ email: 'tess@kestack.test' }) }),
     );
-    expect(result).toBe('tess@kestack.test true');
-  });
-});
-
-describe('fakeChooser', () => {
-  it('waits for an answer while asking', async () => {
-    const chooser = fakeChooser();
-    const seen: boolean[] = [];
-    chooser.subscribe(() => seen.push(chooser.isAsking()));
-
-    const answered = await Effect.runPromise(
-      Effect.gen(function* () {
-        const fiber = yield* Effect.forkChild(chooser.choose);
-        yield* Effect.yieldNow;
-        expect(chooser.isAsking()).toBe(true);
-        chooser.answer({ email: 'ada@kestack.test' });
-        return yield* Fiber.join(fiber);
-      }),
-    );
-
-    expect(answered).toEqual({ email: 'ada@kestack.test' });
-    expect(chooser.isAsking()).toBe(false);
-    expect(seen).toEqual([true, false]);
+    expect(result).toBe('tess@kestack.test');
   });
 });

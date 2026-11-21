@@ -30,14 +30,12 @@ const account = (id: string, email: string, name: string) => ({
   email,
   name,
   image: null,
-  test: email.endsWith('.test'),
 });
 const ada = account('ada', 'ada@example.com', 'Ada');
 const bob = account('bob', 'bob@example.com', 'Bob');
-const tess = account('tess', 'tess@example.test', 'Tess');
 
 /** An Auth Worker doing Device Login: each `/device/token` poll takes the
- * next answer; `'ada'`, `'bob'` or `'tess'` approves as that User. */
+ * next answer; `'ada'` or `'bob'` approves as that User. */
 const fakeAuthWorker = (answers: string[]) => {
   const live = new Map<string, typeof ada>();
   const calls: string[] = [];
@@ -68,7 +66,7 @@ const fakeAuthWorker = (answers: string[]) => {
           });
         case '/device/token': {
           const answer = answers.shift()!;
-          const user = { ada, bob, tess }[answer as 'ada' | 'bob' | 'tess'];
+          const user = { ada, bob }[answer as 'ada' | 'bob'];
           if (!user) return json({ error: answer }, 400);
           const token = `${answer}-token-${++issued}`;
           live.set(token, user);
@@ -76,7 +74,6 @@ const fakeAuthWorker = (answers: string[]) => {
         }
         case '/get-session': {
           const user = token ? live.get(token) : undefined;
-          // The Auth Worker never says which Users are Test Users.
           return json(
             user
               ? {
@@ -346,28 +343,6 @@ describe('device', () => {
         status: 503,
       }),
     );
-  });
-
-  it('marks a Test User it signed in, and cannot sign one in by email', async () => {
-    const worker = fakeAuthWorker(['tess']);
-    expect(
-      await run(worker, (accounts) =>
-        Effect.andThen(accounts.signIn(), accounts.current),
-      ),
-    ).toEqual(
-      Exit.succeed(AccountsState.SignedIn({ active: tess, accounts: [tess] })),
-    );
-    expect(tess.test).toBe(true);
-
-    const untouched = fakeAuthWorker([]);
-    expect(
-      await run(untouched, (accounts) =>
-        accounts.signIn({ test: { email: 'tess@example.test' } }),
-      ),
-    ).toMatchObject(
-      Exit.fail({ _tag: 'TestSignInUnsupported', client: 'Device' }),
-    );
-    expect(untouched.calls).toEqual([]);
   });
 
   it('fails sign-in when the code is denied or expires', async () => {

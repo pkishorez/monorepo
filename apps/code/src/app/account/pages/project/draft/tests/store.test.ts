@@ -14,7 +14,6 @@ const account = (id: string) => ({
   email: `${id}@example.com`,
   name: id,
   image: null,
-  test: false,
 });
 
 const place = { connectionId: 'm1', projectId: 'p1', sessionId: 's1' };

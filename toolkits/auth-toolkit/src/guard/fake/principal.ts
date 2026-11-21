@@ -1,4 +1,3 @@
-import { isTestEmail } from '../../contract/index.js';
 import type { SignInPrincipal } from '../authz/middleware/index.js';
 import { fakeToken, fakeUser } from './token.js';
 
@@ -17,7 +16,6 @@ const signedIn = (
     kind: 'session',
     user: { id: user.id, email: user.email, name: user.name },
     session: { id, expiresAt: NEVER },
-    test: isTestEmail(user.email),
   };
 };
 

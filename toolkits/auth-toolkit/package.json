@@ -88,6 +88,7 @@
   },
   "peerDependencies": {
     "@alchemy.run/cloudflare": "2.0.0-beta.84",
+    "@kestack/kabuki": "workspace:*",
     "@kestack/rpc-toolkit": "workspace:*",
     "@kestack/std-toolkit": "workspace:*",
     "alchemy": "2.0.0-beta.84",
@@ -97,6 +98,9 @@
   },
   "peerDependenciesMeta": {
     "@alchemy.run/cloudflare": {
+      "optional": true
+    },
+    "@kestack/kabuki": {
       "optional": true
     },
     "@kestack/rpc-toolkit": {

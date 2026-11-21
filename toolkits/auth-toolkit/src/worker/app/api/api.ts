@@ -1,5 +1,4 @@
 import { Context, Data, Effect, Layer } from 'effect';
-import { TEST_SIGN_IN_PATH } from '../../../contract/index.ts';
 import type { AccountList } from './schemas.ts';
 
 /*
@@ -31,14 +30,6 @@ export interface GoogleSignIn {
   readonly errorTo: string;
   /** Asks Google to offer this account first. */
   readonly loginHint?: string | undefined;
-  /** The signed query of an OAuth authorization this sign-in continues. */
-  readonly oauthQuery?: string | undefined;
-}
-
-export interface TestSignIn {
-  readonly email: string;
-  /** Asked only when the Auth Worker has a key. */
-  readonly key?: string | undefined;
   /** The signed query of an OAuth authorization this sign-in continues. */
   readonly oauthQuery?: string | undefined;
 }
@@ -80,11 +71,6 @@ export class Api extends Context.Service<
     }) => Effect.Effect<string, ApiError>;
     /** Google's URL for this sign-in. */
     readonly google: (sign: GoogleSignIn) => Effect.Effect<string, ApiError>;
-    /** Signs in as a Test User; the URL to go to next when it continues
-     * an authorization. */
-    readonly testSignIn: (
-      sign: TestSignIn,
-    ) => Effect.Effect<string | undefined, ApiError>;
     /** The page's own address, query included. */
     readonly location: Effect.Effect<{
       readonly pathname: string;
@@ -173,12 +159,6 @@ export const apiLive = Layer.succeed(Api, {
             ),
       ),
     ),
-  testSignIn: (sign) =>
-    post<{ url?: string }>(TEST_SIGN_IN_PATH, {
-      email: sign.email,
-      ...(sign.key !== undefined ? { key: sign.key } : {}),
-      ...(sign.oauthQuery ? { oauth_query: sign.oauthQuery } : {}),
-    }).pipe(Effect.map((body) => body.url)),
   location: Effect.sync(() => ({
     pathname: window.location.pathname,
     search: window.location.search,

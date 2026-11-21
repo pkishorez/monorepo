@@ -1,7 +1,7 @@
 import { normalizeEmail, type User } from '../../contract/index.js';
 
 /** The one domain a fake User's email may be at. A `.test` domain, so no
- * real mailbox has it and every backend sees a Test User. */
+ * real mailbox, and no Google account, has it. */
 export const FAKE_DOMAIN = 'kestack.test';
 
 /** Whether `email` may be a fake User's: at `FAKE_DOMAIN`, nothing else. */

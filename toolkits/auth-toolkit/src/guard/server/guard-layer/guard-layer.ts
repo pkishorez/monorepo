@@ -23,12 +23,7 @@ import { batchedRequests, credentialOf } from './batched-request.js';
 
 export type { Resolution, Resolve };
 
-interface GuardOptions {
-  /** Admit Test Users rather than refuse them Forbidden. */
-  readonly testUsers: boolean;
-}
-
-interface HttpGuardOptions extends GuardOptions {
+interface HttpGuardOptions {
   /** Rewrites a guarded endpoint's response, given the Scopes its policy
    * asks for: a Resource Server's `WWW-Authenticate` challenge. */
   readonly challenge?:
@@ -45,10 +40,7 @@ interface HttpGuardOptions extends GuardOptions {
  * refreshed while verifying go on its response. A call that arrived
  * otherwise (a socket message, in-process) is verified on its own.
  */
-export const rpcGuardLayer = (
-  resolve: Resolve,
-  { testUsers }: GuardOptions,
-): RpcGuard => {
+export const rpcGuardLayer = (resolve: Resolve): RpcGuard => {
   const stateOf = batchedRequests();
 
   return rpcMiddleware.layer<never, never>(({ headers, rpc, value: policy }) =>
@@ -82,13 +74,9 @@ export const rpcGuardLayer = (
         }
       }
 
-      return yield* admit(
-        resolved,
-        request,
-        policy,
-        { 'rpc.method': rpc._tag },
-        testUsers,
-      );
+      return yield* admit(resolved, request, policy, {
+        'rpc.method': rpc._tag,
+      });
     }),
   );
 };
@@ -100,7 +88,7 @@ export const rpcGuardLayer = (
  */
 export const httpGuardLayer = (
   resolve: Resolve,
-  { testUsers, challenge }: HttpGuardOptions,
+  { challenge }: HttpGuardOptions = {},
 ): HttpGuard =>
   httpMiddleware.layer<never, never>(
     ({ endpoint, request: http, value: policy }) =>
@@ -126,12 +114,8 @@ export const httpGuardLayer = (
           );
         }
 
-        return yield* admit(
-          resolved,
-          request,
-          policy,
-          { 'http.endpoint': endpoint.identifier },
-          testUsers,
-        );
+        return yield* admit(resolved, request, policy, {
+          'http.endpoint': endpoint.identifier,
+        });
       }),
   );

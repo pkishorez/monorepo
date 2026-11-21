@@ -5,19 +5,18 @@ import type { Principal } from '../../../authz/middleware/index.js';
 import { admit, type Resolution } from '../admission.js';
 
 const session = { id: 's1' };
-const tess = { id: 't1', email: 'Tess@Example.TEST', name: 'Tess' };
+const ada = { id: 'u1', email: 'ada@example.com', name: 'Ada' };
 
 describe('admit', () => {
-  const resolution = (test: boolean): Resolution => ({
+  const resolution: Resolution = {
     principal: {
       kind: 'session',
       session,
-      user: tess,
-      test,
+      user: ada,
     } as unknown as Principal,
     refreshedCookies: [],
-  });
-  const run = (resolved: Resolution, testUsers: boolean) =>
+  };
+  const run = (resolved: Resolution | null) =>
     Effect.runPromise(
       Effect.result(
         admit(
@@ -25,25 +24,19 @@ describe('admit', () => {
           new Request('https://api.example.com'),
           Option.none(),
           {},
-          testUsers,
         ),
       ),
     );
 
-  it('refuses a Test User Forbidden, unless testUsers', async () => {
-    expect(await run(resolution(true), false)).toMatchObject({
-      failure: { _tag: 'Forbidden', reason: 'Test Users are not accepted' },
-    });
-    expect(await run(resolution(true), true)).toMatchObject({
-      success: { test: true },
+  it('admits whoever the call is from, with no policy', async () => {
+    expect(await run(resolution)).toMatchObject({
+      success: { kind: 'session', user: ada },
     });
   });
 
-  it('admits anyone else either way', async () => {
-    for (const testUsers of [false, true]) {
-      expect(await run(resolution(false), testUsers)).toMatchObject({
-        success: { test: false },
-      });
-    }
+  it('refuses nobody Unauthenticated', async () => {
+    expect(await run(null)).toMatchObject({
+      failure: { _tag: 'Unauthenticated' },
+    });
   });
 });
