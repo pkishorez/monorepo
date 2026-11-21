@@ -8,8 +8,12 @@ import { describe, expect, it } from 'vitest';
  * browser bundles them, from their source and every package they reach: not one import of a Node built-in,
  * nor of a package that only runs on Node, nor one the bundle could not
  * find. Each one found is named with the file that imports it. The real
- * engine's edges, `engine/node.ts`, bundled the same way, are caught.
+ * engine's edges, `engine/node.ts`, bundled the same way, are caught. Both
+ * doors carry the mark every fake does, `kestack-fake`, so a production
+ * build that brings either in fails; the real engine does not.
  */
+
+const FAKE_MARK = 'kestack-fake';
 
 const at = (path: string) => fileURLToPath(new URL(path, import.meta.url));
 
@@ -44,9 +48,10 @@ const watched = (found: Array<string>): Plugin => ({
   },
 });
 
-/** What `entry` reaches that a browser cannot load: Node-only imports, and imports never found. */
-const nodeReached = async (entry: string) => {
+/** What `entry` reaches that a browser cannot load: Node-only imports, and imports never found; and whether its bundle carries the fake mark. */
+const bundled = async (entry: string) => {
   const found: Array<string> = [];
+  let marked = false;
   const bundle = await rolldown({
     input: entry,
     platform: 'browser',
@@ -59,25 +64,36 @@ const nodeReached = async (entry: string) => {
   try {
     const { output } = await bundle.generate({ format: 'esm' });
     expect(output[0].moduleIds.length).toBeGreaterThan(100);
+    marked = output.some(
+      (file) => file.type === 'chunk' && file.code.includes(FAKE_MARK),
+    );
   } finally {
     await bundle.close();
   }
-  return found;
+  return { found, marked };
 };
 
 describe('@kestack/connect/browser', () => {
-  it('bundles for the browser without reaching Node', async () => {
-    expect(await nodeReached(at('../index.ts'))).toEqual([]);
+  it('bundles for the browser without reaching Node, marked a fake', async () => {
+    expect(await bundled(at('../index.ts'))).toEqual({
+      found: [],
+      marked: true,
+    });
   }, 60_000);
 
-  it('bundles the Computers fake, `./fake`, without reaching Node', async () => {
-    expect(await nodeReached(at('../fake/index.ts'))).toEqual([]);
+  it('bundles the Computers fake, `./fake`, without reaching Node, marked a fake', async () => {
+    expect(await bundled(at('../fake/index.ts'))).toEqual({
+      found: [],
+      marked: true,
+    });
   }, 60_000);
 
-  it("catches what reaches Node, as the real engine's edges do", async () => {
-    expect(
-      await nodeReached(at('../../connection/plugins/code/engine/node.ts')),
-    ).toEqual(
+  it("catches what reaches Node, as the real engine's edges do, unmarked", async () => {
+    const engine = await bundled(
+      at('../../connection/plugins/code/engine/node.ts'),
+    );
+    expect(engine.marked).toBe(false);
+    expect(engine.found).toEqual(
       expect.arrayContaining([
         expect.stringMatching(/^node:child_process <- .*git\.ts$/),
       ]),

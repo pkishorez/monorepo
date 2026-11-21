@@ -33,7 +33,7 @@ export const makeFakeSpeech = (): FakeSpeech => {
   let gate: Deferred.Deferred<void> | undefined;
   let installs = 0;
   let loads = 0;
-  const layer = Layer.succeed(SpeechToText, {
+  const speech = Layer.succeed(SpeechToText, {
     installed: (folder) =>
       Effect.promise(() =>
         access(join(folder, MODEL)).then(
@@ -66,6 +66,11 @@ export const makeFakeSpeech = (): FakeSpeech => {
         };
       }),
   });
+  const layer = Layer.merge(
+    speech,
+    // The mark every fake carries: a production build that has it fails.
+    Layer.effectDiscard(Effect.logDebug('kestack-fake: the fake Speech')),
+  );
   return {
     layer,
     installs: () => installs,

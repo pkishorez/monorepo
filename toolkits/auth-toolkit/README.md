@@ -28,12 +28,11 @@ answer each sign-in and act from another tab, gives the browser's
 `Accounts` in place of `browser()`; `fakeGuard.rpc()` or `fakeGuard.http()`
 take the place of `auth.rpc()` or `auth.http()`. Tests sign in with
 `fakeAccounts({ choose })`, and handlers' tests put a fixed Principal behind
-every call with `fakeGuard.rpc({ as })`. Under
-the `kestack-fake-auth` export condition, which only development sets (the
-Web Platform does under `pnpm dev`), `server`, `client/browser` and
-`client/device` are the Fake themselves, so app code does not change. A Fake
-Account's email must be at `kestack.test`; why is
-[root ADR 0012](../../docs/adr/0012-pnpm-dev-signs-in-with-the-fake.md).
+every call with `fakeGuard.rpc({ as })`. `server`, `client/browser` and
+`client/device` are always the real ones: an app picks the fake itself, in
+fake mode only, and a production build that carries it fails (the Web
+Platform's check for `FAKE_MARK`). A Fake Account's email must be at
+`kestack.test`.
 
 The Guard is Middleware from
 [`@kestack/rpc-toolkit`](../rpc-toolkit/README.md), and the clients keep
@@ -165,7 +164,7 @@ Peer dependencies, all optional; install the ones your doors need:
 | `SIGNED_IN_AS`     | Who a blank sign-in signs in: `you@kestack.test`.                                                                                                               |
 | `FAKE_DOMAIN`      | The one domain a fake User's email may be at: `kestack.test`.                                                                                                   |
 | `FAKE_AUTH_WORKER` | The URL the Sign-in fake's errors name as its Auth Worker.                                                                                                      |
-| `FAKE_MARK`        | The mark every bundle carrying the fake holds, which a production build is checked for.                                                                         |
+| `FAKE_MARK`        | `kestack-fake`, the mark every bundle carrying a fake holds, which a production build is checked for.                                                           |
 
 ### `@kestack/auth-toolkit/google-button`
 

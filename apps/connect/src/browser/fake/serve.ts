@@ -129,6 +129,8 @@ export const serveComputers = (
 ): Layer.Layer<Computers | ConnectCloud> =>
   Layer.effectContext(
     Effect.gen(function* () {
+      // The mark every fake carries: a production build that has it fails.
+      yield* Effect.logDebug('kestack-fake: the Computers fake serves');
       const scope = yield* Effect.scope;
       const root = runtime.root;
       const instances = () => root.children.computers;

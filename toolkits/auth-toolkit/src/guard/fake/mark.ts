@@ -1,10 +1,10 @@
 import { Effect } from 'effect';
 import { FAKE_DOMAIN } from './token.js';
 
-/** In every bundle that carries the Fake, so a production build is checked
- * for it (the Web Platform fails one that has it), and the condition that
- * swaps the Fake in for the real doors in development. */
-export const FAKE_MARK = 'kestack-fake-auth';
+/** In every bundle that carries a fake, here in the warning every Layer of
+ * the Sign-in fake and `fakeGuard` gives, so a production build that has
+ * one fails (`@kestack/web-platform`'s `noFake`). */
+export const FAKE_MARK = 'kestack-fake';
 
 // Said once per process, however often a Layer is built.
 let warned = false;

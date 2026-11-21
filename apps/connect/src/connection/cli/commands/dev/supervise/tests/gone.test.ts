@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { connectionName } from '../../auth.js';
+import { connectionName } from '../../name.js';
 import { prefixOf, slugsOf } from '../../branch.js';
 import { goneOf, removeGone } from '../gone.js';
 
@@ -54,20 +54,25 @@ describe('the branches with a checkout', () => {
 describe('a gone development Connection', () => {
   const slugs = new Set(['main', 'connect-plugins']);
 
-  it('is a dev- Connection that is no branch’s, signed in either way', () => {
+  it('is a dev- Connection that is no branch’s, an older -real one too', () => {
     expect(
       goneOf(
         [
           'main',
           'work',
-          connectionName('main', 'fake'),
-          connectionName('connect-plugins', 'real'),
+          connectionName('main'),
+          connectionName('connect-plugins'),
+          'dev-main-real',
           'dev-deleted-branch',
           'dev-deleted-branch-real',
         ],
         slugs,
       ),
-    ).toEqual(['dev-deleted-branch', 'dev-deleted-branch-real']);
+    ).toEqual([
+      'dev-deleted-branch',
+      'dev-deleted-branch-real',
+      'dev-main-real',
+    ]);
   });
 
   it('is removed, and none is when the branches cannot be listed', async () => {

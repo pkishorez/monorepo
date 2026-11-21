@@ -26,8 +26,9 @@ import { OUTDATED_EXIT } from '../commands/index.js';
 
 /*
  * `ke-connect` end to end, each command its own process, as a user runs it:
- * `serve e2e` signs in with auth-toolkit's Fake to a Connect Cloud in this
- * process, opens a tunnel through a fake cloudflared, and runs the code
+ * `serve e2e` signs in by Device Login, approved at once by an Auth Worker
+ * in this process that issues a Fake Token, to a Connect Cloud in this
+ * process that reads it with auth-toolkit's `fakeGuard`, opens a tunnel through a fake cloudflared, and runs the code
  * Plugin at the Release Connect Cloud names, on a fake harness, from a
  * folder. Code's client reaches the Plugin through the server at
  * `/code/<sha256>/rpc` with the Connection Key, read as Connect Cloud heard
@@ -48,6 +49,8 @@ let home: string;
 let code: { readonly hash: string; readonly url: string };
 let cloud: Server;
 let cloudUrl: string;
+let authWorker: Server;
+let authUrl: string;
 /** The Connection Key the last Report carried; null until one does. */
 let reportedKey: string | null = null;
 const children: Array<ChildProcess> = [];
@@ -87,6 +90,54 @@ const fakeRelease = () => {
   return { hash, url: pathToFileURL(file).href };
 };
 
+/** The Fake Token `fakeGuard` reads for `email`: its User is made from the email again. */
+const fakeTokenOf = (email: string) =>
+  `local.${Buffer.from(JSON.stringify({ id: email, email, name: email.split('@')[0] })).toString('base64url')}`;
+
+/** An Auth Worker whose every Device Login is approved at once, as `dev@kestack.test`, with a Fake Token. */
+const startAuthWorker = async () => {
+  const email = 'dev@kestack.test';
+  const token = fakeTokenOf(email);
+  const server = createServer((request, response) => {
+    const path = new URL(request.url ?? '/', 'http://x').pathname.replace(
+      '/api/auth',
+      '',
+    );
+    const answer = (body: unknown) => {
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end(JSON.stringify(body));
+    };
+    request.resume();
+    request.on('end', () => {
+      switch (path) {
+        case '/device/code':
+          return answer({
+            device_code: 'dc',
+            user_code: 'ABCD-EFGH',
+            verification_uri: `${authUrl}/device`,
+            verification_uri_complete: `${authUrl}/device?user_code=ABCD-EFGH`,
+            interval: 0,
+          });
+        case '/device/token':
+          return answer({ access_token: token, token_type: 'Bearer' });
+        case '/get-session':
+          return answer(
+            request.headers.authorization === `Bearer ${token}`
+              ? { user: { id: email, email, name: 'dev' }, session: { token } }
+              : null,
+          );
+        default:
+          return answer({ success: true });
+      }
+    });
+  });
+  await new Promise<void>((resolve) =>
+    server.listen(0, '127.0.0.1', () => resolve()),
+  );
+  const address = server.address() as { port: number };
+  return { server, url: `http://127.0.0.1:${address.port}` };
+};
+
 /** The Connection Key a request carries, if it is a Report. */
 const keyInReport = (body: Buffer) =>
   /"key":"([\w-]+)"/.exec(body.toString())?.[1] ?? null;
@@ -99,7 +150,7 @@ const startCloud = async (port = 0, minConnect?: string) => {
   );
   const answer = serveOver({
     guard: fakeGuard.rpc(),
-    authInfo: { url: 'https://auth.test' },
+    authInfo: { url: authUrl },
     origins: [],
     driver,
     wanted: { code },
@@ -162,11 +213,11 @@ const freePort = () =>
     });
   });
 
-/** `ke-connect <args>` from source, signing in with the Fake. */
+/** `ke-connect <args>` from source. */
 const keConnect = (args: ReadonlyArray<string>) => {
   const child = spawn(
     process.execPath,
-    ['--conditions=kestack-fake-auth', '--import', 'tsx', KE_CONNECT, ...args],
+    ['--import', 'tsx', KE_CONNECT, ...args],
     { cwd: ROOT, env: env(), stdio: ['ignore', 'pipe', 'pipe'] },
   );
   children.push(child);
@@ -194,6 +245,7 @@ beforeAll(async () => {
   home = mkdtempSync(join(tmpdir(), 'kc-'));
   fakeCloudflared();
   code = fakeRelease();
+  ({ server: authWorker, url: authUrl } = await startAuthWorker());
   ({ server: cloud, url: cloudUrl } = await startCloud());
 });
 
@@ -201,6 +253,8 @@ afterAll(async () => {
   for (const child of children)
     if (child.exitCode === null) child.kill('SIGKILL');
   await new Promise((resolve) => cloud.close(resolve));
+  authWorker.closeAllConnections();
+  await new Promise((resolve) => authWorker.close(resolve));
   rmSync(home, { recursive: true, force: true });
 });
 

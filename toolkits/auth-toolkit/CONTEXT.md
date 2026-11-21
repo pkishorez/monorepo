@@ -81,7 +81,7 @@ The Auth Worker's page at `/device`, where the User approves a Device Login as a
 _Avoid_: device page, verification page
 
 **Fake**:
-auth-toolkit's stand-in for the Auth Worker, where none can be reached or none should be: fake mode, where the whole backend runs in the tab, and tests. The `fake` door: the Sign-in fake's Accounts (`browserOver`, or `fakeAccounts` in tests) take the place of `browser()`, and `fakeGuard.rpc()` and `fakeGuard.http()` of `auth.rpc()` and `auth.http()`. Under the `kestack-fake-auth` export condition, which only development sets, the `server`, `client/browser` and `client/device` doors are the Fake themselves. Anyone may be any Fake Account, so it never guards real data.
+auth-toolkit's stand-in for the Auth Worker, where none can be reached or none should be: fake mode, where the whole backend runs in the tab, and tests. The `fake` door: the Sign-in fake's Accounts (`browserOver`, or `fakeAccounts` in tests) take the place of `browser()`, and `fakeGuard.rpc()` and `fakeGuard.http()` of `auth.rpc()` and `auth.http()`. The real doors are always real: an app picks the Fake itself, in fake mode only. Anyone may be any Fake Account, so it never guards real data.
 _Avoid_: Local mode (the former name), mock auth, sandbox, dev login
 
 **Sign-in fake**:

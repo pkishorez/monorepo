@@ -32,7 +32,7 @@ The lock that one dev process takes while it decides whether Connect must start 
 
 ## Signing in
 
-`pnpm dev` signs in with auth-toolkit's Fake ([root ADR 0012](../../../docs/adr/0012-pnpm-dev-signs-in-with-the-fake.md)): Connect Cloud reads Fake Tokens, and the Connection `dev-<branch>` signs in at once as `dev@kestack.test`, with no device code, and lets in pages through a Cloudflare tunnel (`https://*.trycloudflare.com`). `pnpm dev:real` (`KESTACK_AUTH=real`) signs in through the Auth Worker, as the Connection `dev-<branch>-real`, with folders of its own. `connect.json` says which (`auth`), and an App run the other way while one runs is refused: stop every dev on the branch first.
+`pnpm dev` signs in for real ([root ADR 0015](../../../docs/adr/0015-two-modes-real-and-fake.md)): Connect Cloud asks the Auth Worker, and the Connection `dev-<branch>` signs in through it as a Device, the device code shown on its first run. An older `dev-<branch>-real` is removed as gone. To run without anything behind, use an App's fake mode instead, where Connect runs in the browser tab (`@kestack/connect/browser`).
 
 ## Running an App
 
