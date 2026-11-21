@@ -28,7 +28,8 @@ in the outside world (a computer, a sign-in) faked as a Kabuki Actor, with
 the Messages a person may Send it and the Layer of the edges it serves; the
 package that fakes an edge writes it and never imports this one. The Fake
 World runs each on a Runtime of its own, gives one Layer of every edge, and
-keeps each Snapshot across reloads.
+keeps each Snapshot across reloads. Its bubble, over the app, shows every
+Fake's Instances and Models, and a form per Control.
 
 The words used here (Kabuki Session, Kabuki Session Api, Attachment, Fake,
 Fake World) are defined in [CONTEXT.md](./CONTEXT.md).
@@ -43,7 +44,8 @@ Peer dependencies:
 
 - `@kestack/kabuki`: the app whose History and Snapshots are answered.
 - `@kestack/web-platform`, `react`, `react-dom`: what the Inspector, in
-  `./inspector`, is drawn with.
+  `./inspector`, is drawn with; `react` and `react-dom` draw the fake
+  bubble, in `./fake`, too.
 - `effect` (`^4.0.0`): the Api is an Effect RPC group, served with Effect's
   socket protocol.
 
@@ -143,15 +145,18 @@ through the Api.
 
 Fake mode: an app's Fakes run in the tab. Browser-safe; `FakeWorld.make` runs anywhere.
 
-| Export                  | What it does                                                                                                                |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `FakeWorld.make`        | Runs a list of Fakes, each on a Kabuki Runtime of its own: one Layer of every edge they fake, and the Runtimes running now. |
-| `FakeWorld.indexedDb`   | Where each Fake's Snapshot is kept across reloads: the tab's IndexedDB, a Snapshot per Fake.                                |
-| `FakeWorld.startFresh`  | Asks the next start to begin with nothing kept, and reloads the tab.                                                        |
-| `FakeWorld.beforeStart` | When Start fresh was asked, deletes every IndexedDB database of the origin, localStorage and sessionStorage; call it first. |
-| `SAVE_AFTER`            | How long a change waits for the next before its Fake's Snapshot is saved, in milliseconds.                                  |
-| `DATABASE`              | The IndexedDB database `FakeWorld.indexedDb()` keeps Snapshots in.                                                          |
-| `FRESH`                 | The sessionStorage key that asks the next start to begin fresh.                                                             |
+| Export                  | What it does                                                                                                                                 |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `FakeWorld.make`        | Runs a list of Fakes, each on a Kabuki Runtime of its own: one Layer of every edge they fake, and the Runtimes running now.                  |
+| `FakeWorld.indexedDb`   | Where each Fake's Snapshot is kept across reloads: the tab's IndexedDB, a Snapshot per Fake.                                                 |
+| `FakeWorld.startFresh`  | Asks the next start to begin with nothing kept, and reloads the tab.                                                                         |
+| `FakeWorld.beforeStart` | When Start fresh was asked, deletes every IndexedDB database of the origin, localStorage and sessionStorage; call it first.                  |
+| `SAVE_AFTER`            | How long a change waits for the next before its Fake's Snapshot is saved, in milliseconds.                                                   |
+| `DATABASE`              | The IndexedDB database `FakeWorld.indexedDb()` keeps Snapshots in.                                                                           |
+| `FRESH`                 | The sessionStorage key that asks the next start to begin fresh.                                                                              |
+| `FakeBubble`            | The bubble over the app: every Fake's Instances, each with its State, Model and a form per Control, a log of Controls sent, and Start fresh. |
+| `FROM_BUBBLE`           | Who a Control sent from the bubble is from, as its History entry says: from outside, named `fake bubble`.                                    |
+| `PLACE`                 | The localStorage key the bubble keeps its place under.                                                                                       |
 
 ## Usage
 
@@ -319,10 +324,9 @@ needs, makes one Fake World, and provides its Layer where the real edges
 would be. Before anything opens storage it calls `beforeStart`, so Start
 fresh clears the origin first.
 
-```ts
-import { Layer } from 'effect';
+```tsx
 import { computers } from '@kestack/connect/fake';
-import { FakeWorld } from '@kestack/devtools-kabuki/fake';
+import { FakeBubble, FakeWorld } from '@kestack/devtools-kabuki/fake';
 import type { Fake } from '@kestack/devtools-kabuki/fake';
 
 await FakeWorld.beforeStart();
@@ -332,6 +336,9 @@ export const world = FakeWorld.make(fakes, { saved: FakeWorld.indexedDb() });
 
 // Layer<Computers | ConnectCloud>
 export const edges = world.layer;
+
+// Anywhere in the app's React tree, once.
+export const Fakes = () => <FakeBubble world={world} />;
 ```
 
 How it works:
@@ -351,3 +358,13 @@ How it works:
 - `startFresh()` sets `FRESH` in sessionStorage and reloads;
   `beforeStart()` on the next start deletes what the origin keeps, and says
   whether it did.
+- `FakeBubble` draws itself on the page's body in a Shadow DOM, its styles
+  in its code: the app's styles never reach it, and its never reach the
+  app. It follows the page's `color-scheme`. Dragged, or moved with
+  Shift and an arrow, it keeps its place in localStorage; pressed, it
+  opens the panel, which Escape closes.
+- Each Instance offers the Fake's `controls` its Actor has an Update for,
+  each a form read from the Message's Schema: text, a number, a switch, a
+  choice of literals, else JSON, a blank optional field left out. Sent to
+  the Instance's Address, from `FROM_BUBBLE`, it says what became of it:
+  handled, ignored, queued or refused. Start fresh asks first.
