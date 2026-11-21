@@ -30,14 +30,12 @@ const ada: Account = {
   email: 'ada@x.com',
   name: 'Ada',
   image: null,
-  test: false,
 };
 const bob: Account = {
   id: 'bob',
   email: 'bob@x.com',
   name: 'Bob',
   image: null,
-  test: false,
 };
 const both = AccountsState.SignedIn({ active: ada, accounts: [ada, bob] });
 

@@ -31,13 +31,11 @@ const { handler } = authWorker({
 | `admit`        | The User Admission Policy: `(user: { email, name }) => boolean`, sync or async. See below.                                                                                                                |
 | `dashApiKey`   | Connects the Worker to better-auth's hosted dashboard. Absent or blank leaves it off.                                                                                                                     |
 | `oauth`        | Turns on the Authorization Server Role: `{ resources: { [url]: { [scope]: description } } }`. See below.                                                                                                  |
-| `testUsers`    | Turns on Test Sign-In: `{ key?, allow? }`. Omitted, it does not exist. See "Test Users" below.                                                                                                            |
 
 `authWorker` throws at startup on a missing `secret` or `brand.name`, a `url`
 that is not absolute or not under `cookieDomain`, a `cookieDomain` that is
 not a bare domain, a bad `maxAccounts`, a resource key that is not a URL, an invalid
-scope name, one scope described two different ways, a `testUsers.key` that is
-not a non-empty string, or a `testUsers.allow` that is not a function.
+scope name, or one scope described two different ways.
 
 It returns `{ auth, handler }`: the better-auth instance, for server-side
 calls, and the fetch handler that serves `/api/auth/*`, the pages, and their
@@ -72,39 +70,6 @@ A web app on another site is not served. There is no `trustedOrigins`.
 Google sign-in. Return `true` to admit; anything else refuses with
 "This account cannot sign in here." A thrown error fails closed. The policy
 does not re-evaluate existing Sign-ins; ban an already-admitted User instead.
-
-## Test Users
-
-A Test User is a User whose email ends in `.test`. The reserved top-level
-domain means no Google account can have one, so the email is the only mark:
-nothing else is stored, and there is no migration.
-
-With `testUsers` set, `POST /api/auth/test/sign-in` with
-`{ email, key? }` signs the browser in as that Test User without Google,
-creating the User on first use. It is a normal Sign-in with the normal
-session cookie, so Accounts, Account Switch, sign-out, Device Login and the
-Consent Screen work unchanged. The Login Screen offers "Sign in as a test
-user" below the Google button.
-
-```ts
-testUsers: {
-  key: env.TEST_USERS_KEY, // optional: every Test Sign-In must send it
-  allow: (email) => email.endsWith('@acme.test'), // optional
-}
-```
-
-- Without `key`, no key is needed. With it, the request must carry exactly that key (401 `WRONG_KEY`).
-- `allow`, when set, gets the email trimmed and lowercased; `false` refuses it (403 `NOT_ALLOWED`).
-- An email that is not a `.test` email is always refused (400 `NOT_A_TEST_EMAIL`).
-- A browser already holding `maxAccounts` Accounts may sign in again as one of them, but not as another (403 `TOO_MANY_ACCOUNTS`).
-  Two sign-ins sent at once from the same cookies can both pass this check, as two Google sign-ins can.
-- A User's email never moves into or out of `.test`, not even by an Administrator's update, so a real User never becomes a Test User or the other way round.
-- A Test User can approve OAuth consent like any User. auth-toolkit's guards refuse their Access Tokens unless `testUsers: true`; a Resource Server that checks tokens some other way must refuse them itself.
-- `admit` does not apply to Test Users. Google sign-in refuses a `.test` email, with or without `admit`.
-- The answer is `{ user }`, never a token. Given the Login Screen's signed `oauth_query`, it answers `{ redirect, url }` to carry on the authorization, as a Google sign-in would.
-
-A Consumer Backend still refuses Test Users until it opts in with
-`testUsers: true` on its guard. Both are off by default.
 
 ## Revocation lag
 

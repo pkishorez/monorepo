@@ -1,6 +1,5 @@
 import { Effect } from 'effect';
 
-import { isTestEmail } from '../../../contract/index.js';
 import { bearerToken } from '../../authz/middleware/index.js';
 import type { Resolution, Resolve } from '../guard-layer/index.js';
 import { verifyAccessToken } from './access-token.js';
@@ -25,11 +24,7 @@ export const resolve = async (
     const identity = await verifyAccessToken(url, resource, token);
     if (identity !== null) {
       return {
-        principal: {
-          kind: 'token',
-          ...identity,
-          test: isTestEmail(identity.user.email),
-        },
+        principal: { kind: 'token', ...identity },
         refreshedCookies: [],
       };
     }
@@ -52,7 +47,6 @@ export const resolve = async (
             email: verified.user.email,
             name: verified.user.name,
           },
-          test: isTestEmail(verified.user.email),
         },
         refreshedCookies: verified.refreshedCookies,
       };

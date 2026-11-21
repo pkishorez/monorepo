@@ -1,12 +1,12 @@
 import { Effect } from 'effect';
-import { IDB } from '@kestack/std-toolkit/db/idb';
 import { browser as realBrowser } from '../../client/browser/index.js';
 import { fakeAccounts } from '../fake.js';
-import { fakeAccountsTable } from '../source.js';
 import { FAKE_DOMAIN, isFakeEmail } from '../token.js';
 
 export {
   browserAccountsTable,
+  type CacheStorage,
+  makeCache,
   rememberedAccounts,
 } from '../../client/browser/index.js';
 
@@ -31,14 +31,7 @@ const ask = Effect.sync(() => {
   return null;
 });
 
-/** `browser`, faked: fake Accounts kept in IndexedDB across reloads, a
- * sign-in coming back to `returnTo` as the real one does. */
+/** `browser`, faked: fake Accounts for as long as the page, a sign-in
+ * coming back to `returnTo` as the real one does. */
 export const browser: typeof realBrowser = ({ returnTo }) =>
-  fakeAccounts({
-    choose: ask,
-    returnTo,
-    storage: IDB.make(fakeAccountsTable, {
-      database: IDB.database({ databaseName: 'kestack:fake-accounts' }),
-      mode: 'disposable',
-    }).layer,
-  });
+  fakeAccounts({ choose: ask, returnTo });

@@ -46,7 +46,7 @@ describe('verify', () => {
         }),
         { url },
       ),
-    ).toEqual({ kind: 'session', session: signIn, user, test: false });
+    ).toEqual({ kind: 'session', session: signIn, user });
   });
 
   it('resolves null for nobody and rejects when the Auth Worker is down', async () => {
@@ -55,20 +55,5 @@ describe('verify', () => {
     expect(await verify(request, { url })).toBeNull();
     mocks.verifySignIn.mockRejectedValueOnce(new Error('down'));
     await expect(verify(request, { url })).rejects.toThrow('down');
-  });
-
-  it('is nobody for a Test User unless testUsers admits them', async () => {
-    mocks.verifySignIn.mockResolvedValue({
-      session,
-      user: { id: 't1', email: 'Tess@Example.TEST', name: 'Tess' },
-      refreshedCookies: [],
-    });
-    const request = new Request('https://api.example.com/ws', {
-      headers: { cookie: 'session=abc' },
-    });
-    expect(await verify(request, { url })).toBeNull();
-    expect(await verify(request, { url, testUsers: true })).toMatchObject({
-      test: true,
-    });
   });
 });

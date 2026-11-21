@@ -126,7 +126,6 @@ const accountOf = (id: string) => ({
   email: `${id}@example.com`,
   name: id,
   image: null,
-  test: false,
 });
 
 const SESSION: Place = { connectionId: 'm1', projectId: 'p1', sessionId: 's1' };

@@ -82,15 +82,13 @@ export const identify = (
 /**
  * Applies the Guard to one call's caller: Unauthenticated for nobody,
  * AccountChanged when a cookie caller's User is not the one its
- * `expect-user` names (a bearer caller's is ignored), Forbidden for a Test
- * User unless `testUsers`, then the policy.
+ * `expect-user` names (a bearer caller's is ignored), then the policy.
  */
 export const admit = (
   resolved: Resolution | null,
   request: Request,
   policy: Option.Option<Policy>,
   attributes: Attributes,
-  testUsers: boolean,
 ): Effect.Effect<Principal, Unauthenticated | AccountChanged | Forbidden> =>
   Effect.gen(function* () {
     if (resolved === null) {
@@ -110,11 +108,6 @@ export const admit = (
       return yield* new AccountChanged({
         reason: 'The Active Account is not the expected User',
       });
-    }
-
-    if (principal.test && !testUsers) {
-      yield* Effect.logInfo('Test User refused');
-      return yield* new Forbidden({ reason: 'Test Users are not accepted' });
     }
 
     if (Option.isSome(policy)) {

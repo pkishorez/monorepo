@@ -1,9 +1,8 @@
 import { Schema } from 'effect';
 import type { Account } from '../accounts/index.js';
 
-/** An Account as a Source knows it, stored and sent between tabs: whether
- * it is a Test User is not kept, it is read off the email. */
-export type SourceAccount = Omit<Account, 'test'>;
+/** An Account as a Source knows it, stored and sent between tabs. */
+export type SourceAccount = Account;
 
 export const AccountSchema = Schema.Struct({
   id: Schema.String,

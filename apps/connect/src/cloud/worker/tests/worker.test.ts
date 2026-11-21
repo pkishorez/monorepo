@@ -53,7 +53,6 @@ const signIn = (name: string) => {
       kind: 'session',
       user: { id, name, email: `${id}@demo.test` },
       session: { id: `s-${id}` },
-      test: true,
     } as unknown as Principal,
   };
 };

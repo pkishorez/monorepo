@@ -28,7 +28,6 @@ const account = (id: string) => ({
   email: `${id}@example.com`,
   name: id,
   image: null,
-  test: false,
 });
 
 const checking = (last: string | null): Signed => ({

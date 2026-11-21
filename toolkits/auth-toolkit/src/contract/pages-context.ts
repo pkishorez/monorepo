@@ -18,6 +18,4 @@ export interface PagesContext {
     | undefined;
   /** The Signed-in Account limit for this browser. */
   multiSession: { maximumAccounts: number };
-  /** Whether the Login Screen offers the Test Sign-In (local stage only). */
-  testSignIn?: boolean | undefined;
 }

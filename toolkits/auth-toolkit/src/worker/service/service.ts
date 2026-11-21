@@ -1,5 +1,4 @@
 import { betterAuth, type Auth, type BetterAuthOptions } from 'better-auth';
-import { APIError } from 'better-auth/api';
 import { dash } from '@better-auth/infra';
 import { authorizationServerOptions } from './authorization-server/authorization-server.js';
 import { identityOptions } from './identity/identity.js';
@@ -12,13 +11,8 @@ import {
   type AuthWorkerConfig,
   type Resolved,
 } from './config.js';
-import {
-  AUTH_API_PATH,
-  TEST_SIGN_IN_PATH,
-  isTestEmail,
-} from '../../contract/index.js';
+import { AUTH_API_PATH } from '../../contract/index.js';
 import { withoutSessionTokens } from './browser/no-tokens.js';
-import { TEST_SIGN_IN_METHOD, testSignIn } from './identity/test-sign-in.js';
 import { servePages, type PagesApp, type PagesContext } from './pages.js';
 import { d1 } from '../database/d1/database/index.js';
 
@@ -40,57 +34,15 @@ const NOT_ADMITTED = {
   errorDescription: 'This account cannot sign in here.',
 };
 
-// `admit` judges real users only: Test Sign-In's Test Users skip it, and a
-// `.test` email from anywhere else, as Google, is refused.
+// The User Admission Policy, asked of every identity before it signs in.
 const admission = (
   admit: NonNullable<AuthWorkerConfig['admit']>,
 ): ValidateUserInfo => {
-  return async ({ user, source }) => {
+  return async ({ user }) => {
     const email = typeof user.email === 'string' ? user.email : '';
     const name = typeof user.name === 'string' ? user.name : '';
-    if (isTestEmail(email)) {
-      return source.method === TEST_SIGN_IN_METHOD ? undefined : NOT_ADMITTED;
-    }
     return (await admit({ email, name })) === true ? undefined : NOT_ADMITTED;
   };
-};
-
-const notAdmitted = () =>
-  new APIError('FORBIDDEN', {
-    code: NOT_ADMITTED.error,
-    message: NOT_ADMITTED.errorDescription,
-  });
-
-/** A Test User is created by Test Sign-In alone, with `admit` or without,
- * and no User's email ever crosses into or out of `.test`, as an
- * Administrator's update could make it. */
-const testUsersStayTestUsers: BetterAuthOptions['databaseHooks'] = {
-  user: {
-    create: {
-      before: async (user, context) => {
-        if (isTestEmail(user.email) && context?.path !== TEST_SIGN_IN_PATH) {
-          throw notAdmitted();
-        }
-      },
-    },
-    update: {
-      before: async (user, context) => {
-        if (typeof user.email !== 'string') return;
-        if (isTestEmail(user.email)) throw notAdmitted();
-        // Who is updated is not handed to the hook: an Administrator names
-        // them in the body, anyone else updates themselves.
-        const body = context?.body as { userId?: unknown } | undefined;
-        const userId =
-          typeof body?.userId === 'string'
-            ? body.userId
-            : context?.context.session?.user.id;
-        const current = userId
-          ? await context?.context.internalAdapter.findUserById(userId)
-          : null;
-        if (current && isTestEmail(current.email)) throw notAdmitted();
-      },
-    },
-  },
 };
 
 const REGISTRATION_PATH = '/oauth2/register';
@@ -153,18 +105,9 @@ export const makeAuthWorker = (
     user: config.admit
       ? { validateUserInfo: admission(config.admit) }
       : undefined,
-    databaseHooks: testUsersStayTestUsers,
     plugins: [
       ...(model.plugins ?? []),
       ...(authorizationServer?.plugins ?? []),
-      ...(config.testUsers
-        ? [
-            testSignIn({
-              ...config.testUsers,
-              maxAccounts: resolved.maxAccounts,
-            }),
-          ]
-        : []),
       ...(dashApiKey ? [dash({ apiKey: dashApiKey })] : []),
     ],
     disabledPaths: authorizationServer?.disabledPaths,
@@ -180,9 +123,6 @@ export const makeAuthWorker = (
     cookieDomain: resolved.domain,
     origin: resolved.origin,
     oauth: resolved.scopes ? { scopes: resolved.scopes } : undefined,
-    testUsers: config.testUsers
-      ? { key: config.testUsers.key !== undefined }
-      : undefined,
     reads: browser.reads,
   };
 

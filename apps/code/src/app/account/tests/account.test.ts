@@ -120,7 +120,6 @@ const person = (id: string): Signed => ({
   email: `${id}@example.com`,
   name: id,
   image: null,
-  test: false,
 });
 
 /** Signed in as `active`, beside `others`. */

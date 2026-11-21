@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from 'react';
 import { loginHref, type Account } from '../../api/index.ts';
 import { Avatar, Spinner, cx } from '../../ui/index.ts';
 import { useRoot } from '../root.ts';
-import { TestLabel } from './test-label.tsx';
 
 /*
  * The Account menu: at the top right of a signed-in page, after the Theme
@@ -39,7 +38,6 @@ function Who({ account }: { account: Account }) {
         >
           {account.name || account.email}
         </span>
-        <TestLabel email={account.email} />
       </span>
       <span
         className="block truncate text-sm text-muted-fg"

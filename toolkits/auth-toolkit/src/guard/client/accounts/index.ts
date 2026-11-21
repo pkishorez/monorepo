@@ -5,8 +5,6 @@ export {
   AuthWorkerRejected,
   AuthWorkerUnavailable,
   DeviceLoginFailed,
-  TestSignInRefused,
-  TestSignInUnsupported,
   type Account,
   type AccountsError,
   type AccountsLayer,

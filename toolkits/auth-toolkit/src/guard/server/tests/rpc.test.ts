@@ -246,13 +246,11 @@ describe('Scope policies', () => {
     user,
     client: { id: 'cli' },
     scopes: ['notes:read'],
-    test: false,
   };
   const session: Principal = {
     kind: 'session',
     user,
     session: { id: 's1', expiresAt: new Date(0) },
-    test: false,
   };
   const call = (
     principal: Principal,
@@ -330,61 +328,6 @@ describe('Scope policies', () => {
   });
 });
 
-describe('Test Users', () => {
-  const WhoAmI = Rpc.make('WhoAmI', {
-    payload: {},
-    success: Schema.String,
-  }).pipe(Authz.required);
-  const Api = RpcGroup.make(WhoAmI);
-  const Handlers = Api.toLayer({
-    WhoAmI: () => Effect.map(Authz.User, ({ user }) => user.email),
-  });
-  const call = (server: Layer.Layer<any>, headers: Record<string, string>) =>
-    Effect.runPromise(
-      Effect.result(
-        runRpc(
-          Api,
-          Handlers,
-          (client) => client.WhoAmI({}, { headers }),
-          server,
-        ),
-      ),
-    );
-
-  beforeEach(() => {
-    mocks.getSession.mockReset();
-    mocks.createAuthClient.mockReset();
-    mocks.createAuthClient.mockReturnValue({ getSession: mocks.getSession });
-  });
-
-  it('refuses a Test User by cookie or Device token unless the backend admits them', async () => {
-    mocks.getSession.mockResolvedValue(sessionOf('tess', 'tess@example.test'));
-    for (const headers of [
-      { cookie: 'session=valid' },
-      bearer('device-token'),
-    ]) {
-      expect(await call(auth.rpc({ url }), headers)).toMatchObject({
-        failure: { _tag: 'Forbidden', reason: 'Test Users are not accepted' },
-      });
-      expect(
-        await call(auth.rpc({ url, testUsers: true }), headers),
-      ).toMatchObject({ success: 'tess@example.test' });
-    }
-  });
-
-  it('leaves everyone else alone', async () => {
-    mocks.getSession.mockResolvedValue(sessionOf('ada', 'ada@example.com'));
-    for (const server of [
-      auth.rpc({ url }),
-      auth.rpc({ url, testUsers: true }),
-    ]) {
-      expect(await call(server, { cookie: 'session=valid' })).toMatchObject({
-        success: 'ada@example.com',
-      });
-    }
-  });
-});
-
 describe('auth.rpc auth options', () => {
   it('needs a url', () => {
     expect(() => auth.rpc({} as never)).toThrow(/url/);
@@ -405,12 +348,10 @@ describe('auth.rpc authAs', () => {
     kind: 'session',
     user: { id: 'ada', email: 'ada@example.com', name: 'Ada' },
     session: { id: 's-ada', expiresAt: new Date(0) },
-    test: false,
   } satisfies Principal;
   const call = (
     caller: Effect.Effect<Principal | null, unknown>,
     headers: Record<string, string> = {},
-    options?: Parameters<typeof authAs>[1],
   ) =>
     Effect.runPromise(
       Effect.result(
@@ -418,7 +359,7 @@ describe('auth.rpc authAs', () => {
           Api,
           Handlers,
           (client) => client.WhoAmI({}, { headers }),
-          authAs(caller, options),
+          authAs(caller),
         ),
       ),
     );
@@ -445,33 +386,22 @@ describe('auth.rpc authAs', () => {
       failure: { _tag: 'Unavailable' },
     });
   });
-
-  it('refuses a Test User unless told to admit them', async () => {
-    const tess = Effect.succeed({ ...ada, test: true });
-    expect(await call(tess)).toMatchObject({
-      failure: { _tag: 'Forbidden' },
-    });
-    expect(await call(tess, {}, { testUsers: true })).toMatchObject({
-      success: 'ada',
-    });
-  });
 });
 
 describe('fakeGuard.rpc as', () => {
-  it('admits the Principal it is given, a Test User too', async () => {
+  it('admits the Principal it is given', async () => {
     const Api = RpcGroup.make(
       Rpc.make('WhoAmI', { payload: {}, success: Schema.String }).pipe(
         Authz.required,
       ),
     );
     const Handlers = Api.toLayer({
-      WhoAmI: () => Effect.map(Authz.User, ({ test }) => String(test)),
+      WhoAmI: () => Effect.map(Authz.User, ({ user }) => user.email),
     });
     const tess = {
       kind: 'session',
       user: { id: 'tess', email: 'tess@example.test', name: 'Tess' },
       session: { id: 's-tess', expiresAt: new Date(0) },
-      test: true,
     } satisfies Principal;
     expect(
       await Effect.runPromise(
@@ -482,7 +412,7 @@ describe('fakeGuard.rpc as', () => {
           fakeGuard.rpc({ as: tess }),
         ),
       ),
-    ).toBe('true');
+    ).toBe('tess@example.test');
   });
 
   it('with `as: null` has nobody behind every call', async () => {

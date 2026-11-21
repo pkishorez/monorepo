@@ -7,13 +7,12 @@ import { Frame } from '../frame/frame.tsx';
 import { TaskHeading, TaskHeadingPlaceholder } from '../frame/heading.tsx';
 import { GoogleSignIn } from '../frame/google-sign-in.tsx';
 import { useRoot } from '../root.ts';
-import { TestSignInForm } from './test-sign-in-form.tsx';
 import { Unready } from '../frame/unready.tsx';
 
 /*
  * The Login Screen: "Sign in to {App}", "Sign in to continue to {Client}",
- * or "Add another account"; one Google button, and Test Sign-In below it
- * when it is on; why the last try failed, just above it.
+ * or "Add another account"; one Google button; why the last try failed,
+ * just above it.
  */
 /** The Login Screen while it loads: its heading and the one button. */
 function LoginPlaceholder() {
@@ -43,7 +42,7 @@ export const LoginView = View.make(LoginLive, ({ props, model, send }) => {
       </Unready>
     );
   const { data, waited } = props.status;
-  const { brand, maxAccounts, continuing, testUsers } = data;
+  const { brand, maxAccounts, continuing } = data;
   const { query } = props;
   const accounts = data.accounts.list.length;
   const adding = query.add_account !== undefined && accounts > 0;
@@ -88,20 +87,10 @@ export const LoginView = View.make(LoginLive, ({ props, model, send }) => {
               can. Sign out of one, then add another.
             </Notice>
           ) : (
-            <>
-              <GoogleSignIn
-                leaving={model.leaving}
-                onClick={() => send({ _tag: 'GoogleChosen' })}
-              />
-              {testUsers ? (
-                <TestSignInForm
-                  askKey={testUsers.key}
-                  busy={model.testing}
-                  failure={model.testFailure}
-                  onSubmit={(sign) => send({ _tag: 'TestChosen', ...sign })}
-                />
-              ) : null}
-            </>
+            <GoogleSignIn
+              leaving={model.leaving}
+              onClick={() => send({ _tag: 'GoogleChosen' })}
+            />
           )}
           {adding ? (
             <LinkButton tone="ghost" size="lg" href={back}>

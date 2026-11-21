@@ -11,7 +11,6 @@ const signedIn = fakeGuard.rpc({
     user: { id: 'u1', email: 'ada@example.com', name: 'Ada' },
     client: { id: 'cli' },
     scopes: [],
-    test: false,
   },
 });
 
@@ -91,7 +90,6 @@ describe('the Guard', () => {
       user: { id: 'u1', email: 'ada@example.com', name: 'Ada' },
       client: { id: 'cli' },
       scopes: ['notes:read'],
-      test: false,
     };
     const run = (check: PolicyGuard) =>
       Effect.runPromise(
