@@ -1,17 +1,19 @@
 import { access, mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { Context, Data, Effect, Layer, Semaphore, Stream } from 'effect';
+import { Effect, Layer, Semaphore, Stream } from 'effect';
 import { Runtime } from '@kestack/kabuki';
-import { SpeechToText, type Recognizer } from './contract/index.js';
+import {
+  Speech,
+  SpeechToText,
+  SpeechToTextNotReady,
+  TranscriptionFailed,
+  type Recognizer,
+  type SpeechService,
+  type SpeechToTextStatus,
+} from './contract/index.js';
 import { SpeechModel } from './actor-speech-model/index.js';
 import { SpeechHost } from './capabilities/index.js';
-import { makeTakes, type TakeHeard } from './takes/index.js';
-
-export type { TakeHeard } from './takes/index.js';
-
-// What a program gives Speech: a SpeechToText, sherpa-onnx's unless a fake.
-export { SpeechToText, type Recognizer } from './contract/index.js';
-export { sherpa } from './sherpa/index.js';
+import { makeTakes } from './takes/index.js';
 
 /*
  * Speech to Text's front door, as the API reaches it (ADR 0017). Switching
@@ -23,67 +25,6 @@ export { sherpa } from './sherpa/index.js';
  * `model/`. Switching off deletes the folder. speech.ts builds the
  * SpeechHost the model stands on from SpeechToText and that folder.
  */
-
-/** Speech to Text is not ready on this Connection: off, still downloading, or failed. */
-export class SpeechToTextNotReady extends Data.TaggedError(
-  'SpeechToTextNotReady',
-)<{
-  readonly state: 'Off' | 'Downloading' | 'Failed';
-}> {}
-
-/** The model would not load, or could not make out the audio. */
-export class TranscriptionFailed extends Data.TaggedError(
-  'TranscriptionFailed',
-)<{
-  readonly message: string;
-}> {}
-
-/** How Speech to Text stands on this Connection. */
-export type SpeechToTextStatus =
-  | { readonly _tag: 'Off' }
-  /** Bytes of the model downloaded, of `total` once the server says it. */
-  | {
-      readonly _tag: 'Downloading';
-      readonly done: number;
-      readonly total: number | null;
-    }
-  | { readonly _tag: 'Ready' }
-  /** Enabling again tries again. */
-  | { readonly _tag: 'Failed'; readonly reason: string };
-
-export interface SpeechService {
-  /** Switches it on, at once; the model downloads after, unless it is there. */
-  readonly enable: Effect.Effect<void>;
-  /** Switches it off, deleting the model. */
-  readonly disable: Effect.Effect<void>;
-  /** How it stands now, then each change. */
-  readonly watch: Stream.Stream<SpeechToTextStatus>;
-  /** The text spoken in 16 kHz mono PCM, each sample 16-bit signed little-endian. */
-  readonly transcribe: (
-    pcm: Uint8Array,
-  ) => Effect.Effect<string, SpeechToTextNotReady | TranscriptionFailed>;
-  /**
-   * What Take `id`, a Dictation sent as it is recorded, has heard now,
-   * then each change, ending with Done. Speech to Text off, it is
-   * switched on, and the download's progress comes first. A Take watched
-   * is never dropped; one dropped or broken before Done fails its
-   * watchers.
-   */
-  readonly watchTake: (
-    id: string,
-  ) => Stream.Stream<TakeHeard, TranscriptionFailed>;
-  /** Stretch `at`, from 0, of Take `id`: 16 kHz mono PCM, as `transcribe` takes. */
-  readonly addTakeAudio: (
-    id: string,
-    at: number,
-    pcm: Uint8Array,
-  ) => Effect.Effect<void, TranscriptionFailed>;
-  /** Take `id` has `count` stretches; once all are in, it is Done. */
-  readonly endTake: (
-    id: string,
-    count: number,
-  ) => Effect.Effect<void, TranscriptionFailed>;
-}
 
 export interface SpeechOptions {
   /** The folder Speech to Text keeps its wish and model in. */
@@ -246,12 +187,8 @@ const make = (options: SpeechOptions) =>
     return service;
   });
 
-export class Speech extends Context.Service<Speech, SpeechService>()(
-  '@kestack/ai-toolkit/Speech',
-) {
-  /** Runs Speech to Text until its Scope closes, from the wish and files in `folder`. */
-  static readonly layer = (
-    options: SpeechOptions,
-  ): Layer.Layer<Speech, never, SpeechToText> =>
-    Layer.effect(Speech, make(options));
-}
+/** `Speech`, run until its Scope closes from the wish and files in `options.folder`. */
+export const speechLayer = (
+  options: SpeechOptions,
+): Layer.Layer<Speech, never, SpeechToText> =>
+  Layer.effect(Speech, make(options));

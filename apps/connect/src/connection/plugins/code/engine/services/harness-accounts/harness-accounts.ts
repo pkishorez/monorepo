@@ -4,13 +4,12 @@ import { resolve } from 'node:path';
 import { Clock, Data, Effect, Layer } from 'effect';
 import {
   binaryAt,
-  checkBinary,
-  configFolderOf,
   HarnessError,
   Harnesses,
   type Harness,
   type HarnessAccount,
 } from '@kestack/ai-toolkit/harness';
+import { checkBinary, configFolderOf } from '@kestack/ai-toolkit/harness/node';
 import type {
   BinaryInfo,
   ConfigFolderInfo,

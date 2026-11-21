@@ -3,8 +3,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { HarnessAccount, type Harness } from '../../contract/index.js';
-import { binaryAt, checkBinary, configFolderOf } from '../binaries.js';
+import {
+  binaryAt,
+  HarnessAccount,
+  type Harness,
+} from '../../contract/index.js';
+import { checkBinary, configFolderOf } from '../index.js';
 
 const folder = mkdtempSync(join(tmpdir(), 'ai-toolkit-binaries-'));
 /** A harness whose binary runs wherever it is set. */

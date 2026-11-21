@@ -1,10 +1,5 @@
 export {
   binaryAt,
-  checkBinary,
-  configFolderOf,
-  claude,
-  codex,
-  codexOneShot,
   HarnessAccount,
   HarnessError,
   QuestionNotAsked,
@@ -22,7 +17,6 @@ export {
   type AvailableModel,
   type ForkInput,
   type Harness,
-  type ModelsOptions,
   type RawOut,
   type Setting,
   type TurnEnd,

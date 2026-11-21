@@ -1,12 +1,10 @@
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { Layer } from 'effect';
-import {
-  Harnesses,
-  Models,
-  type OneShotPrompt,
-} from '@kestack/ai-toolkit/harness';
-import { sherpa, Speech, type SpeechToText } from '@kestack/ai-toolkit/speech';
+import type { Harnesses, OneShotPrompt } from '@kestack/ai-toolkit/harness';
+import { modelsLayer } from '@kestack/ai-toolkit/harness/node';
+import type { SpeechToText } from '@kestack/ai-toolkit/speech';
+import { sherpa, speechLayer } from '@kestack/ai-toolkit/speech/node';
 import { CodeApi } from '../api/contract/index.js';
 import { Engine, storeLayer } from '../engine/index.js';
 import { CodeApiLive } from './handlers.js';
@@ -48,10 +46,10 @@ export const codePlugin = (options: CodePluginOptions) => {
     home: options.home ?? homedir(),
     worktrees: options.worktrees ?? beside('worktrees'),
   }).pipe(Layer.provide(base));
-  const models = Models.layer({
+  const models = modelsLayer({
     cacheFile: options.modelsCache ?? beside('models.json'),
   });
-  const speech = Speech.layer({
+  const speech = speechLayer({
     folder: options.speechFolder ?? beside('speech-to-text'),
   }).pipe(Layer.provide(options.speech ?? sherpa()));
   const layer = CodeApiLive.pipe(

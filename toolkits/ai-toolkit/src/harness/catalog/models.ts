@@ -1,18 +1,11 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import {
-  Clock,
-  Context,
-  Data,
-  Duration,
-  Effect,
-  Layer,
-  Schema,
-  Semaphore,
-} from 'effect';
+import { Clock, Duration, Effect, Layer, Schema, Semaphore } from 'effect';
 import type { ModelInfo } from '../../contract/index.js';
 import {
   HarnessAccount,
+  Models,
+  ModelsError,
   type AvailableModel,
   type Harness,
 } from '../contract/index.js';
@@ -88,10 +81,6 @@ export const fromAccount = (
     )
     .sort(newestFirst);
 };
-
-export class ModelsError extends Data.TaggedError('ModelsError')<{
-  readonly message: string;
-}> {}
 
 export interface ModelsOptions {
   /** Where the last catalog read is kept for offline starts. */
@@ -227,20 +216,10 @@ const make = (options: ModelsOptions) =>
     };
   });
 
-export class Models extends Context.Service<
-  Models,
-  {
-    /** The models `harness` can run as the Harness Account, newest first. */
-    readonly list: (
-      harness: Harness,
-    ) => Effect.Effect<ReadonlyArray<ModelInfo>, ModelsError, HarnessAccount>;
-    /** The account's default model, else the harness's own. */
-    readonly defaultModel: (
-      harness: Harness,
-    ) => Effect.Effect<string, never, HarnessAccount>;
-  }
->()('@kestack/ai-toolkit/Models') {
-  /** Each call asks as the Harness Account it is given. */
-  static readonly layer = (options: ModelsOptions): Layer.Layer<Models> =>
-    Layer.effect(Models, make(options));
-}
+/**
+ * `Models` from models.dev and each harness's account, keeping its
+ * models.dev copy in `options.cacheFile`. Each call asks as the Harness
+ * Account it is given.
+ */
+export const modelsLayer = (options: ModelsOptions): Layer.Layer<Models> =>
+  Layer.effect(Models, make(options));

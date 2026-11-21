@@ -8,6 +8,8 @@ Claude Code and Codex each have their own SDK, their own records and their own i
 
 Speech to Text sits behind a door of its own and knows nothing of Agents. When it is switched on, it downloads its runtime and model into a folder the caller names, and turns audio into text on the computer.
 
+`/harness` and `/speech` hold only what runs in a browser too: the contract, the Services a program asks for, and their errors. What starts processes or reads files and the environment (Claude Code, Codex, the catalog's checks, the models.dev copy, sherpa-onnx) is behind `/harness/node` and `/speech/node`, so a browser build, or a test, gives the same Services from fakes.
+
 The words are in [CONTEXT.md](CONTEXT.md). Raw records and their projection to Messages are in [docs/v1-spec.md](docs/v1-spec.md), and how a Turn's stream carries its facts in [docs/turn-flow.md](docs/turn-flow.md). The one Kabuki tree left, behind Speech to Text, is in [docs/kabuki-tree.md](docs/kabuki-tree.md). Decisions are in [docs/adr/](docs/adr/); 0011 (Fork Points are Turn ends), 0012 (Background Jobs are live, and agents may start Turns), 0013 (A Turn's facts travel in its stream), 0017 (Speech to Text runs on the Machine) and 0019 (The harnesses run what the user installed) are current here. 0004, 0014, 0015, 0016 and 0018 moved to [Connect's ADRs](../../apps/connect/docs/adr/), and the rest record a design that was replaced.
 
 ## Install
@@ -58,26 +60,31 @@ Claude Code and Codex are not dependencies: install the ones you use, and sign i
 
 ### `@kestack/ai-toolkit/harness`
 
-| Export                        | What it does                                                                                   |
-| ----------------------------- | ---------------------------------------------------------------------------------------------- |
-| `claude`                      | The Claude Code harness, through the Agent SDK.                                                |
-| `codex`                       | The Codex harness, through `codex app-server`.                                                 |
-| `codexOneShot`                | Layer of `OneShotPrompt` answered by Codex on a small model, read-only, in a temp folder.      |
-| `Harnesses`                   | Service listing the Coding Harnesses a program runs, each found by name.                       |
-| `harnesses`                   | Layer of `Harnesses` from a list of harnesses.                                                 |
-| `HarnessAccount`              | Service saying which Harness Account a call runs as: its binary and config folder.             |
-| `HarnessAccount.layerDefault` | Layer running the installed harness from PATH, on its own config folder.                       |
-| `binaryAt`                    | What a harness's binary resolves to, run as a given Harness Account.                           |
-| `checkBinary`                 | A path the user gave, expanded, once it runs as the harness's binary.                          |
-| `configFolderOf`              | The config folder an account really uses: its own, else the environment's, else the harness's. |
-| `InvalidBinary`               | Error: the path is missing, not executable, or its `--version` failed.                         |
-| `OneShotPrompt`               | Service answering a prompt with no Agent behind it and nothing kept.                           |
-| `HarnessError`                | Error: a Coding Harness failed.                                                                |
-| `isRecord`                    | Whether something in a Turn's stream is a record of the agent's, not a fact about the Turn.    |
-| `projectRaw`                  | One Raw record to its Message form, by the harness in a list that wrote it.                    |
-| `Models`                      | Service listing the Language Models each harness can run, from models.dev and the account.     |
-| `Models.layer`                | Layer of `Models`, keeping its models.dev copy in a file the caller names.                     |
-| `ModelsError`                 | Error: the models could not be listed.                                                         |
+| Export                        | What it does                                                                                |
+| ----------------------------- | ------------------------------------------------------------------------------------------- |
+| `Harnesses`                   | Service listing the Coding Harnesses a program runs, each found by name.                    |
+| `harnesses`                   | Layer of `Harnesses` from a list of harnesses.                                              |
+| `HarnessAccount`              | Service saying which Harness Account a call runs as: its binary and config folder.          |
+| `HarnessAccount.layerDefault` | Layer running the installed harness from PATH, on its own config folder.                    |
+| `binaryAt`                    | What a harness's binary resolves to, run as a given Harness Account.                        |
+| `InvalidBinary`               | Error: the path is missing, not executable, or its `--version` failed.                      |
+| `OneShotPrompt`               | Service answering a prompt with no Agent behind it and nothing kept.                        |
+| `HarnessError`                | Error: a Coding Harness failed.                                                             |
+| `isRecord`                    | Whether something in a Turn's stream is a record of the agent's, not a fact about the Turn. |
+| `projectRaw`                  | One Raw record to its Message form, by the harness in a list that wrote it.                 |
+| `Models`                      | Service listing the Language Models each harness can run, from models.dev and the account.  |
+| `ModelsError`                 | Error: the models could not be listed.                                                      |
+
+### `@kestack/ai-toolkit/harness/node`
+
+| Export           | What it does                                                                                    |
+| ---------------- | ----------------------------------------------------------------------------------------------- |
+| `claude`         | The Claude Code harness, through the Agent SDK.                                                 |
+| `codex`          | The Codex harness, through `codex app-server`.                                                  |
+| `codexOneShot`   | Layer of `OneShotPrompt` answered by Codex on a small model, read-only, in a temp folder.       |
+| `checkBinary`    | A path the user gave, expanded, once it runs as the harness's binary.                           |
+| `configFolderOf` | The config folder an account really uses: its own, else the environment's, else the harness's.  |
+| `modelsLayer`    | Layer of `Models` from models.dev and the account, keeping its copy in a file the caller names. |
 
 ### `@kestack/ai-toolkit/harness/fake`
 
@@ -91,11 +98,16 @@ Claude Code and Codex are not dependencies: install the ones you use, and sign i
 | Export                 | What it does                                                                           |
 | ---------------------- | -------------------------------------------------------------------------------------- |
 | `Speech`               | Service switching Speech to Text on and off, watching how it stands, and transcribing. |
-| `Speech.layer`         | Layer of `Speech`, keeping its wish and model in a folder the caller names.            |
 | `SpeechToText`         | Service a model runs behind: install, load and transcribe.                             |
-| `sherpa`               | Layer of `SpeechToText` on sherpa-onnx with Parakeet.                                  |
 | `SpeechToTextNotReady` | Error: Speech to Text is off, still downloading, or failed.                            |
 | `TranscriptionFailed`  | Error: the model would not load, or could not make out the audio.                      |
+
+### `@kestack/ai-toolkit/speech/node`
+
+| Export        | What it does                                                                |
+| ------------- | --------------------------------------------------------------------------- |
+| `speechLayer` | Layer of `Speech`, keeping its wish and model in a folder the caller names. |
+| `sherpa`      | Layer of `SpeechToText` on sherpa-onnx with Parakeet.                       |
 
 ### `@kestack/ai-toolkit/speech/fake`
 
@@ -112,7 +124,8 @@ Claude Code and Codex are not dependencies: install the ones you use, and sign i
 
 ```ts
 import { Effect, Stream } from 'effect';
-import { claude, HarnessAccount, isRecord } from '@kestack/ai-toolkit/harness';
+import { HarnessAccount, isRecord } from '@kestack/ai-toolkit/harness';
+import { claude } from '@kestack/ai-toolkit/harness/node';
 
 const program = Effect.scoped(
   Effect.gen(function* () {
@@ -140,7 +153,8 @@ const program = Effect.scoped(
 
 ```ts
 import { Effect } from 'effect';
-import { codexOneShot, OneShotPrompt } from '@kestack/ai-toolkit/harness';
+import { OneShotPrompt } from '@kestack/ai-toolkit/harness';
+import { codexOneShot } from '@kestack/ai-toolkit/harness/node';
 
 const reply = OneShotPrompt.use((oneShot) =>
   oneShot.prompt('Write a title of at most six words for: add dark mode'),
@@ -151,16 +165,17 @@ const reply = OneShotPrompt.use((oneShot) =>
 
 ### Turn speech into text
 
-`Speech.layer` runs Speech to Text from a folder until its Scope closes. Trimmed from `src/speech/tests/speech.test.ts`.
+`speechLayer` runs Speech to Text from a folder until its Scope closes. Trimmed from `src/speech/tests/speech.test.ts`.
 
 ```ts
 import { Context, Effect, Layer } from 'effect';
-import { sherpa, Speech } from '@kestack/ai-toolkit/speech';
+import { Speech } from '@kestack/ai-toolkit/speech';
+import { sherpa, speechLayer } from '@kestack/ai-toolkit/speech/node';
 
 const program = Effect.scoped(
   Effect.gen(function* () {
     const context = yield* Layer.build(
-      Speech.layer({ folder: '/path/to/speech-to-text' }).pipe(
+      speechLayer({ folder: '/path/to/speech-to-text' }).pipe(
         Layer.provide(sherpa()),
       ),
     );

@@ -131,6 +131,17 @@ fake mode, bar what a browser cannot do, listed.
 - **Kabuki DevTools** keep working: History, Seek and Fork on Code's
   Runtime as today. Seek rewinds Code only; the fakes and the in-tab middle
   keep their state, as a real server does.
+- **One tab.** Fake mode runs one world per tab; a second tab would run a
+  second middle over the same IndexedDB. Cross-tab flows go through the
+  Sign-in fake's "from another tab" Controls. Listed as a limit.
+- **"Code is behind" never outlives a reload.** Controls that make Code the
+  older side (a computer on another Release, Connect Cloud wanting another
+  Release) are not kept in the saved Snapshot, so moving to the newest build
+  ends them instead of reloading forever.
+- **"Another device acts"** (answer a question, start or settle a session,
+  rename or forget a computer elsewhere) is a Control on the Computers fake
+  that calls the in-tab middle's public contract as a second client (rule
+  4), never another Fake.
 
 ## Where things live
 
@@ -250,7 +261,8 @@ connected.
 
 ## Progress
 
-| Task | Status | Commit | Notes                                                                                    |
-| ---- | ------ | ------ | ---------------------------------------------------------------------------------------- |
-| 0    | done   |        | this doc                                                                                 |
-| 1    | done   |        | `fake-mode-checklist.md`, 13 areas; Controls added above; open: two tabs run two middles |
+| Task | Status | Commit | Notes                                                                                                           |
+| ---- | ------ | ------ | --------------------------------------------------------------------------------------------------------------- |
+| 0    | done   |        | this doc                                                                                                        |
+| 1    | done   |        | `fake-mode-checklist.md`, 13 areas; Controls added above; open: two tabs run two middles                        |
+| 2    | done   |        | Node code under `/harness/node`, `/speech/node`; `Models.layer` → `modelsLayer`, `Speech.layer` → `speechLayer` |

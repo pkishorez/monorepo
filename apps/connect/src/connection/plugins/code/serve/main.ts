@@ -1,11 +1,7 @@
 import { join } from 'node:path';
 import { Effect, Layer } from 'effect';
-import {
-  claude,
-  codex,
-  codexOneShot,
-  harnesses,
-} from '@kestack/ai-toolkit/harness';
+import { harnesses } from '@kestack/ai-toolkit/harness';
+import { claude, codex, codexOneShot } from '@kestack/ai-toolkit/harness/node';
 import { Plugin, PluginFolders } from '@kestack/cli-platform/plugins/plugin';
 import { CodeApi } from '../api/contract/index.js';
 import { codePlugin } from './serve.js';
