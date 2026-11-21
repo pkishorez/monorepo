@@ -1,7 +1,6 @@
 import { Effect, Layer, PubSub, Semaphore, Stream } from 'effect';
 import { Broadcaster, type Entity } from '@kestack/std-toolkit/core';
-import { SQLite } from '@kestack/std-toolkit/db/sqlite';
-import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
+import type { StdTableService } from '@kestack/std-toolkit/db';
 import type { Raw } from '@kestack/ai-toolkit/contract';
 import type {
   HarnessAccountRecord,
@@ -13,12 +12,13 @@ import {
   type Feed,
   type StoreService,
 } from '../../capabilities/index.js';
-import { aiTable, harnessAccounts, projects, raws, sessions } from './table.js';
+import { harnessAccounts, projects, raws, sessions } from './table.js';
 
 /*
  * The one place records are kept: Raw, Projects, Sessions and Harness
- * Accounts in one SQLite
- * table. Every write goes through one permit, so writes land in `_u` order
+ * Accounts in one table, `aiTable`, on any driver: SQLite on a computer
+ * (engine/node.ts), memory or IndexedDB in a browser tab. The table comes
+ * set up. Every write goes through one permit, so writes land in `_u` order
  * and a reader that has seen a `_u` has seen everything older. Every write
  * is also published in this process, so a reader can subscribe before it
  * catches up and miss nothing in between.
@@ -29,35 +29,29 @@ const PAGE = 200;
 const same = (left: unknown, right: unknown) =>
   JSON.stringify(left) === JSON.stringify(right);
 
-/** The table's storage on one SQLite file, and the Broadcaster its writes publish to. */
-const storage = (path: string, pubsub: PubSub.PubSub<Entity<unknown>>) => {
-  const database = makeNodeSQLite({ path });
+/** `aiTable` on a driver, set up: what the Store keeps its records in. */
+export type StoreTable = Layer.Layer<StdTableService<'ai-toolkit'>>;
+
+/** The table's storage, and the Broadcaster its writes publish to. */
+const storage = (table: StoreTable, pubsub: PubSub.PubSub<Entity<unknown>>) => {
   const broadcaster = Layer.succeed(Broadcaster, {
     broadcast: (values) => {
       for (const value of values) PubSub.publishUnsafe(pubsub, value);
     },
     changes: Stream.fromPubSub(pubsub),
   });
-  return {
-    database,
-    layer: Layer.merge(SQLite.make(aiTable, { database }).layer, broadcaster),
-  };
+  return Layer.merge(table, broadcaster);
 };
 
-type Storage = Layer.Success<ReturnType<typeof storage>['layer']>;
+type Storage = Layer.Success<ReturnType<typeof storage>>;
 
-const make = (path: string) =>
+const make = (table: StoreTable) =>
   Effect.gen(function* () {
     const pubsub = yield* Effect.acquireRelease(
       PubSub.unbounded<Entity<unknown>>(),
       PubSub.shutdown,
     );
-    const { database, layer } = storage(path, pubsub);
-    yield* Effect.addFinalizer(() => Effect.sync(() => database.close?.()));
-    yield* SQLite.setup(aiTable, { database, mode: 'persistent' }).pipe(
-      Effect.orDie,
-    );
-    const context = yield* Layer.build(layer);
+    const context = yield* Layer.build(storage(table, pubsub));
     const permit = yield* Semaphore.make(1);
     const run = <A, E>(
       effect: Effect.Effect<A, E, Storage>,
@@ -259,6 +253,6 @@ const make = (path: string) =>
     return service;
   });
 
-/** The Store on the SQLite file at `path`; `:memory:` keeps it in memory. */
-export const storeLayer = (path: string): Layer.Layer<Store> =>
-  Layer.effect(Store, make(path));
+/** The Store over `table`. */
+export const storeOver = (table: StoreTable): Layer.Layer<Store> =>
+  Layer.effect(Store, make(table));

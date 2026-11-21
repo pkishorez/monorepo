@@ -291,11 +291,12 @@ connected.
 
 ## Progress
 
-| Task | Status | Commit      | Notes                                                                                                                 |
-| ---- | ------ | ----------- | --------------------------------------------------------------------------------------------------------------------- |
-| 0    | done   |             | this doc                                                                                                              |
-| 1    | done   |             | `fake-mode-checklist.md`, 13 areas; Controls added above; open: two tabs run two middles                              |
-| 2    | done   | `5c54839f6` | Node code under `/harness/node`, `/speech/node`; `Models.layer` → `modelsLayer`, `Speech.layer` → `speechLayer`       |
-| 3    | done   |             | `HarnessHost` key in `/harness`, `harnessHostLayer` in `/harness/node`; connect still calls the functions (Task 6)    |
-| 4    | done   | `e424a418e` | `FileSystem` key in `engine/capabilities/`, `nodeFileSystem` in `services/file-system/`; nothing uses it yet (Task 7) |
-| 5    | done   |             | `fileSystem` from `file-system/fake/`; tree in the Model; git layout and `/.fake/git/` switches in `fake/git.ts`      |
+| Task | Status | Commit      | Notes                                                                                                                                                                                                                         |
+| ---- | ------ | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0    | done   |             | this doc                                                                                                                                                                                                                      |
+| 1    | done   |             | `fake-mode-checklist.md`, 13 areas; Controls added above; open: two tabs run two middles                                                                                                                                      |
+| 2    | done   | `5c54839f6` | Node code under `/harness/node`, `/speech/node`; `Models.layer` → `modelsLayer`, `Speech.layer` → `speechLayer`                                                                                                               |
+| 3    | done   |             | `HarnessHost` key in `/harness`, `harnessHostLayer` in `/harness/node`; connect still calls the functions (Task 6)                                                                                                            |
+| 4    | done   | `e424a418e` | `FileSystem` key in `engine/capabilities/`, `nodeFileSystem` in `services/file-system/`; nothing uses it yet (Task 7)                                                                                                         |
+| 5    | done   |             | `fileSystem` from `file-system/fake/`; tree in the Model; git layout and `/.fake/git/` switches in `fake/git.ts`                                                                                                              |
+| 6    | done   |             | `EngineEdges`: Store, Harnesses, OneShotPrompt, Git, FileSystem, Folders, HarnessHost; `engine/node.ts` (a File Module): `storeLayer`, `nodeEdges({ home })`; `storeOver(table)`, `aiTable`; only Folders still Node (Task 7) |

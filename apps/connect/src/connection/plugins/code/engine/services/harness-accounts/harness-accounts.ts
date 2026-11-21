@@ -1,15 +1,11 @@
-import { stat } from 'node:fs/promises';
-import { homedir } from 'node:os';
-import { resolve } from 'node:path';
 import { Clock, Data, Effect, Layer } from 'effect';
 import {
-  binaryAt,
   HarnessError,
   Harnesses,
+  HarnessHost,
   type Harness,
   type HarnessAccount,
 } from '@kestack/ai-toolkit/harness';
-import { checkBinary, configFolderOf } from '@kestack/ai-toolkit/harness/node';
 import type {
   BinaryInfo,
   ConfigFolderInfo,
@@ -21,13 +17,20 @@ import {
   isDefaultAccount,
   type HarnessAccountRecord,
 } from '../../../records/index.js';
-import { HarnessAccounts, Store } from '../../capabilities/index.js';
+import {
+  FileSystem,
+  HarnessAccounts,
+  Store,
+} from '../../capabilities/index.js';
+import { absolute } from '../../paths/index.js';
 
 /*
  * The Harness Accounts: each harness's Default Account, as the user saved
  * it or as it starts, then every other account the user added, oldest
- * first. An account is kept only once its binary runs (ai-toolkit's
- * `checkBinary`) and its config folder is a folder; a Default Account can
+ * first. An account is kept only once its binary runs (the Harness Host's
+ * `checkBinary`) and its config folder is a folder on the File System; the
+ * Harness Host also says what each binary resolves to and which config
+ * folder each account really uses. A Default Account can
  * be changed but never removed. The records (../../../records/) give the
  * stored shape and each Default Account as it starts, as they do for all
  * of the engine.
@@ -128,35 +131,39 @@ export const storedHarnessAccounts: Layer.Layer<
 export const accountRow = (
   harness: Harness,
   account: HarnessAccountRecord,
-): Effect.Effect<HarnessAccountRow> =>
-  Effect.map(binaryAt(harness, toolkitAccount(account)), (resolved) => ({
-    id: account.id,
-    harness: account.harness,
-    name: account.name,
-    binaryPath: account.binaryPath,
-    configFolder: account.configFolder,
-    resolvedConfigFolder: configFolderOf(
-      account.harness,
-      account.configFolder ?? undefined,
-    ),
-    isDefault: isDefaultAccount(account.id),
-    resolved,
-  }));
+): Effect.Effect<HarnessAccountRow, never, HarnessHost> =>
+  Effect.gen(function* () {
+    const host = yield* HarnessHost;
+    const [resolved, resolvedConfigFolder] = yield* Effect.all(
+      [
+        host.binaryAt(harness, toolkitAccount(account)),
+        host.configFolderOf(account.harness, account.configFolder ?? undefined),
+      ],
+      { concurrency: 'unbounded' },
+    );
+    return {
+      id: account.id,
+      harness: account.harness,
+      name: account.name,
+      binaryPath: account.binaryPath,
+      configFolder: account.configFolder,
+      resolvedConfigFolder,
+      isDefault: isDefaultAccount(account.id),
+      resolved,
+    };
+  });
 
-const expand = (path: string) =>
-  resolve(
-    path === '~' || path.startsWith('~/') ? homedir() + path.slice(1) : path,
-  );
-
-/** The config folder the user gave, `~` expanded and made absolute, once it is a folder. */
+/**
+ * The config folder the user gave, `~` expanded and made absolute (a
+ * relative one under home), once it is a folder.
+ */
 const checkConfigFolder = (given: string) =>
   Effect.gen(function* () {
-    const path = expand(given.trim());
-    const found = yield* Effect.promise(() =>
-      stat(path).then(
-        (at) => at.isDirectory(),
-        () => null,
-      ),
+    const files = yield* FileSystem;
+    const path = absolute(files.home, given.trim());
+    const found = yield* files.stat(path).pipe(
+      Effect.map((at) => at.kind === 'folder'),
+      Effect.orElseSucceed(() => null),
     );
     if (found === null)
       return yield* new InvalidAccount({
@@ -194,7 +201,7 @@ export const saveAccount = (
     const binaryPath =
       input.binaryPath === null
         ? null
-        : yield* checkBinary(harness, input.binaryPath);
+        : yield* (yield* HarnessHost).checkBinary(harness, input.binaryPath);
     const configFolder =
       input.configFolder === null
         ? null

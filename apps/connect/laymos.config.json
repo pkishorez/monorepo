@@ -2,7 +2,7 @@
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
   "ignoredPaths": ["src/connection/cli/tests/fixtures"],
-  "fileModules": [],
+  "fileModules": ["src/connection/plugins/code/engine/node.ts"],
   "rules": {
     "src/cloud": ["src/contracts/heartbeat"],
     "src/cloud/client": ["src/contracts/app-api"],
@@ -39,13 +39,23 @@
     ],
     "src/connection/plugins/code/engine/actor-code": [
       "src/connection/plugins/code/engine/capabilities",
-      "src/connection/plugins/code/engine/engine-raw"
+      "src/connection/plugins/code/engine/engine-raw",
+      "src/connection/plugins/code/engine/paths"
     ],
     "src/connection/plugins/code/engine/actor-code/checks": [
       "src/connection/plugins/code/engine/actor-code/actor-session"
     ],
+    "src/connection/plugins/code/engine/attachments": [
+      "src/connection/plugins/code/engine/capabilities",
+      "src/connection/plugins/code/engine/paths"
+    ],
+    "src/connection/plugins/code/engine/node.ts": [
+      "src/connection/plugins/code/engine/capabilities",
+      "src/connection/plugins/code/engine/services"
+    ],
     "src/connection/plugins/code/engine/services": [
-      "src/connection/plugins/code/engine/capabilities"
+      "src/connection/plugins/code/engine/capabilities",
+      "src/connection/plugins/code/engine/paths"
     ],
     "src/contracts/app-api": ["src/contracts/heartbeat"]
   },

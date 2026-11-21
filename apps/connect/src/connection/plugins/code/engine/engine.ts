@@ -1,6 +1,3 @@
-import { realpath, stat } from 'node:fs/promises';
-import { homedir } from 'node:os';
-import { basename, resolve } from 'node:path';
 import {
   Clock,
   Context,
@@ -18,6 +15,7 @@ import { nextUlid } from '@kestack/std-toolkit/core';
 import {
   HarnessAccount,
   Harnesses,
+  HarnessHost,
   InvalidBinary,
   OneShotPrompt,
   type HarnessError,
@@ -49,25 +47,26 @@ import { saveAttachments } from './attachments/index.js';
 import {
   Agents,
   Answers,
+  FileSystem,
+  FolderExists,
+  FolderNotFound,
+  Folders,
+  FolderUnreadable,
   Git,
   HarnessAccounts,
+  InvalidFolderName,
+  OutsideHome,
+  PermissionDenied,
   Store,
 } from './capabilities/index.js';
+import { absolute, basename } from './paths/index.js';
 import {
   accountOf,
   accountRow,
   agents,
   allAccounts,
   answers,
-  FolderExists,
-  FolderNotFound,
-  Folders,
-  FolderUnreadable,
-  git,
   InvalidAccount,
-  InvalidFolderName,
-  OutsideHome,
-  PermissionDenied,
   removeAccount,
   saveAccount,
   storedHarnessAccounts,
@@ -98,6 +97,11 @@ import {
  *    as AddSession for a Fork. A question for a harness alone, its Skills
  *    or a Harness Account's binary, is asked of the harness as that account; one about the folders
  *    under home, of Folders (see services/folders/).
+ *
+ * What only the computer has comes from outside, as the Layer's
+ * Requirements, `EngineEdges`: the Store, the harnesses, git, the
+ * File System, Folders and the Harness Host. engine/node.ts gives the real
+ * ones; a browser tab gives fakes, and nothing here imports Node.
  */
 
 export class ProjectNotFound extends Data.TaggedError('ProjectNotFound')<{
@@ -119,9 +123,20 @@ export class HarnessFailed extends Data.TaggedError('HarnessFailed')<{
 export class QuestionNotAsked extends Data.TaggedError('QuestionNotAsked')<{
   readonly id: string;
 }> {}
-export { Store, type Feed } from './capabilities/index.js';
+export {
+  FileSystem,
+  Folders,
+  Git,
+  Store,
+  type Feed,
+} from './capabilities/index.js';
 export { projectEngineRaw } from './engine-raw/index.js';
-export { storedHarnessAccounts, storeLayer } from './services/index.js';
+export {
+  aiTable,
+  storedHarnessAccounts,
+  storeOver,
+  type StoreTable,
+} from './services/index.js';
 export {
   AskFailed,
   GitFailed,
@@ -212,8 +227,6 @@ export type SessionQuestions = typeof SessionQuestions.Type;
 export interface EngineOptions {
   /** Where Attachments that are not images are saved, one folder per Session. */
   readonly attachments: string;
-  /** The folder `listFolder` and `createFolder` never leave. */
-  readonly home: string;
   /**
    * Where new Worktrees are made, one folder per Project: outside any one
    * Connection's, so forgetting a Connection never deletes one.
@@ -351,19 +364,18 @@ export interface EngineService {
   ) => Effect.Effect<A, E | HarnessError>;
 }
 
-const expand = (path: string) =>
-  resolve(
-    path === '~' || path.startsWith('~/') ? homedir() + path.slice(1) : path,
-  );
-
-/** The folder at `path` with its symlinks resolved; null when there is none. */
-const folderAt = (path: string) =>
-  Effect.promise(() =>
-    realpath(path).then(
-      (real) => stat(real).then((found) => (found.isDirectory() ? real : null)),
-      () => null,
-    ),
-  );
+/**
+ * The folder a path the user gave stands for, `~` expanded, made absolute
+ * (a relative one under home) and its symlinks resolved; null when there
+ * is none.
+ */
+const folderAt = (given: string) =>
+  Effect.gen(function* () {
+    const files = yield* FileSystem;
+    const real = yield* files.realpath(absolute(files.home, given));
+    const found = yield* files.stat(real);
+    return found.kind === 'folder' ? real : null;
+  }).pipe(Effect.orElseSucceed(() => null));
 
 const sameJobs = (
   a: ReadonlyArray<SessionJobs>,
@@ -395,6 +407,8 @@ const make = (options: EngineOptions) =>
       | Agents
       | Answers
       | Git
+      | FileSystem
+      | HarnessHost
     >();
     const repos = yield* Git;
     const accounts = yield* HarnessAccounts;
@@ -411,7 +425,7 @@ const make = (options: EngineOptions) =>
       Stream.runHead,
     );
 
-    /** Gives a call the Store. */
+    /** Gives a call the engine's services and edges. */
     const withServices = Effect.provideContext(services);
     /**
      * New Sessions asked for under one id admitted one at a time, from
@@ -488,7 +502,7 @@ const make = (options: EngineOptions) =>
           options.attachments,
           sessionId,
           message.attachments,
-        );
+        ).pipe(withServices);
         return {
           id,
           text: message.text,
@@ -517,7 +531,7 @@ const make = (options: EngineOptions) =>
 
       addProject: (given) =>
         Effect.gen(function* () {
-          const path = yield* folderAt(expand(given));
+          const path = yield* folderAt(given).pipe(withServices);
           if (path === null) return yield* new FolderNotFound({ path: given });
           const known = projects().find((project) => project.path === path);
           // Its folder is back: the Folder Check finds it at once.
@@ -872,22 +886,27 @@ const make = (options: EngineOptions) =>
     return service;
   });
 
+/** What the engine runs on that only the computer has, given from outside. */
+export type EngineEdges =
+  | Store
+  | Harnesses
+  | OneShotPrompt
+  | Git
+  | FileSystem
+  | Folders
+  | HarnessHost;
+
 export class Engine extends Context.Service<Engine, EngineService>()(
   '@kestack/connect/Engine',
 ) {
-  /** Runs the engine until its Scope closes; the root sweeps the Store first. */
+  /**
+   * Runs the engine over its edges until its Scope closes; the root sweeps
+   * the Store first.
+   */
   static readonly layer = (
     options: EngineOptions,
-  ): Layer.Layer<Engine, never, Store | Harnesses | OneShotPrompt> =>
+  ): Layer.Layer<Engine, never, EngineEdges> =>
     Layer.effect(Engine, make(options)).pipe(
-      Layer.provide(
-        Layer.mergeAll(
-          storedHarnessAccounts,
-          agents,
-          answers,
-          git,
-          Folders.layer({ home: options.home }),
-        ),
-      ),
+      Layer.provide(Layer.mergeAll(storedHarnessAccounts, agents, answers)),
     );
 }

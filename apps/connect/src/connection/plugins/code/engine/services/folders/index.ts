@@ -1,10 +1,1 @@
-export {
-  FolderExists,
-  FolderNotFound,
-  Folders,
-  FolderUnreadable,
-  InvalidFolderName,
-  OutsideHome,
-  PermissionDenied,
-  type FoldersOptions,
-} from './folders.js';
+export { nodeFolders } from './folders.js';

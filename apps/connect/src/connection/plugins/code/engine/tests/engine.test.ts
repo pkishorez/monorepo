@@ -8,7 +8,8 @@ import {
   type FakeHarness,
 } from '@kestack/ai-toolkit/harness/fake';
 import type { Raw } from '@kestack/ai-toolkit/contract';
-import { Engine, Store, storeLayer } from '../index.js';
+import { Engine, Store } from '../index.js';
+import { nodeEdges, storeLayer } from '../node.js';
 
 const folders: Array<string> = [];
 const folder = () => {
@@ -26,9 +27,8 @@ const world = (fake: FakeHarness, path = ':memory:') => {
     base,
     Engine.layer({
       attachments: folder(),
-      home: folder(),
       worktrees: folder(),
-    }).pipe(Layer.provide(base)),
+    }).pipe(Layer.provide(Layer.merge(base, nodeEdges({ home: folder() })))),
   );
 };
 

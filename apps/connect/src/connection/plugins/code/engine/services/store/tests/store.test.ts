@@ -1,13 +1,16 @@
 import { Effect, Schema, Stream, type Scope } from 'effect';
 import { describe, expect, it } from 'vitest';
+import { Memory } from '@kestack/std-toolkit/db/memory';
 import type { Raw } from '@kestack/ai-toolkit/contract';
 import { SessionSchema, type Session } from '../../../../records/index.js';
 import { Store } from '../../../capabilities/index.js';
-import { storeLayer } from '../index.js';
+import { aiTable, storeOver } from '../index.js';
 
 const run = <A, E>(effect: Effect.Effect<A, E, Store | Scope.Scope>) =>
   Effect.runPromise(
-    Effect.scoped(effect).pipe(Effect.provide(storeLayer(':memory:'))),
+    Effect.scoped(effect).pipe(
+      Effect.provide(storeOver(Memory.make(aiTable).layer)),
+    ),
   );
 
 const raw = (id: string, sessionId = 's1', turnId = 't1'): Raw => ({

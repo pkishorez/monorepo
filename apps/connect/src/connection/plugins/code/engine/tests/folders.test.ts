@@ -9,7 +9,8 @@ import {
   type FakeHarness,
 } from '@kestack/ai-toolkit/harness/fake';
 import { EVERY } from '../actor-code/checks/index.js';
-import { Engine, Store, storeLayer } from '../index.js';
+import { Engine, Store } from '../index.js';
+import { nodeEdges, storeLayer } from '../node.js';
 
 /* The Folder Check: a Project knows whether its folder is there. */
 
@@ -38,9 +39,8 @@ const run = <A, E>(
     base,
     Engine.layer({
       attachments: folder(),
-      home: folder(),
       worktrees: folder(),
-    }).pipe(Layer.provide(base)),
+    }).pipe(Layer.provide(Layer.merge(base, nodeEdges({ home: folder() })))),
   );
   return Effect.runPromise(
     Effect.scoped(effect).pipe(

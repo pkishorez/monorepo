@@ -1,6 +1,6 @@
-import { basename } from 'node:path';
 import { Duration, Effect } from 'effect';
 import { BRANCH_PREFIX, Git } from '../../capabilities/index.js';
+import { basename } from '../../paths/index.js';
 import type { SessionSelf } from './actor.js';
 
 /*

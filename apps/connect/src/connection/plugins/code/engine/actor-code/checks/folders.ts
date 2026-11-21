@@ -1,8 +1,7 @@
-import { stat } from 'node:fs/promises';
 import { Duration, Effect, Stream } from 'effect';
 import type { Self } from '@kestack/kabuki/types';
 import type { Project, ProjectFolder } from '../../../records/index.js';
-import { Store } from '../../capabilities/index.js';
+import { FileSystem, Store } from '../../capabilities/index.js';
 
 /*
  * The Folder Check: whether each Project's folder is still there, run by
@@ -32,13 +31,12 @@ type Root = Self<
 
 /** Whether a folder is there; one that is there but cannot be read is. */
 const presenceOf = (path: string) =>
-  Effect.promise(() =>
-    stat(path).then(
-      (found): ProjectFolder => (found.isDirectory() ? 'present' : 'missing'),
-      (error: NodeJS.ErrnoException): ProjectFolder =>
-        error.code === 'ENOENT' || error.code === 'ENOTDIR'
-          ? 'missing'
-          : 'present',
+  Effect.flatMap(FileSystem, (files) => files.stat(path)).pipe(
+    Effect.map((found): ProjectFolder =>
+      found.kind === 'folder' ? 'present' : 'missing',
+    ),
+    Effect.catch((error): Effect.Effect<ProjectFolder> =>
+      Effect.succeed(error._tag === 'NotFound' ? 'missing' : 'present'),
     ),
   );
 

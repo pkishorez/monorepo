@@ -19,10 +19,10 @@ import {
   Engine,
   HarnessFailed,
   Store,
-  storeLayer,
   type SessionJobs,
   type SessionQuestions,
 } from '../index.js';
+import { nodeEdges, storeLayer } from '../node.js';
 
 /*
  * The engine's features beyond running Turns, over the fake harness: per-turn
@@ -51,9 +51,8 @@ const run = <A, E>(
     base,
     Engine.layer({
       attachments: options.attachments ?? folder(),
-      home: folder(),
       worktrees: folder(),
-    }).pipe(Layer.provide(base)),
+    }).pipe(Layer.provide(Layer.merge(base, nodeEdges({ home: folder() })))),
   );
   return Effect.runPromise(Effect.scoped(effect).pipe(Effect.provide(world)));
 };
