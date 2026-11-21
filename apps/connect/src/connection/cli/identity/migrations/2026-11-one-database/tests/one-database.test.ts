@@ -10,7 +10,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { Effect } from 'effect';
+import { Cause, Effect } from 'effect';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { authWorker, connection, openStore } from '../../../store/index.js';
 import { oneDatabase } from '../index.js';
@@ -160,6 +160,16 @@ describe('moving a 0.0.6 data folder into ke-connect.db', () => {
     await migrate(data);
     expect(readdirSync(data).sort()).toEqual(['ke-connect.db', 'plugins']);
     expect((await keptIn(data)).connection).toEqual(v2);
+  });
+
+  it('fails, rather than dies, on a Sign-in table it cannot take', async () => {
+    const data = oldFolder({ connection: writtenV2 });
+    const database = new DatabaseSync(join(data, 'connect.db'));
+    database.exec('CREATE TABLE "auth-device-accounts" (id TEXT PRIMARY KEY)');
+    database.close();
+    const exit = await Effect.runPromiseExit(oneDatabase(data));
+    expect(exit._tag).toBe('Failure');
+    if (exit._tag === 'Failure') expect(Cause.hasDies(exit.cause)).toBe(false);
   });
 
   it('does nothing to a folder with no old files', async () => {
