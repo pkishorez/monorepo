@@ -1,9 +1,8 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { Data, Effect } from 'effect';
+import { Effect } from 'effect';
 import type { ConfigFolderInfo, HarnessName } from '../../contract/index.js';
-import type { BinaryInfo } from '../../contract/wire/index.js';
-import { HarnessAccount, type Harness } from '../contract/index.js';
+import { binaryAt, InvalidBinary, type Harness } from '../contract/index.js';
 import { expand, whyNotExecutable } from './executable.js';
 
 /*
@@ -19,18 +18,6 @@ import { expand, whyNotExecutable } from './executable.js';
  *    with neither, the harness's own, under home. What runs does not
  *    change: this only says where it is.
  */
-
-/** The path is missing, not executable, or its `--version` failed. */
-export class InvalidBinary extends Data.TaggedError('InvalidBinary')<{
-  readonly message: string;
-}> {}
-
-/** `harness.binary` run as `account`. */
-export const binaryAt = (
-  harness: Harness,
-  account: HarnessAccount['Service'],
-): Effect.Effect<BinaryInfo> =>
-  harness.binary.pipe(Effect.provideService(HarnessAccount, account));
 
 /** Why a path cannot be this harness's binary, or null when it runs. */
 const whyNot = (harness: Harness, path: string) =>

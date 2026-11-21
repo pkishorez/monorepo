@@ -70,7 +70,7 @@ and the folder the caller names.
 
 - **The tree is private behind a plain service, not a door of its own**,
   because the caller wants to switch Speech to Text on, watch it and
-  transcribe, not to run an Actor. Caveat: `Speech.layer` starts a Runtime
+  transcribe, not to run an Actor. Caveat: `speechLayer` starts a Runtime
   of its own beside the caller's.
 - **The State is what is on disk, not a Model field beside a status**,
   because each State holds different data and owns the Worker that makes the

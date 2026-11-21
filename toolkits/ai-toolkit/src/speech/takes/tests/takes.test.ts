@@ -1,12 +1,8 @@
 import { Effect, Fiber, References, Stream, SubscriptionRef } from 'effect';
 import { TestClock } from 'effect/testing';
 import { describe, expect, it, vi } from 'vitest';
-import {
-  makeTakes,
-  type ModelNow,
-  type TakeHeard,
-  TakeFailed,
-} from '../index.js';
+import type { TakeHeard } from '../../contract/index.js';
+import { makeTakes, type ModelNow, TakeFailed } from '../index.js';
 import { IDLE, quietest, TAIL } from '../takes.js';
 
 /*

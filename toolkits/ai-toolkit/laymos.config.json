@@ -16,6 +16,7 @@
     "src/harness/codex/thread": ["src/harness/codex/catalog"],
     "src/speech/actor-speech-model": ["src/speech/capabilities"],
     "src/speech/sherpa": ["src/speech/contract"],
-    "src/speech/fake": ["src/speech/contract"]
+    "src/speech/fake": ["src/speech/contract"],
+    "src/speech/takes": ["src/speech/contract"]
   }
 }

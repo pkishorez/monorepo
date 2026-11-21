@@ -5,11 +5,12 @@ import { Effect, Layer } from 'effect';
 import {
   HarnessAccount,
   HarnessError,
+  Models,
   type Harness,
 } from '../../contract/index.js';
 import { afterEach, describe, expect, it } from 'vitest';
 import { makeFakeHarness } from '../../fake/index.js';
-import { Models } from '../catalog.js';
+import { modelsLayer } from '../index.js';
 
 const catalog = {
   anthropic: {
@@ -44,7 +45,7 @@ const list = (
     Effect.flatMap(Models, (models) => models.list(harness)).pipe(
       Effect.provide(
         Layer.merge(
-          Models.layer({ cacheFile, fetch }),
+          modelsLayer({ cacheFile, fetch }),
           HarnessAccount.layerDefault,
         ),
       ),
@@ -166,7 +167,7 @@ describe('Models', () => {
       }).pipe(
         Effect.provide(
           Layer.merge(
-            Models.layer({
+            modelsLayer({
               cacheFile: tempFile(),
               fetch: () => Promise.resolve(catalog),
             }),
@@ -193,7 +194,7 @@ describe('Models', () => {
         yield* as('/home/work')(models.list(account.harness));
       }).pipe(
         Effect.provide(
-          Models.layer({
+          modelsLayer({
             cacheFile: tempFile(),
             fetch: () => Promise.resolve(catalog),
           }),

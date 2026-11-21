@@ -12,11 +12,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Effect, Exit, Fiber, Layer, type Scope } from 'effect';
 import {
-  claude,
   HarnessError,
   Harnesses,
   type Harness,
 } from '@kestack/ai-toolkit/harness';
+import { claude } from '@kestack/ai-toolkit/harness/node';
 import { TestClock } from 'effect/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {

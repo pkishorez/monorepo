@@ -1,4 +1,6 @@
-import { isAbsolute } from 'node:path';
+/** Whether `path` is absolute, on POSIX or Windows; not node:path's, so this runs in a browser too. */
+const isAbsolute = (path: string) =>
+  path.startsWith('/') || /^[A-Za-z]:[\\/]/.test(path);
 
 /** Where a Coding Harness ran when it failed. */
 export interface FailedIn {

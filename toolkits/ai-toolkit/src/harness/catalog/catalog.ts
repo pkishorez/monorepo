@@ -1,13 +1,9 @@
 /*
- * What every Coding Harness is run with: the Harness Binary each one is
- * checked against, the config folder each really uses, and the models
- * each can run, from models.dev.
+ * What every Coding Harness is run with, on Node: the Harness Binary each
+ * one is checked against, the config folder each really uses, and the
+ * models each can run, from models.dev. What they give, `Models` and
+ * `InvalidBinary`, is in the contract, so a browser can ask for it.
  */
 
-export {
-  binaryAt,
-  checkBinary,
-  configFolderOf,
-  InvalidBinary,
-} from './binaries.js';
-export { Models, ModelsError, type ModelsOptions } from './models.js';
+export { checkBinary, configFolderOf } from './binaries.js';
+export { modelsLayer, type ModelsOptions } from './models.js';
