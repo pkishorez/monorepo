@@ -2,7 +2,7 @@ import { Clock, Effect, Layer, type Scope, Stream } from 'effect';
 import { HttpClientError, HttpClientRequest } from 'effect/http';
 import { RpcClientError } from 'effect/rpc';
 import type { Principal } from '@kestack/auth-toolkit';
-import { fakeGuard } from '@kestack/auth-toolkit/fake';
+import { fakeGuard, fakeSigning } from '@kestack/auth-toolkit/fake';
 import type { StdTableService } from '@kestack/std-toolkit/db';
 import { client as inProcess } from '@kestack/rpc-toolkit/rpc/in-process';
 import { versionedClient } from '@kestack/rpc-toolkit/rpc/version-gap';
@@ -40,7 +40,9 @@ import {
  *   `CloudClient.layer(url)`.
  * - Each computer's Heartbeat is behind a Guard that puts its own Sign-in
  *   behind every call, as `ke-connect`'s device sign-in does, and is called
- *   as `ke-connect`'s `HeartbeatClient`: below the Minimum Connect it fails
+ *   as `ke-connect`'s `HeartbeatClient`, signed as that Sign-in too
+ *   (`fakeSigning`), never as the tab's Active Account, so nobody signed in
+ *   here signs a computer out: below the Minimum Connect it fails
  *   `Outdated` with the line Connect Cloud answers, before it is read, as
  *   worker.ts answers 426.
  * - What it is deployed with follows `ConnectCloud`, read at each call:
@@ -171,6 +173,7 @@ export const cloudOver = (
         );
         const beat = yield* versionedClient(HeartbeatApi).pipe(
           Effect.provideContext(protocol),
+          Effect.provide(fakeSigning(signIn)),
         );
         const gated = <A, E>(
           call: () => Effect.Effect<A, E>,
