@@ -385,6 +385,9 @@ importers:
       '@codemirror/view':
         specifier: 'catalog:'
         version: 6.43.15
+      '@kestack/ai-toolkit':
+        specifier: workspace:*
+        version: link:../../toolkits/ai-toolkit
       '@kestack/auth-toolkit':
         specifier: workspace:*
         version: link:../../toolkits/auth-toolkit

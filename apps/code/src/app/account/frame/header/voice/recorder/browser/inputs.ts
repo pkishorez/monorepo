@@ -1,5 +1,5 @@
 import { Effect, Queue, Stream } from 'effect';
-import type { Input } from './recorder.ts';
+import type { Input } from '../recorder.ts';
 
 /*
  * The browser's microphones, its audio inputs, as a person chooses from

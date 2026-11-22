@@ -1,4 +1,4 @@
-import { pcm } from './pcm.ts';
+import { pcm } from '../pcm.ts';
 
 /*
  * The AudioWorklet that hears the microphone: it runs `pcm` on every block

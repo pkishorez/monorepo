@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clipOf, pcm } from '../pcm.ts';
+import { clipOf, pcm } from '../../pcm.ts';
 import { PROCESSOR, source } from '../worklet.ts';
 
 /*

@@ -17,6 +17,7 @@ export { type Place, SavedDraft, Written } from './local/drafts/index.ts';
 export { Marks } from './local/seen/index.ts';
 export {
   accounts,
+  accountsTable,
   ContextShown,
   keptAccounts,
   nothing,
