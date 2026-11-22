@@ -2,6 +2,7 @@ import type { Walk } from '../walker.ts';
 import { attachments } from './attachments.ts';
 import { branches } from './branches.ts';
 import { computers } from './computers.ts';
+import { devtools } from './devtools.ts';
 import { fresh } from './fresh.ts';
 import { home } from './home.ts';
 import { projects } from './projects.ts';
@@ -27,6 +28,7 @@ export const scenarios: ReadonlyArray<Scenario> = [
   attachments,
   computers,
   settings,
+  devtools,
   reload,
   fresh,
 ];
