@@ -1,14 +1,16 @@
 import type { Locator } from 'playwright-core';
 import type { Walk } from '../walker.ts';
 import { until } from './computers.ts';
-import { STUDIO } from './home.ts';
+import { COMPUTER, STUDIO } from './home.ts';
 import type { Scenario } from './index.ts';
 
 /*
  * Accounts, through the Sign-in fake: addresses that name no page, and old
  * ones placed under the Account active; the Auth Worker slow (Checking)
  * and out of reach; a second Account added from the switcher, with its
- * own computer, and switched between; the page Away for each reason
+ * own computer, and switched between, each Account's sockets open only
+ * while it is the one active (as the Computers fake counts them); the
+ * switcher on a phone too; the page Away for each reason
  * (switched, added or signed out in another tab; a link for another
  * Account, or for one not signed in here); the browser full; signing out
  * of one and of all, and what is pruned; a sign-in abandoned or failing.
@@ -95,6 +97,31 @@ const reload = async (walk: Walk, path: string) => {
   await walk.page.waitForTimeout(500);
   await walk.go(path);
 };
+
+/**
+ * Waits until a computer's tunnel holds as many sockets as `wanted` says,
+ * as the Computers fake counts them; returns how many.
+ */
+const sockets = async (
+  walk: Walk,
+  computer: string,
+  wanted: (open: number) => boolean,
+  what: string,
+) => {
+  for (let tries = 0; ; tries += 1) {
+    const open = (await walk.bubble.value(computer, ['sockets'])) as number;
+    if (wanted(open)) {
+      console.log(`  ${computer}: ${open} socket(s) open`);
+      await walk.bubble.close();
+      return open;
+    }
+    if (tries > 50)
+      throw new Error(`${computer} holds ${open} socket(s), not ${what}`);
+    await walk.page.waitForTimeout(200);
+  }
+};
+const noneOpen = (count: number) => count === 0;
+const someOpen = (count: number) => count > 0;
 
 /** The Away screen's title. */
 const away = (walk: Walk, title: string | RegExp) =>
@@ -194,14 +221,22 @@ export const accounts: Scenario = {
     await addAccount(walk, 'grace');
     await walk.see('No Connection yet');
     await walk.shot('grace-added');
+    // Lab is the next computer added, whichever came before.
+    const added = (await bubble.value('Computers', ['added'])) as number;
+    const lab = `Computers/computers[computer-${added + 1}]`;
+    // Above any Minimum Connect the walk set before.
     await bubble.must('Computers', 'Add computer', {
       name: 'Lab',
+      keConnectVersion: '9.0.0',
       signedInAs: GRACE,
     });
     await bubble.close();
     await walk.button('Look again').click();
     await walk.see('Lab', page.getByRole('complementary'));
     await until(walk, /Lab[\s\S]*Linked/);
+    // Grace's socket to Lab open; none to Ada's Studio.
+    await sockets(walk, lab, someOpen, 'some');
+    await sockets(walk, COMPUTER, noneOpen, 'none');
     await walk.shot('grace-lab');
 
     walk.step(
@@ -226,7 +261,46 @@ export const accounts: Scenario = {
     await until(walk, /Studio[\s\S]*Linked/);
     if ((await page.getByRole('complementary').innerText()).includes('Lab'))
       throw new Error("Ada's sidebar lists Grace's Lab");
+    // Grace's socket closed, Ada's open.
+    await sockets(walk, lab, noneOpen, 'none');
+    await sockets(walk, COMPUTER, someOpen, 'some');
     await walk.shot('switched-to-ada');
+
+    walk.step('the switcher on a phone: You, then Accounts, the same choices');
+    const wide = page.viewportSize()!;
+    await page.setViewportSize({ width: 390, height: 844 });
+    const you = page
+      .getByRole('button', { name: 'You, theme and settings' })
+      .filter({ visible: true })
+      .first();
+    if (!(await you.isVisible()))
+      await page
+        .getByRole('button', { name: 'Toggle sidebar' })
+        .filter({ visible: true })
+        .first()
+        .click();
+    await you.click();
+    await page
+      .getByRole('button', { name: new RegExp(`${ADA}.*Switch$`) })
+      .filter({ visible: true })
+      .first()
+      .click();
+    const list = page
+      .getByRole('dialog', { name: 'Accounts' })
+      .filter({ visible: true })
+      .last();
+    await list.waitFor();
+    await list.getByRole('img', { name: 'Signed in' }).waitFor();
+    await list.getByRole('button', { name: `Switch to ${GRACE}` }).waitFor();
+    await list.getByRole('button', { name: 'Add another account' }).waitFor();
+    await list.getByRole('button', { name: `Sign out of ${ADA}` }).waitFor();
+    await list
+      .getByRole('button', { name: 'Sign out of all accounts' })
+      .waitFor();
+    await walk.shot('switcher-touch');
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Escape');
+    await page.setViewportSize(wide);
 
     walk.step(
       'a guess corrected: placed under Ada while checking, Grace answered',
@@ -249,9 +323,14 @@ export const accounts: Scenario = {
     await bubble.close();
     await away(walk, `You switched to ${GRACE} elsewhere`);
     await walk.shot('away-switched');
+    // Away, no socket open, Ada's or Grace's.
+    await sockets(walk, COMPUTER, noneOpen, 'none');
+    await sockets(walk, lab, noneOpen, 'none');
     await choose(walk, ADA);
     await until(walk, /Studio[\s\S]*Linked/);
     if (accountIn(walk) !== ada) throw new Error(`Moved to ${page.url()}`);
+    // Active again: Ada's socket open again.
+    await sockets(walk, COMPUTER, someOpen, 'some');
 
     walk.step('Away, another Account added elsewhere: says it was switched');
     await bubble.must('Sign-in', 'Add account elsewhere', {
