@@ -1,7 +1,7 @@
 import { Effect, Schema } from 'effect';
 import { CloudClient } from '@kestack/connect/cloud';
 import { Command } from '@kestack/kabuki';
-import { Connections } from '../../../../account.ts';
+import { cloudProblemOf, Connections } from '../../../../account.ts';
 import { ConnectionCards } from '../store.ts';
 
 /*
@@ -33,7 +33,7 @@ export const rename = Command.make('RenameConnection', {
       Effect.catch((error) =>
         Effect.succeed({
           _tag: 'RenameFailed' as const,
-          problem: error.message || 'Connect Cloud could not be reached',
+          problem: cloudProblemOf(error),
         }),
       ),
     ),

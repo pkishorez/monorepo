@@ -59,6 +59,34 @@ export const tunnelOf = (url: string | null) =>
     ? `wss://${url.slice('https://'.length).replace(/\/+$/, '')}`
     : null;
 
+/** The words an error says, if it is one that says any. */
+const wordsOf = (error: unknown) =>
+  typeof error === 'object' && error !== null && 'message' in error
+    ? String(error.message).trim()
+    : '';
+
+/**
+ * Why Connect Cloud could not be asked, as a person reads it: what the error
+ * says, or, for an RPC client's failed HTTP call, whose reason says nothing
+ * (so the error only `HttpError:`), what its cause says, as
+ * `Transport: Failed to fetch (POST https://…)`.
+ */
+export const cloudProblemOf = (error: unknown): string => {
+  const reason =
+    typeof error === 'object' && error !== null && 'reason' in error
+      ? error.reason
+      : null;
+  const cause =
+    typeof reason === 'object' && reason !== null && 'cause' in reason
+      ? reason.cause
+      : null;
+  const said =
+    reason !== null && wordsOf(reason) === '' && wordsOf(cause) !== ''
+      ? wordsOf(cause)
+      : wordsOf(error);
+  return said || 'Connect Cloud could not be reached';
+};
+
 /** A Connection's link, its socket, now. */
 export type Link = 'linking' | 'linked' | 'relinking';
 

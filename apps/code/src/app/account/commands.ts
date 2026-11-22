@@ -2,6 +2,7 @@ import { Effect, Schema } from 'effect';
 import { CloudClient, Connection } from '@kestack/connect/cloud';
 import { Command } from '@kestack/kabuki';
 import { shelf, Storage } from '../storage/index.ts';
+import { cloudProblemOf } from './account.ts';
 
 /*
  * What Connections asks of Connect Cloud, and what it keeps on this device.
@@ -12,12 +13,6 @@ import { shelf, Storage } from '../storage/index.ts';
  * under it with it; one gone from Connect Cloud's first list has its
  * database pruned. `Storage` does both.
  */
-
-/** Why Connect Cloud could not be asked, as a person reads it. */
-export const problemOf = (error: unknown) =>
-  typeof error === 'object' && error !== null && 'message' in error
-    ? String(error.message) || 'Connect Cloud could not be reached'
-    : 'Connect Cloud could not be reached';
 
 /** The Account's Connections as Connect Cloud lists them now, or why it could not, answering the ask `since`. */
 export const list = (since: number) =>
@@ -32,7 +27,7 @@ export const list = (since: number) =>
       Effect.succeed({
         _tag: 'Failed' as const,
         since,
-        problem: problemOf(error),
+        problem: cloudProblemOf(error),
       }),
     ),
   );
@@ -69,7 +64,7 @@ export const forget = Command.make('ForgetConnection', {
         Effect.succeed({
           _tag: 'ForgetFailed' as const,
           id,
-          problem: problemOf(error),
+          problem: cloudProblemOf(error),
         }),
       ),
     ),
