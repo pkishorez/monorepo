@@ -86,12 +86,20 @@ export const devtools: Scenario = {
     const sidebar = page.getByRole('complementary');
 
     walk.step('on shop, a new session');
-    // From wherever the scenarios before left the app: shop's New session
-    // in the sidebar once it has sessions; else shop is open already.
-    const newSession = sidebar.getByRole('link', {
-      name: /^shop .*New session$/,
-    });
-    if ((await newSession.count()) > 0) await newSession.click();
+    // A Window of 400 Steps, kept in the browser as DevTools' own setting
+    // is: after the scenarios before, a Fork starts Code reading all it
+    // follows anew, more than the 100 Steps kept by default, and the Step it
+    // splits at would leave the Window before the Timeline is looked at.
+    await page.evaluate(() =>
+      localStorage.setItem('@kestack/kabuki:code:window', '400'),
+    );
+    // From home, whatever the scenarios before left open: shop's row there
+    // opens its new session.
+    await walk.go('/');
+    await walk.main
+      .getByRole('listitem')
+      .filter({ hasText: '/home/you/code/shop' })
+      .click();
     await walk.see('~/code/shop');
 
     walk.step('the bubble and the dock button both in reach, side by side');
@@ -180,9 +188,7 @@ export const devtools: Scenario = {
     await page.keyboard.press('Backspace');
 
     walk.step('the Timeline offers both ways on from the Fork');
-    // Looked at now: the Fork starts Code's work again, which reads all it
-    // follows anew, and a session takes some fifty Steps more, so the Step
-    // it splits at soon leaves the Window of the last 100.
+    // Looked at now, while the Step it splits at is still in the Window.
     dock = await openDock(walk);
     const grown = await where(dock);
     console.log(`  Head: ${grown.at}/${grown.of} ${grown.said}`);
@@ -192,7 +198,7 @@ export const devtools: Scenario = {
     const back = dock.getByRole('slider', { name: 'Steps' });
     await back.focus();
     for (let steps = 0; (await ways.count()) === 0; steps += 1) {
-      if (steps > 120) throw new Error('No Step goes on in two ways');
+      if (steps > 400) throw new Error('No Step goes on in two ways');
       await back.press('ArrowLeft');
       await page.waitForTimeout(120);
     }
@@ -265,5 +271,8 @@ export const devtools: Scenario = {
     await walk.shot('blueprint');
     await dock.getByRole('tab', { name: 'Running' }).click();
     await closeDock(walk);
+    await page.evaluate(() =>
+      localStorage.removeItem('@kestack/kabuki:code:window'),
+    );
   },
 };

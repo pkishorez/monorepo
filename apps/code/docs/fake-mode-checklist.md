@@ -95,47 +95,47 @@ mode are under [Limits](#limits).
 ## 3. Project Picker and folders
 
 - [x] Open the Project Picker: `o` (Vim), Ctrl+P anywhere; wide: "Open project" atop the sidebar, centred by keys, beside its button by mouse; touch: the sidebar foot's New project, a tall Drawer. **Reach:** those. **Needs:** Computers: one online.
-- [ ] Connection Step: shown only while the Connection Filter shows every Connection and there are two or more; skipped otherwise. **Reach:** Project Picker. **Needs:** Computers: two computers.
-- [ ] Recent Projects, most recently active first, followed live while open. **Reach:** Project Picker. **Needs:** File System: add sample project; Computers.
-- [ ] A Project whose folder is missing shows so and cannot be chosen. **Reach:** Project Picker. **Needs:** File System: remove (or move) a Project's folder.
-- [ ] Pick a Project: its new Session's page opens, keyboard in the Draft. **Reach:** Project Picker. **Needs:** File System: a Project.
+- [x] Connection Step: shown only while the Connection Filter shows every Connection and there are two or more; skipped otherwise. **Reach:** Project Picker. **Needs:** Computers: two computers.
+- [x] Recent Projects, most recently active first, followed live while open (a folder found missing shows while it is open). **Reach:** Project Picker. **Needs:** File System: add sample project; Computers.
+- [x] A Project whose folder is missing shows so and cannot be chosen. **Reach:** Project Picker. **Needs:** File System: remove (or move) a Project's folder.
+- [ ] Pick a Project: its new Session's page opens, keyboard in the Draft. **Reach:** Project Picker. **Needs:** File System: a Project. **Open (production):** the page opens, but the keyboard goes back to the Draft only when the Draft held it last; from home, Vim Mode off, it lands on the page (the `content` Surface's default Focus Spot is `page`), where plain keys type nowhere.
 - [x] "Open folder…": the folder Steps from home; text that names no Project, then Enter, searches home for it. **Reach:** Project Picker. **Needs:** File System: add folder.
-- [ ] Go into a folder (Enter, Ctrl+L, a row's arrow) and back out (Ctrl+H, Backspace, Back). **Reach:** folder Step. **Needs:** File System: nested folders.
-- [ ] Type a path (`~/code/fo`): goes to its folder and searches for what follows the last `/`. **Reach:** folder Step. **Needs:** File System: nested folders.
+- [x] Go into a folder (Enter, Ctrl+L, a row's arrow) and back out (Ctrl+H, Backspace, Back). **Reach:** folder Step. **Needs:** File System: nested folders.
+- [x] Type a path (`~/code/fo`): goes to its folder and searches for what follows the last `/`. **Reach:** folder Step. **Needs:** File System: nested folders.
 - [x] Hidden folders listed only for a search starting with `.`. **Reach:** folder Step. **Needs:** File System: add a folder named `.something`.
-- [ ] A folder of more than 100 folders is listed cut short, then asked again with the search. **Reach:** folder Step, type. **Needs:** File System: add many folders (over 100).
-- [ ] A symlink to a folder inside home is listed and goes in. **Reach:** folder Step. **Needs:** File System: add a symlink inside home.
+- [x] A folder of more than 100 folders is listed cut short, then asked again with the search. **Reach:** folder Step, type. **Needs:** File System: add many folders (over 100).
+- [x] A symlink to a folder inside home is listed and goes in. **Reach:** folder Step. **Needs:** File System: add a symlink inside home.
 - [x] Choose a folder (Mod+Enter on the row; "Open this folder" on touch): it becomes a Project while the Picker waits, then opens. **Reach:** folder Step. **Needs:** File System: add folder.
-- [ ] Choose a folder already a Project, or a symlink to one: opens that Project, no second one. **Reach:** folder Step. **Needs:** File System: a Project and a symlink to it.
+- [x] Choose a folder already a Project, or a symlink to one: opens that Project, no second one. **Reach:** folder Step. **Needs:** File System: a Project and a symlink to it.
 - [x] Create a folder: a search naming no folder offers to create it there (touch: New folder, then goes in); made, it becomes a Project. **Reach:** folder Step. **Needs:** File System (the fake makes it).
-- [ ] Create refused: a name taken ("Something is already at"), a bad name ("cannot be a folder's name"). **Reach:** folder Step. **Needs:** File System: a folder of that name; real middle for the name rules.
-- [ ] Folder errors said in the Step: no folder at a typed path; not allowed to open (unreadable); outside home (`/etc`, `..`, a symlink out of home); could not read (I/O error or slow). **Reach:** folder Step. **Needs:** File System: make a folder unreadable; add a symlink pointing outside home; make a folder fail to list.
-- [ ] Remove a Project: only on its own page; asks first; it goes from the sidebar, home and Picker, with its Saved Draft; its folder untouched. **Reach:** a Project's page whose folder is missing → Remove. **Needs:** File System: remove a Project's folder.
-- [ ] Missing folder, back again: the Project is choosable again and its page starts Sessions. **Reach:** Project Picker. **Needs:** File System: put the folder back.
-- [ ] Project Picker on an out-of-reach Connection: its Projects as kept; folder Steps wait or say why. **Reach:** Project Picker. **Needs:** Computers: offline.
+- [x] Create refused: a name taken ("Something is already at"), a bad name ("cannot be a folder's name"). **Reach:** folder Step. **Needs:** File System: a folder or file of that name; real middle for the name rules.
+- [x] Folder errors said in the Step: no folder at a typed path; not allowed to open (unreadable); outside home (a symlink out of home; a typed `/etc` is only searched for, and `..` goes up no further than home, so only a symlink leads out); could not read (I/O error or slow). **Reach:** folder Step. **Needs:** File System: make a folder unreadable; add `/etc` and a symlink to it (one to nothing is no folder); make a folder fail to list, or slow to list.
+- [x] Remove a Project: only on its own page; asks first; it goes from the sidebar, home and Picker, with its Saved Draft; its folder untouched. **Reach:** a Project's page whose folder is missing → Remove. **Needs:** File System: remove a Project's folder.
+- [x] Missing folder, back again: the Project is choosable again and its page starts Sessions. **Reach:** Project Picker. **Needs:** File System: put the folder back.
+- [x] Project Picker on an out-of-reach Connection: its Projects as kept; folder Steps wait or say why. **Reach:** Project Picker. **Needs:** Computers: offline.
 
 ## 4. Projects and branches (a new Session's page)
 
-- [ ] Home lists every Connection's Projects by name, with path and Connection; "Open a folder to start a project" while there are none. **Reach:** home. **Needs:** File System: projects; Computers.
+- [x] Home lists every Connection's Projects by name, with path and Connection; "Open a folder to start a project" while there are none. **Reach:** home. **Needs:** File System: projects; Computers.
 - [x] A Project's page `…/m/:connectionId/p/:projectId`: name and folder, the Draft for a new Session. **Reach:** Picker, home, sidebar heading or its +. **Needs:** File System: a Project.
-- [ ] A Project of a Connection no longer listed says so in place of the page. **Reach:** an old link. **Needs:** Computers: forget a computer.
-- [ ] A Project's page while its Connection is out of reach: shows what is kept; sends wait. **Reach:** Project page. **Needs:** Computers: offline.
+- [x] A Project of a Connection no longer listed says so in place of the page. **Reach:** an old link. **Needs:** Computers: forget a computer.
+- [x] A Project's page while its Connection is out of reach: shows what is kept; sends wait. **Reach:** Project page. **Needs:** Computers: offline.
 - [x] Not a git repository: one line says so, no Branch row or New Worktree. **Reach:** Project page. **Needs:** File System: add folder (plain).
-- [ ] git missing on the computer: same as not a git repository. **Reach:** Project page. **Needs:** File System: git missing.
+- [x] git missing on the computer: same as not a git repository. **Reach:** Project page. **Needs:** File System: git missing.
 - [x] Branch row: the branch in full, the Origin branch it tracks; New Worktree switch, off by default, with a line on what send will do. **Reach:** Project page of a git Project. **Needs:** File System: add sample project.
 - [x] Branch Picker: Local and Origin sections; a tracked Origin branch is not listed twice; a branch checked out in another Worktree says where; the current one checked. **Reach:** Branch row; `shift+b` (Vim); touch, a Sheet. **Needs:** Git: local branches, Origin branches, a Worktree.
-- [ ] Each Branch Picker open fetches Origin behind; the next open lists what Origin has. **Reach:** open it twice. **Needs:** Git: add an Origin branch.
-- [ ] Branches not read while the link is down are read once it is back; the picks stand as saved meanwhile. **Reach:** Project page. **Needs:** Computers: offline, then online.
+- [x] Each Branch Picker open fetches Origin behind; the next open lists what Origin has. **Reach:** open it twice. **Needs:** Git: add an Origin branch.
+- [x] Branches not read while the link is down are read once it is back; the picks stand as saved meanwhile. **Reach:** Project page. **Needs:** Computers: offline, then online.
 - [x] Start on a local branch, New Worktree off: the main Worktree switches to it (step "switching branch"). **Reach:** pick a branch, send. **Needs:** Git; Agent.
 - [x] Start on an Origin branch: checked out locally first, tracking it. **Reach:** pick under Origin, send. **Needs:** Git: an Origin branch.
 - [x] Start with New Worktree on: a Worktree made on `ke-code/<id>`, renamed `ke-code/<slug>` once the first Title is written; a name taken gets `-2`; the sidebar shows the Worktree mark and branch without `ke-code/`. **Reach:** switch on, send. **Needs:** Git; Agent: a Title.
-- [ ] A Worktree branch pushed before its Title keeps its id name. **Reach:** as above. **Needs:** Git: push a branch.
-- [ ] Starting: each step (switching branch, making Worktree, starting agent) shown running then done where the transcript will be; then the Session's page. **Reach:** send a new Session's Draft. **Needs:** Agent; Git.
-- [ ] A git step fails: no Session, no Worktree, the Draft back as it was and the failure said. **Reach:** send. **Needs:** Git: make the next git step fail.
-- [ ] The agent fails to open: no Session, the Draft back, why said. **Reach:** send. **Needs:** Agent: fails to open.
-- [ ] Start refused for an agent account no longer there ("That agent account is no longer on this Connection"). **Reach:** pick an added account, remove it in Settings, send. **Needs:** Agent: accounts.
-- [ ] Start answer lost (link drops mid-start): the app moves once the Session shows among the Connection's sessions; never there, the Draft says why and keeps the text. **Reach:** send, then drop the link. **Needs:** Computers: offline during a start (or restart).
-- [ ] The branch a Project's folder is on changes outside Code: the sidebar heading and Branch row follow (the Folder Check). **Reach:** sidebar heading. **Needs:** Git: switch a repo's branch outside Code.
+- [x] A Worktree branch pushed before its Title keeps its id name. **Reach:** as above. **Needs:** Git: push a branch; Agent: Title slowly.
+- [x] Starting: each step (switching branch, making Worktree, starting agent) shown running then done where the transcript will be; then the Session's page. **Reach:** send a new Session's Draft. **Needs:** Agent (opens slowly, to see it); Git.
+- [x] A git step fails: no Session, no Worktree, the Draft back as it was and the failure said. **Reach:** send. **Needs:** Git: make the next git step fail.
+- [x] The agent fails to open: no Session, the Draft back, why said. **Reach:** send. **Needs:** Agent: fails to open.
+- [x] Start refused for an agent account no longer there ("That agent account is no longer on this Connection"). **Reach:** pick an added account; another device removes it; send. (Removed in this app's Settings, the Draft falls back to the default and nothing is refused.) **Needs:** Agent: accounts; Computers: another device removes an agent account.
+- [x] Start answer lost (link drops mid-start): the app moves once the Session shows among the Connection's sessions; never there, the Draft says why and keeps the text. **Reach:** send, then drop the link. **Needs:** Agent: opens slowly; Computers: the tunnel moves during a start (the Session is made, then shows), or a restart (never there).
+- [x] The branch a Project's folder is on changes outside Code: the sidebar heading follows (the Folder Check, within its minute), the Branch row once the page or the Branch Picker opens again (the Draft reads branches then). **Reach:** sidebar heading. **Needs:** Git: switch a repo's branch outside Code.
 
 ## 5. Sessions and turns
 
