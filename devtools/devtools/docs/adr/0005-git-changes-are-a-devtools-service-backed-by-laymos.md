@@ -1,5 +1,7 @@
 # Git changes are a DevTools service backed by the laymos package
 
+**Status:** superseded by [ADR 0013](./0013-the-app-is-one-kabuki-tree-of-composable-tools.md)
+
 Laymos and Monoverse both show a Change set measured against one Base ref, so
 the DevTools RPC exposes branches, Change sets, and file diffs as Tool-neutral
 calls that take a folder (`GetBranches`, `GetChanges`, `GetFileDiff`) rather

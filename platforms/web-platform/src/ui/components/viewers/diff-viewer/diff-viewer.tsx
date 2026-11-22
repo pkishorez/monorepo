@@ -109,6 +109,11 @@ export interface DiffViewerProps {
    * sticks to the top.
    */
   readonly autoHeight?: boolean;
+  /**
+   * Draw the toolbar; without it the caller offers the options itself,
+   * through `options`, and a phone wraps as `options.wrap` says.
+   */
+  readonly showToolbar?: boolean;
   readonly className?: string;
 }
 
@@ -126,6 +131,7 @@ export function DiffViewer({
   onOptionsChange,
   fallbackContent,
   autoHeight = false,
+  showToolbar = true,
   className,
 }: DiffViewerProps) {
   const [own, setOwn] = useState<DiffOptions>({
@@ -143,7 +149,7 @@ export function DiffViewer({
   const phone = useIsMobile();
   const [phoneWrap, setPhoneWrap] = useState(true);
   const layout: DiffLayout = phone ? 'unified' : options.layout;
-  const wrap = phone ? phoneWrap : options.wrap;
+  const wrap = phone && showToolbar ? phoneWrap : options.wrap;
   const { panes } = options;
   const setLayout = (next: DiffLayout) => setOptions({ layout: next });
   const setWrap = (next: boolean) =>
@@ -260,7 +266,7 @@ export function DiffViewer({
 
   return (
     <div className={cn('flex flex-col', !autoHeight && 'min-h-0', className)}>
-      {phone ? (
+      {!showToolbar ? null : phone ? (
         // The file is named above it on a phone: here only what changed.
         <header
           className={cn(

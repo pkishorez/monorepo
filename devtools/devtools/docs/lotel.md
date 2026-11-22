@@ -35,7 +35,7 @@ The Trace visualization that reads a Trace as a chronological story: each Span
 is a headline whose Log Records and child Spans interleave in time order, and
 any number of Spans can be open at once. It answers what happened and why, not
 where the time went.
-_Avoid_: Story view (Story is a laymos term).
+_Avoid_: Story view.
 
 **Narrative**:
 The Span attribute that states a Span's intent in prose, written when the Span
@@ -59,6 +59,21 @@ _Avoid_: Unscoped Event, Unscoped Activity.
 **Log Record ID**:
 The identity that lotel assigns to a Log Record. It distinguishes separate Log
 Records even when their contents are identical.
+
+**Feed**:
+The list of incoming Traces beside the Opened Trace, with search, filters and
+grouping. While a Trace is open, new Traces are held back and counted rather
+than moving the list.
+_Avoid_: trace list, stream
+
+**Opened Trace**:
+The one Trace drawn beside the Feed, in the Waterfall or Narrative view, with
+the Span picked in it inspected.
+_Avoid_: selected trace, current trace
+
+**Trace layout**:
+How the Opened Trace is drawn: its view and the widths of its columns. Kept
+on the device, as the Feed's filters are.
 
 **Telemetry Store**:
 The technology-neutral collection of known Span Records and Log Records.

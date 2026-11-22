@@ -4,7 +4,7 @@ const serverArgs = process.argv.slice(2);
 
 const server = spawn(
   'pnpm',
-  ['exec', 'tsx', 'src/server/main.ts', ...serverArgs],
+  ['exec', 'tsx', 'src/cli/main.ts', ...serverArgs],
   {
     stdio: 'inherit',
     env: { ...process.env, DEVTOOLS_SKIP_UI_CHECK: '1' },

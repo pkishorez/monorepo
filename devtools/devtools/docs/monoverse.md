@@ -1,18 +1,17 @@
 # CONTEXT — monoverse
 
-Glossary for Monoverse: the bird's-eye view of one Monorepo or Single
-Package, its Packages and the dependencies between them, for discovery rather
-than enforcement.
-Definitions only; no implementation detail.
+Glossary for Monoverse: one Monorepo or Single Package shown as its folder
+tree, because the folders are the forest the files cannot show. Definitions
+only; no implementation detail.
 
 ## Language
 
 **Monoverse**:
 The DevTools Tool, and the collection of Monorepos and Single Packages a
-developer has added to it, each understood as a whole: which Packages it
-holds, how they depend on each other, and which of them changed. It observes
-and never enforces; the only finding it reports is a Package cycle.
-_Avoid_: Monorepo Tool, Workspace view, Laymos for the monorepo
+developer has added to it, each shown as its Folder tree: which Packages it
+holds, how its folders import each other, where they break the Folder rule,
+and what changed.
+_Avoid_: Monorepo Tool, Workspace view, Laymos
 
 **Monorepo**:
 A folder whose Packages are listed by its `pnpm-workspace.yaml` or by the
@@ -20,11 +19,11 @@ A folder whose Packages are listed by its `pnpm-workspace.yaml` or by the
 adds to Monoverse and the universe every one of its Packages belongs to. A
 folder that lists them in neither place is not a Monorepo, and neither is a
 monorepo nested inside another.
-_Avoid_: Workspace, repo, root project
 
 **Single Package**:
 A folder with a `package.json` that lists no workspace packages. It is the
-other thing a user adds to Monoverse, and it is its own one Package.
+other thing a user adds to Monoverse, and it is its own one Package: opening
+it goes straight to its Package view.
 _Avoid_: standalone package, single-package repo, project
 
 **Package Manager**:
@@ -35,124 +34,115 @@ _Avoid_: Workspace tool, client
 
 **Package**:
 One node of a Monorepo or Single Package; in a Monorepo, a folder matched by
-its workspace globs that holds a `package.json`. Apps, libraries, toolkits, and devtools are all
-Packages; nothing distinguishes them but their Package group and their place in
-the Package graph. The Monorepo root's own manifest is not a Package; a Single
-Package's root is its one Package.
+its workspace globs that holds a `package.json`. Apps, libraries, toolkits
+and devtools are all Packages. The Monorepo root's own manifest is not a
+Package; a Single Package's root is its one Package.
 _Avoid_: Workspace, member, app, project
 
 **Package dependency**:
-One Package naming another Package of the same Monorepo in its manifest,
-matched by name alone. How the version is written — `workspace:`, a catalog,
-a plain range — has no bearing; sharing a name with a Package is what makes a
-dependency internal.
+One Package naming another Package of the same Monorepo in any field of its
+manifest, matched by name alone. How the version is written has no bearing;
+sharing a name with a Package is what makes a dependency internal.
 _Avoid_: workspace dependency, internal link
 
-**Package graph**:
-Every Package of a Monorepo and every Package dependency between them, across
-all Dependency kinds. The single source every Monoverse view is drawn from.
+**Package cycle**:
+Two or more Packages that depend on each other in a loop. A finding wherever
+it appears, drawn red in the Repo view.
+_Avoid_: circular dependency
 
-**Monoverse layout**:
-How the Package graph is arranged on the canvas, one of two, switched without
-leaving the view. **Folders** (the default) draws each Package group as a box
-holding its Packages, ranked inside it by the Package dependencies between
-them. **Ranks** drops the boxes and ranks every Package in one Package rank
-stack. A layout changes drawing only, never which Packages or dependencies
-exist.
-_Avoid_: levels, mode, view
+**Folder tree**:
+The git-known files of a Project, or of one Package, in their real folders.
+Git-ignored files are never in it. It is what every Monoverse view draws;
+everything else is drawn on it.
+_Avoid_: file list, outline, graph
 
-**Package rank stack**:
-The vertical arrangement of Packages that share one box (a Package group in
-the Folders layout, the whole Monorepo in Ranks): a Package sits below every
-Package beside it that depends on it. Ranks are derived from the Package
-dependencies currently shown, so hiding a Dependency kind reshapes the stack.
+**Repo view**:
+The Folder tree of a whole Monorepo with each Package closed into one node of
+its own colour. Selecting a Package lights up the Packages it depends on and
+those that depend on it.
+_Avoid_: monorepo graph, package cards
 
-**Package focus**:
-The selection of one Package or Package group: what it depends on and what
-depends on it are emphasized and everything else is de-emphasized yet stays
-interactive. Hover previews a focus; click makes it durable. Transitive reach
-is not emphasized. At rest a line joins two Packages in one box, or two
-boxes; a dependency between Packages in different boxes is drawn Package to
-Package only while one of them is focused.
+**Package view**:
+The Folder tree of one Package, every folder open to its files, entered by
+double-clicking a Package in the Repo view.
+_Avoid_: Embedded Laymos, drill-down
 
-**Changed Package**:
-A Package with at least one added, modified or deleted tracked file beneath
-its folder in the Monorepo's Change set, measured against one Base ref with the same
-meaning as in Laymos. Files outside every Package belong to none and are not
-shown. One Base ref applies to the whole Monoverse view, and Embedded Laymos
-opens measured against it.
+**Source root**:
+A folder of a Package whose files are analysed: their imports are read and
+the Folder rule applies to them. Read only from `sourceRoots` in the
+`laymos.config.json` beside the Package's `package.json`; without one the
+whole Package is its one Source root.
 
-**Package change status**:
-A Package's derived standing in the Change set, by the same rule as a Laymos
-Module change status: added when every file beneath it is added, modified when
-any file beneath it is added, modified or deleted, deleted when it is a
-Deleted Package, and otherwise unchanged.
-_Avoid_: new package (for a Package that merely has a new manifest)
+**Ignored file**:
+A file of a Package outside its Source roots: always shown, dimmed, never
+analysed.
+_Avoid_: excluded file, git-ignored file (never shown at all)
 
-**Deleted Package**:
-A Package the Change set took away: its `package.json` is deleted and its
-folder is no Package any more. Shown faded where it stood, in its Package
-group, with no dependencies, because the manifest that named them is gone;
-its deleted files can still be read as diffs.
-_Avoid_: removed package, missing package
+**Connection**:
+Some file inside one folder importing some file inside another, drawn
+between the two as the Folder tree is open. Selecting a folder shows only
+the Connections that cross its border: to its siblings and to folders beside
+its ancestors, never what happens inside it. A Connection to something inside
+a closed folder lights that folder up with a count.
+_Avoid_: edge, dependency (that is a Package dependency), link
 
-**Affected Package**:
-A Package that is not itself changed but depends, directly or transitively, on
-a Changed Package. Drawn as a lighter variant of the changed marker.
+**Uses / Used by**:
+The two directions of a Connection from the selected folder: what it imports,
+and what imports it. Drawn in two colours.
 
-**Package group**:
-The Monorepo folder a Package sits in, named by the workspace glob that matched
-it (apps, toolkits, devtools, packages). A filing convention, not architecture:
-it never decides what may depend on what. In the Folders layout it is the box
-its Packages are drawn in.
-_Avoid_: Layer, lane, kind, Wrapper
+**Folder rule**:
+Monoverse's one rule, applied with no configuration: a file may import any
+file in its own folder, inside its child folders at any depth, in its
+sibling folders and in folders beside its ancestors, but never a file sitting
+directly in one of its ancestor folders.
+_Avoid_: Laymos Rule, import law, boundary
 
-**Dependency kind**:
-Which manifest field declares one Package's dependency on another: runtime
-(`dependencies`), development (`devDependencies`), peer
-(`peerDependencies`), or optional (`optionalDependencies`). The Package graph
-is the union of all four; a Dependency kind is what a user filters on, never
-what defines membership.
+**Violation**:
+One import that breaks the Folder rule, drawn red.
+_Avoid_: error, lint failure
 
-**Package cycle violation**:
-Two or more Packages that depend on each other in a loop, across any Dependency
-kinds. The one finding Monoverse reports, marked like a Laymos violation, and
-reported regardless of which Dependency kinds are currently shown.
+**Project picker**:
+Where a Project is chosen: the Projects already added, newest first, and
+"Open a folder…", which walks folders from the home folder down and adds the
+one chosen. It only picks; which branch is read is chosen in the view.
+_Avoid_: project switcher, open dialog
 
-**Laymos badge**:
-The marker on a Package that carries a `laymos.config.json` and can therefore
-be opened in Laymos. Presence only: it says nothing about whether that
-Project's architecture is healthy.
+**Branch**:
+The branch whose files Monoverse shows. A branch some Worktree has checked
+out is read from that Worktree's folder, uncommitted work included; any other
+is read from git at its last commit, never checked out. It starts at the
+branch the Project's own folder is on.
+_Avoid_: ref, checkout
 
-**Stories badge**:
-The marker on a Package whose Laymos Config declares a Stories path, so its
-Embedded Laymos has Stories to read. Presence only, like the Laymos badge, and
-never shown without it.
+**Compare to**:
+The branch changes are measured against: from where the Branch left it (their
+merge-base) to the Branch. It starts at `main`, else `master`, else
+`develop`.
+_Avoid_: Base ref, target branch
 
-**Embedded Laymos**:
-The full Laymos view of one Package's Project, opened by double-clicking the
-Package, over the Monoverse canvas without leaving it, with the Project fixed
-and a crumb back to the Monorepo in place of the project picker. Closing it
-returns to the canvas exactly as it was left. It is the only way DevTools
-shows Laymos.
+**Changes**:
+The switch that marks each file by its Change status against Compare to, and
+each folder by what changed inside it. Opening a changed file shows its diff.
+_Avoid_: Git mode, Lens
 
-**Package files**:
-Every file git knows beneath a Package's folder, opened beside the canvas by
-right-clicking the Package, as the Laymos File list is for a Module: one plain
-tree, the README shown first, each changed file marked and readable as its
-diff against the Base ref. There is no separate README or documentation view.
-_Avoid_: Package README, code changes tab, source, documentation panel
+**Change status**:
+One file's standing against Compare to: added (green), modified (yellow) or
+deleted (red). A deleted file is shown where it stood.
 
-**Monorepo files**:
-Every file git knows in the whole Monorepo, opened by right-clicking the
-Monorepo's own card or the empty canvas: the same File list as Package files,
-the root README first and opened down to each Package, so a change in any
-Package, or outside every Package, can be read and stepped through in one
-place.
-_Avoid_: project files, repo tree
+**Unchanged files**:
+While Changes is on, how the files and folders the Branch left untouched are
+drawn: shown as they are, dimmed (the default) or hidden, leaving only what
+changed.
+_Avoid_: noise filter
 
-**Package outline**:
-The Monorepo's Package groups and Packages as one collapsible tree beside the
-canvas, stopping at Packages, with a dot per Package change status. Selecting
-there and selecting on the canvas are one selection.
-_Avoid_: Package tree, package list
+**Deleted files**:
+While Changes is on, whether the files the Branch deleted are drawn where
+they stood and listed when a folder is looked into. One choice for both.
+_Avoid_: tombstones
+
+**Folder view**:
+A folder, the root included, looked into: the files the Branch changed in it
+as a tree of their folders beside one file's diff, or, with Changes off,
+every file in it beside its text. Opened from the selection bar's one
+button, View changes or Browse files.
+_Avoid_: changes panel, file list
