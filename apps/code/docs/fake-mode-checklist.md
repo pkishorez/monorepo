@@ -22,27 +22,27 @@ mode are under [Limits](#limits).
 
 - [x] App opens with nobody signed in: the mark, then the Sign-in Screen, "Continue with Google". **Reach:** open `/` after Start fresh. **Needs:** Sign-in, blank.
 - [x] Sign in: "Continue with Google" asks who, and the app opens on the Account's home `/a/:accountId`. **Reach:** Sign-in Screen. **Needs:** Sign-in: sign in as (email, name).
-- [ ] Sign-in abandoned: the ask is answered with nobody, the screen stays, the button usable again (`SignInEnded`). **Reach:** Sign-in Screen, cancel the ask. **Needs:** Sign-in: sign in as → cancel.
-- [ ] Sign-in fails: the app says why (`SignInFailed` / `Refused`). **Reach:** Sign-in Screen. **Needs:** Sign-in: sign-in fails (with a reason).
-- [ ] Checking: with an Account kept on this device, the app draws it at once (`Checking { last }`) while the Auth Worker is asked; the header's avatar says it is checking. **Reach:** reload while signed in. **Needs:** Sign-in: Auth Worker slow / out of reach.
-- [ ] Auth Worker out of reach: the app stays on the kept Account, works from what this device holds, and nothing is pruned. **Reach:** reload. **Needs:** Sign-in: Auth Worker out of reach, then back.
-- [ ] `/` and an old address (`/settings`, `/m/…/p/…`) go to the same page under the Account active. **Reach:** type the address. **Needs:** Sign-in: signed in; real middle.
-- [ ] A guess corrected: placed under the kept Account while checking, the page moves quietly once the Auth Worker answers another. **Reach:** reload `/` while the kept Account was signed out elsewhere. **Needs:** Sign-in: Auth Worker slow, then answers another Account.
-- [ ] 404: an address that names no page says "Nothing lives at this address" with Go home, signed in or not. **Reach:** `/nope`, `/a/<id>/nope`. **Needs:** real middle.
-- [ ] Account Switcher (wide: header avatar menu; touch: sidebar foot, You, then Accounts): the Active Account checked, others to switch to, Add, Sign out, Sign out of all. **Reach:** header avatar. **Needs:** Sign-in: two Accounts signed in.
-- [ ] Add an Account from the switcher: signs in, comes back to `/`, placed under the new one. **Reach:** Account Switcher → Add. **Needs:** Sign-in: sign in as.
-- [ ] Switch Account here: the app goes to the new Account's home; the old Account's sockets close, the new one's Connections open. **Reach:** Account Switcher → another Account. **Needs:** Sign-in: two Accounts; Computers: a computer each.
-- [ ] The browser full: the switcher says it holds the most Accounts it can, and to sign one out. **Reach:** Account Switcher. **Needs:** Sign-in: sign in as, up to the maximum.
-- [ ] Sign out of the Active Account here: the page becomes Away, "<email> is signed out". **Reach:** Account Switcher → Sign out. **Needs:** Sign-in.
-- [ ] Sign out of all: the Sign-in Screen alone; every Account's databases go. **Reach:** Account Switcher → Sign out of all. **Needs:** Sign-in.
-- [ ] Away, signed out elsewhere: "<email> is signed out", the Accounts here to choose. **Reach:** any page. **Needs:** Sign-in: sign out from another tab.
-- [ ] Away, switched elsewhere: "You switched to <other> elsewhere"; choosing this page's Account switches and stays. **Reach:** any page. **Needs:** Sign-in: switch from another tab.
-- [ ] Away, another Account added elsewhere: the page says it was switched. **Reach:** any page. **Needs:** Sign-in: add an Account from another tab.
-- [ ] Away, a link for another Account signed in here: "This link is for <email>"; choosing it switches and stays. **Reach:** open `/a/<other id>/…`. **Needs:** Sign-in: two Accounts.
-- [ ] Away, a link for an Account not signed in here: says so; signing in comes back to the page. **Reach:** open `/a/<unknown id>`. **Needs:** Sign-in: sign in as.
-- [ ] Choosing another Account on the Away screen switches and goes to its home. **Reach:** Away screen. **Needs:** Sign-in: two Accounts.
-- [ ] Prune: once the Auth Worker answers, every Account no longer signed in on this device goes, with its databases; a failed check deletes nothing. **Reach:** reload after signing out elsewhere. **Needs:** Sign-in: sign out from another tab; real middle.
-- [ ] No socket open while Away; all reopen once Active again. **Reach:** become Away, then choose the Account. **Needs:** Sign-in; Computers: one online.
+- [x] Sign-in abandoned: the ask is answered with nobody, the screen stays, the button usable again (`SignInEnded`). **Reach:** Sign-in Screen, cancel the ask. **Needs:** Sign-in: sign in as → cancel.
+- [x] Sign-in fails: the app says why (`SignInFailed` / `Refused`). **Reach:** Sign-in Screen. **Needs:** Sign-in: sign-in fails (with a reason).
+- [x] Checking: with an Account kept on this device, the app draws it at once (`Checking { last }`) while the Auth Worker is asked; the header's avatar says it is checking. **Reach:** reload while signed in. **Needs:** Sign-in: Auth Worker slow / out of reach.
+- [x] Auth Worker out of reach: the app stays on the kept Account, works from what this device holds, and nothing is pruned. **Reach:** reload. **Needs:** Sign-in: Auth Worker out of reach, then back.
+- [x] `/` and an old address (`/settings`, `/m/…/p/…`) go to the same page under the Account active. **Reach:** type the address. **Needs:** Sign-in: signed in; real middle.
+- [x] A guess corrected: placed under the kept Account while checking, the page moves quietly once the Auth Worker answers another. **Reach:** reload `/` while the kept Account was signed out elsewhere. **Needs:** Sign-in: Auth Worker slow, then answers another Account.
+- [x] 404: an address that names no page says "Nothing lives at this address" with Go home, signed in or not. **Reach:** `/nope`, `/a/<id>/nope`. **Needs:** real middle.
+- [x] Account Switcher (wide: header avatar menu; touch: sidebar foot, You, then Accounts): the Active Account checked, others to switch to, Add, Sign out, Sign out of all. **Reach:** header avatar. **Needs:** Sign-in: two Accounts signed in.
+- [x] Add an Account from the switcher: signs in, comes back to `/`, placed under the new one. **Reach:** Account Switcher → Add. **Needs:** Sign-in: sign in as.
+- [x] Switch Account here: the app goes to the new Account's home; the old Account's sockets close, the new one's Connections open. **Reach:** Account Switcher → another Account. **Needs:** Sign-in: two Accounts; Computers: a computer each.
+- [x] The browser full: the switcher says it holds the most Accounts it can, and to sign one out. **Reach:** Account Switcher. **Needs:** Sign-in: sign in as, up to the maximum.
+- [x] Sign out of the Active Account here: the page becomes Away, "<email> is signed out". **Reach:** Account Switcher → Sign out. **Needs:** Sign-in.
+- [x] Sign out of all: the Sign-in Screen alone; every Account's databases go. **Reach:** Account Switcher → Sign out of all. **Needs:** Sign-in.
+- [x] Away, signed out elsewhere: "<email> is signed out", the Accounts here to choose. **Reach:** any page. **Needs:** Sign-in: sign out from another tab.
+- [x] Away, switched elsewhere: "You switched to <other> elsewhere"; choosing this page's Account switches and stays. **Reach:** any page. **Needs:** Sign-in: switch from another tab.
+- [x] Away, another Account added elsewhere: the page says it was switched. **Reach:** any page. **Needs:** Sign-in: add an Account from another tab.
+- [x] Away, a link for another Account signed in here: "This link is for <email>"; choosing it switches and stays. **Reach:** open `/a/<other id>/…`. **Needs:** Sign-in: two Accounts.
+- [x] Away, a link for an Account not signed in here: says so; signing in comes back to the page. **Reach:** open `/a/<unknown id>`. **Needs:** Sign-in: sign in as.
+- [x] Choosing another Account on the Away screen switches and goes to its home. **Reach:** Away screen. **Needs:** Sign-in: two Accounts.
+- [x] Prune: once the Auth Worker answers, every Account no longer signed in on this device goes, with its databases; a failed check deletes nothing. **Reach:** reload after signing out elsewhere. **Needs:** Sign-in: sign out from another tab; real middle.
+- [x] No socket open while Away; all reopen once Active again. **Reach:** become Away, then choose the Account. **Needs:** Sign-in; Computers: one online, its `sockets` in the bubble.
 
 ## 2. Connections (computers)
 
