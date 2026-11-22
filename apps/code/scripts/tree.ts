@@ -17,8 +17,9 @@ import { basename, extname, join, relative } from 'node:path';
 
 const LIMIT = 3;
 const OWN = new Set(['index', 'actor', 'store', 'view', 'commands']);
-// What the app is started and styled with, at the top of `src/`.
-const ROOT = new Set(['start.tsx', 'env.d.ts', 'styles.css']);
+// What the app is started and styled with, at the top of `src/`: in real
+// mode, and in fake mode.
+const ROOT = new Set(['start.tsx', 'fake.ts', 'env.d.ts', 'styles.css']);
 
 const src = join(import.meta.dirname, '..', 'src');
 const breaks: Array<string> = [];

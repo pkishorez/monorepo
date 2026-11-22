@@ -6,6 +6,7 @@ export { refreshSetup, removeProject } from './commands.ts';
 export {
   borrowed,
   health,
+  PLUGIN_CODE,
   reach,
   Sockets,
   sockets,

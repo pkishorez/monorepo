@@ -17,6 +17,7 @@ an Actor.
 ```
 src/
 ├── start.tsx                 draws the app, and gives what lives as long as the page
+├── fake.ts                   fake mode: the root Layer over the Fakes, and the bubble
 ├── app/ ◆                    the root page: who is signed in
 │   ├── storage/              what this device keeps: local/, cache/, database/
 │   ├── sign-in/              what is drawn in place of the app
@@ -58,6 +59,15 @@ and what lives as long as the page. It gives `Accounts` (who is signed in),
 and the page's edges to the outside world: `Recorder` (the browser's
 microphone) and `Sockets` (what opens a Connection's WebSocket). Each key
 stays where it is used; only its real Layer is built here.
+
+### `fake.ts`
+
+Fake mode, which `start.tsx` imports only while developing with
+`VITE_MODE=fake` (`pnpm dev`): the Fake World (Sign-in, Computers, Agent,
+Speech, Microphone, New build), Connect Cloud and each computer's code
+Plugin in the tab over it (`inTab`), and the root Layer with the same keys
+as the real one, each edge from a Fake; and the fake bubble, drawn beside
+the app.
 
 ### `app/` ◆ the root page
 
@@ -171,9 +181,10 @@ two Exceptions.
    session the URL names (`header.tsx`, with the Connection's pills), and
    `voice/` ◆, recording from anywhere, which lives as long as the header,
    around every page: `dictation/` ◆ (the one Dictation, and its Takes),
-   `microphone/` ◆ (the Microphone Picker) and `recorder/` (the browser's
-   microphone, which the other two use, its key and the browser's Layer
-   `start.tsx` gives as `Recorder`); the
+   `microphone/` ◆ (the Microphone Picker) and `recorder/` (the
+   microphone, which the other two use: its key, `Recorder`, over the
+   browser's microphones, `browser/`, which `start.tsx` gives, or the
+   Microphone fake's, `fake/`, which `fake.ts` gives); the
    header shows its cancel while a Dictation is going.
 3. **`pickers/`** ◆: what the keys open: `projects/` ◆ (the Project
    Picker, and the folders it lists), `sessions/` ◆ (the Session Switcher)
@@ -228,7 +239,9 @@ Modes' owners name theirs as `capabilities`, beside `owner`.
 | `frame/sidebar`, `frame/pickers`       | `frame/commands.ts`, `frame/store.ts` | the keys, and `ConnectionFilter`, which the frame gives              |
 | `frame/header`                         | `frame/pickers`                       | a session's title, pulsing while Actions writes it again             |
 | `pages`                                | `frame/commands.ts`, `header/voice`   | the keys; a field's Dictation, through `Voice`                       |
-| `voice/dictation`, `voice/microphone`  | `voice/recorder`                      | the browser's microphone, which both use                             |
+| `voice/dictation`, `voice/microphone`  | `voice/recorder`                      | the microphone, which both use                                       |
+| `recorder/browser`, `recorder/fake`    | `recorder/recorder.ts`, `pcm.ts`      | `Recorder` over each one's microphones; the audio's shape            |
+| `recorder/recorder.ts`                 | `recorder/pcm.ts`                     | the clip, from the chunks heard                                      |
 | `voice/dictation`                      | `voice/voice.ts`                      | `Voice`, which the Account's page gives                              |
 | `connection/records`                   | `connection/link`                     | a call refused, and why                                              |
 | `link/health`                          | `link/reach`                          | who is behind, to say how a Connection stands                        |
@@ -238,6 +251,9 @@ Modes' owners name theirs as `capabilities`, beside `owner`.
 | `transcript/tool`                      | `transcript/words`, `turns/rows`      | words drawn in a tool's output; the rows it is drawn from            |
 | `settings/cards/card`                  | `cards/store.ts`                      | the cards, which Cards gives                                         |
 | `agents/card`                          | `agents/store.ts`                     | the Harness Account list, which Agents gives                         |
+
+`fake.ts` reaches into `app` as `start.tsx` does, for the same keys and
+real Layers, and the Microphone fake.
 
 Two Exceptions: the Picker and Confirm, in `src/ui/controls/`, bind the
 app's own keys, defined with every other key in `frame/commands.ts`.

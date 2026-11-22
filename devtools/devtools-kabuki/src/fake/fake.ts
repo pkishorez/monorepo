@@ -16,10 +16,14 @@ import type { AnyActor } from '@kestack/kabuki/types';
  * - `kept`      the Snapshot a reload keeps, when it is not the whole one.
  */
 
-/** One Fake, as the Fake World runs it. */
+/**
+ * One Fake, as the Fake World runs it. `Out` is `never` unless named: a
+ * Layer's outputs are contravariant, so `Fake` alone takes any Fake's,
+ * one that serves only a Reference (a Layer of `never`) too.
+ */
 export interface Fake<
   A extends AnyActor = AnyActor,
-  Out = any,
+  Out = never,
   E = any,
   R = any,
 > {

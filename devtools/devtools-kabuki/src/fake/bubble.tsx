@@ -1,4 +1,11 @@
-import { createElement, useCallback, useId, useRef, useState } from 'react';
+import {
+  createElement,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from 'react';
 import { useSyncExternalStore } from 'react';
 import type {
   CSSProperties,
@@ -558,7 +565,8 @@ function Log({ log }: { readonly log: ReadonlyArray<Logged> }) {
 /**
  * The bubble over the app, for a Fake World: every Fake's Instances, their
  * Models and Controls, and Start fresh. Render it once, anywhere: it draws
- * itself on the page's body, in a Shadow DOM of its own.
+ * itself on the page's body, in a Shadow DOM of its own, once mounted, so
+ * a page drawn on the server draws nothing of it.
  */
 export function FakeBubble({
   world,
@@ -569,10 +577,13 @@ export function FakeBubble({
   /** What Start fresh does once confirmed: `FakeWorld.startFresh` by default. */
   readonly startFresh?: () => void;
 }) {
+  const [mounted, setMounted] = useState(false);
   const [shadow, setShadow] = useState<ShadowRoot | null>(null);
   const host = useCallback((node: HTMLElement | null) => {
     if (node) setShadow(node.shadowRoot ?? node.attachShadow({ mode: 'open' }));
   }, []);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
   return createPortal(
     createElement(
       'kestack-fake-bubble',

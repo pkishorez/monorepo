@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { lazy, type ReactNode, Suspense } from 'react';
 import { Effect, Layer } from 'effect';
 import { CloudClient } from '@kestack/connect/cloud';
 import { connect } from '@kestack/devtools-kabuki/session';
@@ -34,6 +34,13 @@ import './styles.css';
  * Attached beside it while developing, the DevTools Server, as a Kabuki
  * Session: at `/__devtools` on the app's own origin, which Vite pipes to
  * the server its config names, so a tunnel to the app reaches it too.
+ *
+ * Two modes. Real, the Layer below: a deploy, and `pnpm dev:connect`
+ * against this branch's Connect. Fake, `pnpm dev` (`VITE_MODE=fake`): the
+ * whole app in the tab over its Fakes, its root Layer from `fake.ts`, with
+ * the fake bubble drawn beside the app. Fake mode is read only while
+ * developing, and `fake.ts` imported only then, written out at each place
+ * so a production build drops it whole: a build carrying a fake fails.
  */
 
 /*
@@ -50,7 +57,7 @@ const newestBuild = Layer.succeed(
   ),
 );
 
-const layer = Layer.mergeAll(
+const real = Layer.mergeAll(
   // Where Connect is, read once the Layer is built, in the browser, never
   // as the module loads: a build runs this module too, to draw the static
   // pages, and only a deploy says where Connect is.
@@ -64,17 +71,45 @@ const layer = Layer.mergeAll(
   sockets,
 ).pipe(Layer.provideMerge(accounts));
 
+const layer =
+  import.meta.env.DEV && import.meta.env.VITE_MODE === 'fake'
+    ? Layer.unwrap(
+        Effect.map(
+          Effect.promise(() => import('./fake.ts')),
+          (fake) => fake.layer,
+        ),
+      )
+    : real;
+
+/** The fake bubble, in fake mode only. */
+const FakeBubble =
+  import.meta.env.DEV && import.meta.env.VITE_MODE === 'fake'
+    ? lazy(() =>
+        import('./fake.ts').then(({ Bubble }) => ({ default: Bubble })),
+      )
+    : () => null;
+
 export default Start.app({
   router: App.router,
   view: App.view,
   name: 'code',
   // The Web Platform's Document: Inter, the Theme and the PWA, and while
-  // developing, Kabuki's devtools around every page.
+  // developing, Kabuki's devtools around every page, and in fake mode the
+  // fake bubble beside it.
   document: document({
     theme: Theme,
     head: <link rel="icon" type="image/svg+xml" href="/favicon.svg" />,
     ...(import.meta.env.DEV
-      ? { around: (app: ReactNode) => <Devtools>{app}</Devtools> }
+      ? {
+          around: (app: ReactNode) => (
+            <Devtools>
+              {app}
+              <Suspense fallback={null}>
+                <FakeBubble />
+              </Suspense>
+            </Devtools>
+          ),
+        }
       : {}),
   }),
   // What the App Shell paints before any script runs: where the iOS Splash

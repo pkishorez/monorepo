@@ -63,27 +63,38 @@ waits for "Reload" before taking a new version.
 
 ## Usage
 
-### Run the app on this branch's Connect
+### Run the app in fake mode
 
-`pnpm dev` makes sure this branch's Connect runs, starting it or reusing
-the one another App started, then runs the site against it. It signs in
-through the Auth Worker, and the branch's Connection signs in as a Device
-(the Device Screen on a new branch), then shows up in the app; it reports
-itself to Connect Cloud every 15 seconds. Fake mode, the whole app in the
-tab with nothing behind it, is coming ([the plan](docs/fake-mode-plan.md)).
+`pnpm dev` runs the whole app in the browser tab, with nothing behind it:
+the sign-in, Connect Cloud and each computer's code Plugin run for real in
+the tab, over Fakes of the outside world (who signs in, the computers, the
+agents, Speech to Text, the microphone, new builds), and a bubble on the
+page shows each Fake and its Controls ([the plan](docs/fake-mode-plan.md),
+`src/fake.ts`). Sign in through the bubble's Sign-in "Sign in as", then
+add a computer with Computers "Add computer", signed in as the same email.
 
 ```sh
-pnpm --filter code dev           # this branch's Connect, then the site, signed in through the Auth Worker
+pnpm --filter code dev           # fake mode: the whole app in the tab, with the fake bubble
+pnpm --filter code dev:connect   # real mode: this branch's Connect, then the site, signed in through the Auth Worker
 pnpm --filter code deploy        # your own stage, at its workers.dev URLs
 pnpm --filter code deploy:prod   # ALLOW_DEPLOY=true: code.kishore.app
 ```
 
-- `pnpm dev` calls `withConnect` from `@kestack/connect/dev`
+- `pnpm dev` builds the packages Code uses, then runs `vp dev` through
+  Portless with `VITE_MODE=fake`, at `https://code.kishore.computer` (the
+  branch in front in a linked git worktree); nothing else starts. Fake mode is read
+  only while developing (`import.meta.env.DEV`), so a production build
+  never carries it, and fails if anything brings a fake in (`kestack-fake`).
+  A reload starts the Fakes blank for now.
+- `pnpm dev:connect` calls `withConnect` from `@kestack/connect/dev`
   ([Connect in development](../connect/docs/dev.md)), then runs
   `alchemy dev` (`alchemy.run.ts`, `src/deploy/infra/`) through Portless,
   the site at `https://code.kishore.computer` (the branch in front in a
   linked git worktree), handed the branch's Connect Cloud in
-  `CONNECT_URL`. Connect stops once no App on the branch runs.
+  `CONNECT_URL`. It signs in through the Auth Worker, and the branch's
+  Connection signs in as a Device (the Device Screen on a new branch), then
+  shows up in the app; it reports itself to Connect Cloud every 15 seconds.
+  Connect stops once no App on the branch runs.
 - The site gets `VITE_AUTH_URL` and `VITE_CONNECT_URL`. A deployed stage
   uses `https://connect.kishore.app`, where your Connections are.
 - With no Connection, home says what to run; each Connection that signs in
