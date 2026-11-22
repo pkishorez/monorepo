@@ -21,7 +21,7 @@ const standing = async (walk: Walk) => {
 };
 
 /** Follows what the sidebar's head says, every change; read it later. */
-const listen = async (walk: Walk) => {
+export const listen = async (walk: Walk) => {
   await walk.page.evaluate(() => {
     const head = document.querySelector('aside, [role="complementary"]');
     const said: Array<string> = [];

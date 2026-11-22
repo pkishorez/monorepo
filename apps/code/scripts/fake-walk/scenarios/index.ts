@@ -10,6 +10,7 @@ import { projects } from './projects.ts';
 import { reload } from './reload.ts';
 import { sessions } from './sessions.ts';
 import { settings } from './settings.ts';
+import { tunnels } from './tunnels.ts';
 
 /** One flow of the app, walked from where the scenarios it needs left it. */
 export interface Scenario {
@@ -29,6 +30,7 @@ export const scenarios: ReadonlyArray<Scenario> = [
   attachments,
   computers,
   settings,
+  tunnels,
   devtools,
   reload,
   accounts,
