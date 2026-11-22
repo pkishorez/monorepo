@@ -9,7 +9,8 @@ import {
   Stream,
 } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
-import { Runtime } from '@kestack/kabuki';
+import { Runtime, type Snapshot } from '@kestack/kabuki';
+import { Memory } from '@kestack/std-toolkit/db/memory';
 import { Accounts } from '@kestack/auth-toolkit/client';
 import { fakeAccounts } from '@kestack/auth-toolkit/fake';
 import {
@@ -30,7 +31,12 @@ import {
 } from '../../connection/plugins/code/api/index.js';
 import { computers } from '../fake/index.js';
 import { keepSubscribed } from '@kestack/rpc-toolkit/rpc/websocket';
-import { ANOTHER_RELEASE, inTab, tunnelClients } from '../index.js';
+import {
+  ANOTHER_RELEASE,
+  inTab,
+  type Tables,
+  tunnelClients,
+} from '../index.js';
 import { agentEdges } from './agent.js';
 
 /*
@@ -41,7 +47,8 @@ import { agentEdges } from './agent.js';
  * once and its socket drops; below the Minimum Connect it stops until
  * updated; another Release closes its socket; Connect Cloud out of reach
  * fails every call; another device renames, starts and settles a Session,
- * and forgets a computer.
+ * and forgets a computer. Over kept tables and the kept Snapshot, as a
+ * reload in fake mode, the world comes back as it was.
  */
 
 const RELEASE = 'a'.repeat(64);
@@ -59,11 +66,24 @@ const DOWN_AFTER = 45_000;
 type Fake = Runtime<typeof computers.actor>;
 
 /** The Computers Fake, and Code's side over Connect in the tab: Connect Cloud's client, signed in as Ada, and each Connection's socket at the address it is listed at. */
-const world = (harness?: FakeHarness) =>
+const world = (
+  harness?: FakeHarness,
+  kept: {
+    readonly tables?: Tables;
+    readonly snapshot?: Snapshot<typeof computers.actor>;
+  } = {},
+) =>
   Effect.gen(function* () {
-    const fake: Fake = yield* Runtime.scoped(computers.actor);
+    const fake: Fake = yield* Runtime.scoped(
+      computers.actor,
+      (kept.snapshot ? { snapshot: kept.snapshot } : {}) as never,
+    );
     const accounts = fakeAccounts({ choose: Effect.succeed({ email: EMAIL }) });
-    const middle = inTab({ wanted: WANTED, minConnect: '0.0.4' }).pipe(
+    const middle = inTab({
+      wanted: WANTED,
+      minConnect: '0.0.4',
+      tables: kept.tables,
+    }).pipe(
       Layer.provide(Layer.merge(computers.serve(fake), agentEdges(harness))),
       Layer.provideMerge(accounts),
     );
@@ -573,5 +593,83 @@ describe(
           ]);
         }),
       ));
+
+    it('comes back as it was over the kept tables and Snapshot, as after a reload', async () => {
+      // One Memory table per database, kept across both worlds, as IndexedDB keeps them.
+      const made = new Map<string, unknown>();
+      const tables: Tables = (table, database) => {
+        if (!made.has(database)) made.set(database, Memory.make(table).layer);
+        return made.get(database) as ReturnType<Tables>;
+      };
+      const before = await run(
+        Effect.gen(function* () {
+          const { fake, on, computer, listed, add } = yield* world(undefined, {
+            tables,
+          });
+          add('laptop');
+          add('desktop');
+          computer('computer-1').children.fileSystem.send({
+            _tag: 'AddSampleProject',
+            folder: '~/code/shop',
+          });
+          const project = yield* on(
+            'computer-1',
+            Effect.flatMap(CodeClient, (api) =>
+              api.addProject({ path: '/home/you/code/shop' }),
+            ),
+          );
+          computer('computer-1').send({ _tag: 'RotateKey' });
+          computer('computer-2').send({ _tag: 'GoOffline', downAtOnce: true });
+          yield* eventually(async () => {
+            const [laptop, desktop] = await listed();
+            expect(laptop!.key).toBe('fake-key-computer-1-1');
+            expect(Date.now() - desktop!.lastSeen).toBeGreaterThan(DOWN_AFTER);
+          });
+          return {
+            snapshot: computers.kept(fake.snapshot),
+            listed: yield* Effect.promise(listed),
+            project: project.id,
+          };
+        }),
+      );
+      // The reload takes a moment: a desktop pushed back again would be later.
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      await run(
+        Effect.gen(function* () {
+          const { on, listed } = yield* world(undefined, {
+            tables,
+            snapshot: before.snapshot,
+          });
+          // Its disk from the Snapshot: linked, so every computer is followed.
+          expect(yield* on('computer-1', folders())).toEqual(['shop']);
+          const [laptop, desktop] = yield* Effect.promise(listed);
+          const [wasLaptop, wasDesktop] = before.listed;
+          // Its tunnel checked again as the tab's ke-connect starts: a new `at`.
+          expect(laptop).toMatchObject({
+            key: wasLaptop!.key,
+            status: {
+              _tag: 'Ready',
+              url: 'https://computer-1.computers.fake',
+              check: { _tag: 'Reachable' },
+            },
+          });
+          expect(wasLaptop!.key).toBe('fake-key-computer-1-1');
+          expect(desktop).toEqual(wasDesktop);
+          // Its Store from its table.
+          const project = yield* on(
+            'computer-1',
+            Effect.flatMap(CodeClient, (api) =>
+              api.projects({ after: null }).pipe(
+                Stream.flattenIterable,
+                Stream.map(({ value }) => value as { readonly id: string }),
+                Stream.filter(({ id }) => id === before.project),
+                Stream.runHead,
+              ),
+            ),
+          );
+          expect(Option.isSome(project)).toBe(true);
+        }),
+      );
+    });
   },
 );
