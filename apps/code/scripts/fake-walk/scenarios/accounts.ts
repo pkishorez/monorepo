@@ -428,6 +428,15 @@ export const accounts: Scenario = {
       throw new Error(`Kept: ${none.join(', ')}`);
     await walk.shot('signed-out-of-all');
 
+    walk.step('signed out, an address that names no page: Go home, Sign in');
+    await walk.go('/nope');
+    await walk.see('Nothing lives at this address');
+    await walk.shot('nowhere-signed-out');
+    await page.getByRole('link', { name: 'Go home' }).click();
+    await walk.see('Continue with Google');
+    if (new URL(page.url()).pathname !== '/')
+      throw new Error(`Go home went to ${page.url()}`);
+
     walk.step('a sign-in abandoned: the screen stays, the button again');
     await page.getByText('Continue with Google').click();
     await asked(walk);
@@ -445,15 +454,10 @@ export const accounts: Scenario = {
     await walk.see('Google said no', page.getByRole('alert'));
     await walk.shot('sign-in-failed');
 
-    // The address is still Zoe's page: a sign-in comes back to it, and
-    // Zoe is signed out, so Ada is offered there.
-    walk.step("signed in as Ada again on Zoe's page: Away, then Ada's home");
+    walk.step('signed in as Ada again: home, Studio linked');
     await page.getByText('Continue with Google').click();
     await asked(walk);
     await bubble.must('Sign-in', 'Sign in as', { email: 'ada', name: 'Ada' });
-    await bubble.close();
-    await away(walk, 'zoe@kestack.test is signed out');
-    await choose(walk, ADA);
     await placedUnder(walk, ada);
     await until(walk, /Studio[\s\S]*Linked/);
     await walk.shot('ada-again');
