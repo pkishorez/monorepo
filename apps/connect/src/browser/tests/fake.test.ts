@@ -196,7 +196,7 @@ describe(
         }),
       ));
 
-    it('takes a computer offline Down at once, its socket dropped, and brings it back', () =>
+    it('takes a computer offline Down at once, its socket dropped, and brings it back, counting its sockets', () =>
       run(
         Effect.gen(function* () {
           const { clients, on, computer, listed, add } = yield* world();
@@ -209,9 +209,15 @@ describe(
           );
           yield* on('computer-1', folders('~'));
           yield* eventually(() => expect(links.at(-1)).toBe('linked'));
+          yield* eventually(() =>
+            expect(computer('computer-1').model.sockets).toBe(1),
+          );
 
           computer('computer-1').send({ _tag: 'GoOffline', downAtOnce: true });
           yield* eventually(() => expect(links.at(-1)).toBe('relinking'));
+          yield* eventually(() =>
+            expect(computer('computer-1').model.sockets).toBe(0),
+          );
           yield* eventually(async () => {
             const [laptop] = await listed();
             expect(Date.now() - laptop!.lastSeen).toBeGreaterThan(DOWN_AFTER);
@@ -625,8 +631,14 @@ describe(
             expect(laptop!.key).toBe('fake-key-computer-1-1');
             expect(Date.now() - desktop!.lastSeen).toBeGreaterThan(DOWN_AFTER);
           });
+          yield* eventually(() =>
+            expect(computer('computer-1').model.sockets).toBe(1),
+          );
+          const snapshot = computers.kept(fake.snapshot);
+          // A reload closes every socket.
+          expect(snapshot.root.children.computers[0]!.model.sockets).toBe(0);
           return {
-            snapshot: computers.kept(fake.snapshot),
+            snapshot,
             listed: yield* Effect.promise(listed),
             project: project.id,
           };

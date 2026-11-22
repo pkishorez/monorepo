@@ -24,8 +24,9 @@ import type {
  *                  signed in as, its `ke-connect` version, whether it is
  *                  online, how its tunnel stands, its Connection Key, and
  *                  the edges only it has, its File System and git. Told
- *                  when a computer's `ke-connect` stops on its own, and
- *                  given, once Connect runs, how another device reaches it.
+ *                  when a computer's `ke-connect` stops on its own and how
+ *                  many sockets its tunnel holds, and given, once Connect
+ *                  runs, how another device reaches it.
  * - `ConnectCloud` what Connect Cloud is deployed with now: whether it is
  *                  in reach, its Minimum Connect, and the code Plugin
  *                  Release it names.
@@ -115,6 +116,8 @@ export class Computers extends Context.Service<
      * stopped until it starts again: a new `startedAt`, or offline and back.
      */
     readonly stopped: (id: string, why: Stopped) => Effect.Effect<void>;
+    /** Told how many sockets reach a computer's tunnel, each time the number changes. */
+    readonly sockets: (id: string, open: number) => Effect.Effect<void>;
     /** Given once Connect in the tab runs, for as long as it runs: how another device reaches it. */
     readonly anotherDevice: (device: AnotherDevice) => Effect.Effect<void>;
   }

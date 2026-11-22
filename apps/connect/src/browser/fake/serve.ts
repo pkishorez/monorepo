@@ -45,8 +45,9 @@ import { actElsewhere } from './elsewhere.js';
  *             The list is told again only when what it says changes, not
  *             at every file the code Plugin writes.
  * 3. Told     a computer whose `ke-connect` stopped on its own is Sent
- *             `StoppedOnItsOwn`; how another device reaches Connect in the
- *             tab is kept for the acts.
+ *             `StoppedOnItsOwn`, and each change to the sockets its tunnel
+ *             holds `SocketsOpen`; how another device reaches Connect in
+ *             the tab is kept for the acts.
  * 4. Acts     each act from another device queued on a computer is
  *             carried out once Connect in the tab has said how another
  *             device reaches it (elsewhere.ts), and Sent back to the
@@ -282,6 +283,12 @@ export const serveComputers = (
             instances()
               .find(({ key }) => key === id)
               ?.send({ _tag: 'StoppedOnItsOwn', why });
+          }),
+        sockets: (id, open) =>
+          Effect.sync(() => {
+            instances()
+              .find(({ key }) => key === id)
+              ?.send({ _tag: 'SocketsOpen', open });
           }),
         anotherDevice: (another) => SubscriptionRef.set(device, another),
       }).pipe(

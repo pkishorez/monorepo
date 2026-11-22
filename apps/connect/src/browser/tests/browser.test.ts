@@ -2,11 +2,12 @@ import {
   Clock,
   Context,
   Effect,
+  Exit,
   Fiber,
   Layer,
   Option,
   Schedule,
-  type Scope,
+  Scope,
   Stream,
   SubscriptionRef,
 } from 'effect';
@@ -95,13 +96,15 @@ const computer = (id: string, more: Partial<Computer> = {}): Computer => {
   };
 };
 
-/** Computers a test changes, and every stop it was told of. */
+/** Computers a test changes, every stop it was told of, and the sockets each tunnel holds. */
 const world = Effect.gen(function* () {
   const list = yield* SubscriptionRef.make<ReadonlyArray<Computer>>([]);
   const stops: Array<readonly [string, Stopped]> = [];
+  const held = new Map<string, number>();
   const layer = Layer.succeed(Computers, {
     changes: SubscriptionRef.changes(list),
     stopped: (id, why) => Effect.sync(() => void stops.push([id, why])),
+    sockets: (id, open) => Effect.sync(() => void held.set(id, open)),
     anotherDevice: () => Effect.void,
   });
   const set = (...computers: ReadonlyArray<Computer>) =>
@@ -110,7 +113,7 @@ const world = Effect.gen(function* () {
     SubscriptionRef.update(list, (all) =>
       all.map((each) => (each.id === id ? { ...each, ...more } : each)),
     );
-  return { layer, set, change, stops };
+  return { layer, set, change, stops, held };
 });
 
 /** Code's side: Connect Cloud's client, signed in as Ada, and each Connection's socket at the address it is listed at. */
@@ -333,6 +336,47 @@ describe('Connect in a tab', () => {
         yield* eventually(() => expect(links.at(-1)).toBe('linked'));
         expect(yield* on('laptop', harnesses)).toHaveLength(2);
         expect(stops).toEqual([]);
+      }),
+    ));
+
+  it('tells how many sockets each tunnel holds: one per client open, none once closed or offline', () =>
+    run(
+      Effect.gen(function* () {
+        const { layer, set, change, held } = yield* world;
+        const { on, built } = yield* app(layer);
+        yield* set(computer('laptop'));
+        const harnesses = Effect.flatMap(CodeClient, (api) => api.harnesses());
+        yield* on('laptop', harnesses);
+        yield* eventually(() => expect(held.get('laptop')).toBe(1));
+
+        // A second client's socket, closed with its Scope.
+        const second = yield* Scope.make();
+        const clients = Context.get(
+          yield* Layer.build(
+            tunnelClients.pipe(
+              Layer.provide(
+                Layer.succeed(ConnectionAddress, {
+                  of: () =>
+                    Effect.succeed({
+                      url: `wss://laptop.computers.fake${pluginPath('code', RELEASE)}`,
+                      key: KEY,
+                    }),
+                }),
+              ),
+              Layer.provide(Layer.succeedContext(built)),
+            ),
+          ).pipe(Scope.provide(second)),
+          CodeClients,
+        );
+        yield* CodeClients.on('laptop', harnesses).pipe(
+          Effect.provideService(CodeClients, clients),
+        );
+        yield* eventually(() => expect(held.get('laptop')).toBe(2));
+        yield* Scope.close(second, Exit.void);
+        yield* eventually(() => expect(held.get('laptop')).toBe(1));
+
+        yield* change('laptop', { online: false });
+        yield* eventually(() => expect(held.get('laptop')).toBe(0));
       }),
     ));
 
