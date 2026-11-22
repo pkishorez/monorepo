@@ -1,4 +1,4 @@
-import { Effect, Layer } from 'effect';
+import { Duration, Effect, Layer } from 'effect';
 import type { LiveInstance, Sent } from '@kestack/kabuki/types';
 import {
   AccessDenied,
@@ -29,7 +29,8 @@ import {
  * as it is at each call, answers as `node.ts` would on a disk like it, and
  * picks the same errors: nothing there, or a file on the way, NotFound; an
  * unreadable folder listed or gone into, AccessDenied; a folder that fails
- * to list, a folder read or removed as a file, or a symlink loop, IoError.
+ * to list, a folder read or removed as a file, or a symlink loop, IoError;
+ * a slow folder lists only after `SLOW`, longer than anyone waits.
  * A change it would make is a Message, Sent only once nothing is in the
  * way, so it lands as asked. The handle is all it holds of the fake: a
  * running Fake's root, or a computer's File System inside another Fake.
@@ -55,6 +56,9 @@ const kindOf = (entry: Entry): EntryKind =>
     : entry._tag === 'File'
       ? 'file'
       : 'symlink';
+
+/** How long listing a slow folder takes. */
+export const SLOW = Duration.seconds(30);
 
 const byName = (a: { name: string }, b: { name: string }) =>
   a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
@@ -149,6 +153,7 @@ export const fileSystemOver = (
             path,
             message: `EIO: i/o error, scandir '${path}'`,
           });
+        if (entry.slow) yield* Effect.sleep(SLOW);
         return childrenOf(tree(), at.path)
           .map(({ name, entry: child }): DirEntry => ({
             name,

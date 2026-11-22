@@ -183,6 +183,33 @@ describe('listing a folder of the fake', () => {
   });
 });
 
+describe('a folder slow to list on the fake', () => {
+  it('could not be read once it takes over 5 seconds', async () => {
+    const { runtime, control } = computer();
+    control({ _tag: 'MakeSlowToList', folder: '~/code' });
+    const outcome = await Effect.runPromise(
+      Effect.gen(function* () {
+        const folders = yield* Folders;
+        const fiber = yield* Effect.forkChild(
+          Effect.flip(folders.list({ path: '~/code' })),
+        );
+        yield* TestClock.adjust('5 seconds');
+        return yield* Fiber.join(fiber);
+      }).pipe(
+        Effect.provide(
+          homeFolders.pipe(Layer.provide(fileSystem.serve(runtime))),
+        ),
+        Effect.provide(TestClock.layer()),
+      ),
+    );
+    expect(outcome).toMatchObject({
+      _tag: 'FolderUnreadable',
+      path: CODE,
+      message: 'Listing it took too long',
+    });
+  });
+});
+
 describe('creating a folder on the fake', () => {
   it('makes the folder as a Message to the fake, and no git repository in it', async () => {
     const { runtime, create, list } = computer();

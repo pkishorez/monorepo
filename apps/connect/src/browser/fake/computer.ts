@@ -66,6 +66,8 @@ export const Act = Schema.TaggedUnion({
   SettleSession: { session: Schema.String },
   /** Answers the question a Session waits on, each part with its first choice. */
   AnswerQuestion: { session: Schema.String },
+  /** Removes an agent account the user added, by its name. */
+  RemoveAgentAccount: { name: Schema.String },
 });
 export type Act = typeof Act.Type;
 
@@ -152,6 +154,8 @@ const Message = Schema.TaggedUnion({
   SettleSessionElsewhere: { session: Schema.String },
   /** Another device answers the question a Session waits on, by its id. */
   AnswerQuestionElsewhere: { session: Schema.String },
+  /** Another device removes an agent account the user added, by its name (`Work`). */
+  RemoveAgentAccountElsewhere: { name: Schema.String },
 
   // Sent by serve.ts.
   /** Its `ke-connect` stopped on its own. */
@@ -186,6 +190,7 @@ export const COMPUTER_CONTROLS = [
   'StartSessionElsewhere',
   'SettleSessionElsewhere',
   'AnswerQuestionElsewhere',
+  'RemoveAgentAccountElsewhere',
 ] as const satisfies ReadonlyArray<ComputerMessage['_tag']>;
 
 export const ComputerFake = Actor.define('Computer', {
@@ -297,6 +302,8 @@ export const ComputerFakeLive = ComputerFake.build({
       queued({ _tag: 'SettleSession', session }, model),
     AnswerQuestionElsewhere: ({ session }, { model }) =>
       queued({ _tag: 'AnswerQuestion', session }, model),
+    RemoveAgentAccountElsewhere: ({ name }, { model }) =>
+      queued({ _tag: 'RemoveAgentAccount', name }, model),
 
     StoppedOnItsOwn: ({ why }) => ({ model: { stopped: why } }),
     SocketsOpen: ({ open }) => ({ model: { sockets: open } }),

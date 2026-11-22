@@ -103,6 +103,19 @@ export const actElsewhere = (
             return 'Answered its question';
           }),
         );
+      case 'RemoveAgentAccount':
+        return yield* on(
+          Effect.gen(function* () {
+            const api = yield* CodeClient;
+            const named = (yield* api.harnessAccounts()).find(
+              ({ name }) => name === act.name.trim(),
+            );
+            if (named === undefined)
+              return `No agent account named ${act.name.trim()}`;
+            yield* api.removeHarnessAccount({ id: named.id });
+            return `Removed agent account ${named.name}`;
+          }),
+        );
     }
   });
   return done.pipe(
