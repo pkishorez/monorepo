@@ -85,7 +85,7 @@ pnpm --filter code deploy:prod   # ALLOW_DEPLOY=true: code.kishore.app
   branch in front in a linked git worktree); nothing else starts. Fake mode is read
   only while developing (`import.meta.env.DEV`), so a production build
   never carries it, and fails if anything brings a fake in (`kestack-fake`).
-  A reload starts the Fakes blank for now.
+  A reload keeps the Fakes and the Middle; the bubble's Start fresh wipes them.
 - `pnpm dev:connect` calls `withConnect` from `@kestack/connect/dev`
   ([Connect in development](../connect/docs/dev.md)), then runs
   `alchemy dev` (`alchemy.run.ts`, `src/deploy/infra/`) through Portless,
