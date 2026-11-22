@@ -51,6 +51,8 @@ let read = () => {};
 let retitling: ReadonlyArray<unknown> = [];
 /** The Actions of the keyboard that worked where Actions is opened. */
 let available: ReadonlyArray<string> = [];
+/** Whether `s2` runs a Turn. */
+let running = false;
 /** The title the server is writing, until a test gives it. */
 let title = Deferred.makeUnsafe<string>();
 
@@ -76,7 +78,7 @@ const Actions = View.make(ActionsLive, ({ model, children, send }) => {
       session: {
         id: 's2',
         projectId: 'p1',
-        running: false,
+        running,
         settled: false,
         original: { id: 's1', title: 'First' },
       },
@@ -206,6 +208,7 @@ beforeEach(async () => {
   pushed = [];
   settled = [];
   available = [];
+  running = false;
   title = Deferred.makeUnsafe<string>();
   const App = View.app(OwnerView, {
     layer: services,
@@ -283,6 +286,18 @@ describe('Actions on a session', () => {
     expect(named('Session details')).toHaveLength(1);
     // The keys' own rows still list what the session's do not.
     expect(named('Stop the turn')).toHaveLength(1);
+  });
+
+  it("list Stop the turn once, the session's, while it runs", async () => {
+    available = ['content.stop'];
+    running = true;
+    await openFromSidebar();
+    const stops = [...document.querySelectorAll('[cmdk-item]')].filter((item) =>
+      item.textContent?.includes('Stop the turn'),
+    );
+    expect(stops.map((item) => item.getAttribute('data-value'))).toEqual([
+      'stop',
+    ]);
   });
 
   it('list no Session details where the page has none', async () => {
