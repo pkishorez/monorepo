@@ -48,7 +48,7 @@ const listen = async (walk: Walk) => {
 };
 
 /** Waits until the sidebar's head says this of Studio. */
-const until = async (walk: Walk, said: RegExp, timeout = 30_000) => {
+export const until = async (walk: Walk, said: RegExp, timeout = 30_000) => {
   const start = Date.now();
   for (;;) {
     const now = await standing(walk);

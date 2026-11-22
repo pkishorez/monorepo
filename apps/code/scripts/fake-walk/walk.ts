@@ -21,10 +21,9 @@ import { Walk } from './walker.ts';
  * One page walks every scenario asked, in the order of `scenarios/`, as one
  * person would: each scenario starts where the ones it needs left the app,
  * and says what it needs. The browser starts with nothing kept, so the
- * world is blank; nothing reloads the page on the way, since a reload does
- * not keep the world yet (the plan's task 20). A step that fails stops the
- * walk, with a screenshot of where; the errors the page logged are listed
- * at the end.
+ * world is blank. A reload keeps the world, as `reload` checks; `start-fresh`
+ * makes it blank again. A step that fails stops the walk, with a
+ * screenshot of where; the errors the page logged are listed at the end.
  */
 
 const args = process.argv.slice(2);
@@ -79,6 +78,13 @@ try {
     permissions: ['clipboard-read', 'clipboard-write'],
   });
   const page = await context.newPage();
+  // Every module over the network, never from the HTTP cache: a reload
+  // reading the dev server's thousands of modules from the cache at once
+  // takes gigabytes of shared memory for a moment, and the browser is
+  // killed where memory is tight.
+  const cdp = await context.newCDPSession(page);
+  await cdp.send('Network.enable');
+  await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });
   page.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`));
   page.on('console', (message) => {
     const text = message.text();
