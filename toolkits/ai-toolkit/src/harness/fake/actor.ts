@@ -67,6 +67,8 @@ const Install = Schema.Struct({
   modelsFail: Schema.NullOr(Schema.String),
   skillsFail: Schema.NullOr(Schema.String),
   opensFail: Schema.NullOr(Schema.String),
+  /** How long opening an Agent takes, in ms. */
+  opensInMs: Schema.Int,
 });
 export type Install = typeof Install.Type;
 
@@ -150,6 +152,8 @@ const Model = Schema.Struct({
   title: Schema.Struct({
     next: Schema.String,
     failNext: Schema.NullOr(Schema.String),
+    /** How long the next Title takes, in ms. */
+    inMs: Schema.Int,
   }),
   /** The next Btw answer, blank for a plain one; why it fails instead. */
   btw: Schema.Struct({
@@ -195,6 +199,8 @@ const Message = Schema.TaggedUnion({
   ModelsFail: { harness: Harness, reason: Schema.String },
   /** Opening an Agent fails, saying this (blank: works again). */
   OpensFail: { harness: Harness, reason: Schema.String },
+  /** Opening an Agent takes this long, in ms (0: at once again). */
+  OpensSlowly: { harness: Harness, ms: Schema.Int },
 
   // Controls: replies.
   /** Every reply from now on plays this Script. */
@@ -229,6 +235,8 @@ const Message = Schema.TaggedUnion({
   TitleNext: { title: Schema.String },
   /** The next Title fails, saying this. */
   FailNextTitle: { reason: Schema.String },
+  /** The next Title takes this long, in ms. */
+  TitleSlowly: { ms: Schema.Int },
   /** The next Btw answer (blank: a plain one). */
   BtwNext: { answer: Schema.String },
   /** The next Btw fails, saying this. */
@@ -293,6 +301,7 @@ export const AGENT_CONTROLS = [
   'SkillsFail',
   'ModelsFail',
   'OpensFail',
+  'OpensSlowly',
   'ReplyWith',
   'SetPace',
   'AskNow',
@@ -307,6 +316,7 @@ export const AGENT_CONTROLS = [
   'StopsFail',
   'TitleNext',
   'FailNextTitle',
+  'TitleSlowly',
   'BtwNext',
   'FailNextBtw',
   'SetContextUsage',
@@ -328,6 +338,7 @@ const installed = (): Install => ({
   modelsFail: null,
   skillsFail: null,
   opensFail: null,
+  opensInMs: 0,
 });
 
 /** Blank: both harnesses installed and signed in, nothing failing, replies an echo. */
@@ -342,7 +353,7 @@ export const blank = (): AgentModel => ({
   wakeups: [],
   stopsFail: null,
   answersFail: null,
-  title: { next: '', failNext: null },
+  title: { next: '', failNext: null, inMs: 0 },
   btw: { next: '', failNext: null },
   context: {
     usedTokens: 24_000,
@@ -482,6 +493,9 @@ export const AgentFake = Actor.define('Agent', {
     OpensFail: ({ harness, reason }, { model }) => ({
       model: install(model, harness, { opensFail: given(reason) }),
     }),
+    OpensSlowly: ({ harness, ms }, { model }) => ({
+      model: install(model, harness, { opensInMs: Math.max(0, ms) }),
+    }),
 
     ReplyWith: ({ script }) => ({ model: { replyWith: script } }),
     SetPace: ({ ms }) => ({ model: { paceMs: Math.max(0, ms) } }),
@@ -542,6 +556,9 @@ export const AgentFake = Actor.define('Agent', {
           failNext: given(reason) ?? 'Codex could not write a title.',
         },
       },
+    }),
+    TitleSlowly: ({ ms }, { model }) => ({
+      model: { title: { ...model.title, inMs: Math.max(0, ms) } },
     }),
     BtwNext: ({ answer }, { model }) => ({
       model: { btw: { ...model.btw, next: answer.trim() } },
@@ -645,7 +662,7 @@ export const AgentFake = Actor.define('Agent', {
       model: { wakeups: model.wakeups.filter((wakeup) => wakeup.id !== id) },
     }),
     TitleTaken: () => ({
-      model: { title: { next: '', failNext: null } },
+      model: { title: { next: '', failNext: null, inMs: 0 } },
     }),
     BtwTaken: () => ({ model: { btw: { next: '', failNext: null } } }),
     ContextFilled: ({ usedTokens }, { model }) => ({
