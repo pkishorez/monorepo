@@ -142,25 +142,25 @@ mode are under [Limits](#limits).
 ### The Draft
 
 - [x] Type and send (wide, Vim off: Enter or the send button): a Turn starts; the Draft empties. **Reach:** a Session's page. **Needs:** Agent: a Script.
-- [ ] Send while a Turn runs: steers it, the bubble says it was sent while the agent worked. **Reach:** a running Session. **Needs:** Agent: a long Script.
-- [ ] Send refused: text and files come back into the Draft. **Reach:** a Session. **Needs:** Computers: restart or forget, so the call fails (or the Session gone).
-- [ ] Saved Draft: text, cursor, selection, mode, files and picks come back after leaving and coming back, and after a reload; a new Session's goes once it starts. **Reach:** type, go elsewhere, return. **Needs:** real middle.
-- [ ] Model Picker: agent, model, then each setting (effort, permissions); Mod+Enter finishes; `m`, `p`, `e` open it at model, permissions, effort; a started Session keeps its agent. **Reach:** Status Line triggers. **Needs:** Agent: harnesses, models from the real catalog, settings.
-- [ ] Model or settings changed mid-session hold from the next Turn. **Reach:** model Picker in a Session, send. **Needs:** Agent.
-- [ ] Two Claude logins: an added account named beside the logo ("Work · Opus 5.5"); the Default Account not named. **Reach:** model Picker, Status Line, header. **Needs:** Agent: accounts.
-- [ ] Agent not installed: shown, unpickable, with why; a new Session's Draft says so with a link to Settings → Connections. **Reach:** model Picker. **Needs:** Agent: not installed (with a reason).
-- [ ] Models the login cannot be asked for: the models.dev list its harness accepts. **Reach:** model Picker. **Needs:** Agent: not signed in / login cannot be asked.
-- [ ] Models refused: "Could not load the models", what showed kept; Retry. **Reach:** model Picker. **Needs:** Agent: models fail.
-- [ ] Skills Picker: a `/name` put in at the cursor as one atom; Skills per Project and account. **Reach:** Status Line Skills, `/` (Vim). **Needs:** Agent: Skills in a folder.
-- [ ] Skills fail to load: the Picker says why; Retry. **Reach:** Skills Picker. **Needs:** Agent: Skills fail.
-- [ ] Undo the last thing put in the Draft. **Reach:** `u` (Vim). **Needs:** real middle.
-- [ ] Vim Mode: the Draft read-only until `i`; Escape leaves the Composer. **Reach:** Mod+Alt+V. **Needs:** real middle.
+- [x] Send while a Turn runs: steers it, the bubble says it was sent while the agent worked. **Reach:** a running Session. **Needs:** Agent: a long Script.
+- [x] Send refused: text and files come back into the Draft. **Reach:** a Session. **Needs:** Computers: restart or forget, so the call fails (or the Session gone). _(22c1: walked by a file the Connection cannot save, its attachments folder made unreadable: "The Connection could not take it", text and file back. **Open (production):** Effect RPC takes a handler's defect as fatal to the socket, so every stream on it ends and the transcript stops updating until the page opens anew.)_
+- [x] Saved Draft: text, cursor, selection, mode, files and picks come back after leaving and coming back, and after a reload; a new Session's goes once it starts. **Reach:** type, go elsewhere, return. **Needs:** real middle.
+- [x] Model Picker: agent, model, then each setting (effort, permissions); Mod+Enter finishes; `m`, `p`, `e` open it at model, permissions, effort; a started Session keeps its agent. **Reach:** Status Line triggers. **Needs:** Agent: harnesses, models from the real catalog, settings.
+- [x] Model or settings changed mid-session hold from the next Turn. **Reach:** model Picker in a Session, send. **Needs:** Agent.
+- [x] Two Claude logins: an added account named beside the logo ("Work · Opus 5.5"); the Default Account not named. **Reach:** model Picker, Status Line, header. **Needs:** Agent: accounts.
+- [x] Agent not installed: shown, unpickable, with why; a new Session's Draft says so with a link to Settings → Connections. **Reach:** model Picker. **Needs:** Agent: not installed (with a reason).
+- [x] Models the login cannot be asked for: the models.dev list its harness accepts. **Reach:** model Picker. **Needs:** Agent: not signed in / login cannot be asked.
+- [x] Models refused: "Could not load the models", what showed kept; Retry. **Reach:** model Picker. **Needs:** Agent: models fail.
+- [x] Skills Picker: a `/name` put in at the cursor as one atom; Skills per Project and account. **Reach:** Status Line Skills, `/` (Vim). **Needs:** Agent: Skills in a folder. _(22c1: a project's kept Skills are asked anew when its page opens in the app; after a reload in fake mode the ask races the computer restarting and the kept copy stays.)_
+- [x] Skills fail to load: the Picker says why; Retry. **Reach:** Skills Picker. **Needs:** Agent: Skills fail.
+- [x] Undo the last thing put in the Draft. **Reach:** `u` (Vim). **Needs:** real middle.
+- [x] Vim Mode: the Draft read-only until `i`; Escape leaves the Composer. **Reach:** Mod+Alt+V. **Needs:** real middle.
 
 ### Attachments
 
 - [x] Paste a file or image anywhere on the page; drop a file; the paperclip picks one: each a chip under the Draft. **Reach:** Draft. **Needs:** real middle (the browser's files).
-- [ ] An image over 5 MB or another file over 50 MB is left out with a line saying why. **Reach:** Draft. **Needs:** real middle.
-- [ ] Remove a chip. **Reach:** chip's ×. **Needs:** real middle.
+- [x] An image over 5 MB or another file over 50 MB is left out with a line saying why. **Reach:** Draft. **Needs:** real middle.
+- [x] Remove a chip. **Reach:** chip's ×. **Needs:** real middle.
 - [x] Sent: images go to the agent; another file is saved on the computer and its path given; the bubble shows the files. **Reach:** send with files. **Needs:** File System (the saved file); Agent.
 
 ### Words and work in the transcript
@@ -176,7 +176,7 @@ mode are under [Limits](#limits).
 - [ ] Claude's plan (todo) and Codex's plan (`codex.plan`) as checklists. **Reach:** transcript. **Needs:** Agent: Scripts for each.
 - [ ] Claude's compaction row; an `other` part as one plain row; an `error` part. **Reach:** transcript. **Needs:** Agent: Scripts with each.
 - [ ] Long bubbles fold with Show more; Copy on a bubble and an answer. **Reach:** transcript. **Needs:** Agent; real middle.
-- [ ] Following the bottom while words stream; scrolling up stops following; `shift+g` follows again; `g g` to the top. **Reach:** transcript. **Needs:** Agent: a long Script.
+- [x] Following the bottom while words stream; scrolling up stops following; `shift+g` follows again; `g g` to the top. **Reach:** transcript. **Needs:** Agent: a long Script.
 - [ ] A long Session: earlier Turns drawn as scrolled to. **Reach:** transcript. **Needs:** Agent: many Turns (a Script played many times).
 
 ### Turn endings and status
@@ -184,9 +184,9 @@ mode are under [Limits](#limits).
 - [x] Done: the footer's time; status word in the sidebar ("how long ago"). **Reach:** transcript, sidebar. **Needs:** Agent: a Script ending done.
 - [x] Failed: red mark, why above the footer; sidebar says failed. **Reach:** transcript. **Needs:** Agent: a Script ending failed.
 - [x] Not signed in: the Turn fails with the harness's login error. **Reach:** send. **Needs:** Agent: not signed in.
-- [ ] An added account removed: its Sessions fail their next Turn. **Reach:** Settings → remove, then send. **Needs:** Agent: accounts.
+- [ ] An added account removed: its Sessions fail their next Turn. **Reach:** Settings → remove, then send. **Needs:** Agent: accounts. **Open (production):** an Agent already open keeps running on the removed account; only its next opening (a restart) fails, "Its Harness Account was removed from this Connection", and the Status Line drops the model for that session.
 - [x] Stopped by you: Stop (Status Line, `mod+.`, Actions, the Question Panel's head), square mark, "stopped". **Reach:** a running Turn. **Needs:** Agent: a long or hanging Script.
-- [ ] Stop refused: says why. **Reach:** Stop. **Needs:** Computers: offline (the call waits) — a refusal needs the Session gone.
+- [ ] Stop refused: says why. **Reach:** Stop. **Needs:** Computers: offline (the call waits) — a refusal needs the Session gone. _(22c1: offline, Stop is disabled, not refused; a refusal needs the Session gone, see Limits.)_
 - [x] Interrupted (cut off): amber mark; the Turn after says what the restart stopped (the Turn, subagents, commands). **Reach:** restart a computer during a Turn. **Needs:** Computers: restart. _(Task 20: walked by a reload mid-Turn, which restarts every computer in the tab; a Restart Control mid-Turn not yet.)_
 - [x] Resumed Turn: after a restart, Connect continues a cut-off Turn; a quiet rule says so in place of the prompt. **Reach:** as above. **Needs:** Computers: restart; Agent: a Script for the resume. _(Task 20: "Resumed after Connect restarted", after a reload.)_
 - [x] An Agent-started Turn (no words of yours): a rule says why it carried on. **Reach:** transcript. **Needs:** Agent: starts a Turn on its own (as when a background job ends).
