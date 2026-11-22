@@ -42,17 +42,23 @@ export const reach: Scenario = {
     await walk.button('Choose whose sessions to show').waitFor();
 
     walk.step('the Connection Step, with every Connection shown');
+    // An earlier walk may have left the sidebar on one Connection.
+    await drawer(walk, 'drawer-two', 'All Connections');
     await page.keyboard.press('Control+p');
     await picker.getByRole('option', { name: /^Den/ }).waitFor();
     const connections = (await picker.innerText()).replace(/\s*\n\s*/g, ' | ');
     console.log(`  ${connections.slice(0, 120)}`);
-    if (!/Studio \| \d+ projects? \| Den \| 0 projects/.test(connections))
+    if (!/Studio[^|]* \| \d+ projects? \| Den \| 0 projects/.test(connections))
       throw new Error('The Connection Step does not list Studio and Den');
     await walk.shot('connection-step');
     await picker.getByRole('option', { name: /^Den/ }).click();
     await picker.getByRole('option', { name: /Open a folder/ }).click();
     await picker.getByRole('combobox').fill('~/code/api');
-    await picker.getByRole('option', { name: 'api', exact: true }).waitFor();
+    // Den, just started again by the reload, may still be linking: the
+    // folder Step waits for it.
+    await picker
+      .getByRole('option', { name: 'api', exact: true })
+      .waitFor({ timeout: 60_000 });
     await page.keyboard.press('Control+Enter');
     await walk.see('~/code/api');
     const api = page.url();
@@ -71,7 +77,7 @@ export const reach: Scenario = {
     await walk.go('/');
     await walk.says(
       walk.main,
-      /api\s+Den\s+\/home\/you\/code\/api[\s\S]*shop\s+Studio\s+\/home\/you\/code\/shop/,
+      /api\s+Den\s+\/home\/you\/code\/api[\s\S]*shop\s+Studio[^\n]*\s+\/home\/you\/code\/shop/,
     );
     await walk.shot('home-two');
 

@@ -147,6 +147,7 @@ export const repos: Scenario = {
     );
     await send(page, 'On main');
     await walk.see('echo: On main');
+    await page.waitForURL(/\/s\//);
     await bubble.must(DISK, 'Switch branch', {
       project: '~/code/shop',
       branch: 'fix/typo',
@@ -186,6 +187,8 @@ export const repos: Scenario = {
     await walk.see(/Starting the agent/, walk.main);
     await walk.shot('starting');
     await walk.see('echo: Work on a locked repo');
+    // On the Session's page before the next page is asked for.
+    await page.waitForURL(/\/s\//);
     const shown = await steps();
     console.log(`  steps: ${shown.join(' → ')}`);
     if (
@@ -273,6 +276,7 @@ export const repos: Scenario = {
     await page.getByRole('switch', { name: 'New worktree' }).click();
     await send(page, 'Push it before the title');
     await walk.see('echo: Push it before the title');
+    await page.waitForURL(/\/s\//);
     // Its branch as the sidebar says it, without `ke-code/`: the bubble's
     // tree lists 100 entries a level, fewer than this disk holds by now.
     const first = sidebar.getByRole('link', {
