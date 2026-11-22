@@ -46,6 +46,12 @@ export const PLACE = '@kestack/devtools-kabuki/fake:bubble';
 /** The bubble's size, and how far it keeps from the edges, in pixels. */
 const SIZE = 44;
 const MARGIN = 12;
+/**
+ * How far above the window's foot it first sits, in pixels: over the
+ * bottom-right corner's row, where the Web Platform's Devtools Dock keeps
+ * its button and the Inspector its Timeline, so both stay in reach.
+ */
+const FIRST_ABOVE = 64;
 /** How far a press moves before it is a drag, and a Shift+arrow moves it. */
 const DRAG = 4;
 const STEP = 24;
@@ -78,11 +84,26 @@ interface Place {
   readonly y: number;
 }
 
-// 1. Bubble
-const clamped = ({ x, y }: Place): Place => ({
-  x: Math.min(Math.max(MARGIN, x), window.innerWidth - SIZE - MARGIN),
-  y: Math.min(Math.max(MARGIN, y), window.innerHeight - SIZE - MARGIN),
+/** The size of the window the bubble is kept in. */
+interface Room {
+  readonly width: number;
+  readonly height: number;
+}
+
+const roomNow = (): Room => ({
+  width: window.innerWidth,
+  height: window.innerHeight,
 });
+
+// 1. Bubble
+const clamped = ({ x, y }: Place, room: Room = roomNow()): Place => ({
+  x: Math.min(Math.max(MARGIN, x), room.width - SIZE - MARGIN),
+  y: Math.min(Math.max(MARGIN, y), room.height - SIZE - MARGIN),
+});
+
+/** Where the bubble sits until it is moved: on the right, just over the bottom-right corner's row. */
+export const firstPlace = (room: Room): Place =>
+  clamped({ x: Infinity, y: room.height - SIZE - FIRST_ABOVE }, room);
 
 const placeAtFirst = (): Place => {
   try {
@@ -94,9 +115,9 @@ const placeAtFirst = (): Place => {
     )
       return clamped(kept as Place);
   } catch {
-    // Unreadable: the corner.
+    // Unreadable: where it first sits.
   }
-  return clamped({ x: Infinity, y: Infinity });
+  return firstPlace(roomNow());
 };
 
 const keep = (place: Place) => {

@@ -360,9 +360,11 @@ How it works:
   whether it did.
 - `FakeBubble` draws itself on the page's body in a Shadow DOM, its styles
   in its code: the app's styles never reach it, and its never reach the
-  app. It follows the page's `color-scheme`. Dragged, or moved with
-  Shift and an arrow, it keeps its place in localStorage; pressed, it
-  opens the panel, which Escape closes.
+  app. It follows the page's `color-scheme`. It first sits on the right,
+  just over the bottom-right corner, where the Web Platform's Devtools
+  Dock keeps its button. Dragged, or moved with Shift and an arrow, it
+  keeps its place in localStorage; pressed, it opens the panel, which
+  Escape closes.
 - Each Instance offers the Fake's `controls` its Actor has an Update for,
   each a form read from the Message's Schema: text, a number, a switch, a
   choice of literals, else JSON, a blank optional field left out. Sent to
