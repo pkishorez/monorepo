@@ -198,6 +198,9 @@ export const agentOver = (
           const loggedIn = signedIn(played, account.configFolder);
           const nativeId = config.nativeId ?? id(`fake-${played.name}-`);
           let current = config.model;
+          let settings: Readonly<Record<string, string>> = {
+            ...config.settings,
+          };
           let running: Running | undefined;
           /** An Agent-started Turn handed out, not yet read. */
           let offered = false;
@@ -212,6 +215,7 @@ export const agentOver = (
             harness: played.name,
             cwd: config.cwd,
             model: config.model,
+            settings,
           });
           yield* Effect.addFinalizer(() =>
             send({ _tag: 'AgentClosed', id: nativeId }),
@@ -250,6 +254,8 @@ export const agentOver = (
                   prompt,
                   script: script.name,
                   startedBy,
+                  model: current,
+                  settings,
                 });
                 yield* Deferred.succeed(turn.started, undefined);
                 const context: WriterContext = {
@@ -438,6 +444,8 @@ export const agentOver = (
             nativeId: Effect.succeed(nativeId),
             turn: (input) => {
               if (input.model !== undefined) current = input.model;
+              if (input.settings !== undefined)
+                settings = { ...settings, ...input.settings };
               return turnOf(
                 scriptNamed(model().replyWith, input.text),
                 input.text,

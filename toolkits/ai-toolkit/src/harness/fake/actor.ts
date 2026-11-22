@@ -27,7 +27,8 @@ import { SCRIPT_NAMES } from './scripts.js';
  *              starts and ends; a Control on one (ask now, fail now, cut
  *              off now, hang until stopped, give up asking) waits in its
  *              `now` until the reply takes it, between two of its steps.
- * - Agents     the Agents open (Sent by serve.ts), their Background Jobs
+ * - Agents     the Agents open (Sent by serve.ts), each on the model and
+ *              settings its latest Turn ran on, their Background Jobs
  *              with what each wrote, and the Turns an agent was asked to
  *              start on its own (`wakeups`).
  * - One-shots  the next Title and Btw answer, or why the next fails.
@@ -130,12 +131,14 @@ const Model = Schema.Struct({
   replyWith: Script,
   /** How long a reply waits between two pieces, in ms. */
   paceMs: Schema.Int,
+  /** The Agents open, each with the model and settings its latest Turn runs on. */
   agents: Schema.Array(
     Schema.Struct({
       id: Schema.String,
       harness: Harness,
       cwd: Schema.String,
       model: Schema.String,
+      settings: Schema.Record(Schema.String, Schema.String),
     }),
   ),
   replies: Schema.Array(Reply),
@@ -255,6 +258,7 @@ const Message = Schema.TaggedUnion({
     harness: Harness,
     cwd: Schema.String,
     model: Schema.String,
+    settings: Schema.Record(Schema.String, Schema.String),
   },
   AgentClosed: { id: Schema.String },
   ReplyStarted: {
@@ -264,6 +268,9 @@ const Message = Schema.TaggedUnion({
     prompt: Schema.String,
     script: Schema.String,
     startedBy: Schema.Literals(['You', 'Agent']),
+    /** The model and settings it runs on, a Turn's changes taken. */
+    model: Schema.String,
+    settings: Schema.Record(Schema.String, Schema.String),
   },
   /** The reply took what `now` asked. */
   ReplyTook: { id: Schema.String },
@@ -591,6 +598,7 @@ export const AgentFake = Actor.define('Agent', {
             harness: agent.harness,
             cwd: agent.cwd,
             model: agent.model,
+            settings: agent.settings,
           },
         ],
       },
@@ -604,8 +612,14 @@ export const AgentFake = Actor.define('Agent', {
         wakeups: model.wakeups.filter(({ agent }) => agent !== id),
       },
     }),
+    // A Turn's model and settings hold from it on: its Agent runs on them now.
     ReplyStarted: (reply, { model }) => ({
       model: {
+        agents: model.agents.map((agent) =>
+          agent.id === reply.agent
+            ? { ...agent, model: reply.model, settings: reply.settings }
+            : agent,
+        ),
         replies: [
           ...model.replies,
           {

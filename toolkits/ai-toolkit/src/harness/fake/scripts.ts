@@ -256,14 +256,15 @@ export const SCRIPTS: ReadonlyArray<Script> = [
         description: 'Run the review skill',
         output: 'Launching skill: review',
       },
+      // A PDF read gives each page back as an image: more than a row shows.
       {
         _tag: 'Read',
-        path: 'docs/screenshot.png',
+        path: 'docs/design.pdf',
         text: '',
-        images: [
-          { mediaType: 'image/png', data: PNG },
-          { mediaType: 'image/png', data: PNG },
-        ],
+        images: Array.from({ length: 7 }, () => ({
+          mediaType: 'image/png',
+          data: PNG,
+        })),
       },
       {
         _tag: 'Bash',

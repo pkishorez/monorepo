@@ -409,7 +409,7 @@ describe('the Agent fake, its replies', () => {
       expect(results.some((result) => result.isError)).toBe(true);
       expect(results.some((result) => result.truncated)).toBe(true);
       if (name === 'claude')
-        expect(results.some((result) => result.images?.length === 2)).toBe(
+        expect(results.some((result) => result.images?.length === 7)).toBe(
           true,
         );
       expect(parts.at(-1)).toMatchObject({ type: 'turnEnded', status: 'done' });
@@ -656,6 +656,36 @@ describe('the Agent fake, its replies', () => {
     );
     expect(outs).toContainEqual({ _tag: 'TurnSteered', id: 'steer-1' });
     expect(lastOf(outs)).toMatchObject({ status: 'done' });
+  });
+
+  it('runs an Agent on the model and settings its latest Turn names', async () => {
+    const found = await run((fake, edges) =>
+      Effect.gen(function* () {
+        const open = yield* opened(edges, 'claude');
+        const agentNow = () => {
+          const [one] = fake.root.model.agents;
+          return { model: one?.model, settings: one?.settings };
+        };
+        const opening = agentNow();
+        yield* say(open, 'first');
+        const kept = agentNow();
+        yield* collect(
+          open.turn({
+            text: 'second',
+            images: [],
+            model: 'claude-sonnet-5',
+            settings: { effort: 'low' },
+          }),
+        );
+        return { opening, kept, changed: agentNow() };
+      }),
+    );
+    expect(found.opening).toEqual({ model: 'm', settings: {} });
+    expect(found.kept).toEqual({ model: 'm', settings: {} });
+    expect(found.changed).toEqual({
+      model: 'claude-sonnet-5',
+      settings: { effort: 'low' },
+    });
   });
 });
 
