@@ -13,7 +13,8 @@ import { ActionsLive, ListView } from './actor.ts';
 
 /*
  * Actions, by the header's button while a session is open, where a click
- * opens them as a popover and a tap in a Drawer; `a` and Ctrl+K open them
+ * opens them as a popover, wide enough for each Action's name beside its
+ * two columns of keys, and a tap in a Drawer; `a` and Ctrl+K open them
  * centred on a session, `?` in Vim Mode and Ctrl+? from anywhere, and the
  * Status Line's help runs Ctrl+?'s Action. On a phone the button is the
  * header's only one, a finger wide, and only the session's own Actions
@@ -99,7 +100,7 @@ export function Opened({
       onOpen={opens}
       side="bottom"
       align="end"
-      className="w-72"
+      className="w-[32rem] max-w-[calc(100vw-1rem)]"
       {...(at === null
         ? {}
         : {
