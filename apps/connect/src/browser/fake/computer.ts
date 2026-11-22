@@ -15,8 +15,9 @@ import { FileSystemFake } from '../../connection/plugins/code/engine/services/fi
  * computer runs (a restart, an update, coming back online) also clears
  * why it last stopped.
  *
- * Two Messages are not Controls: serve.ts Sends them. `StoppedOnItsOwn`,
- * when Connect in the tab says its `ke-connect` stopped; `ActedElsewhere`,
+ * Three Messages are not Controls: serve.ts Sends them. `StoppedOnItsOwn`,
+ * when Connect in the tab says its `ke-connect` stopped; `SocketsOpen`, as
+ * the number of sockets its tunnel holds changes; `ActedElsewhere`,
  * once an act from another device, queued in `elsewhere`, came to
  * something. A Control from another device only queues the act: the Fake
  * Requires nothing, so serve.ts carries it out against the middle.
@@ -91,6 +92,8 @@ const Model = Schema.Struct({
   tunnel: Tunnel,
   /** Why its `ke-connect` last stopped on its own, until it starts again. */
   stopped: Schema.NullOr(StoppedWhy),
+  /** How many sockets its tunnel holds now, as Connect in the tab counts them. */
+  sockets: Schema.Int,
   /** Gone with a reload: what makes the App the older side. */
   untilReload: Schema.Struct({
     /** It runs a Release of the code Plugin other than the one Connect Cloud names. */
@@ -153,6 +156,8 @@ const Message = Schema.TaggedUnion({
   // Sent by serve.ts.
   /** Its `ke-connect` stopped on its own. */
   StoppedOnItsOwn: { why: StoppedWhy },
+  /** Its tunnel holds `open` sockets now. */
+  SocketsOpen: { open: Schema.Int },
   /** An act from another device came to `said`. */
   ActedElsewhere: { id: Schema.Int, said: Schema.String },
 });
@@ -218,6 +223,7 @@ export const ComputerFakeLive = ComputerFake.build({
       moves: 0,
       tunnel: { _tag: 'Reachable' },
       stopped: null,
+      sockets: 0,
       untilReload: { runsAnotherRelease: false },
       elsewhere: [],
       acts: 0,
@@ -293,6 +299,7 @@ export const ComputerFakeLive = ComputerFake.build({
       queued({ _tag: 'AnswerQuestion', session }, model),
 
     StoppedOnItsOwn: ({ why }) => ({ model: { stopped: why } }),
+    SocketsOpen: ({ open }) => ({ model: { sockets: open } }),
     ActedElsewhere: ({ id, said }, { model }) => ({
       model: {
         elsewhere: model.elsewhere.filter((each) => each.id !== id),

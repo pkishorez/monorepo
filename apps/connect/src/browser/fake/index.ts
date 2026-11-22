@@ -16,13 +16,14 @@ import { serveComputers } from './serve.js';
  *   has it: the Computers root's own (add a computer, Connect Cloud's
  *   conditions), each computer's, and each computer's File System's.
  * - `kept` is the Snapshot a reload keeps: the same, but for each Model's
- *   `untilReload`, set back blank. It holds what makes the App the older
- *   side (a computer on another Release, Connect Cloud naming a newer
- *   one), which an App ends by moving to its newest build, a reload; kept,
- *   it would reload forever.
+ *   `untilReload`, set back blank, and each computer's sockets, none. It
+ *   holds what makes the App the older side (a computer on another
+ *   Release, Connect Cloud naming a newer one), which an App ends by
+ *   moving to its newest build, a reload; kept, it would reload forever.
+ *   A reload closes every socket.
  */
 
-/** The Snapshot a reload keeps: `untilReload` set back blank, in the root and each computer. */
+/** The Snapshot a reload keeps: `untilReload` set back blank, in the root and each computer, and no socket open. */
 const kept = (
   snapshot: Snapshot<typeof ComputersFake>,
 ): Snapshot<typeof ComputersFake> => ({
@@ -37,6 +38,7 @@ const kept = (
         model: {
           ...computer.model,
           untilReload: { runsAnotherRelease: false },
+          sockets: 0,
         },
       })),
     },

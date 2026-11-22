@@ -47,6 +47,8 @@ import { answerOf, askedOf, hostOf } from './tunnel.js';
  *            one to a tunnel that is gone does; one open while its
  *            computer's tunnel goes down or moves, its code Plugin comes
  *            to run another Release, or its Run stops, drops.
+ *            `Computers` is told how many sockets each computer's tunnel
+ *            holds, across its Runs, as the number changes.
  */
 
 export interface RunsOptions {
@@ -103,6 +105,14 @@ export const runs = (computers: Computers['Service'], options: RunsOptions) =>
     const pushed = new Set<string>();
     /** The computers removed that asked Connect Cloud to forget them, by id. */
     const left = new Set<string>();
+    /** How many sockets each computer's tunnel holds, by id, across its Runs. */
+    const held = new Map<string, number>();
+    // Each telling reads the number as it runs, so the last one told is
+    // the number now, whatever order they run in.
+    const hold = (id: string, by: 1 | -1) => {
+      held.set(id, (held.get(id) ?? 0) + by);
+      fork(Effect.suspend(() => computers.sockets(id, held.get(id) ?? 0)));
+    };
 
     const stop = (run: Run) =>
       Effect.suspend(() => {
@@ -258,9 +268,15 @@ export const runs = (computers: Computers['Service'], options: RunsOptions) =>
             if (running.get(run.id) !== run) return End.refuse(end);
             const server = End.accept(end, answer.protocol);
             run.open.set(end, asked.host);
-            end.addEventListener('close', () => run.open.delete(end), {
-              once: true,
-            });
+            hold(run.id, 1);
+            end.addEventListener(
+              'close',
+              () => {
+                run.open.delete(end);
+                hold(run.id, -1);
+              },
+              { once: true },
+            );
             return yield* pass(server);
           }
         }
