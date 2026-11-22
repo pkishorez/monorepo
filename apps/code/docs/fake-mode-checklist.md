@@ -375,7 +375,7 @@ mode are under [Limits](#limits).
 - [ ] First draw: the mark until the sidebar, header and page are read from this device, then the frame whole in one step. **Reach:** reload. **Needs:** real middle.
 - [ ] Theme: light, dark, system (`t`, the phone's You). **Reach:** those. **Needs:** real middle.
 - [ ] Back and Forward between pages. **Reach:** keys, the browser's. **Needs:** real middle.
-- [ ] Kabuki DevTools: History, Seek, Fork on Code's Runtime. **Reach:** DevTools. **Needs:** Fake World (plan task 21).
+- [x] Kabuki DevTools: History, Seek, Fork on Code's Runtime. **Reach:** DevTools. **Needs:** Fake World (plan task 21). _(Task 21: walked, `devtools` scenario: the dock's Inspector, Seek and Go to Head, Fork and its new Branch, a card's Model, the Blueprint; the DevTools Server's Kabuki Session checked by hand.)_
 - [ ] Development samples of Agent Questions (`?question=single`, `mixed`, `secret`, `long`). **Reach:** a Session's address. **Needs:** real middle (superseded by Agent: a question).
 
 ## Limits
