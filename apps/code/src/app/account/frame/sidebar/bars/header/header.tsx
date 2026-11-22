@@ -22,7 +22,8 @@ import {
  * there are when it shows every Connection; and Reload, which turns once as
  * it asks. With more than one Connection the title opens the Connections, a
  * Drawer of every Connection and All Connections: each with its state, its
- * sessions (how many run) and projects, its code Plugin Updating or
+ * sessions (how many run) and projects while the sidebar shows it, as only
+ * the Connections shown are read here, its code Plugin Updating or
  * stopped, or its `ke-connect` out of date, its Computer Name once it has a
  * Display Name, its tunnel and the version of Connect it runs, the one
  * shown checked. Each is named as the app names it everywhere (`nameOf`),
@@ -41,6 +42,8 @@ interface Info {
   readonly sessions: number;
   readonly running: number;
   readonly projects: number;
+  /** Whether the sidebar shows it, so its sessions and projects are read and counted. */
+  readonly counted: boolean;
   readonly about: string | null;
 }
 
@@ -72,6 +75,7 @@ function useInfos(
   connections: ReadonlyArray<{ readonly id: string; readonly name: string }>,
   sessions: ReadonlyArray<OnConnection<Session>>,
   projects: ReadonlyArray<OnConnection<Project>>,
+  shown: string | null,
 ): ReadonlyArray<Info> {
   const listed = useConnections();
   const healthOf = useHealths();
@@ -93,6 +97,7 @@ function useInfos(
       running: own.filter(({ status }) => status === 'running').length,
       projects: projects.filter(({ connectionId }) => connectionId === id)
         .length,
+      counted: shown === null || shown === id,
       about:
         [
           record?.displayName == null ? null : record.name,
@@ -156,7 +161,7 @@ export function ConnectionHeader({
   readonly onChoose: (connectionId: string | null) => void;
   readonly onReload: () => void;
 }) {
-  const infos = useInfos(read ? connections : [], sessions, projects);
+  const infos = useInfos(read ? connections : [], sessions, projects, shown);
   const [open, setOpen] = useState(false);
   const [turns, setTurns] = useState(0);
   const many = infos.length > 1;
@@ -260,7 +265,7 @@ export function ConnectionHeader({
           >
             <Choice
               name="All Connections"
-              lines={[countsOf(all)]}
+              lines={[shown === null ? countsOf(all) : null]}
               mark={
                 <span
                   aria-hidden
@@ -274,7 +279,11 @@ export function ConnectionHeader({
               <Choice
                 key={info.id}
                 name={info.name}
-                lines={[info.state, countsOf(info), info.about]}
+                lines={[
+                  info.state,
+                  info.counted ? countsOf(info) : null,
+                  info.about,
+                ]}
                 mark={<StandingDot kind={info.kind} />}
                 selected={shown === info.id}
                 onPick={() => pick(info.id)}
