@@ -3,9 +3,10 @@ import { Effect, Layer } from 'effect';
 import { browserOver, signIn } from '@kestack/auth-toolkit/fake';
 import { agent } from '@kestack/ai-toolkit/harness/fake';
 import { speech } from '@kestack/ai-toolkit/speech/fake';
-import { inTab, tunnelClients } from '@kestack/connect/browser';
+import { inTab, type Tables, tunnelClients } from '@kestack/connect/browser';
 import { computers } from '@kestack/connect/fake';
 import { FakeBubble, FakeWorld } from '@kestack/devtools-kabuki/fake';
+import { IDB } from '@kestack/std-toolkit/db/idb';
 import { newBuild } from '@kestack/web-platform/pwa/fake';
 import { PLUGIN_CODE, Sockets } from './app/account/connection/index.ts';
 import { fitted } from './app/account/frame/commands.ts';
@@ -42,36 +43,69 @@ import {
  *            database, a Start fresh asked by the bubble clears them all.
  * 4. Bubble  `Bubble`, the Fakes' Models and Controls, drawn beside the app.
  *
- * A reload does not yet keep the World: the Fakes start blank, as do
- * Connect Cloud's and the code Plugins' tables, which are in memory, while
- * Code's own IndexedDB keeps what it last saw and prunes it as the blank
- * world answers. Keeping it all is a later step (the plan's task 20).
+ * A reload keeps the World: each Fake starts from the Snapshot it last
+ * saved (`code:fake-world`), the Middle's tables are in IndexedDB
+ * (`code:fake-middle`), and Code's own databases are kept as in real mode,
+ * so all three agree after it. A reply running at the reload ends
+ * interrupted, as on a computer's restart: the Agent fake keeps no reply,
+ * and the code Plugin's Bootstrap Sweep finds its Turn cut off. Start
+ * fresh, from the bubble, deletes every database before anything opens
+ * one.
  */
 
 // 1. World
-export const world = FakeWorld.make([
-  {
-    ...signIn,
-    serve: (runtime: Parameters<typeof signIn.serve>[0]) =>
-      browserOver(runtime, {
-        cache: accountsTable,
-        returnTo: new URL('/', window.location.href).href,
-      }),
-  },
-  computers,
-  agent,
-  speech,
-  microphone,
-  newBuild,
-]);
+/** Where the Fake World keeps each Fake's Snapshot. */
+const WORLD = 'code:fake-world';
+
+export const world = FakeWorld.make(
+  [
+    {
+      ...signIn,
+      serve: (runtime: Parameters<typeof signIn.serve>[0]) =>
+        browserOver(runtime, {
+          cache: accountsTable,
+          returnTo: new URL('/', window.location.href).href,
+        }),
+    },
+    computers,
+    agent,
+    speech,
+    microphone,
+    newBuild,
+  ],
+  { saved: FakeWorld.indexedDb(WORLD) },
+);
 
 // 2. Middle
 /** Where the code Plugin's Release this Code calls is kept, as Connect Cloud names it. */
 const RELEASE_URL = `https://connect.computers.fake/releases/code/${PLUGIN_CODE}.mjs`;
 
+/** Where the Middle keeps its tables: one store per place, Connect Cloud's and each code Plugin's. */
+const MIDDLE = 'code:fake-middle';
+
+/**
+ * Every table of the Middle in one IndexedDB database, each its own store
+ * named by its place (`connect-cloud`, `code-plugin <id>`). Disposable: a
+ * table whose shape changes starts empty rather than refuse to open.
+ */
+const tables: Tables = (table, place) =>
+  Layer.unwrap(
+    Effect.sync(
+      () =>
+        IDB.make(table, {
+          database: IDB.database({ databaseName: MIDDLE }),
+          storeName: place,
+          mode: 'disposable',
+        }).layer,
+    ),
+  );
+
 const middle = Sockets.from(tunnelClients).pipe(
   Layer.provideMerge(
-    inTab({ wanted: { code: { hash: PLUGIN_CODE, url: RELEASE_URL } } }),
+    inTab({
+      wanted: { code: { hash: PLUGIN_CODE, url: RELEASE_URL } },
+      tables,
+    }),
   ),
 );
 
