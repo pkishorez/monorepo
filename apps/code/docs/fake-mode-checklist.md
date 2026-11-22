@@ -20,8 +20,8 @@ mode are under [Limits](#limits).
 
 ## 1. Sign-in and Accounts
 
-- [ ] App opens with nobody signed in: the mark, then the Sign-in Screen, "Continue with Google". **Reach:** open `/` after Start fresh. **Needs:** Sign-in, blank.
-- [ ] Sign in: "Continue with Google" asks who, and the app opens on the Account's home `/a/:accountId`. **Reach:** Sign-in Screen. **Needs:** Sign-in: sign in as (email, name).
+- [x] App opens with nobody signed in: the mark, then the Sign-in Screen, "Continue with Google". **Reach:** open `/` after Start fresh. **Needs:** Sign-in, blank.
+- [x] Sign in: "Continue with Google" asks who, and the app opens on the Account's home `/a/:accountId`. **Reach:** Sign-in Screen. **Needs:** Sign-in: sign in as (email, name).
 - [ ] Sign-in abandoned: the ask is answered with nobody, the screen stays, the button usable again (`SignInEnded`). **Reach:** Sign-in Screen, cancel the ask. **Needs:** Sign-in: sign in as → cancel.
 - [ ] Sign-in fails: the app says why (`SignInFailed` / `Refused`). **Reach:** Sign-in Screen. **Needs:** Sign-in: sign-in fails (with a reason).
 - [ ] Checking: with an Account kept on this device, the app draws it at once (`Checking { last }`) while the Auth Worker is asked; the header's avatar says it is checking. **Reach:** reload while signed in. **Needs:** Sign-in: Auth Worker slow / out of reach.
@@ -48,12 +48,12 @@ mode are under [Limits](#limits).
 
 ### The list
 
-- [ ] No Connection: home says how to start one, `npx @kestack/connect serve`. **Reach:** home. **Needs:** Computers, blank.
-- [ ] A computer comes online: it shows up beside the others, in the sidebar and home, without a reload (Recheck while one is on its way). **Reach:** home. **Needs:** Computers: add a computer, online.
+- [x] No Connection: home says how to start one, `npx @kestack/connect serve`. **Reach:** home. **Needs:** Computers, blank.
+- [ ] A computer comes online: it shows up beside the others, in the sidebar and home, without a reload (Recheck while one is on its way). **Reach:** home. **Needs:** Computers: add a computer, online. _(Task 17: with no Connection listed yet, Code asks Connect Cloud nothing more by itself, as in production, so a first computer shows on Look again, Reload, or the tab back after 15 s; with one listed and linked, likewise.)_
 - [ ] Two or more computers: the sidebar names each Connection, home lists every Project with its Connection's name. **Reach:** sidebar, home. **Needs:** Computers: add two computers.
 - [ ] Kept list: the app opens with the Connection List this device last had, while Connect Cloud is asked behind. **Reach:** reload. **Needs:** Computers: Connect Cloud out of reach.
 - [ ] Connect Cloud out of reach with no list kept: home says "Can't reach Connect Cloud", the problem, and a way to ask again. **Reach:** home after Start fresh. **Needs:** Computers: Connect Cloud out of reach, then back.
-- [ ] Reload: the sidebar's Reload turns once and asks the list and every Setup again. **Reach:** sidebar header Reload; Settings → Connections Reload. **Needs:** Computers.
+- [x] Reload: the sidebar's Reload turns once and asks the list and every Setup again. **Reach:** sidebar header Reload; Settings → Connections Reload. **Needs:** Computers.
 - [ ] Pull to Reload on touch. **Reach:** pull the sidebar down from its top. **Needs:** Computers; touch.
 - [ ] Recheck pace: every 3 s while one is on its way, every 10 s while one is stuck or down, none once all are linked. **Reach:** watch the Connect Cloud calls in the bubble's log. **Needs:** Computers: tunnel states, offline.
 - [ ] The page back after 15 s or more hidden asks the list at once. **Reach:** hide the tab, come back. **Needs:** Computers; real middle.
@@ -62,19 +62,19 @@ mode are under [Limits](#limits).
 
 ### How a Connection stands
 
-- [ ] Linking: "Connecting…" while the socket is on its way, or while the kept Last Seen is not yet believed. **Reach:** header pill, sidebar, Settings card. **Needs:** Computers: online.
-- [ ] Linked: green dot; calls and syncs go. **Reach:** sidebar Connection name, Settings card. **Needs:** Computers: online.
+- [x] Linking: "Connecting…" while the socket is on its way, or while the kept Last Seen is not yet believed. **Reach:** header pill, sidebar, Settings card. **Needs:** Computers: online.
+- [x] Linked: green dot; calls and syncs go. **Reach:** sidebar Connection name, Settings card. **Needs:** Computers: online.
 - [ ] Setting up, cloudflared downloading with size and time; Opening its tunnel; Tunnel failed, retrying. **Reach:** header pill and its title, Connections Drawer, Settings card. **Needs:** Computers: tunnel state (Downloading with progress, Opening, Failed).
 - [ ] Ready but Unchecked or Reachable while the socket links: "Connecting…". **Reach:** header pill. **Needs:** Computers: tunnel state (Unchecked, Reachable).
 - [ ] Unreachable: "Out of reach", tunnel broken with its problem; Recheck every 10 s. **Reach:** header pill, Settings card. **Needs:** Computers: tunnel state (Unreachable, with a problem).
-- [ ] Down: no report for three Heartbeats (45 s): "Connection down", last seen; what it synced stays readable, quieter, no + in the sidebar, moved last. **Reach:** sidebar, header, any of its pages. **Needs:** Computers: offline (and last seen pushed back, to be Down at once).
-- [ ] Back online: the Link relinks, the Replicas resume, the order and dot come back. **Reach:** sidebar. **Needs:** Computers: offline, then online.
+- [x] Down: no report for three Heartbeats (45 s): "Connection down", last seen; what it synced stays readable, quieter, no + in the sidebar, moved last. **Reach:** sidebar, header, any of its pages. **Needs:** Computers: offline (and last seen pushed back, to be Down at once).
+- [x] Back online: the Link relinks, the Replicas resume, the order and dot come back. **Reach:** sidebar. **Needs:** Computers: offline, then online.
 - [ ] Settings locked: a Link on its way for a while puts a lock on its card; agent rows and the Speech switch take nothing. **Reach:** Settings → Connections. **Needs:** Computers: offline or tunnel not up.
-- [ ] Expired key: a Connection Key rotated closes the socket (`KEY_EXPIRED`); the list is asked at once and the next socket offers the new key. **Reach:** any page; watch the Link relink. **Needs:** Computers: key rotates.
+- [x] Expired key: a Connection Key rotated closes the socket (`KEY_EXPIRED`); the list is asked at once and the next socket offers the new key. **Reach:** any page; watch the Link relink. **Needs:** Computers: key rotates.
 - [ ] Tunnel moves: the computer comes back at a new address and the socket is dialled there. **Reach:** any page. **Needs:** Computers: tunnel moves to a new address.
-- [ ] Outdated: a `ke-connect` older than the Minimum Connect is never dialled; header pill "Update ke-connect", Settings shows the line and `npm i -g @kestack/connect@latest` with Copy; it is dialled once a list says it was updated. **Reach:** header pill → Settings. **Needs:** Computers: `ke-connect` version, Connect Cloud's Minimum Connect; then update it.
-- [ ] Copy the update command: the button says Copied. **Reach:** Settings card of an Outdated Connection. **Needs:** Computers: Outdated.
-- [ ] Mismatched, Updating: the computer runs another Release and Connect Cloud wants this Code's (`Latest`): pill "Updating Connect…", relinks at once, linked once it runs this Code's Release. **Reach:** header pill, Settings card. **Needs:** Computers: runs another Release; Connect Cloud's wanted Release = this Code's.
+- [x] Outdated: a `ke-connect` older than the Minimum Connect is never dialled; header pill "Update ke-connect", Settings shows the line and `npm i -g @kestack/connect@latest` with Copy; it is dialled once a list says it was updated. **Reach:** header pill → Settings. **Needs:** Computers: `ke-connect` version, Connect Cloud's Minimum Connect; then update it.
+- [x] Copy the update command: the button says Copied. **Reach:** Settings card of an Outdated Connection. **Needs:** Computers: Outdated.
+- [x] Mismatched, Updating: the computer runs another Release and Connect Cloud wants this Code's (`Latest`): pill "Updating Connect…", relinks at once, linked once it runs this Code's Release. **Reach:** header pill, Settings card. **Needs:** Computers: runs another Release; Connect Cloud's wanted Release = this Code's.
 - [ ] Mismatched, Connect Cloud behind (`Unknown`): pill "Updating Connect…", relinks every 30 s. **Reach:** header pill. **Needs:** Computers: runs another Release; Connect Cloud's wanted Release unknown to it.
 - [ ] Mismatched, Code Stale (`Older`): pill "Updating Code…", the Link waits for good, and Code moves to its newest build, once. **Reach:** header pill, then the reload. **Needs:** Computers: runs another Release; Connect Cloud's wanted Release another; New build: newest build.
 - [ ] Mismatched while Connect Cloud is out of reach: decides nothing, relinks slowly. **Reach:** header pill. **Needs:** Computers: runs another Release, Connect Cloud out of reach.
@@ -82,32 +82,32 @@ mode are under [Limits](#limits).
 
 ### Settings → Connections
 
-- [ ] One card per Connection, as the sidebar says it: name, dot, Link and Last Seen; on wide, its tunnel and Connect version. **Reach:** Settings → Connections. **Needs:** Computers: one or more computers.
-- [ ] Rename: pencil, type, Enter; the name changes everywhere at once and is kept; works while out of reach. **Reach:** Settings card. **Needs:** Computers (Connect Cloud's `Rename`).
+- [x] One card per Connection, as the sidebar says it: name, dot, Link and Last Seen; on wide, its tunnel and Connect version. **Reach:** Settings → Connections. **Needs:** Computers: one or more computers.
+- [x] Rename: pencil, type, Enter; the name changes everywhere at once and is kept; works while out of reach. **Reach:** Settings card. **Needs:** Computers (Connect Cloud's `Rename`).
 - [ ] Rename to empty goes back to the Computer Name; Escape leaves without saving. **Reach:** Settings card. **Needs:** Computers.
-- [ ] Rename refused: says why, keeps what was typed. **Reach:** Settings card. **Needs:** Computers: Connect Cloud out of reach.
+- [x] Rename refused: says why, keeps what was typed. **Reach:** Settings card. **Needs:** Computers: Connect Cloud out of reach.
 - [ ] Two of one Display Name are told apart by the Computer Name under it. **Reach:** Settings. **Needs:** Computers: two computers, one renamed as the other.
 - [ ] A Computer Name `<host> (<name>)` is shown as its short name everywhere. **Reach:** sidebar. **Needs:** Computers: add a computer named so.
-- [ ] Forget: the bin asks first, saying when it was last seen and how its tunnel stands; confirmed, Connect Cloud forgets it, it leaves the list, its database goes; the computer's next Heartbeat is told it was forgotten. **Reach:** Settings card bin. **Needs:** Computers: add a computer (the Fake must stop it on `ConnectionForgotten`).
-- [ ] Forget dismissed: nothing changes. **Reach:** Settings card bin → Cancel. **Needs:** Computers.
+- [x] Forget: the bin asks first, saying when it was last seen and how its tunnel stands; confirmed, Connect Cloud forgets it, it leaves the list, its database goes; the computer's next Heartbeat is told it was forgotten. **Reach:** Settings card bin. **Needs:** Computers: add a computer (the Fake must stop it on `ConnectionForgotten`).
+- [x] Forget dismissed: nothing changes. **Reach:** Settings card bin → Cancel. **Needs:** Computers.
 - [ ] Forget refused: says why. **Reach:** Settings card bin. **Needs:** Computers: Connect Cloud out of reach.
 
 ## 3. Project Picker and folders
 
-- [ ] Open the Project Picker: `o` (Vim), Ctrl+P anywhere; wide: "Open project" atop the sidebar, centred by keys, beside its button by mouse; touch: the sidebar foot's New project, a tall Drawer. **Reach:** those. **Needs:** Computers: one online.
+- [x] Open the Project Picker: `o` (Vim), Ctrl+P anywhere; wide: "Open project" atop the sidebar, centred by keys, beside its button by mouse; touch: the sidebar foot's New project, a tall Drawer. **Reach:** those. **Needs:** Computers: one online.
 - [ ] Connection Step: shown only while the Connection Filter shows every Connection and there are two or more; skipped otherwise. **Reach:** Project Picker. **Needs:** Computers: two computers.
 - [ ] Recent Projects, most recently active first, followed live while open. **Reach:** Project Picker. **Needs:** File System: add sample project; Computers.
 - [ ] A Project whose folder is missing shows so and cannot be chosen. **Reach:** Project Picker. **Needs:** File System: remove (or move) a Project's folder.
 - [ ] Pick a Project: its new Session's page opens, keyboard in the Draft. **Reach:** Project Picker. **Needs:** File System: a Project.
-- [ ] "Open folder…": the folder Steps from home; text that names no Project, then Enter, searches home for it. **Reach:** Project Picker. **Needs:** File System: add folder.
+- [x] "Open folder…": the folder Steps from home; text that names no Project, then Enter, searches home for it. **Reach:** Project Picker. **Needs:** File System: add folder.
 - [ ] Go into a folder (Enter, Ctrl+L, a row's arrow) and back out (Ctrl+H, Backspace, Back). **Reach:** folder Step. **Needs:** File System: nested folders.
 - [ ] Type a path (`~/code/fo`): goes to its folder and searches for what follows the last `/`. **Reach:** folder Step. **Needs:** File System: nested folders.
-- [ ] Hidden folders listed only for a search starting with `.`. **Reach:** folder Step. **Needs:** File System: add a folder named `.something`.
+- [x] Hidden folders listed only for a search starting with `.`. **Reach:** folder Step. **Needs:** File System: add a folder named `.something`.
 - [ ] A folder of more than 100 folders is listed cut short, then asked again with the search. **Reach:** folder Step, type. **Needs:** File System: add many folders (over 100).
 - [ ] A symlink to a folder inside home is listed and goes in. **Reach:** folder Step. **Needs:** File System: add a symlink inside home.
-- [ ] Choose a folder (Mod+Enter on the row; "Open this folder" on touch): it becomes a Project while the Picker waits, then opens. **Reach:** folder Step. **Needs:** File System: add folder.
+- [x] Choose a folder (Mod+Enter on the row; "Open this folder" on touch): it becomes a Project while the Picker waits, then opens. **Reach:** folder Step. **Needs:** File System: add folder.
 - [ ] Choose a folder already a Project, or a symlink to one: opens that Project, no second one. **Reach:** folder Step. **Needs:** File System: a Project and a symlink to it.
-- [ ] Create a folder: a search naming no folder offers to create it there (touch: New folder, then goes in); made, it becomes a Project. **Reach:** folder Step. **Needs:** File System (the fake makes it).
+- [x] Create a folder: a search naming no folder offers to create it there (touch: New folder, then goes in); made, it becomes a Project. **Reach:** folder Step. **Needs:** File System (the fake makes it).
 - [ ] Create refused: a name taken ("Something is already at"), a bad name ("cannot be a folder's name"). **Reach:** folder Step. **Needs:** File System: a folder of that name; real middle for the name rules.
 - [ ] Folder errors said in the Step: no folder at a typed path; not allowed to open (unreadable); outside home (`/etc`, `..`, a symlink out of home); could not read (I/O error or slow). **Reach:** folder Step. **Needs:** File System: make a folder unreadable; add a symlink pointing outside home; make a folder fail to list.
 - [ ] Remove a Project: only on its own page; asks first; it goes from the sidebar, home and Picker, with its Saved Draft; its folder untouched. **Reach:** a Project's page whose folder is missing → Remove. **Needs:** File System: remove a Project's folder.
@@ -117,18 +117,18 @@ mode are under [Limits](#limits).
 ## 4. Projects and branches (a new Session's page)
 
 - [ ] Home lists every Connection's Projects by name, with path and Connection; "Open a folder to start a project" while there are none. **Reach:** home. **Needs:** File System: projects; Computers.
-- [ ] A Project's page `…/m/:connectionId/p/:projectId`: name and folder, the Draft for a new Session. **Reach:** Picker, home, sidebar heading or its +. **Needs:** File System: a Project.
+- [x] A Project's page `…/m/:connectionId/p/:projectId`: name and folder, the Draft for a new Session. **Reach:** Picker, home, sidebar heading or its +. **Needs:** File System: a Project.
 - [ ] A Project of a Connection no longer listed says so in place of the page. **Reach:** an old link. **Needs:** Computers: forget a computer.
 - [ ] A Project's page while its Connection is out of reach: shows what is kept; sends wait. **Reach:** Project page. **Needs:** Computers: offline.
-- [ ] Not a git repository: one line says so, no Branch row or New Worktree. **Reach:** Project page. **Needs:** File System: add folder (plain).
+- [x] Not a git repository: one line says so, no Branch row or New Worktree. **Reach:** Project page. **Needs:** File System: add folder (plain).
 - [ ] git missing on the computer: same as not a git repository. **Reach:** Project page. **Needs:** File System: git missing.
-- [ ] Branch row: the branch in full, the Origin branch it tracks; New Worktree switch, off by default, with a line on what send will do. **Reach:** Project page of a git Project. **Needs:** File System: add sample project.
-- [ ] Branch Picker: Local and Origin sections; a tracked Origin branch is not listed twice; a branch checked out in another Worktree says where; the current one checked. **Reach:** Branch row; `shift+b` (Vim); touch, a Sheet. **Needs:** Git: local branches, Origin branches, a Worktree.
+- [x] Branch row: the branch in full, the Origin branch it tracks; New Worktree switch, off by default, with a line on what send will do. **Reach:** Project page of a git Project. **Needs:** File System: add sample project.
+- [x] Branch Picker: Local and Origin sections; a tracked Origin branch is not listed twice; a branch checked out in another Worktree says where; the current one checked. **Reach:** Branch row; `shift+b` (Vim); touch, a Sheet. **Needs:** Git: local branches, Origin branches, a Worktree.
 - [ ] Each Branch Picker open fetches Origin behind; the next open lists what Origin has. **Reach:** open it twice. **Needs:** Git: add an Origin branch.
 - [ ] Branches not read while the link is down are read once it is back; the picks stand as saved meanwhile. **Reach:** Project page. **Needs:** Computers: offline, then online.
-- [ ] Start on a local branch, New Worktree off: the main Worktree switches to it (step "switching branch"). **Reach:** pick a branch, send. **Needs:** Git; Agent.
-- [ ] Start on an Origin branch: checked out locally first, tracking it. **Reach:** pick under Origin, send. **Needs:** Git: an Origin branch.
-- [ ] Start with New Worktree on: a Worktree made on `ke-code/<id>`, renamed `ke-code/<slug>` once the first Title is written; a name taken gets `-2`; the sidebar shows the Worktree mark and branch without `ke-code/`. **Reach:** switch on, send. **Needs:** Git; Agent: a Title.
+- [x] Start on a local branch, New Worktree off: the main Worktree switches to it (step "switching branch"). **Reach:** pick a branch, send. **Needs:** Git; Agent.
+- [x] Start on an Origin branch: checked out locally first, tracking it. **Reach:** pick under Origin, send. **Needs:** Git: an Origin branch.
+- [x] Start with New Worktree on: a Worktree made on `ke-code/<id>`, renamed `ke-code/<slug>` once the first Title is written; a name taken gets `-2`; the sidebar shows the Worktree mark and branch without `ke-code/`. **Reach:** switch on, send. **Needs:** Git; Agent: a Title.
 - [ ] A Worktree branch pushed before its Title keeps its id name. **Reach:** as above. **Needs:** Git: push a branch.
 - [ ] Starting: each step (switching branch, making Worktree, starting agent) shown running then done where the transcript will be; then the Session's page. **Reach:** send a new Session's Draft. **Needs:** Agent; Git.
 - [ ] A git step fails: no Session, no Worktree, the Draft back as it was and the failure said. **Reach:** send. **Needs:** Git: make the next git step fail.
@@ -141,7 +141,7 @@ mode are under [Limits](#limits).
 
 ### The Draft
 
-- [ ] Type and send (wide, Vim off: Enter or the send button): a Turn starts; the Draft empties. **Reach:** a Session's page. **Needs:** Agent: a Script.
+- [x] Type and send (wide, Vim off: Enter or the send button): a Turn starts; the Draft empties. **Reach:** a Session's page. **Needs:** Agent: a Script.
 - [ ] Send while a Turn runs: steers it, the bubble says it was sent while the agent worked. **Reach:** a running Session. **Needs:** Agent: a long Script.
 - [ ] Send refused: text and files come back into the Draft. **Reach:** a Session. **Needs:** Computers: restart or forget, so the call fails (or the Session gone).
 - [ ] Saved Draft: text, cursor, selection, mode, files and picks come back after leaving and coming back, and after a reload; a new Session's goes once it starts. **Reach:** type, go elsewhere, return. **Needs:** real middle.
@@ -158,19 +158,19 @@ mode are under [Limits](#limits).
 
 ### Attachments
 
-- [ ] Paste a file or image anywhere on the page; drop a file; the paperclip picks one: each a chip under the Draft. **Reach:** Draft. **Needs:** real middle (the browser's files).
+- [x] Paste a file or image anywhere on the page; drop a file; the paperclip picks one: each a chip under the Draft. **Reach:** Draft. **Needs:** real middle (the browser's files).
 - [ ] An image over 5 MB or another file over 50 MB is left out with a line saying why. **Reach:** Draft. **Needs:** real middle.
 - [ ] Remove a chip. **Reach:** chip's ×. **Needs:** real middle.
-- [ ] Sent: images go to the agent; another file is saved on the computer and its path given; the bubble shows the files. **Reach:** send with files. **Needs:** File System (the saved file); Agent.
+- [x] Sent: images go to the agent; another file is saved on the computer and its path given; the bubble shows the files. **Reach:** send with files. **Needs:** File System (the saved file); Agent.
 
 ### Words and work in the transcript
 
-- [ ] Words stream in, a few sentences at a time; Markdown, code, links. **Reach:** a running Turn. **Needs:** Agent: a Script with text.
-- [ ] Reasoning shown folded, opened on a click. **Reach:** transcript. **Needs:** Agent: a Script with reasoning.
-- [ ] Work line: while it runs, what the agent does now; done, the count by tool kind, failed and stopped steps; opened, every step, its head sticking. **Reach:** transcript. **Needs:** Agent: a Script with tools.
+- [x] Words stream in, a few sentences at a time; Markdown, code, links. **Reach:** a running Turn. **Needs:** Agent: a Script with text.
+- [x] Reasoning shown folded, opened on a click. **Reach:** transcript. **Needs:** Agent: a Script with reasoning.
+- [x] Work line: while it runs, what the agent does now; done, the count by tool kind, failed and stopped steps; opened, every step, its head sticking. **Reach:** transcript. **Needs:** Agent: a Script with tools.
 - [ ] Each tool kind drawn and opened with its output: read, write, edit (a diff), delete, bash, search, web, todo (a checklist), question, mcp, other. **Reach:** transcript, open each step. **Needs:** Agent: a Script per tool kind.
 - [ ] A tool's output cut short shows its start until asked for all. **Reach:** a long output. **Needs:** Agent: a Script with long (truncated) output.
-- [ ] A tool that failed shows why, in red. **Reach:** transcript. **Needs:** Agent: a Script with an error result.
+- [x] A tool that failed shows why, in red. **Reach:** transcript. **Needs:** Agent: a Script with an error result.
 - [ ] Images a tool gave back: thumbnails, "+3", opened whole in the image viewer, moved through. **Reach:** a read of an image, a screenshot. **Needs:** Agent: a Script with images.
 - [ ] A tool call with no result once its Turn ended reads as stopped. **Reach:** a cancelled Turn. **Needs:** Agent: hang, then stop.
 - [ ] Claude's plan (todo) and Codex's plan (`codex.plan`) as checklists. **Reach:** transcript. **Needs:** Agent: Scripts for each.
@@ -181,46 +181,46 @@ mode are under [Limits](#limits).
 
 ### Turn endings and status
 
-- [ ] Done: the footer's time; status word in the sidebar ("how long ago"). **Reach:** transcript, sidebar. **Needs:** Agent: a Script ending done.
-- [ ] Failed: red mark, why above the footer; sidebar says failed. **Reach:** transcript. **Needs:** Agent: a Script ending failed.
-- [ ] Not signed in: the Turn fails with the harness's login error. **Reach:** send. **Needs:** Agent: not signed in.
+- [x] Done: the footer's time; status word in the sidebar ("how long ago"). **Reach:** transcript, sidebar. **Needs:** Agent: a Script ending done.
+- [x] Failed: red mark, why above the footer; sidebar says failed. **Reach:** transcript. **Needs:** Agent: a Script ending failed.
+- [x] Not signed in: the Turn fails with the harness's login error. **Reach:** send. **Needs:** Agent: not signed in.
 - [ ] An added account removed: its Sessions fail their next Turn. **Reach:** Settings → remove, then send. **Needs:** Agent: accounts.
-- [ ] Stopped by you: Stop (Status Line, `mod+.`, Actions, the Question Panel's head), square mark, "stopped". **Reach:** a running Turn. **Needs:** Agent: a long or hanging Script.
+- [x] Stopped by you: Stop (Status Line, `mod+.`, Actions, the Question Panel's head), square mark, "stopped". **Reach:** a running Turn. **Needs:** Agent: a long or hanging Script.
 - [ ] Stop refused: says why. **Reach:** Stop. **Needs:** Computers: offline (the call waits) — a refusal needs the Session gone.
 - [ ] Interrupted (cut off): amber mark; the Turn after says what the restart stopped (the Turn, subagents, commands). **Reach:** restart a computer during a Turn. **Needs:** Computers: restart.
 - [ ] Resumed Turn: after a restart, Connect continues a cut-off Turn; a quiet rule says so in place of the prompt. **Reach:** as above. **Needs:** Computers: restart; Agent: a Script for the resume.
-- [ ] An Agent-started Turn (no words of yours): a rule says why it carried on. **Reach:** transcript. **Needs:** Agent: starts a Turn on its own (as when a background job ends).
+- [x] An Agent-started Turn (no words of yours): a rule says why it carried on. **Reach:** transcript. **Needs:** Agent: starts a Turn on its own (as when a background job ends).
 - [ ] Usage: tokens and cost per Turn (cost only where the agent says; none for Codex). **Reach:** footer → details. **Needs:** Agent: usage in Scripts.
 
 ### Subagents
 
-- [ ] A subagent: two lines, what it was asked and where it stands; running, done (steps), stopped, failed. **Reach:** transcript. **Needs:** Agent: a Script with a subagent.
-- [ ] Open a subagent: wide, a dialog showing the deepest with a way back; touch, a Drawer over the one before. **Reach:** tap the subagent. **Needs:** Agent: nested subagents.
-- [ ] Nested subagents. **Reach:** inside a subagent. **Needs:** Agent: a Script with a subagent's subagent.
+- [x] A subagent: two lines, what it was asked and where it stands; running, done (steps), stopped, failed. **Reach:** transcript. **Needs:** Agent: a Script with a subagent.
+- [x] Open a subagent: wide, a dialog showing the deepest with a way back; touch, a Drawer over the one before. **Reach:** tap the subagent. **Needs:** Agent: nested subagents.
+- [x] Nested subagents. **Reach:** inside a subagent. **Needs:** Agent: a Script with a subagent's subagent.
 - [ ] A Codex subagent's prompt and report (Codex sends both). **Reach:** transcript. **Needs:** Agent: a Codex Script with a subagent.
 
 ### Background Jobs
 
-- [ ] A background command (shell): the Session shows working while only its jobs run; the Running button counts it. **Reach:** transcript, sidebar status. **Needs:** Agent: a Script with a background shell job.
-- [ ] A background subagent; ended, its report is its last words. **Reach:** transcript. **Needs:** Agent: a Script with a background subagent.
+- [x] A background command (shell): the Session shows working while only its jobs run; the Running button counts it. **Reach:** transcript, sidebar status. **Needs:** Agent: a Script with a background shell job.
+- [x] A background subagent; ended, its report is its last words. **Reach:** transcript. **Needs:** Agent: a Script with a background subagent.
 - [ ] A subagent resumed by SendMessage runs again under that call, in the same row. **Reach:** transcript. **Needs:** Agent: a Claude Script with SendMessage.
-- [ ] Running Picker: `r`, the floating button (in place), touch a Drawer; lists running subagents (nested one step in) and commands; choosing opens; the last row stops all. **Reach:** a Session with running work. **Needs:** Agent: jobs.
-- [ ] A background command open over the page: its output live, as a terminal shows it (ANSI colours); how long it ran, who started it; Stop; stays as it ended until closed. **Reach:** Running Picker → a command. **Needs:** Agent: a job writing output.
+- [x] Running Picker: `r`, the floating button (in place), touch a Drawer; lists running subagents (nested one step in) and commands; choosing opens; the last row stops all. **Reach:** a Session with running work. **Needs:** Agent: jobs.
+- [x] A background command open over the page: its output live, as a terminal shows it (ANSI colours); how long it ran, who started it; Stop; stays as it ended until closed. **Reach:** Running Picker → a command. **Needs:** Agent: a job writing output.
 - [ ] Stop one job; stop all. **Reach:** command dialog Stop; Running Picker's last row. **Needs:** Agent: jobs.
 - [ ] Stop of a job refused (HarnessFailed). **Reach:** command dialog Stop. **Needs:** Agent: stop fails.
-- [ ] A job ends done, failed or stopped (`jobEnded`). **Reach:** transcript. **Needs:** Agent: a job ending each way.
+- [x] A job ends done, failed or stopped (`jobEnded`). **Reach:** transcript. **Needs:** Agent: a job ending each way.
 - [ ] Jobs cut off by a restart are named in the next Turn. **Reach:** restart while a job runs, then send. **Needs:** Computers: restart; Agent: a job.
 - [ ] A message sent after the agent stopped with work still running says what was stopped. **Reach:** stop, then send. **Needs:** Agent: jobs.
 
 ### Agent Questions (Question Panel)
 
-- [ ] The agent asks: the Question Panel takes the Draft's place, expanded over the dimmed transcript; "Question" pill in the sidebar. **Reach:** a running Turn. **Needs:** Agent: a Script with a question (Claude's AskUserQuestion; Codex's request_user_input).
+- [x] The agent asks: the Question Panel takes the Draft's place, expanded over the dimmed transcript; "Question" pill in the sidebar. **Reach:** a running Turn. **Needs:** Agent: a Script with a question (Claude's AskUserQuestion; Codex's request_user_input).
 - [ ] One choice (round), several (square), "Other" edited as one's own answer, a secret hidden as typed. **Reach:** Question Panel. **Needs:** Agent: questions of each kind.
-- [ ] Several Items, one a step; Next, Back, Send on the last; Send with an Item left goes to it and marks it. **Reach:** Question Panel. **Needs:** Agent: a question of several Items.
+- [x] Several Items, one a step; Next, Back, Send on the last; Send with an Item left goes to it and marks it. **Reach:** Question Panel. **Needs:** Agent: a question of several Items.
 - [ ] Keys: `j`/`k`, arrows, Tab, 1–9, Space/`x`, `i` to type, Enter, Mod+Enter, `q` then `q` to skip, `m`/Escape to minimise, Ctrl+Y. **Reach:** Question Panel. **Needs:** Agent: a question.
 - [ ] Minimise to a bar ("Claude asks · 1 of 2 answered" with Stop, Skip, Open); expand again. **Reach:** Question Panel. **Needs:** Agent: a question.
 - [ ] Leave the Session or page and come back: answers so far, minimised or not, as left. **Reach:** sidebar to another Session, back. **Needs:** Agent: a question.
-- [ ] Answer: the Turn carries on, the answer shown in the transcript (a secret as `(hidden)`). **Reach:** Send. **Needs:** Agent: a Script that reads the answer.
+- [x] Answer: the Turn carries on, the answer shown in the transcript (a secret as `(hidden)`). **Reach:** Send. **Needs:** Agent: a Script that reads the answer.
 - [ ] Skip ("Skip question", asked again): the agent carries on without an answer. **Reach:** Question Panel. **Needs:** Agent.
 - [ ] Answered on another device, or its Turn ended: the panel goes, the Draft comes back as it was; a send then is "no longer asked". **Reach:** Question Panel open. **Needs:** Agent: question answered elsewhere; Agent: Turn ends while asking.
 - [ ] Answer refused: says why, kept as it was. **Reach:** Send. **Needs:** Agent: answer fails.
@@ -265,7 +265,7 @@ mode are under [Limits](#limits).
 ## 7. Sidebar
 
 - [ ] Projects with their Sessions, most recently active first; the heading's branch; `+` or the heading opens the new Session's page. **Reach:** sidebar. **Needs:** Agent: Sessions in two Projects.
-- [ ] A row: title, Unseen bold, fork glyph, Worktree mark and branch, status (mark, time ago, "Question" pill). **Reach:** sidebar. **Needs:** Agent; Git: a Worktree.
+- [x] A row: title, Unseen bold, fork glyph, Worktree mark and branch, status (mark, time ago, "Question" pill). **Reach:** sidebar. **Needs:** Agent; Git: a Worktree.
 - [ ] A Session shows only once started; a new Session's page puts nothing there. **Reach:** sidebar. **Needs:** Agent.
 - [ ] Connection Filter: the title opens the Connections Drawer (state, sessions and how many run, projects, notices, Computer Name, tunnel, Connect version), All Connections or one; kept per Account. **Reach:** sidebar header. **Needs:** Computers: two computers.
 - [ ] A Connection no longer listed in the Filter shows every Connection. **Reach:** sidebar. **Needs:** Computers: forget the chosen one.
@@ -306,13 +306,13 @@ mode are under [Limits](#limits).
 ### Connections
 
 - [ ] (See [2. Settings → Connections](#settings--connections) for the card, Rename and Forget.)
-- [ ] Agents: each agent's Harness Accounts, Default first: name, the config folder it really runs with (marked when Connect's environment chose it), the version that runs, or why it does not run (how to install). **Reach:** a Connection's card. **Needs:** Agent: installed / not, accounts, environment config folder.
-- [ ] Open an account's card (one at a time); edit name, config folder, binary; hints say what empty means. **Reach:** a row. **Needs:** Agent.
-- [ ] Add another login (`+`): a new card, with how to sign in with its folder; Save makes it. **Reach:** agent's `+`. **Needs:** Agent; File System: the config folder.
+- [x] Agents: each agent's Harness Accounts, Default first: name, the config folder it really runs with (marked when Connect's environment chose it), the version that runs, or why it does not run (how to install). **Reach:** a Connection's card. **Needs:** Agent: installed / not, accounts, environment config folder.
+- [x] Open an account's card (one at a time); edit name, config folder, binary; hints say what empty means. **Reach:** a row. **Needs:** Agent.
+- [x] Add another login (`+`): a new card, with how to sign in with its folder; Save makes it. **Reach:** agent's `+`. **Needs:** Agent; File System: the config folder.
 - [ ] Save refused: binary missing or not runnable; config folder not a folder; no name. The card keeps what was typed. **Reach:** Save. **Needs:** Agent: which binary paths run; File System.
-- [ ] Remove an added account, asked again; the Default Account has no Remove. **Reach:** card. **Needs:** Agent.
+- [x] Remove an added account, asked again; the Default Account has no Remove. **Reach:** card. **Needs:** Agent.
 - [ ] Accounts could not be asked: a line says so, Retry. **Reach:** card. **Needs:** Computers: offline before anything was kept.
-- [ ] Speech to Text switch: Off (what it does), on → Downloading with a bar, Ready (how to dictate), Failed (why, retry); off deletes the model; refused, why. **Reach:** a Connection's card. **Needs:** Speech: download progress, download fails.
+- [x] Speech to Text switch: Off (what it does), on → Downloading with a bar, Ready (how to dictate), Failed (why, retry); off deletes the model; refused, why. **Reach:** a Connection's card. **Needs:** Speech: download progress, download fails. _(Task 17: on, Downloading, Failed and Try again, Ready walked; off not yet.)_
 - [ ] Speech's and agents' rows show as kept, and take nothing, while the Link is not linked. **Reach:** card. **Needs:** Computers: offline.
 
 ### About
