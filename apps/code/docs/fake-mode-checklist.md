@@ -49,48 +49,48 @@ mode are under [Limits](#limits).
 ### The list
 
 - [x] No Connection: home says how to start one, `npx @kestack/connect serve`. **Reach:** home. **Needs:** Computers, blank.
-- [ ] A computer comes online: it shows up beside the others, in the sidebar and home, without a reload (Recheck while one is on its way). **Reach:** home. **Needs:** Computers: add a computer, online. _(Task 17: with no Connection listed yet, Code asks Connect Cloud nothing more by itself, as in production, so a first computer shows on Look again, Reload, or the tab back after 15 s; with one listed and linked, likewise.)_
-- [ ] Two or more computers: the sidebar names each Connection, home lists every Project with its Connection's name. **Reach:** sidebar, home. **Needs:** Computers: add two computers.
-- [ ] Kept list: the app opens with the Connection List this device last had, while Connect Cloud is asked behind. **Reach:** reload. **Needs:** Computers: Connect Cloud out of reach.
-- [ ] Connect Cloud out of reach with no list kept: home says "Can't reach Connect Cloud", the problem, and a way to ask again. **Reach:** home after Start fresh. **Needs:** Computers: Connect Cloud out of reach, then back.
+- [x] A computer comes online: it shows up beside the others, in the sidebar and home, without a reload (Recheck while one is on its way). **Reach:** home. **Needs:** Computers: add a computer, online. _(Task 17: with no Connection listed yet, Code asks Connect Cloud nothing more by itself, as in production, so a first computer shows on Look again, Reload, or the tab back after 15 s; with one listed and linked, likewise.)_
+- [x] Two or more computers: the sidebar names each Connection, home lists every Project with its Connection's name. **Reach:** sidebar, home. **Needs:** Computers: add two computers.
+- [x] Kept list: the app opens with the Connection List this device last had, while Connect Cloud is asked behind. **Reach:** reload. **Needs:** Computers: Connect Cloud out of reach.
+- [x] Connect Cloud out of reach with no list kept: home says "Can't reach Connect Cloud", the problem, and a way to ask again. **Reach:** home after Start fresh. **Needs:** Computers: Connect Cloud out of reach, then back.
 - [x] Reload: the sidebar's Reload turns once and asks the list and every Setup again. **Reach:** sidebar header Reload; Settings → Connections Reload. **Needs:** Computers.
-- [ ] Pull to Reload on touch. **Reach:** pull the sidebar down from its top. **Needs:** Computers; touch.
-- [ ] Recheck pace: every 3 s while one is on its way, every 10 s while one is stuck or down, none once all are linked. **Reach:** watch the Connect Cloud calls in the bubble's log. **Needs:** Computers: tunnel states, offline.
-- [ ] The page back after 15 s or more hidden asks the list at once. **Reach:** hide the tab, come back. **Needs:** Computers; real middle.
-- [ ] Prune on Connect Cloud's first answer: a Connection it no longer lists goes, with its databases and Saved Drafts. **Reach:** reload after the computer is forgotten elsewhere. **Needs:** Computers: forget a computer (as from another device).
-- [ ] A computer that forgets itself (its `ke-connect` removed) leaves the list. **Reach:** sidebar, Settings. **Needs:** Computers: forgets itself.
+- [x] Pull to Reload on touch. **Reach:** pull the sidebar down from its top. **Needs:** Computers; touch.
+- [x] Recheck pace: every 3 s while one is on its way, every 10 s while one is stuck or down, none once all are linked. **Reach:** how soon a change made in the bubble shows (the bubble's log has only Controls, not Connect Cloud's calls). **Needs:** Computers: tunnel states, offline.
+- [x] The page back after 15 s or more hidden asks the list at once. **Reach:** hide the tab, come back. **Needs:** Computers; real middle.
+- [x] Prune on Connect Cloud's first answer: a Connection it no longer lists goes, with its databases and Saved Drafts. **Reach:** reload after the computer is forgotten elsewhere. **Needs:** Computers: forget a computer (as from another device).
+- [x] A computer that forgets itself (its `ke-connect` removed) leaves the list. **Reach:** sidebar, Settings. **Needs:** Computers: forgets itself.
 
 ### How a Connection stands
 
 - [x] Linking: "Connecting…" while the socket is on its way, or while the kept Last Seen is not yet believed. **Reach:** header pill, sidebar, Settings card. **Needs:** Computers: online.
 - [x] Linked: green dot; calls and syncs go. **Reach:** sidebar Connection name, Settings card. **Needs:** Computers: online.
-- [ ] Setting up, cloudflared downloading with size and time; Opening its tunnel; Tunnel failed, retrying. **Reach:** header pill and its title, Connections Drawer, Settings card. **Needs:** Computers: tunnel state (Downloading with progress, Opening, Failed).
-- [ ] Ready but Unchecked or Reachable while the socket links: "Connecting…". **Reach:** header pill. **Needs:** Computers: tunnel state (Unchecked, Reachable).
-- [ ] Unreachable: "Out of reach", tunnel broken with its problem; Recheck every 10 s. **Reach:** header pill, Settings card. **Needs:** Computers: tunnel state (Unreachable, with a problem).
+- [x] Setting up, cloudflared downloading with size and time; Opening its tunnel; Tunnel failed, retrying. **Reach:** header pill and its title, Connections Drawer, Settings card. **Needs:** Computers: tunnel state (Downloading with progress, Opening, Failed).
+- [x] Ready but Unchecked or Reachable while the socket links: "Connecting…". **Reach:** header pill. **Needs:** Computers: tunnel state (Unchecked, Reachable).
+- [x] Unreachable: "Out of reach", tunnel broken with its problem; Recheck every 10 s. **Reach:** header pill, Settings card. **Needs:** Computers: tunnel state (Unreachable, with a problem).
 - [x] Down: no report for three Heartbeats (45 s): "Connection down", last seen; what it synced stays readable, quieter, no + in the sidebar, moved last. **Reach:** sidebar, header, any of its pages. **Needs:** Computers: offline (and last seen pushed back, to be Down at once).
 - [x] Back online: the Link relinks, the Replicas resume, the order and dot come back. **Reach:** sidebar. **Needs:** Computers: offline, then online.
-- [ ] Settings locked: a Link on its way for a while puts a lock on its card; agent rows and the Speech switch take nothing. **Reach:** Settings → Connections. **Needs:** Computers: offline or tunnel not up.
+- [x] Settings locked: a Link on its way for a while puts a lock on its card; agent rows and the Speech switch take nothing. **Reach:** Settings → Connections. **Needs:** Computers: offline or tunnel not up.
 - [x] Expired key: a Connection Key rotated closes the socket (`KEY_EXPIRED`); the list is asked at once and the next socket offers the new key. **Reach:** any page; watch the Link relink. **Needs:** Computers: key rotates.
-- [ ] Tunnel moves: the computer comes back at a new address and the socket is dialled there. **Reach:** any page. **Needs:** Computers: tunnel moves to a new address.
+- [x] Tunnel moves: the computer comes back at a new address and the socket is dialled there. **Reach:** any page. **Needs:** Computers: tunnel moves to a new address.
 - [x] Outdated: a `ke-connect` older than the Minimum Connect is never dialled; header pill "Update ke-connect", Settings shows the line and `npm i -g @kestack/connect@latest` with Copy; it is dialled once a list says it was updated. **Reach:** header pill → Settings. **Needs:** Computers: `ke-connect` version, Connect Cloud's Minimum Connect; then update it.
 - [x] Copy the update command: the button says Copied. **Reach:** Settings card of an Outdated Connection. **Needs:** Computers: Outdated.
 - [x] Mismatched, Updating: the computer runs another Release and Connect Cloud wants this Code's (`Latest`): pill "Updating Connect…", relinks at once, linked once it runs this Code's Release. **Reach:** header pill, Settings card. **Needs:** Computers: runs another Release; Connect Cloud's wanted Release = this Code's.
-- [ ] Mismatched, Connect Cloud behind (`Unknown`): pill "Updating Connect…", relinks every 30 s. **Reach:** header pill. **Needs:** Computers: runs another Release; Connect Cloud's wanted Release unknown to it.
-- [ ] Mismatched, Code Stale (`Older`): pill "Updating Code…", the Link waits for good, and Code moves to its newest build, once. **Reach:** header pill, then the reload. **Needs:** Computers: runs another Release; Connect Cloud's wanted Release another; New build: newest build.
-- [ ] Mismatched while Connect Cloud is out of reach: decides nothing, relinks slowly. **Reach:** header pill. **Needs:** Computers: runs another Release, Connect Cloud out of reach.
-- [ ] Restart: a computer's code Plugin restarts; the Link relinks, the running Turn ends interrupted, the next start Resumes it. **Reach:** a running Session. **Needs:** Computers: restart.
+- [x] Mismatched, Connect Cloud behind (`Unknown`): pill "Updating Connect…", relinks every 30 s. **Reach:** header pill. **Needs:** Computers: runs another Release; Connect Cloud's wanted Release unknown to it.
+- [x] Mismatched, Code Stale (`Older`): pill "Updating Code…", the Link waits for good, and Code moves to its newest build, once. **Reach:** header pill, then the reload. **Needs:** Computers: runs another Release; Connect Cloud's wanted Release another; New build: newest build.
+- [x] Mismatched while Connect Cloud is out of reach: decides nothing, relinks slowly. **Reach:** header pill. **Needs:** Computers: runs another Release, Connect Cloud out of reach.
+- [x] Restart: a computer's code Plugin restarts; the Link relinks, the running Turn ends interrupted, the next start Resumes it. **Reach:** a running Session. **Needs:** Computers: restart.
 
 ### Settings → Connections
 
 - [x] One card per Connection, as the sidebar says it: name, dot, Link and Last Seen; on wide, its tunnel and Connect version. **Reach:** Settings → Connections. **Needs:** Computers: one or more computers.
 - [x] Rename: pencil, type, Enter; the name changes everywhere at once and is kept; works while out of reach. **Reach:** Settings card. **Needs:** Computers (Connect Cloud's `Rename`).
-- [ ] Rename to empty goes back to the Computer Name; Escape leaves without saving. **Reach:** Settings card. **Needs:** Computers.
+- [x] Rename to empty goes back to the Computer Name; Escape leaves without saving. **Reach:** Settings card. **Needs:** Computers.
 - [x] Rename refused: says why, keeps what was typed. **Reach:** Settings card. **Needs:** Computers: Connect Cloud out of reach.
-- [ ] Two of one Display Name are told apart by the Computer Name under it. **Reach:** Settings. **Needs:** Computers: two computers, one renamed as the other.
-- [ ] A Computer Name `<host> (<name>)` is shown as its short name everywhere. **Reach:** sidebar. **Needs:** Computers: add a computer named so.
+- [x] Two of one Display Name are told apart by the Computer Name under it. **Reach:** Settings. **Needs:** Computers: two computers, one renamed as the other.
+- [x] A Computer Name `<host> (<name>)` is shown as its short name everywhere. **Reach:** sidebar. **Needs:** Computers: add a computer named so.
 - [x] Forget: the bin asks first, saying when it was last seen and how its tunnel stands; confirmed, Connect Cloud forgets it, it leaves the list, its database goes; the computer's next Heartbeat is told it was forgotten. **Reach:** Settings card bin. **Needs:** Computers: add a computer (the Fake must stop it on `ConnectionForgotten`).
 - [x] Forget dismissed: nothing changes. **Reach:** Settings card bin → Cancel. **Needs:** Computers.
-- [ ] Forget refused: says why. **Reach:** Settings card bin. **Needs:** Computers: Connect Cloud out of reach.
+- [x] Forget refused: says why. **Reach:** Settings card bin. **Needs:** Computers: Connect Cloud out of reach.
 
 ## 3. Project Picker and folders
 
@@ -404,6 +404,11 @@ planned:
 - **Refusals the real middle never gives a live Session.** A Move, a Stop or
   a send refused with `SessionNotFound`: no Session goes away in production,
   so only a Session removed by hand (or a forgotten computer) shows them.
+- **A reload restarts every computer.** The tab is every computer's
+  `ke-connect`, so a reload starts each one again, and a `ke-connect` just
+  started runs no Plugin until Connect Cloud names one: a reload while
+  Connect Cloud is out of reach shows the kept list, but no Connection links
+  until it is back, where a real computer would have stayed linked.
 - **Keep Screen On, touch gestures, files and the clipboard** are the
   browser's own and run for real; touch needs the browser's emulation or a
   phone on the tunnel.
