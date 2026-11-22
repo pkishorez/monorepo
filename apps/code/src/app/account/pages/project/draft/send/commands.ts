@@ -149,21 +149,31 @@ export const send = Command.make('Send', {
     model: Schema.optionalKey(Schema.String),
     settings: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
   }),
-  run: ({ attachments, ...args }) =>
-    CodeClient.use((api) =>
+  run: ({ attachments, ...args }) => {
+    const refused = (reason: string) =>
+      Effect.succeed({
+        _tag: 'SendRefused' as const,
+        text: args.text,
+        attachments,
+        reason,
+      });
+    return CodeClient.use((api) =>
       api.send({ ...args, attachments: wire(attachments) }),
     ).pipe(
       Effect.asVoid,
-      Effect.catch((cause) =>
-        Effect.succeed({
-          _tag: 'SendRefused' as const,
-          text: args.text,
-          attachments,
-          reason: reasonOf(cause),
-        }),
-      ),
-    ),
+      Effect.catch((cause) => refused(reasonOf(cause))),
+      // The Connection died taking it, as when a file cannot be saved:
+      // nothing was sent, and what was written is not lost.
+      Effect.catchDefect((defect) => refused(defectReason(defect))),
+    );
+  },
 });
+
+/** Why the Connection died taking a message, as a person reads it. */
+const defectReason = (defect: unknown) =>
+  defect instanceof Error && defect.message !== ''
+    ? `The Connection could not take it: ${defect.message}`
+    : 'The Connection could not take it';
 
 /** An Ask's answer as a person reads it: its text, or its data as JSON. */
 const answerText = (answer: AskAnswer) =>
