@@ -73,7 +73,7 @@ const steps = {
             {
               value: `${CREATE}${name}`,
               label: `Create “${name}” here`,
-              detail: `A new folder in ${placeOf(key).path}, with a git repository`,
+              detail: `A new folder in ${placeOf(key).path}`,
             },
           ];
     },
