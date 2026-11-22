@@ -8,7 +8,7 @@ import type { Locator, Page } from 'playwright-core';
  *
  * An Instance is named by its address as the bubble titles it, without
  * the `#n` each part carries: `Computers`, `Computers/computers[computer-1]`,
- * `Computers/computers[computer-1]/fileSystem`.
+ * `Computers/computers[computer-1]/fileSystem`; a Fake's name alone is its root.
  */
 
 /** A Control's fields by name: text and numbers typed, a choice picked, a switch set. */
@@ -62,7 +62,10 @@ export class Bubble {
       .evaluateAll((summaries) =>
         summaries.map((summary) => summary.getAttribute('title') ?? ''),
       );
-    const target = titles.find((title) => plain(title) === address);
+    // A Fake's name alone is its root, whatever its Actor is called.
+    const target =
+      titles.find((title) => plain(title) === address) ??
+      (address === fake ? titles[0] : undefined);
     if (target === undefined)
       throw new Error(
         `No Instance at ${address}; the bubble has ${titles.map(plain).join(', ')}`,

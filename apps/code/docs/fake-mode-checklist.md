@@ -187,8 +187,8 @@ mode are under [Limits](#limits).
 - [ ] An added account removed: its Sessions fail their next Turn. **Reach:** Settings → remove, then send. **Needs:** Agent: accounts.
 - [x] Stopped by you: Stop (Status Line, `mod+.`, Actions, the Question Panel's head), square mark, "stopped". **Reach:** a running Turn. **Needs:** Agent: a long or hanging Script.
 - [ ] Stop refused: says why. **Reach:** Stop. **Needs:** Computers: offline (the call waits) — a refusal needs the Session gone.
-- [ ] Interrupted (cut off): amber mark; the Turn after says what the restart stopped (the Turn, subagents, commands). **Reach:** restart a computer during a Turn. **Needs:** Computers: restart.
-- [ ] Resumed Turn: after a restart, Connect continues a cut-off Turn; a quiet rule says so in place of the prompt. **Reach:** as above. **Needs:** Computers: restart; Agent: a Script for the resume.
+- [x] Interrupted (cut off): amber mark; the Turn after says what the restart stopped (the Turn, subagents, commands). **Reach:** restart a computer during a Turn. **Needs:** Computers: restart. _(Task 20: walked by a reload mid-Turn, which restarts every computer in the tab; a Restart Control mid-Turn not yet.)_
+- [x] Resumed Turn: after a restart, Connect continues a cut-off Turn; a quiet rule says so in place of the prompt. **Reach:** as above. **Needs:** Computers: restart; Agent: a Script for the resume. _(Task 20: "Resumed after Connect restarted", after a reload.)_
 - [x] An Agent-started Turn (no words of yours): a rule says why it carried on. **Reach:** transcript. **Needs:** Agent: starts a Turn on its own (as when a background job ends).
 - [ ] Usage: tokens and cost per Turn (cost only where the agent says; none for Codex). **Reach:** footer → details. **Needs:** Agent: usage in Scripts.
 
@@ -367,8 +367,8 @@ mode are under [Limits](#limits).
 - [ ] Every Connection offline: everything synced readable, sends wait, Settings locked. **Reach:** any page. **Needs:** Computers: all offline.
 - [ ] A call made while the socket is down waits and goes once it is back. **Reach:** send while offline, then online. **Needs:** Computers: offline, then online.
 - [ ] A Turn running while its page is closed keeps going; reopened, it shows what came. **Reach:** leave and return. **Needs:** Agent: a long Script.
-- [ ] A reload in fake mode keeps the world; a reply running at reload ends interrupted. **Reach:** reload mid-Turn. **Needs:** every Fake's Snapshot; Computers.
-- [ ] Start fresh (bubble) deletes everything and starts blank. **Reach:** bubble. **Needs:** Fake World.
+- [x] A reload in fake mode keeps the world; a reply running at reload ends interrupted. **Reach:** reload mid-Turn. **Needs:** every Fake's Snapshot; Computers. _(Task 20: walked, `reload` scenario.)_
+- [x] Start fresh (bubble) deletes everything and starts blank. **Reach:** bubble. **Needs:** Fake World. _(Task 20: walked, `start-fresh` scenario; the page's address is kept.)_
 
 ## 13. Everything else
 
