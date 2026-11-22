@@ -9,7 +9,9 @@ import { folders } from './folders.ts';
 import { fresh } from './fresh.ts';
 import { home } from './home.ts';
 import { projects } from './projects.ts';
+import { reach } from './reach.ts';
 import { reload } from './reload.ts';
+import { repos } from './repos.ts';
 import { sessions } from './sessions.ts';
 import { settings } from './settings.ts';
 import { tunnels } from './tunnels.ts';
@@ -35,6 +37,8 @@ export const scenarios: ReadonlyArray<Scenario> = [
   tunnels,
   connections,
   folders,
+  repos,
+  reach,
   devtools,
   reload,
   accounts,
