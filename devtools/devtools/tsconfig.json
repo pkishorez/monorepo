@@ -13,9 +13,8 @@
   },
   "include": [
     "src/cli/**/*",
-    "src/lotel/**/*",
-    "src/rpc/**/*",
-    "src/server/**/*",
+    "src/app/**/server/**/*",
+    "src/app/**/contract/**/*",
     "scripts/**/*",
     "vite.config.ts"
   ],

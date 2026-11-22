@@ -1,33 +1,30 @@
 # @kestack/devtools
 
-Local DevTools server for telemetry and architecture analysis, with Client
-Commands for reading it back
+Local DevTools server and app: Lotel for telemetry, Monoverse for monorepo architecture, and Kabuki for live Kabuki apps
 
 ## Big picture
 
-Local development produces traces and logs, and a project's architecture
-lives in a `laymos.config.json`. DevTools gives all of that one place.
-`devtools` starts a loopback server that bundles the browser UI, a typed RPC
-endpoint, and OTLP/HTTP ingestion. Every subcommand is a Client Command that
-reads Traces back from a running server as JSON or text, so a shell or a
-coding agent can query telemetry without a browser.
+Local development produces traces and logs, runs Kabuki apps, and grows a
+folder structure that someone has to keep healthy. DevTools gives all of that
+one place: `devtools` starts a loopback server that serves one browser app
+and each Tool's endpoints.
 
-The server hosts three Tools. Lotel stores and shows OpenTelemetry data; its
-telemetry contracts and store ship here as the `@kestack/devtools/lotel`
-subpaths ([src/lotel](./src/lotel/README.md)). Monoverse maps a monorepo or a
-single package and opens a Package's architecture in place as Embedded
-Laymos, through [laymos](../laymos/README.md). Applications send telemetry
-with [@kestack/effect-tracer](../effect-tracer/README.md). Kabuki lists
-the running Kabuki apps connected as Kabuki Sessions and opens the Inspector
-on one, through [@kestack/devtools-kabuki](../devtools-kabuki/README.md);
-`/kabuki?session=<name>` opens one directly. Each Tool's views
-live under `src/browser-app/ui` and are bundled into the browser UI at build time;
-`pnpm cosmos` opens their fixtures.
+The app is one client-rendered Kabuki app (`src/app`). Its root draws the
+header and composes three Tools, each a plain Actor that starts from its
+Input and draws everything below it, so any app can mount one on its own:
+Lotel stores and shows OpenTelemetry data; Monoverse shows a Monorepo or a
+Single Package as its folder tree, with the imports between folders and the
+one rule they must keep; Kabuki lists the running Kabuki apps connected as
+Kabuki Sessions and opens the Inspector on one, through
+[@kestack/devtools-kabuki](../devtools-kabuki/README.md). Each Tool's folder
+holds its whole slice: its RPC contract, its server half and its Actors.
+Applications send telemetry with
+[@kestack/effect-tracer](../effect-tracer/README.md).
 
 Terms are defined in [CONTEXT.md](./CONTEXT.md) and, per Tool, in
-[docs/lotel.md](./docs/lotel.md) and [docs/monoverse.md](./docs/monoverse.md). Decisions are in
-[docs/adr/](./docs/adr/). The agent skill shipped with the package is in
-[skills/devtools/SKILL.md](./skills/devtools/SKILL.md).
+[docs/lotel.md](./docs/lotel.md) and [docs/monoverse.md](./docs/monoverse.md).
+Decisions are in [docs/adr/](./docs/adr/); how the app is put together is
+[ADR 0013](./docs/adr/0013-the-app-is-one-kabuki-tree-of-composable-tools.md).
 
 ## Install
 
@@ -41,38 +38,16 @@ It has no peer dependencies.
 
 ## Exports
 
-### `@kestack/devtools/lotel`
-
-Node. Lotel's RPC and OTLP/HTTP layers and its SQLite Telemetry Store; see
-[src/lotel](./src/lotel/README.md#kestackdevtoolslotel-1).
-
-### `@kestack/devtools/lotel/rpc`
-
-Browser-safe. The `LotelRpc` contract alone; see
-[src/lotel](./src/lotel/README.md#kestackdevtoolslotelrpc).
-
-### `@kestack/devtools/lotel/telemetry`
-
-Browser-safe. Span and Log Record Schemas, Trace shapes, OTLP bodies and
-errors; see [src/lotel](./src/lotel/README.md#kestackdevtoolsloteltelemetry).
+The package has no library subpaths: it ships the `devtools` binary only.
 
 ### CLI
 
-| Command                                      | What it does                                                                                 |
-| -------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `devtools [--port] [--db] [--open]`          | Runs the DevTools Server: UI, RPC, and OTLP ingestion on `127.0.0.1:14400`.                  |
-| `devtools list-traces [--limit 20]`          | Lists recent Trace Summaries, newest first.                                                  |
-| `devtools get-trace <trace-id>`              | Returns one Trace: spans in start order with their Log Records.                              |
-| `devtools kabuki sessions`                   | Lists the live Kabuki Sessions by app, then Environment; `--app`, `--env`.                   |
-| `devtools kabuki history <session>`          | A Kabuki Session's History, one line per entry; `--last N`, `--since <id>`, `--branch <id>`. |
-| `devtools kabuki changes <session> <step>`   | What one Step did to each Instance.                                                          |
-| `devtools kabuki snapshot <session>`         | The Snapshot at a Step or a part of it; `--at`, `--path`, `--expand`.                        |
-| `devtools skills [<name>] [--install <dir>]` | Lists, prints, or installs the shipped agent skill.                                          |
+| Command                             | What it does                                                                        |
+| ----------------------------------- | ----------------------------------------------------------------------------------- |
+| `devtools [--port] [--db] [--open]` | Runs the DevTools Server: the app, each Tool's RPC, and OTLP ingestion on loopback. |
 
-Client Commands take `--url` and `--format json|text`. The server URL comes
-from `--url`, then `DEVTOOLS_URL`, then `DEVTOOLS_PORT` on `127.0.0.1`, then
-`http://127.0.0.1:14400`. The server reads `DEVTOOLS_PORT` and `DEVTOOLS_DB`
-when the flags are absent.
+The server reads `DEVTOOLS_PORT` and `DEVTOOLS_DB` when the flags are absent;
+it listens on `127.0.0.1:14400` by default.
 
 ## Usage
 
@@ -108,39 +83,54 @@ await server.dispose();
 
 How it works:
 
-- The server listens on loopback only and serves `/`, `/lotel`,
-  `/monoverse`, `/kabuki`, `/rpc`, `/health`, `/story-evidence`, `/v1/traces`, and
-  `/v1/logs`. `/story-evidence?project=&proof=&file=` serves one file from a
-  Proof's `.laymos/stories/<proof id>/` Evidence folder and nothing outside it.
+- The server listens on loopback only. `/`, `/lotel`, `/monoverse` and
+  `/kabuki` are the app; `/health` lists every endpoint.
+- Lotel answers `/rpc/lotel` and takes OTLP/HTTP JSON at `/v1/traces` and
+  `/v1/logs`, from any origin; `makeDevTelemetryLayer` posts there.
+- Monoverse answers `/rpc/monoverse`. Its Project registry and Lotel's
+  Telemetry Store keep separate tables in the one DevTools database.
 - Kabuki apps dial the WebSocket `/kabuki/connect` as Kabuki Sessions, from
   any origin. `/kabuki/sessions` and `/kabuki/session/:name` list them and
   forward one's Kabuki Session Api, and answer only a request with no
   `Origin` or DevTools' own
   ([@kestack/devtools-kabuki](../devtools-kabuki/README.md)).
-- `makeDevTelemetryLayer` posts OTLP/HTTP JSON to `/v1/traces` and `/v1/logs`.
 
-### Read telemetry back from a shell
+### Explore a repository's folder tree
 
-Client Commands query the running server. JSON is the default so output can be
-piped; `--format text` renders a Trace as its Narrative.
+Open `/monoverse`, pick a Project or open a folder under home, and Monoverse
+shows it as its folder tree. Its place is the address:
+`?project=<entry id>&package=<folder>&branch=<name>&base=<name>&changes=1`.
 
-```sh
-devtools list-traces --limit 5
-devtools get-trace 4bf92f3577b34da6a3ce929d0e0e4736 --format text
-
-# A Kabuki app opened with ?kabuki-session=checkout.
-devtools kabuki history checkout --last 10 --format text
-devtools kabuki snapshot checkout --path model.cart --format text
-
-# Install the agent skill so a coding agent knows these commands.
-devtools skills devtools --install .claude/skills
+```text
+repo view     the real folders; each Package a row of two lines, its
+              folder's name over its own name and version. Select a
+              Package: arcs show what it uses and what uses it, the rest
+              dims; a Package cycle is red. Double-click it to go in.
+package view  the Package's git-known files; outside its Source roots dimmed.
+              Select a folder: its links to its siblings and to folders
+              beside its ancestors; a file reaching up into an ancestor
+              folder's own files is a Violation, in red.
+bottom bar    the selection, or the whole tree, and one button: Open
+              package, Open file, View changes or Browse files.
+top right     Branch: whose files you see, read from its worktree, or from
+              git when none has it checked out. Compare to: what changes
+              are measured against. Changes: added green, modified yellow,
+              deleted red, rolled up to folders; beside it, whether the
+              unchanged are shown, dimmed or hidden, and whether the
+              deleted are drawn. On a phone all of it is one settings sheet.
 ```
 
 How it works:
 
-- Each command opens an Effect RPC client over NDJSON against `DevtoolsRpc`
-  at `<url>/rpc`; the `kabuki` commands dial `<url>/kabuki/sessions` and
-  `<url>/kabuki/session/<name>` over WebSockets instead.
-- A missing Trace or Kabuki Session, or an unreachable server, is written to stderr
-  with a nonzero exit.
-- Laymos is not covered by Client Commands; use the `laymos` CLI.
+- The server answers raw facts only, at a branch: the git-known files, each
+  Package's Source roots and its import graph, read with oxc. The browser builds the
+  tree, rolls up connections and applies the rule, so a selection never
+  waits on the server.
+- Source roots come from `sourceRoots` in a `laymos.config.json` beside a
+  Package's `package.json`; nothing else in it is read. Without one, the
+  whole Package is its one Source root.
+- View changes opens a folder, the root included, as a tree of the files
+  that changed in it beside one file's diff; Browse files does the same for
+  every file. ← and →, the bar under the file, or a swipe on it step from
+  file to file; on a phone the list and the file are a screen each, a swipe
+  apart. How a diff reads is kept by the browser.

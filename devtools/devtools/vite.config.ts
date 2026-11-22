@@ -74,8 +74,8 @@ export default defineConfig({
     allowedHosts: true,
     proxy: {
       '/health': backendProxy(),
+      // Each Tool's RPC, at /rpc/<tool>.
       '/rpc': backendProxy(),
-      '/story-evidence': backendProxy(),
       '/v1': backendProxy({ anyOrigin: true }),
       // The /kabuki page's WebSockets; the page itself stays with Vite.
       '^/kabuki/(sessions|session/)': { ...backendProxy(), ws: true },
@@ -84,11 +84,10 @@ export default defineConfig({
   plugins: [tailwindcss(), viteReact()],
   // The CLI and its server, one minified file with every JavaScript
   // dependency inlined. oxc-parser and oxc-resolver are native, and tsx
-  // loads files through Node's hooks, so they stay dependencies; vite and
-  // playwright-core come from the project laymos runs in.
+  // loads files through Node's hooks, so they stay dependencies.
   pack: {
     entry: {
-      'server/main': 'src/server/main.ts',
+      'cli/main': 'src/cli/main.ts',
     },
     format: 'esm',
     platform: 'node',
@@ -99,13 +98,7 @@ export default defineConfig({
     outputOptions: { inlineDynamicImports: true },
     deps: {
       alwaysBundle: [/./],
-      neverBundle: [
-        /^oxc-parser/,
-        /^oxc-resolver/,
-        /^tsx/,
-        /^vite$/,
-        /^playwright-core$/,
-      ],
+      neverBundle: [/^oxc-parser/, /^oxc-resolver/, /^tsx/],
       onlyBundle: false,
     },
   },

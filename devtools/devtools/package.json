@@ -2,7 +2,7 @@
   "name": "@kestack/devtools",
   "version": "0.0.17",
   "private": false,
-  "description": "Local DevTools server for telemetry and architecture analysis, with Client Commands for reading it back",
+  "description": "Local DevTools server and app: Lotel for telemetry, Monoverse for monorepo architecture, and Kabuki for live Kabuki apps",
   "keywords": [
     "devtools",
     "effect",
@@ -14,41 +14,25 @@
   },
   "license": "MIT",
   "type": "module",
-  "exports": {
-    "./lotel": {
-      "types": "./dist/lotel/index.d.ts",
-      "default": "./dist/lotel/index.js"
-    },
-    "./lotel/rpc": {
-      "types": "./dist/lotel/rpc/index.d.ts",
-      "default": "./dist/lotel/rpc/index.js"
-    },
-    "./lotel/telemetry": {
-      "types": "./dist/lotel/telemetry-schema/index.d.ts",
-      "default": "./dist/lotel/telemetry-schema/index.js"
-    }
-  },
   "bin": {
-    "devtools": "dist/server/main.mjs"
+    "devtools": "dist/cli/main.mjs"
   },
   "files": [
-    "dist/server",
+    "dist/cli",
     "dist/ui",
-    "skills",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
-    "build": "vp pack && tsc -p tsconfig.build.json && vp build",
+    "build": "vp pack && vp build",
     "build:watch": "vp pack --watch",
     "cosmos": "cosmos",
     "dev": "vp run -F '@kestack/devtools^...' build && portless run --force tsx scripts/dev.mts",
-    "lint": "vp check && tsc --noEmit && tsc -p tsconfig.ui.json --noEmit && laymos lint",
+    "lint": "vp check && tsc --noEmit && tsc -p tsconfig.ui.json --noEmit",
     "test": "vitest run && tsx scripts/package-smoke.mts"
   },
   "dependencies": {
     "oxc-parser": "catalog:",
-    "oxc-resolver": "catalog:",
     "tsx": "catalog:"
   },
   "devDependencies": {
@@ -59,12 +43,9 @@
     "@kestack/kabuki": "workspace:*",
     "@kestack/std-toolkit": "workspace:*",
     "@kestack/use-gesture": "workspace:*",
-    "@kestack/use-keys": "workspace:*",
     "@kestack/web-platform": "workspace:*",
     "@tailwindcss/vite": "catalog:",
     "@tanstack/react-db": "catalog:",
-    "@tanstack/react-query": "catalog:",
-    "@tanstack/react-router": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
@@ -72,26 +53,20 @@
     "@vitejs/plugin-react": "catalog:",
     "effect": "catalog:",
     "env-paths": "catalog:",
-    "laymos": "workspace:*",
     "lucide-react": "catalog:",
     "motion": "catalog:",
     "react": "catalog:",
     "react-cosmos": "catalog:",
     "react-cosmos-plugin-vite": "catalog:",
     "react-dom": "catalog:",
-    "react-markdown": "catalog:",
     "react-resizable-panels": "catalog:",
-    "remark-gfm": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "catalog:typescript6",
-    "use-effect-ts": "workspace:*",
     "vite": "catalog:",
     "vitest": "catalog:",
-    "yaml": "catalog:",
-    "zustand": "catalog:"
+    "yaml": "catalog:"
   },
   "publishConfig": {
-    "access": "public",
-    "exports": {}
+    "access": "public"
   }
 }

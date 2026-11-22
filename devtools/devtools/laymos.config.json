@@ -2,112 +2,136 @@
   "$schema": "../laymos/schema.json",
   "sourceRoots": ["src"],
   "fileModules": [
-    "src/browser.tsx",
-    "src/server/main.ts",
-    "src/server/handlers.ts",
-    "src/cli/skills.ts",
-    "src/browser-app/ui/lotel/collections.ts",
-    "src/browser-app/ui/monoverse/monorepo-explorer/analysis.ts"
+    "src/cli/main.ts",
+    "src/app/start.tsx",
+    "src/app/actor.ts",
+    "src/app/view.tsx",
+    "src/app/pages/home.ts",
+    "src/app/pages/lotel.tsx",
+    "src/app/pages/monoverse.tsx",
+    "src/app/pages/kabuki.tsx"
   ],
+  "ignoredPaths": ["src/app/cosmos.decorator.tsx"],
   "rules": {
-    "src/browser.tsx": ["src/browser-app"],
-    "src/browser-app": ["src/rpc"],
-    "src/browser-app/ui": ["src/browser-app/devtools-rpc"],
-    "src/cli/client-command": ["src/rpc"],
-    "src/cli/traces": ["src/cli/client-command", "src/lotel/telemetry-schema"],
-    "src/cli/kabuki": ["src/cli/client-command"],
-    "src/server/main.ts": [
-      "src/server/local-devtools-server",
-      "src/cli/traces",
-      "src/cli/kabuki",
-      "src/cli/skills.ts"
+    "src/app/actor.ts": [
+      "src/app/pages/home.ts",
+      "src/app/pages/kabuki.tsx",
+      "src/app/pages/lotel.tsx",
+      "src/app/pages/monoverse.tsx"
     ],
-    "src/server/local-devtools-server": [
-      "src/server/handlers.ts",
-      "src/server/project-registry",
-      "src/lotel",
-      "src/rpc"
+    "src/app/kabuki/actor-inspector": ["src/app/kabuki/sessions"],
+    "src/app/lotel/feed": [
+      "src/app/lotel/preferences",
+      "src/app/lotel/telemetry",
+      "src/app/lotel/trace-model"
     ],
-    "src/server/handlers.ts": [
-      "src/server/laymos",
-      "src/server/monoverse",
-      "src/server/git-changes",
-      "src/rpc/laymos",
-      "src/rpc/git",
-      "src/rpc/monoverse"
+    "src/app/lotel/server": ["src/app/lotel/contract"],
+    "src/app/lotel/server/ingest": ["src/app/lotel/server/telemetry-store"],
+    "src/app/lotel/server/rpc": ["src/app/lotel/server/telemetry-store"],
+    "src/app/lotel/telemetry": [
+      "src/app/lotel/contract",
+      "src/app/lotel/trace-model"
     ],
-    "src/server/monoverse/analyze-monorepo/monorepo": [
-      "src/server/monoverse/analyze-monorepo/package",
-      "src/server/monoverse/analyze-monorepo/package-graph"
+    "src/app/lotel/trace": [
+      "src/app/lotel/telemetry",
+      "src/app/lotel/trace-model"
     ],
-    "src/server/monoverse/analyze-monorepo/package": [
-      "src/server/monoverse/analyze-monorepo/package-graph"
+    "src/app/lotel/trace-model": ["src/app/lotel/contract"],
+    "src/app/lotel/trace/ui/span-inspection": ["src/app/lotel/trace/ui/status"],
+    "src/app/monoverse/client": ["src/app/monoverse/contract"],
+    "src/app/monoverse/file-viewer": [
+      "src/app/monoverse/contract",
+      "src/app/monoverse/services/monorepo",
+      "src/app/monoverse/ui"
     ],
-    "src/rpc": ["src/lotel/rpc"],
-    "src/browser-app/ui/monoverse": [
-      "src/browser-app/ui/laymos",
-      "src/browser-app/ui/git-changes"
+    "src/app/monoverse/folder-viewer": [
+      "src/app/monoverse/contract",
+      "src/app/monoverse/file-viewer",
+      "src/app/monoverse/model",
+      "src/app/monoverse/ui"
     ],
-    "src/browser-app/ui/laymos": ["src/browser-app/ui/git-changes"],
-    "src/browser-app/ui/kabuki/page-kabuki": [
-      "src/browser-app/ui/kabuki/sessions"
+    "src/app/monoverse/git-controls": [
+      "src/app/monoverse/contract",
+      "src/app/monoverse/model",
+      "src/app/monoverse/tree",
+      "src/app/monoverse/ui"
     ],
-    "src/browser-app/ui/lotel/viewer": [
-      "src/browser-app/ui/lotel/collections.ts",
-      "src/browser-app/ui/lotel/trace-viewer"
+    "src/app/monoverse/monorepo": [
+      "src/app/monoverse/contract",
+      "src/app/monoverse/model",
+      "src/app/monoverse/package",
+      "src/app/monoverse/tree"
     ],
-    "src/browser-app/ui/lotel/collections.ts": ["src/lotel/telemetry-schema"],
-    "src/browser-app/ui/lotel/trace-viewer/trace-dock": [
-      "src/browser-app/ui/lotel/trace-viewer/waterfall-view",
-      "src/browser-app/ui/lotel/trace-viewer/trace-presentation"
+    "src/app/monoverse/package": [
+      "src/app/monoverse/contract",
+      "src/app/monoverse/model",
+      "src/app/monoverse/services/monorepo",
+      "src/app/monoverse/tree",
+      "src/app/monoverse/ui"
     ],
-    "src/browser-app/ui/lotel/trace-viewer/trace-list": [
-      "src/browser-app/ui/lotel/trace-viewer/waterfall-view",
-      "src/browser-app/ui/lotel/trace-viewer/trace-presentation"
+    "src/app/monoverse/picker": [
+      "src/app/monoverse/client",
+      "src/app/monoverse/contract"
     ],
-    "src/browser-app/ui/lotel/trace-viewer/waterfall-view": [
-      "src/browser-app/ui/lotel/trace-viewer/trace-presentation"
+    "src/app/monoverse/picker/ui": ["src/app/monoverse/picker/steps"],
+    "src/app/monoverse/server": [
+      "src/app/monoverse/contract",
+      "src/app/monoverse/model"
     ],
-    "src/browser-app/ui/lotel/trace-viewer/trace-normalization": [
-      "src/lotel/telemetry-schema"
+    "src/app/monoverse/server/changes": [
+      "src/app/monoverse/server/git",
+      "src/app/monoverse/server/snapshot"
     ],
-    "src/browser-app/ui/laymos/analysis-explorer": [
-      "src/browser-app/ui/laymos/laymo",
-      "src/browser-app/ui/laymos/file-list",
-      "src/browser-app/ui/laymos/preferences",
-      "src/browser-app/ui/laymos/project-changes"
+    "src/app/monoverse/server/config": ["src/app/monoverse/server/snapshot"],
+    "src/app/monoverse/server/file-graph": [
+      "src/app/monoverse/server/snapshot"
     ],
-    "src/browser-app/ui/laymos/analysis-explorer/stories-canvas": [
-      "src/browser-app/ui/laymos/canvas-space",
-      "src/browser-app/ui/lotel/trace-viewer"
+    "src/app/monoverse/server/files": ["src/app/monoverse/server/snapshot"],
+    "src/app/monoverse/server/snapshot": ["src/app/monoverse/server/git"],
+    "src/app/monoverse/server/workspace": ["src/app/monoverse/server/snapshot"],
+    "src/app/monoverse/server/workspace/monorepo": [
+      "src/app/monoverse/server/workspace/package",
+      "src/app/monoverse/server/workspace/package-graph"
     ],
-    "src/browser-app/ui/laymos/laymo": [
-      "src/browser-app/ui/laymos/canvas-space",
-      "src/browser-app/ui/laymos/project-changes"
+    "src/app/monoverse/server/workspace/package": [
+      "src/app/monoverse/server/workspace/package-graph"
     ],
-    "src/browser-app/ui/laymos/canvas-space": [
-      "src/browser-app/ui/laymos/preferences"
+    "src/app/monoverse/services/monorepo": [
+      "src/app/monoverse/client",
+      "src/app/monoverse/contract",
+      "src/app/monoverse/model"
     ],
-    "src/browser-app/ui/laymos/file-list": [
-      "src/browser-app/ui/laymos/preferences"
+    "src/app/monoverse/tree": [
+      "src/app/monoverse/contract",
+      "src/app/monoverse/model"
     ],
-    "*": [
-      "src/browser-app/ui/lotel/trace-viewer/trace-model",
-      "src/browser-app/ui/monoverse/monorepo-explorer/analysis.ts",
-      "src/lotel/telemetry-schema"
+    "src/app/monoverse/tree/outline": [
+      "src/app/monoverse/tree/canvas",
+      "src/app/monoverse/tree/lenses",
+      "src/app/monoverse/tree/selection-bar"
     ],
-    "src/server/laymos": ["src/rpc/laymos"],
-    "src/server/git-changes": ["src/rpc/git"],
-    "src/server/monoverse": ["src/rpc/monoverse"],
-    "src/server/project-registry": ["src/rpc/project-registry"]
-  },
-  "ignoredPaths": [
-    "src/browser-app/ui/cosmos.decorator.tsx",
-    "src/browser-app/ui/lotel/trace-viewer/trace-viewer.fixture.tsx",
-    "src/browser-app/ui/monoverse/monorepo-explorer/monoverse.fixture.tsx",
-    "src/browser-app/ui/laymos/analysis-explorer/fixtures",
-    "src/browser-app/ui/laymos/analysis-explorer/stories-canvas/fixtures",
-    "src/browser-app/ui/laymos/file-list/fixtures",
-    "src/browser-app/ui/laymos/laymo/fixtures"
-  ]
+    "src/app/monoverse/ui": ["src/app/monoverse/model"],
+    "src/app/pages/kabuki.tsx": ["src/app/kabuki"],
+    "src/app/pages/lotel.tsx": ["src/app/lotel"],
+    "src/app/pages/monoverse.tsx": ["src/app/monoverse"],
+    "src/app/start.tsx": [
+      "src/app/actor.ts",
+      "src/app/kabuki",
+      "src/app/lotel",
+      "src/app/monoverse",
+      "src/app/view.tsx"
+    ],
+    "src/app/view.tsx": [
+      "src/app/actor.ts",
+      "src/app/pages/kabuki.tsx",
+      "src/app/pages/lotel.tsx",
+      "src/app/pages/monoverse.tsx"
+    ],
+    "src/cli/main.ts": ["src/cli/serve"],
+    "src/cli/serve": [
+      "src/app/kabuki/server",
+      "src/app/lotel/server",
+      "src/app/monoverse/server"
+    ]
+  }
 }
