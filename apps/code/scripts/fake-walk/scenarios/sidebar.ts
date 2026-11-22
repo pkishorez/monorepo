@@ -82,13 +82,14 @@ export const sidebar: Scenario = {
     await send(page, 'Start the blog');
     await walk.see('echo: Start the blog');
     await row(walk, 'Start the blog').waitFor();
-    // Studio first, blog first in it, shop below, each under its branch.
+    // Studio first, blog first in it, shop below, each under its branch,
+    // whichever shop's folder is on by now.
     await until(
       walk,
       'blog first, then shop, Studio first',
       async () => await side.innerText(),
       (now) =>
-        /\nSTUDIO[^\n]*\nblog\nmain\nStart the blog\n[\s\S]*\nshop\nmain\n/.test(
+        /\nSTUDIO[^\n]*\nblog\nmain\nStart the blog\n[\s\S]*\nshop\n[^\n]+\n/.test(
           now,
         ) && now.indexOf('STUDIO') < now.indexOf('LOFT'),
     );
