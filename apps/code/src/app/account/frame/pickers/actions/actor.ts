@@ -55,6 +55,9 @@ const Bindings = Schema.Record(Schema.String, Schema.Array(Schema.String));
 /** Session details: the page's own Action of the keyboard, listed for the session. */
 const DETAILS = 'content.details';
 
+/** The Action of the keyboard a session's row does too, by the row's value. */
+const SAME: Readonly<Record<string, string>> = { stop: 'content.stop' };
+
 /** The actions that go to another Session, where the keyboard goes too. */
 const GOES = new Set(['fork', 'original']);
 
@@ -142,7 +145,9 @@ const List = Picker.make('Actions', {
                   : []),
               ].map((row) => ({ ...row, group: 'This session' }));
         // An Action listed for the session is not listed again by its keys.
-        const listed = new Set<string>(sessionRows.map(({ value }) => value));
+        const listed = new Set<string>(
+          sessionRows.map(({ value }) => SAME[value] ?? value),
+        );
         return {
           rows: [
             ...sessionRows,
