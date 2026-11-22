@@ -13,6 +13,7 @@ import {
   AccountLabel,
   accountName,
   AgentLogo,
+  agentName,
   type Named,
   plainName,
 } from '../../../../../../../ui/labels/agent/index.ts';
@@ -464,7 +465,7 @@ export function Triggers({
           >
             <AgentMark harness={harness} />
             <span className="truncate text-foreground/90">
-              {shortName(name, harness.name)}
+              {shortName(name, harness.harness)}
             </span>
             <ChevronDownIcon
               aria-hidden
@@ -508,13 +509,11 @@ export function Triggers({
 
 /**
  * A model's name without its agent's: "Haiku 4.5" for Claude Code's
- * "Claude Haiku 4.5", which says it again.
+ * "Claude Haiku 4.5", which says it again, under any of its accounts.
  */
-const shortName = (name: string, agent: string) => {
+const shortName = (name: string, agent: Named['agent']) => {
   const [first = '', ...rest] = name.split(' ');
-  return rest.length > 0 && first === agent.split(' ')[0]
-    ? rest.join(' ')
-    : name;
+  return rest.length > 0 && first === agentName(agent) ? rest.join(' ') : name;
 };
 
 /**
@@ -584,7 +583,7 @@ export function Chip({
                 ·
               </span>
             )}
-            <span className="truncate">{shortName(name, harness.name)}</span>
+            <span className="truncate">{shortName(name, harness.harness)}</span>
           </span>
           {settings.length > 0 && (
             <span className="truncate text-xs leading-4 text-muted-foreground">
