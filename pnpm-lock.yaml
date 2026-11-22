@@ -1261,6 +1261,9 @@ importers:
       '@kestack/kabuki':
         specifier: workspace:*
         version: link:../../packages/kabuki
+      '@kestack/std-toolkit':
+        specifier: workspace:*
+        version: link:../../toolkits/std-toolkit
       '@kestack/use-gesture':
         specifier: workspace:*
         version: link:../../packages/use-gesture
