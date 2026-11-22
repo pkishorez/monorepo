@@ -39,25 +39,33 @@ const pillSays = async (walk: Walk, said: RegExp, timeout = 30_000) => {
   }
 };
 
-/** The Connections Drawer, opened from the sidebar's title; with `pick`, that Connection chosen in it. */
+/** The Connections Drawer, opened from the sidebar's title, what it says; with `pick`, that Connection chosen in it. */
 export const drawer = async (walk: Walk, name: string, pick?: string) => {
   const { page } = walk;
   await walk.bubble.close();
   await walk.button('Choose whose sessions to show').click();
   const opened = page.getByRole('dialog', { name: 'Connections' });
   await opened.waitFor();
-  console.log(
-    `  drawer: ${(await opened.innerText()).replace(/\s+/g, ' ').slice(0, 300)}`,
-  );
+  const said = (await opened.innerText()).replace(/\s+/g, ' ');
+  console.log(`  drawer: ${said.slice(0, 300)}`);
   await walk.shot(name);
   if (pick === undefined) await page.keyboard.press('Escape');
   else
     await opened.getByRole('radio', { name: new RegExp(`^${pick}`) }).click();
   await opened.waitFor({ state: 'hidden' });
+  return said;
 };
 
-/** The second computer, Lab, as the bubble names it. */
-export const LAB = 'Computers/computers[computer-2]';
+/** Adds a computer for Ada, new enough for any Minimum Connect; its bubble address. */
+export const addComputer = async (walk: Walk, name: string) => {
+  const added = Number(await walk.bubble.value('Computers', ['added']));
+  await walk.bubble.must('Computers', 'Add computer', {
+    name,
+    keConnectVersion: '9.0.0',
+    signedInAs: 'ada@kestack.test',
+  });
+  return `Computers/computers[computer-${added + 1}]`;
+};
 
 export const tunnels: Scenario = {
   name: 'tunnels',
@@ -65,6 +73,9 @@ export const tunnels: Scenario = {
   needs: ['projects'],
   run: async (walk) => {
     const { page, bubble } = walk;
+    // On shop's page, where the header's pill speaks of Studio.
+    await walk.go(walk.kept.get('shop')!);
+    await walk.see('~/code/shop');
     await until(walk, /Linked/);
 
     walk.step('cloudflared downloading: 12 MB in 30 s');
@@ -81,11 +92,7 @@ export const tunnels: Scenario = {
     walk.step(
       'while Studio is on its way, a computer comes online: Lab shows up by itself',
     );
-    await bubble.must('Computers', 'Add computer', {
-      name: 'Lab',
-      keConnectVersion: '9.0.0',
-      signedInAs: 'ada@kestack.test',
-    });
+    walk.kept.set('lab', await addComputer(walk, 'Lab'));
     await bubble.close();
     const shown = Date.now();
     await walk.see('2 Connections', page.getByRole('complementary'));
