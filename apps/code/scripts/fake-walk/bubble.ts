@@ -110,8 +110,25 @@ export class Bubble {
       else if (kind === 'switch') await field.setChecked(Boolean(value));
       else await field.fill(String(value));
     }
+    // A Control may move the page at once (a sign-in comes back to `/`):
+    // what the bubble said goes with it, and the Fake handled it.
+    const moved = this.page
+      .waitForEvent('framenavigated', {
+        predicate: (frame) => frame === this.page.mainFrame(),
+        timeout: 30_000,
+      })
+      .then(
+        () => 'handled, and the page moved',
+        () => new Promise<string>(() => undefined),
+      );
     await form.locator('button[type=submit]').click();
-    const said = (await form.locator('[role=status]').textContent()) ?? '';
+    const said = await Promise.race([
+      form
+        .locator('[role=status]')
+        .textContent()
+        .then((text) => text ?? ''),
+      moved,
+    ]);
     console.log(`  bubble: ${address} · ${control} → ${said}`);
     return said;
   }
@@ -119,7 +136,7 @@ export class Bubble {
   /** Sends a Control and fails unless the Fake handled it. */
   async must(address: string, control: string, fields: Fields = {}) {
     const said = await this.send(address, control, fields);
-    if (said !== 'handled')
+    if (!said.startsWith('handled'))
       throw new Error(`${address} · ${control} was ${said}, not handled`);
   }
 

@@ -67,6 +67,13 @@ const chosen = (names: ReadonlyArray<string>): ReadonlyArray<Scenario> => {
 const browser = await chromium.launch({
   executablePath: CHROMIUM,
   headless: !HEADED,
+  // No page kept for Back: each page left would hold the dev server's
+  // thousands of modules, and a walk that reloads often is killed where
+  // memory is tight.
+  args: [
+    '--disable-features=BackForwardCache',
+    '--js-flags=--max-old-space-size=640',
+  ],
 });
 const problems: Array<string> = [];
 let failed = false;
