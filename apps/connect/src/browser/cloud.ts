@@ -50,6 +50,7 @@ import {
  *   call fails as a request that never got there.
  * - `pushBack` sets a Connection's Last Seen back, as if it had been
  *   silent that long: what a computer gone offline a while ago looks like.
+ *   It never moves it later, so a reload over kept tables keeps it.
  *
  * Every in-process client is built in a Scope that lasts as long as its
  * caller: provided into `versionedClient` alone, it would close at once.
@@ -184,11 +185,17 @@ export const cloudOver = (
         });
       });
 
-    /** Sets Connection `id`'s Last Seen `by` milliseconds back from now; nothing for one never reported. */
+    /**
+     * Sets Connection `id`'s Last Seen `by` milliseconds back from now,
+     * never later than it is: a tab that starts again over kept tables
+     * pushes again, and keeps the older one. Nothing for one never reported.
+     */
     const pushBack = (id: string, by: number) =>
       Effect.gen(function* () {
         const at = (yield* Clock.currentTimeMillis) - by;
-        yield* connections.getAndUpdate({ id }, () => ({ lastSeen: at }));
+        yield* connections.getAndUpdate({ id }, ({ lastSeen }) => ({
+          lastSeen: Math.min(lastSeen, at),
+        }));
       }).pipe(
         Effect.provideContext(rows),
         Effect.catchCause(() => Effect.void),
