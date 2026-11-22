@@ -65,6 +65,12 @@ export const world = FakeWorld.make(
         browserOver(runtime, {
           cache: accountsTable,
           returnTo: new URL('/', window.location.href).href,
+          // The page it leaves for starts from the World saved, the
+          // sign-in just answered in it.
+          leave: async (to) => {
+            await world.saved();
+            window.location.assign(to);
+          },
         }),
     },
     computers,
