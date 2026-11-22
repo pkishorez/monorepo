@@ -1,7 +1,7 @@
 import { Effect, Exit, Fiber, Layer, type Scope, Stream } from 'effect';
 import { Runtime } from '@kestack/kabuki';
 import { Memory } from '@kestack/std-toolkit/db/memory';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { Accounts, type AccountsState } from '../../client/accounts/index.js';
 import { browserAccountsTable } from '../../client/browser/index.js';
 import {
@@ -113,6 +113,65 @@ describe('the Sign-in fake', () => {
       asking: null,
       accounts: [{ email: 'ada@kestack.test', name: 'Ada' }],
     });
+  });
+
+  it('asks again on a page after a reload, never taking an answer an earlier page had', async () => {
+    const [waiting, after] = await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const fake = yield* Runtime.scoped(signIn.actor);
+          // The first page signs Ada in, and is gone.
+          const first = yield* Layer.build(signIn.serve(fake)).pipe(
+            Effect.scoped,
+          );
+          yield* signedInAs(fake, 'ada').pipe(Effect.provideContext(first));
+          // The page after the reload adds an Account: it waits to be told who.
+          const next = yield* Layer.build(signIn.serve(fake));
+          return yield* Effect.gen(function* () {
+            const fiber = yield* asking(fake);
+            yield* Effect.sleep(10);
+            const waiting = fiber.pollUnsafe() === undefined;
+            yield* control(fake, {
+              _tag: 'SignInAs',
+              email: 'grace',
+              name: '',
+            });
+            yield* Fiber.join(fiber);
+            return [waiting, yield* current] as const;
+          }).pipe(Effect.provideContext(next));
+        }),
+      ),
+    );
+    expect(waiting).toBe(true);
+    expect(after).toEqual(['ada@kestack.test', 'grace@kestack.test *']);
+  });
+
+  it('leaves for where a sign-in comes back to as it is told, once the answer is in the Model', async () => {
+    vi.stubGlobal('window', {
+      location: { href: 'https://app.example.com/a/ada' },
+    });
+    const left: Array<[string, ReadonlyArray<string>]> = [];
+    let running: Fake | undefined;
+    await run(
+      (fake) =>
+        Effect.gen(function* () {
+          running = fake;
+          const fiber = yield* asking(fake);
+          yield* control(fake, { _tag: 'SignInAs', email: 'ada', name: '' });
+          yield* Effect.sleep(10);
+          // The page is leaving: the sign-in never ends here.
+          expect(fiber.pollUnsafe()).toBeUndefined();
+          yield* Fiber.interrupt(fiber);
+        }),
+      {
+        returnTo: 'https://app.example.com/',
+        leave: (to) => {
+          const accounts = running?.root.model.accounts ?? [];
+          left.push([to, accounts.map(({ email }) => email)]);
+        },
+      },
+    ).finally(() => vi.unstubAllGlobals());
+    expect(left).toEqual([['https://app.example.com/', ['ada@kestack.test']]]);
   });
 
   it('signs you@kestack.test in for a blank email, and a bare name at kestack.test', async () => {

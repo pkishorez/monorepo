@@ -54,6 +54,10 @@ export interface FakeBrowserOptions {
   readonly returnTo?: string | undefined;
   /** How many Accounts the Auth Worker holds for one browser, 5 unless given. */
   readonly maxAccounts?: number | undefined;
+  /** How the page leaves for where a sign-in comes back to,
+   * `window.location.assign` unless given. A Fake kept across a reload
+   * is saved first: the sign-in just answered is in its Model. */
+  readonly leave?: ((to: string) => void | Promise<void>) | undefined;
 }
 
 const snapshotOf = (model: SignInModel): Snapshot => ({
@@ -70,18 +74,25 @@ const leaving = (returnTo: string | undefined) =>
     ? null
     : returnTo;
 
-// Each sign-in's own id, for its answer.
-let asked = 0;
-
 /** `Accounts` for the browser, and the signing of every guarded call, over the running Sign-in fake. */
 export const browserOver = (
   runtime: Runtime<typeof SignInFake>,
-  { cache, returnTo, maxAccounts = 5 }: FakeBrowserOptions = {},
+  {
+    cache,
+    returnTo,
+    maxAccounts = 5,
+    leave = (to) => window.location.assign(to),
+  }: FakeBrowserOptions = {},
 ): AccountsLayer =>
   Layer.unwrap(
     Effect.gen(function* () {
       yield* warn;
       const root = runtime.root;
+      // Each sign-in's own id, for its answer. The Model keeps answers
+      // across a reload, and each page counts from one again: the page's
+      // own mark keeps its ids from meeting an answer an earlier page had.
+      const page = Math.random().toString(36).slice(2, 10);
+      let asked = 0;
       const send = (message: SignInMessage) =>
         Effect.sync(() => void root.send(message));
 
@@ -108,7 +119,7 @@ export const browserOver = (
 
       const signIn = (options: SignInOptions, state: AccountsState) =>
         Effect.suspend(() => {
-          const id = `sign-in-${++asked}`;
+          const id = `sign-in-${page}-${++asked}`;
           const adding = state._tag === 'SignedIn';
           return Effect.gen(function* () {
             yield* reach;
@@ -133,7 +144,7 @@ export const browserOver = (
                 ? leaving(options.returnTo ?? returnTo)
                 : null;
             if (to === null) return now;
-            yield* Effect.sync(() => window.location.assign(to));
+            yield* Effect.promise(async () => leave(to));
             // The page is leaving, as the real sign-in's does.
             return yield* Effect.never;
           }).pipe(
