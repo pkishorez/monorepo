@@ -380,6 +380,38 @@ describe('Connect in a tab', () => {
       }),
     ));
 
+  it('keeps a computer reporting while nobody is signed in in the tab: its ke-connect signs as itself', () =>
+    run(
+      Effect.gen(function* () {
+        const { layer, set, stops } = yield* world;
+        // The tab starts with nobody signed in.
+        const built = yield* Layer.build(
+          inTab({ wanted: WANTED }).pipe(
+            Layer.provide(
+              Layer.mergeAll(layer, ConnectCloud.deployed, agentEdges()),
+            ),
+            Layer.provideMerge(
+              fakeAccounts({ choose: Effect.succeed({ email: EMAIL }) }),
+            ),
+          ),
+        );
+        const cloud = Context.get(built, CloudClient);
+        const accounts = Context.get(built, Accounts);
+        yield* set(computer('laptop'));
+        // Its first Report goes as it starts, signed as the computer: the
+        // tab's nobody signs no computer out.
+        yield* Effect.sleep('500 millis');
+        expect(stops).toEqual([]);
+
+        yield* accounts.signIn();
+        yield* eventually(async () => {
+          const [laptop] = await Effect.runPromise(cloud.List({}));
+          expect(laptop?.status._tag).toBe('Ready');
+        });
+        expect(stops).toEqual([]);
+      }),
+    ));
+
   it('reports every 15 seconds while online; offline, its Last Seen stays, so it is Down 45 seconds on', () =>
     run(
       Effect.gen(function* () {
