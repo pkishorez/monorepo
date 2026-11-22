@@ -45,8 +45,8 @@ import { answerOf, askedOf, hostOf } from './tunnel.js';
  *            (plugin.ts), started for the first and shared by every
  *            other. A socket to an address no computer is up at fails, as
  *            one to a tunnel that is gone does; one open while its
- *            computer's tunnel goes down or moves, or while its Run stops,
- *            drops.
+ *            computer's tunnel goes down or moves, its code Plugin comes
+ *            to run another Release, or its Run stops, drops.
  */
 
 export interface RunsOptions {
@@ -114,6 +114,11 @@ export const runs = (computers: Computers['Service'], options: RunsOptions) =>
     const start = (computer: Computer) =>
       Effect.gen(function* () {
         const own = yield* Scope.fork(scope);
+        // The code Plugin's Scope is made before its sockets' drop, so it
+        // closes after it: as a process that goes away, its sockets drop
+        // before anything in it can tell them a stream ended, which Code
+        // would take as done.
+        const pluginScope = yield* Scope.fork(own);
         const run: Run = {
           id: computer.id,
           started: startedOf(computer),
@@ -126,7 +131,7 @@ export const runs = (computers: Computers['Service'], options: RunsOptions) =>
               computer.edges,
               options.shared,
               options.storeOf(computer.id),
-            ).pipe(Scope.provide(own)),
+            ).pipe(Scope.provide(pluginScope)),
           ),
           open: new Map(),
         };
@@ -194,9 +199,13 @@ export const runs = (computers: Computers['Service'], options: RunsOptions) =>
               yield* stop(run);
               continue;
             }
+            // A code Plugin that comes to run another Release starts again
+            // on it, as `ke-connect` swaps it: every socket it held drops.
+            const swapped = computer.release !== run.current.release;
             run.current = computer;
             const host = hostOf(computer.status);
-            for (const [end, at] of run.open) if (at !== host) End.drop(end);
+            for (const [end, at] of run.open)
+              if (swapped || at !== host) End.drop(end);
             yield* SubscriptionRef.set(run.changes, computer);
           }
           const starts = new Set([...online.values()].map(startedOf));
