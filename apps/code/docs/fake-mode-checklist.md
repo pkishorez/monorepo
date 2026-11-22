@@ -206,7 +206,7 @@ mode are under [Limits](#limits).
 - [ ] A subagent resumed by SendMessage runs again under that call, in the same row. **Reach:** transcript. **Needs:** Agent: a Claude Script with SendMessage.
 - [x] Running Picker: `r`, the floating button (in place), touch a Drawer; lists running subagents (nested one step in) and commands; choosing opens; the last row stops all. **Reach:** a Session with running work. **Needs:** Agent: jobs.
 - [x] A background command open over the page: its output live, as a terminal shows it (ANSI colours); how long it ran, who started it; Stop; stays as it ended until closed. **Reach:** Running Picker → a command. **Needs:** Agent: a job writing output.
-- [ ] Stop one job; stop all. **Reach:** command dialog Stop; Running Picker's last row. **Needs:** Agent: jobs.
+- [x] Stop one job; stop all. **Reach:** command dialog Stop; Running Picker's last row. **Needs:** Agent: jobs.
 - [ ] Stop of a job refused (HarnessFailed). **Reach:** command dialog Stop. **Needs:** Agent: stop fails.
 - [x] A job ends done, failed or stopped (`jobEnded`). **Reach:** transcript. **Needs:** Agent: a job ending each way.
 - [ ] Jobs cut off by a restart are named in the next Turn. **Reach:** restart while a job runs, then send. **Needs:** Computers: restart; Agent: a job.
@@ -218,10 +218,10 @@ mode are under [Limits](#limits).
 - [ ] One choice (round), several (square), "Other" edited as one's own answer, a secret hidden as typed. **Reach:** Question Panel. **Needs:** Agent: questions of each kind.
 - [x] Several Items, one a step; Next, Back, Send on the last; Send with an Item left goes to it and marks it. **Reach:** Question Panel. **Needs:** Agent: a question of several Items.
 - [ ] Keys: `j`/`k`, arrows, Tab, 1–9, Space/`x`, `i` to type, Enter, Mod+Enter, `q` then `q` to skip, `m`/Escape to minimise, Ctrl+Y. **Reach:** Question Panel. **Needs:** Agent: a question.
-- [ ] Minimise to a bar ("Claude asks · 1 of 2 answered" with Stop, Skip, Open); expand again. **Reach:** Question Panel. **Needs:** Agent: a question.
+- [x] Minimise to a bar ("Claude asks · 1 of 2 answered" with Stop, Skip, Open); expand again. **Reach:** Question Panel. **Needs:** Agent: a question.
 - [ ] Leave the Session or page and come back: answers so far, minimised or not, as left. **Reach:** sidebar to another Session, back. **Needs:** Agent: a question.
 - [x] Answer: the Turn carries on, the answer shown in the transcript (a secret as `(hidden)`). **Reach:** Send. **Needs:** Agent: a Script that reads the answer.
-- [ ] Skip ("Skip question", asked again): the agent carries on without an answer. **Reach:** Question Panel. **Needs:** Agent.
+- [x] Skip ("Skip question", asked again): the agent carries on without an answer. **Reach:** Question Panel. **Needs:** Agent.
 - [ ] Answered on another device, or its Turn ended: the panel goes, the Draft comes back as it was; a send then is "no longer asked". **Reach:** Question Panel open. **Needs:** Agent: question answered elsewhere; Agent: Turn ends while asking.
 - [ ] Answer refused: says why, kept as it was. **Reach:** Send. **Needs:** Agent: answer fails.
 - [ ] Dictate one's own answer (not a secret's). **Reach:** Space on "Other". **Needs:** Microphone; Speech.
@@ -229,21 +229,21 @@ mode are under [Limits](#limits).
 
 ### Btw
 
-- [ ] Btw mode: the toggle, Ctrl+Q, `q` (Vim); the Draft turns blue with its `btw` mark; send says Ask. **Reach:** a Session's Draft. **Needs:** real middle.
-- [ ] Ask: the Btw Drawer expands, being answered, then answered with Copy; the Session untouched. **Reach:** Btw mode, Ask. **Needs:** Agent: a Btw answer.
+- [ ] Btw mode: the toggle, Ctrl+Q, `q` (Vim); the Draft turns blue with its `btw` mark; send says Ask. **Reach:** a Session's Draft. **Needs:** real middle. _(22c2: Ctrl+Q seen: the Draft says "By the way", send says Ask; the toggle and `q` not walked.)_
+- [x] Ask: the Btw Drawer expands, being answered, then answered with Copy; the Session untouched. **Reach:** Btw mode, Ask. **Needs:** Agent: a Btw answer.
 - [ ] Btw fails: said in the drawer. **Reach:** Ask. **Needs:** Agent: Btw fails.
 - [ ] Minimise, open again, close; a new Btw replaces the last. **Reach:** Btw Drawer. **Needs:** Agent.
 - [ ] Touch: a sheet, swipe down its head minimises. **Reach:** touch. **Needs:** Agent.
 
 ### Forks, titles, details
 
-- [ ] Fork from the latest Turn (Actions): a new Session, the app moves to it; the Fork shows its original's history first; a fork glyph in the sidebar. **Reach:** Actions → Fork. **Needs:** Agent.
+- [x] Fork from the latest Turn (Actions): a new Session, the app moves to it; the Fork shows its original's history first; a fork glyph in the sidebar. **Reach:** Actions → Fork. **Needs:** Agent.
 - [ ] Fork after a given Turn, from its details. **Reach:** a Turn's footer → details → Fork. **Needs:** Agent.
 - [ ] A Fork of a Fork reads its history up the chain. **Reach:** fork twice. **Needs:** Agent.
 - [ ] Go to the original, for a Fork. **Reach:** Actions. **Needs:** Agent.
 - [ ] Fork refused ("It cannot be forked there"). **Reach:** fork a Turn not finished. **Needs:** Agent: a running Turn (the real middle refuses).
 - [ ] Title written after the first Turn; "Untitled session" until then. **Reach:** sidebar, header. **Needs:** Agent: a Title.
-- [ ] Regenerate the title: Actions closes, the header's title pulses until the new one; refused, a toast. **Reach:** Actions → Regenerate. **Needs:** Agent: a Title; Agent: title fails.
+- [ ] Regenerate the title: Actions closes, the header's title pulses until the new one; refused, a toast. **Reach:** Actions → Regenerate. **Needs:** Agent: a Title; Agent: title fails. _(22c2: Actions → Regenerate the title takes the next Title; the pulse and a refusal not walked.)_
 - [ ] Session details (Ctrl+G, Actions, a Turn's footer, the context ring): Context, Cost, Turns, Tokens; a Turn bar shows it in the transcript. **Reach:** those. **Needs:** Agent: usage, context usage and plan limits.
 - [ ] Context ring by Send: grey, amber, red; "124K / 200K"; when it shows is a Preference. **Reach:** Draft. **Needs:** Agent: context usage.
 - [ ] No context while the agent is not open to ask. **Reach:** a Session after a restart. **Needs:** Computers: restart.
@@ -284,7 +284,7 @@ mode are under [Limits](#limits).
 ## 8. Settings
 
 - [ ] Open Settings (key, avatar menu, phone's You), and back with the same key to where it was opened. **Reach:** those. **Needs:** real middle.
-- [ ] Four tabs, General, Shortcuts, Connections, About; on touch a sideways swipe; a link may ask for a tab (the Draft's for an agent that cannot run asks for Connections). **Reach:** Settings. **Needs:** real middle; Agent: not installed.
+- [ ] Four tabs, General, Shortcuts, Connections, About; on touch a sideways swipe; a link may ask for a tab (the Draft's for an agent that cannot run asks for Connections). **Reach:** Settings. **Needs:** real middle; Agent: not installed. _(22c2: the four tabs seen; the touch swipe and a link asking for a tab not walked.)_
 
 ### General
 
@@ -318,20 +318,20 @@ mode are under [Limits](#limits).
 ### About
 
 - [ ] Version: build date and commit, or "Development build". **Reach:** About. **Needs:** New build.
-- [ ] Check for updates: "Up to date", or a new version ready, "Update now", which reloads every open page into it. **Reach:** About. **Needs:** New build: none newer / a newer build out.
-- [ ] Update Prompt: a new version waiting shows its prompt; Reload takes it. **Reach:** any page. **Needs:** New build: a newer build out.
+- [ ] Check for updates: "Up to date", or a new version ready, "Update now", which reloads every open page into it. **Reach:** About. **Needs:** New build: none newer / a newer build out. _(22c2: not in fake mode, as above.)_
+- [ ] Update Prompt: a new version waiting shows its prompt; Reload takes it. **Reach:** any page. **Needs:** New build: a newer build out. _(22c2: not in fake mode, as above.)_
 - [ ] Storage: how much this browser holds; Clear all data asks, then deletes every database, storage, cache and service worker, and reloads; the sign-in stays. **Reach:** About. **Needs:** real middle (in fake mode it also clears the Fakes' world; see the plan's Start fresh).
 
 ## 9. Voice, Dictation and Microphone
 
-- [ ] Start a Dictation: Space (Vim) / Ctrl+Space, or a field's mic: Waiting while the Microphone opens, then Recording with a level meter. **Reach:** a Draft. **Needs:** Microphone: an input, permission allowed; Speech: Ready.
-- [ ] First use asks for the microphone; allowed, it records. **Reach:** mic. **Needs:** Microphone: permission prompt → allow.
-- [ ] Denied: says why, nothing records. **Reach:** mic. **Needs:** Microphone: permission denied.
+- [x] Start a Dictation: Space (Vim) / Ctrl+Space, or a field's mic: Waiting while the Microphone opens, then Recording with a level meter. **Reach:** a Draft. **Needs:** Microphone: an input, permission allowed; Speech: Ready.
+- [x] First use asks for the microphone; allowed, it records. **Reach:** mic. **Needs:** Microphone: permission prompt → allow.
+- [ ] Denied: says why, nothing records. **Reach:** mic. **Needs:** Microphone: permission denied. _(22c2: denied, Code shows "The microphone is blocked" with Reload, as for Blocked: the browser gives `NotAllowedError` for both.)_
 - [ ] No microphone, or it fails to open: says why for a few seconds. **Reach:** mic. **Needs:** Microphone: no inputs / broken.
 - [ ] Blocked (as iOS Safari does): a dialog asks to load the page again. **Reach:** mic. **Needs:** Microphone: blocked.
 - [ ] Asked again while Waiting: it lets go. **Reach:** mic twice. **Needs:** Microphone: slow to open.
-- [ ] Words as they are heard: in the field, or a peek where the field does not show them. **Reach:** record. **Needs:** Speech: heard as it goes.
-- [ ] Stop (same keys, the Owner's mic, from anywhere): text goes in at the Owner's cursor, replacing a selection. **Reach:** stop. **Needs:** Speech: what a Take turns into.
+- [x] Words as they are heard: in the field, or a peek where the field does not show them. **Reach:** record. **Needs:** Speech: heard as it goes.
+- [ ] Stop (same keys, the Owner's mic, from anywhere): text goes in at the Owner's cursor, replacing a selection. **Reach:** stop. **Needs:** Speech: what a Take turns into. _(22c2: Ctrl+Space stops, the words go into the Draft; a selection replaced not walked. Once, a take begun at the permission prompt went in twice; not seen again.)_
 - [ ] Carries on across pages, Pickers and Settings; its text waits for its Owner to be drawn again. **Reach:** start in a Session, go elsewhere, stop, go back. **Needs:** Speech.
 - [ ] One at a time: another field's mic waits. **Reach:** a second field. **Needs:** Microphone.
 - [ ] No Owner (Space in Settings): does not start, says why. **Reach:** Settings. **Needs:** real middle.
@@ -345,26 +345,26 @@ mode are under [Limits](#limits).
 - [ ] Microphone Picker: system default first, the chosen one checked; plugged in or out shows at once; names need permission first. **Reach:** `d` (Vim), the mic's menu. **Needs:** Microphone: inputs, add/remove, permission.
 - [ ] Choose another microphone while recording: the rest records from it, in one clip. **Reach:** Microphone Picker. **Needs:** Microphone: two inputs.
 - [ ] The chosen one unplugged: the default records, and it says so. **Reach:** record. **Needs:** Microphone: remove an input.
-- [ ] Touch Draft voice: tap to talk, Waiting, tap to take, Send to take and send, Cancel, retry; Text | Voice switch kept; voice unchoosable while no Connection can transcribe. **Reach:** touch. **Needs:** Microphone; Speech: Ready / Off.
+- [ ] Touch Draft voice: tap to talk, Waiting, tap to take, Send to take and send, Cancel, retry; Text | Voice switch kept; voice unchoosable while no Connection can transcribe. **Reach:** touch. **Needs:** Microphone; Speech: Ready / Off. _(22c2: tap the mic, Recording, Stop and send seen.)_
 
 ## 10. Touch Draft
 
 - [ ] The sheet at the foot: model chip, Text | Voice, a few lines read only, Skills and Quick actions, the talk bar, Send. **Reach:** touch, a Session. **Needs:** real middle; touch.
 - [ ] Model chip Drawer: agent and model open the Picker in a Sheet; settings changed in place; context ring first. **Reach:** chip. **Needs:** Agent.
-- [ ] Text: tapping the words makes it the Composer; Smart Input and Smart Displacement (caret, word swipe, select). **Reach:** touch. **Needs:** real middle.
-- [ ] An open Session's collapses to one line; a new Session's never does. **Reach:** touch. **Needs:** real middle.
+- [ ] Text: tapping the words makes it the Composer; Smart Input and Smart Displacement (caret, word swipe, select). **Reach:** touch. **Needs:** real middle. _(22c2: a tap opens the sheet with the words and the caret; Smart Input not walked.)_
+- [x] An open Session's collapses to one line; a new Session's never does. **Reach:** touch. **Needs:** real middle.
 - [ ] Add (touch): the first row switches to Btw; attach files. **Reach:** touch. **Needs:** real middle.
 
 ## 11. Updates and new builds
 
-- [ ] A newer build waiting: Update Prompt; About's Update now. **Reach:** any page. **Needs:** New build: a newer build out.
-- [ ] Code Stale (an Entity or answer newer than it knows, or Connect Cloud says its Release is Older): it moves to its newest build once per load, every page reloads into it. **Reach:** automatic. **Needs:** Computers: runs another Release + wanted another; New build: newest build (must clear Stale after the reload, or it reloads again).
+- [ ] A newer build waiting: Update Prompt; About's Update now. **Reach:** any page. **Needs:** New build: a newer build out. _(22c2: not in fake mode: the Update Prompt and About's check need the service worker; the New build fake stands in for `OnOutdated` only. See Limits.)_
+- [x] Code Stale (an Entity or answer newer than it knows, or Connect Cloud says its Release is Older): it moves to its newest build once per load, every page reloads into it. **Reach:** automatic. **Needs:** Computers: runs another Release + wanted another; New build: newest build (must clear Stale after the reload, or it reloads again).
 - [ ] Install offer, once. **Reach:** first visit. **Needs:** see Limits.
 
 ## 12. Offline, reconnect and reload
 
-- [ ] Reload shows what this device last saw at once (Replicas in IndexedDB), then catches up. **Reach:** reload. **Needs:** real middle.
-- [ ] Every Connection offline: everything synced readable, sends wait, Settings locked. **Reach:** any page. **Needs:** Computers: all offline.
+- [x] Reload shows what this device last saw at once (Replicas in IndexedDB), then catches up. **Reach:** reload. **Needs:** real middle.
+- [ ] Every Connection offline: everything synced readable, sends wait, Settings locked. **Reach:** any page. **Needs:** Computers: all offline. _(22c2: Studio offline: "Sending is paused until it is back", the Draft kept, sent once back; Settings locked not walked.)_
 - [ ] A call made while the socket is down waits and goes once it is back. **Reach:** send while offline, then online. **Needs:** Computers: offline, then online.
 - [ ] A Turn running while its page is closed keeps going; reopened, it shows what came. **Reach:** leave and return. **Needs:** Agent: a long Script.
 - [x] A reload in fake mode keeps the world; a reply running at reload ends interrupted. **Reach:** reload mid-Turn. **Needs:** every Fake's Snapshot; Computers. _(Task 20: walked, `reload` scenario.)_
