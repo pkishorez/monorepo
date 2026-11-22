@@ -150,21 +150,21 @@ Peer dependencies, all optional; install the ones your doors need:
 
 ### `@kestack/auth-toolkit/fake`
 
-| Export             | What it does                                                                                                                                                    |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `signIn`           | The Sign-in fake, a Fake: its Actor, its Controls, `serve` (the browser's `Accounts` over it) and `kept` (no sign-in asking after a reload).                    |
-| `SignInFake`       | The Sign-in fake's Kabuki Actor: who is signed in on this browser, the sign-in asking who, how the Auth Worker answers.                                         |
-| `SIGN_IN_CONTROLS` | The Sign-in fake's Controls, the Message tags the bubble offers.                                                                                                |
-| `blank`            | The Sign-in fake's Model as it starts: nobody signed in, the Auth Worker answering.                                                                             |
-| `browserOver`      | `Accounts` and the signing of every guarded call over the running Sign-in fake, with `browser`'s `cache`, `returnTo` and `maxAccounts`.                         |
-| `fakeAccounts`     | `Accounts` over a Sign-in fake of its own whose every sign-in `choose` answers, for tests.                                                                      |
-| `fakeGuard.rpc`    | The Guard's server half for Effect RPC that reads each call's Fake Token, or puts `as` behind every call, and asks no one.                                      |
-| `fakeGuard.http`   | The same for Effect HttpApi.                                                                                                                                    |
-| `fakeSignIn`       | A fake User on a Sign-in of its own, as a device signed in as them holds one, to put behind every call with `fakeGuard.rpc({ as })`; null outside kestack.test. |
-| `SIGNED_IN_AS`     | Who a blank sign-in signs in: `you@kestack.test`.                                                                                                               |
-| `FAKE_DOMAIN`      | The one domain a fake User's email may be at: `kestack.test`.                                                                                                   |
-| `FAKE_AUTH_WORKER` | The URL the Sign-in fake's errors name as its Auth Worker.                                                                                                      |
-| `FAKE_MARK`        | `kestack-fake`, the mark every bundle carrying a fake holds, which a production build is checked for.                                                           |
+| Export             | What it does                                                                                                                                                                             |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `signIn`           | The Sign-in fake, a Fake: its Actor, its Controls, `serve` (the browser's `Accounts` over it) and `kept` (no sign-in asking after a reload).                                             |
+| `SignInFake`       | The Sign-in fake's Kabuki Actor: who is signed in on this browser, the sign-in asking who, how the Auth Worker answers.                                                                  |
+| `SIGN_IN_CONTROLS` | The Sign-in fake's Controls, the Message tags the bubble offers.                                                                                                                         |
+| `blank`            | The Sign-in fake's Model as it starts: nobody signed in, the Auth Worker answering.                                                                                                      |
+| `browserOver`      | `Accounts` and the signing of every guarded call over the running Sign-in fake, with `browser`'s `cache`, `returnTo` and `maxAccounts`, and `leave`, how the page leaves for `returnTo`. |
+| `fakeAccounts`     | `Accounts` over a Sign-in fake of its own whose every sign-in `choose` answers, for tests.                                                                                               |
+| `fakeGuard.rpc`    | The Guard's server half for Effect RPC that reads each call's Fake Token, or puts `as` behind every call, and asks no one.                                                               |
+| `fakeGuard.http`   | The same for Effect HttpApi.                                                                                                                                                             |
+| `fakeSignIn`       | A fake User on a Sign-in of its own, as a device signed in as them holds one, to put behind every call with `fakeGuard.rpc({ as })`; null outside kestack.test.                          |
+| `SIGNED_IN_AS`     | Who a blank sign-in signs in: `you@kestack.test`.                                                                                                                                        |
+| `FAKE_DOMAIN`      | The one domain a fake User's email may be at: `kestack.test`.                                                                                                                            |
+| `FAKE_AUTH_WORKER` | The URL the Sign-in fake's errors name as its Auth Worker.                                                                                                                               |
+| `FAKE_MARK`        | `kestack-fake`, the mark every bundle carrying a fake holds, which a production build is checked for.                                                                                    |
 
 ### `@kestack/auth-toolkit/google-button`
 
