@@ -29,6 +29,7 @@ import {
   pluginPath,
 } from '../../connection/plugins/code/api/index.js';
 import { computers } from '../fake/index.js';
+import { keepSubscribed } from '@kestack/rpc-toolkit/rpc/websocket';
 import { ANOTHER_RELEASE, inTab, tunnelClients } from '../index.js';
 import { agentEdges } from './agent.js';
 
@@ -334,6 +335,70 @@ describe(
             runsAnotherRelease: false,
           });
           expect(fake.root.model.untilReload.cloudRelease).toBe('Older');
+        }),
+      ));
+
+    it('keeps a watch going across a restart, its socket dropped before its code Plugin stops', () =>
+      run(
+        Effect.gen(function* () {
+          const { clients, on, computer, add } = yield* world();
+          add('laptop');
+          const states: Array<string> = [];
+          // As Code watches: subscribed again each time the socket connects.
+          yield* Effect.forkScoped(
+            Stream.runForEach(
+              CodeClients.stream(
+                'computer-1',
+                keepSubscribed(() =>
+                  Stream.unwrap(
+                    Effect.map(CodeClient, (api) => api.watchSpeechToText()),
+                  ),
+                ),
+              ),
+              (state) => Effect.sync(() => void states.push(state._tag)),
+            ).pipe(Effect.provideService(CodeClients, clients)),
+          );
+          yield* eventually(() => expect(states).toEqual(['Off']));
+
+          computer('computer-1').send({ _tag: 'Restart' });
+          // Subscribed again once the socket is back: Off once more.
+          yield* eventually(() => expect(states).toEqual(['Off', 'Off']));
+          yield* on(
+            'computer-1',
+            Effect.flatMap(CodeClient, (api) => api.enableSpeechToText()),
+          );
+          yield* eventually(() => expect(states).toContain('Ready'));
+        }),
+      ));
+
+    it('drops the socket of a linked computer that comes to run another Release, and links once it runs the named one', () =>
+      run(
+        Effect.gen(function* () {
+          const { clients, on, computer, add } = yield* world();
+          add('laptop');
+          const links: Array<LinkStatus> = [];
+          yield* Effect.forkScoped(
+            Stream.runForEach(CodeClients.link('computer-1'), (now) =>
+              Effect.sync(() => void links.push(now)),
+            ).pipe(Effect.provideService(CodeClients, clients)),
+          );
+          yield* on('computer-1', folders('~'));
+          yield* eventually(() => expect(links.at(-1)).toBe('linked'));
+
+          const mismatch = yield* Effect.forkScoped(
+            clients.mismatch('computer-1').pipe(
+              Stream.filter((each) => each !== null),
+              Stream.runHead,
+            ),
+          );
+          computer('computer-1').send({ _tag: 'RunAnotherRelease' });
+          expect(yield* Fiber.join(mismatch)).toEqual(
+            Option.some({ running: ANOTHER_RELEASE }),
+          );
+          expect(links.at(-1)).not.toBe('linked');
+
+          computer('computer-1').send({ _tag: 'RunTheNamedRelease' });
+          yield* eventually(() => expect(links.at(-1)).toBe('linked'));
         }),
       ));
 
