@@ -1,7 +1,7 @@
 import { Effect } from 'effect';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { Panel } from '../bubble.tsx';
+import { firstPlace, Panel } from '../bubble.tsx';
 import type { Logged } from '../bubble.tsx';
 import { FakeWorld } from '../index.ts';
 import { garage, Weather, weather } from './fakes.ts';
@@ -80,5 +80,19 @@ describe('Panel', () => {
     expect(html).toContain('Controls sent');
     expect(html).toContain('<span class="result handled">handled</span>');
     expect(html).toContain(sent.message.replaceAll('"', '&quot;'));
+  });
+});
+
+describe('firstPlace', () => {
+  it('sits on the right, clear of the bottom-right corner a Devtools Dock’s button holds', () => {
+    // The Dock's button: 12 px from the right, 9 px from the foot, 36 px tall.
+    const room = { width: 1440, height: 900 };
+    const { x, y } = firstPlace(room);
+    expect(x).toBe(1440 - 44 - 12);
+    expect(y + 44).toBeLessThanOrEqual(900 - 9 - 36);
+  });
+
+  it('stays in a window too small to clear it', () => {
+    expect(firstPlace({ width: 100, height: 80 })).toEqual({ x: 44, y: 12 });
   });
 });
