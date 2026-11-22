@@ -5,7 +5,9 @@ import type { Scenario } from './index.ts';
  * kept, every Fake blank and Code's own databases gone: signed out, and
  * once signed in again, no Connection. The reload keeps the page's
  * address, so a sign-in comes back to a Connection no longer there, as a
- * link to one forgotten does.
+ * link to one forgotten does. Fresh again, signed in while Connect Cloud
+ * is out of reach: with no list kept, home says it can't reach it, and
+ * asks again once it is back.
  */
 export const fresh: Scenario = {
   name: 'start-fresh',
@@ -54,5 +56,28 @@ export const fresh: Scenario = {
       await walk.see('No Connection yet');
       await walk.shot('no-connection');
     }
+
+    walk.step(
+      'fresh again, signed in while Connect Cloud is out of reach: no list kept',
+    );
+    await bubble.open();
+    page.once('dialog', (dialog) => void dialog.accept());
+    await Promise.all([
+      page.waitForEvent('load'),
+      bubble.host.getByRole('button', { name: 'Start fresh' }).click(),
+    ]);
+    await walk.see('Continue with Google');
+    await bubble.must('Computers', 'Put cloud out of reach');
+    await bubble.close();
+    await page.getByText('Continue with Google').click();
+    await bubble.must('Sign-in', 'Sign in as', { email: 'ada', name: 'Ada' });
+    await walk.see("Can't reach Connect Cloud", walk.main);
+    await walk.see(/out of reach/, walk.main);
+    await walk.shot('cloud-out-of-reach');
+    await bubble.must('Computers', 'Bring cloud back');
+    await bubble.close();
+    await walk.button('Try again').click();
+    await walk.see('No Connection yet');
+    await walk.shot('cloud-back');
   },
 };

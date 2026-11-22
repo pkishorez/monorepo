@@ -3,6 +3,7 @@ import { accounts } from './accounts.ts';
 import { attachments } from './attachments.ts';
 import { branches } from './branches.ts';
 import { computers } from './computers.ts';
+import { connections } from './connections.ts';
 import { devtools } from './devtools.ts';
 import { fresh } from './fresh.ts';
 import { home } from './home.ts';
@@ -31,6 +32,7 @@ export const scenarios: ReadonlyArray<Scenario> = [
   computers,
   settings,
   tunnels,
+  connections,
   devtools,
   reload,
   accounts,
