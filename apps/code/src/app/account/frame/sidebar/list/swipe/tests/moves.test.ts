@@ -117,6 +117,7 @@ type Model = {
     readonly reason: string;
     readonly settled: boolean;
   } | null;
+  readonly back: Readonly<Record<string, number>>;
 };
 
 /** The frame's part: the sidebar, for the Account drawn. */
@@ -186,6 +187,22 @@ describe('a Session put in the sidebar', () => {
           settled: false,
           reason: 'Not found',
         });
+        expect(model(app).back).toEqual({ 'm1 s1': 1 });
+      }),
+    );
+  });
+
+  it('draws a row brought back by its Undo afresh, as it may be still on its way out', async () => {
+    const { layer } = await Effect.runPromise(stood);
+    await run(
+      Effect.gen(function* () {
+        const app = yield* start(layer);
+        send(app, asked('s1', true, true));
+        yield* wait();
+        expect(model(app).back).toEqual({});
+        send(app, asked('s1', false, false));
+        yield* wait();
+        expect(model(app).back).toEqual({ 'm1 s1': 1 });
       }),
     );
   });

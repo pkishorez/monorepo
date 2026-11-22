@@ -23,7 +23,7 @@ import {
   chosenRead,
   readOf,
   readyOf,
-  refusedKey,
+  backKey,
   shownOf,
   SidebarLive,
 } from './actor.ts';
@@ -132,11 +132,11 @@ export const SidebarView = View.make(
           );
     // The same while the sidebar lives, so a row is drawn again only for
     // what it shows.
-    const { refusals } = model;
-    const refusalsOf = useCallback(
+    const { back } = model;
+    const backOf = useCallback(
       (connectionId: string, sessionId: string) =>
-        refusals[refusedKey(connectionId, sessionId)] ?? 0,
-      [refusals],
+        back[backKey(connectionId, sessionId)] ?? 0,
+      [back],
     );
     const onCollapse = useCallback(
       (connectionId: string) => send({ _tag: 'CollapseToggled', connectionId }),
@@ -171,8 +171,8 @@ export const SidebarView = View.make(
     return (
       <>
         {header}
-        {/* A refusal brings its row swiped away back, drawn afresh. */}
-        <SwipeBack value={refusalsOf}>
+        {/* A row brought back, by an Undo or a refusal, is drawn afresh. */}
+        <SwipeBack value={backOf}>
           <Places
             read={drawn.key}
             route={route}

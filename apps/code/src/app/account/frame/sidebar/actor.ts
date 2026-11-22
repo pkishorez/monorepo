@@ -51,7 +51,10 @@ import { drawnOf, type Read } from './list/order/drawn.ts';
  *              which asks its Connection at once. Every Session is drawn
  *              where `Moves` says it goes until the Session as synced
  *              agrees; a swipe is said with its Undo, which asks the
- *              Connection back, and a refusal says why.
+ *              Connection back, and a refusal says why. A row brought
+ *              back, by an Undo, an Un-settle or a refusal, is drawn
+ *              afresh: one undone while still on its way out would stay
+ *              gone.
  * 6. Width     its width on a wide screen, kept in Preferences: nothing
  *              is drawn until it is read; dragged, it shows at once and
  *              is kept once the drag rests.
@@ -107,8 +110,11 @@ const Model = Schema.Struct({
       reason: Schema.String,
     }),
   ),
-  /** How many of each Session's Moves were refused, by `refusedKey`. */
-  refusals: Schema.Record(Schema.String, Schema.Finite),
+  /**
+   * How many times each Session's row was brought back, by `backKey`: a
+   * Move refused, or a swipe undone. Each draws it afresh.
+   */
+  back: Schema.Record(Schema.String, Schema.Finite),
   /** Whether it could once be drawn whole, from this device (8. Ready). */
   ready: Schema.Boolean,
   /** The Sessions whose agent waits on an Agent Question, by Connection id. */
@@ -117,10 +123,23 @@ const Model = Schema.Struct({
   working: Schema.Record(Schema.String, Schema.Array(Schema.String)),
 });
 
-/** A Session's key among the refusals: its Connection's and its own id. */
-export const refusedKey = (connectionId: string, sessionId: string) =>
+/** A Session's key among the rows brought back: its Connection's and its own id. */
+export const backKey = (connectionId: string, sessionId: string) =>
   `${connectionId} ${sessionId}`;
 type Model = typeof Model.Type;
+
+/** The Session's row brought back once more, so it is drawn afresh. */
+const broughtBack = (
+  model: Model,
+  connectionId: string,
+  sessionId: string,
+): Model => {
+  const key = backKey(connectionId, sessionId);
+  return {
+    ...model,
+    back: { ...model.back, [key]: (model.back[key] ?? 0) + 1 },
+  };
+};
 
 const Sidebar = Actor.define('Sidebar', {
   requires: [Connections, ConnectionFilter, Preferences, Moves, Navigation],
@@ -237,7 +256,7 @@ export const SidebarLive = Sidebar.build({
       moving: [],
       told: null,
       refused: null,
-      refusals: {},
+      back: {},
       ready: false,
       asking: {},
       working: {},
@@ -388,10 +407,10 @@ export const SidebarLive = Sidebar.build({
   on: {
     // 5. Move
     MoveAsked: ({ connectionId, sessionId, settled, title }, { model }) => ({
-      ...(title === null
-        ? {}
-        : {
-            model: {
+      model:
+        title === null
+          ? broughtBack(model, connectionId, sessionId)
+          : {
               ...model,
               told: {
                 n: (model.told?.n ?? 0) + 1,
@@ -401,23 +420,15 @@ export const SidebarLive = Sidebar.build({
                 title,
               },
             },
-          }),
       command: putMove({ connectionId, sessionId, settled }),
     }),
     MovesShown: ({ moving }, { model }) => ({ model: { ...model, moving } }),
-    MoveRefused: ({ connectionId, sessionId, settled, reason }, { model }) => {
-      const key = refusedKey(connectionId, sessionId);
-      return {
-        model: {
-          ...model,
-          refused: { n: (model.refused?.n ?? 0) + 1, settled, reason },
-          refusals: {
-            ...model.refusals,
-            [key]: (model.refusals[key] ?? 0) + 1,
-          },
-        },
-      };
-    },
+    MoveRefused: ({ connectionId, sessionId, settled, reason }, { model }) => ({
+      model: {
+        ...broughtBack(model, connectionId, sessionId),
+        refused: { n: (model.refused?.n ?? 0) + 1, settled, reason },
+      },
+    }),
     MoveSeen: (seen) => ({ command: agreed(seen) }),
     ConnectionsKnown: ({ read, connections, problem, unseen }, { model }) => ({
       model: { ...model, listRead: read, connections, problem, unseen },

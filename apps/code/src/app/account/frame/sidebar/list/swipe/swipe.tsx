@@ -9,12 +9,13 @@ import { notify } from '../../../../../../ui/controls/notice/index.ts';
  * to Settle it, a Settled one to un-Settle it, with a quiet "Settle" or
  * "Keep" behind it as it goes. It slides out, the list closes the gap, and
  * a toast offers Undo for five seconds, or until the sidebar shuts; its
- * Connection is asked at once, and Undo asks it back. A refusal brings its
- * row back afresh (`SwipeBack`), even one never taken out of its list, and
- * no other. With no touch screen the row is drawn as it is.
+ * Connection is asked at once, and Undo asks it back. A refusal or an Undo
+ * brings its row back afresh (`SwipeBack`), even one never taken out of its
+ * list, or one still on its way out, and no other. With no touch screen
+ * the row is drawn as it is.
  */
 
-/** How many of a Session's Moves were refused: each brings its row back, drawn afresh. */
+/** How many times a Session's row was brought back, by a refusal or an Undo: each draws it afresh. */
 export const SwipeBack = createContext<
   (connectionId: string, sessionId: string) => number
 >(() => 0);
