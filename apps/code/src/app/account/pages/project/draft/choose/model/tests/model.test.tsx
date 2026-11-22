@@ -93,16 +93,24 @@ const catalog = {
   ],
 };
 
-/** A second Claude login, "Claude Work", beside the Default Accounts. */
+/** A second Claude login, named "Work" as Settings adds it, beside the Default Accounts. */
 const work = {
   ...catalog,
   harnesses: [
     ...catalog.harnesses,
-    { ...catalog.harnesses[0]!, account: 'claude-work', name: 'Claude Work' },
+    { ...catalog.harnesses[0]!, account: 'claude-work', name: 'Work' },
   ],
+  // Named as Claude Code names them, its agent's name first.
   models: [
     ...catalog.models,
-    { ...catalog.models[0]!, account: 'claude-work' },
+    {
+      account: 'claude-work',
+      list: [
+        { id: 'opus', name: 'Claude Opus', releaseDate: '2026-05-01' },
+        { id: 'sonnet', name: 'Claude Sonnet', releaseDate: null },
+      ],
+      problem: null,
+    },
   ],
 };
 /** The catalog the page is drawn with, and the account it starts on. */
@@ -538,7 +546,9 @@ describe('ModelPicker, with a Harness Account beside the Default Accounts', () =
 
   it("names it by its agent's logo and its own name, and in words Claude-Work", async () => {
     const model = trigger(/^Model: /);
-    expect(model.getAttribute('aria-label')).toBe('Model: Claude-Work, Sonnet');
+    expect(model.getAttribute('aria-label')).toBe(
+      'Model: Claude-Work, Claude Sonnet',
+    );
     expect(
       model.querySelector('svg[role="img"]')?.getAttribute('aria-label'),
     ).toBe('Claude');
@@ -583,7 +593,7 @@ describe('ModelPicker, with a Harness Account beside the Default Accounts', () =
     await flush();
     const opener = trigger(/^Model and settings/);
     expect(opener.getAttribute('aria-label')).toBe(
-      'Model and settings: Claude-Work, Sonnet · Low · Bypass permissions',
+      'Model and settings: Claude-Work, Claude Sonnet · Low · Bypass permissions',
     );
     expect(opener.textContent).toBe('Work·SonnetLow · Bypass permissions');
   });
