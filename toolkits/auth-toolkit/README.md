@@ -161,6 +161,7 @@ Peer dependencies, all optional; install the ones your doors need:
 | `fakeGuard.rpc`    | The Guard's server half for Effect RPC that reads each call's Fake Token, or puts `as` behind every call, and asks no one.                                                               |
 | `fakeGuard.http`   | The same for Effect HttpApi.                                                                                                                                                             |
 | `fakeSignIn`       | A fake User on a Sign-in of its own, as a device signed in as them holds one, to put behind every call with `fakeGuard.rpc({ as })`; null outside kestack.test.                          |
+| `fakeSigning`      | The Guard's client half for such a device: every call signed as its own Sign-in (nobody's, never sent), whatever other Signing is around, such as a browser tab's Accounts.              |
 | `SIGNED_IN_AS`     | Who a blank sign-in signs in: `you@kestack.test`.                                                                                                                                        |
 | `FAKE_DOMAIN`      | The one domain a fake User's email may be at: `kestack.test`.                                                                                                                            |
 | `FAKE_AUTH_WORKER` | The URL the Sign-in fake's errors name as its Auth Worker.                                                                                                                               |

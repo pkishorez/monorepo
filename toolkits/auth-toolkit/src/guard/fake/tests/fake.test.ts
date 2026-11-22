@@ -12,7 +12,7 @@ import { Rpc, RpcGroup, RpcTest } from 'effect/rpc';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Authz } from '../../authz/index.js';
 import { Accounts, AccountsState } from '../../client/accounts/index.js';
-import { fakeAccounts, fakeGuard, fakeSignIn } from '../index.js';
+import { fakeAccounts, fakeGuard, fakeSignIn, fakeSigning } from '../index.js';
 import { fakeToken } from '../token.js';
 
 /** Signs in whoever is next in line, as a test's stand-in for a dialog. */
@@ -347,6 +347,27 @@ describe('fakeGuard', () => {
     );
     expect(result).toBe('local_YWRhQGtlc3RhY2sudGVzdA laptop');
     expect(fakeSignIn('ada@example.com', 'laptop')).toBeNull();
+  });
+
+  it("signs a device's calls as its own Sign-in, whoever the browser around it has active", async () => {
+    const asDevice = (email: string) =>
+      call.pipe(Effect.provide(fakeSigning(fakeSignIn(email, 'laptop'))));
+    const [device, nobody, browser] = await run(
+      Effect.gen(function* () {
+        yield* Effect.flatMap(Accounts, (accounts) => accounts.signIn());
+        return [
+          yield* asDevice('ada@kestack.test'),
+          yield* call.pipe(Effect.provide(fakeSigning(null))),
+          yield* call,
+        ] as const;
+      }),
+      fakeAccounts({ choose: queue({ email: 'tess@kestack.test' }) }),
+    );
+    expect(device).toMatchObject({ success: 'ada@kestack.test' });
+    expect(nobody).toMatchObject({
+      failure: { _tag: 'Unauthenticated', reason: 'Not signed in' },
+    });
+    expect(browser).toMatchObject({ success: 'tess@kestack.test' });
   });
 
   it('is unauthenticated for any other credential', async () => {

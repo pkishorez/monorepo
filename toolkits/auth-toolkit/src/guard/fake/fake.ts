@@ -1,17 +1,22 @@
 import { Effect, Layer, Stream } from 'effect';
 import { Runtime } from '@kestack/kabuki';
 import {
+  bearer,
   bearerToken,
   type HttpGuard,
   type Principal,
   type RpcGuard,
+  type Signing,
+  Unauthenticated,
 } from '../authz/middleware/index.js';
 import type { AccountsLayer } from '../client/accounts/index.js';
+import { signing } from '../client/engine/index.js';
 import { httpGuardLayer, rpcGuardLayer } from '../server/guard-layer/index.js';
 import { SignInFake } from './actor.js';
 import { fakePrincipal } from './principal.js';
 import { browserOver } from './serve.js';
 import { warn } from './mark.js';
+import { fakeToken } from './token.js';
 
 /** Who to sign in as: an email at `kestack.test`, and optionally a name. */
 export interface FakeChoice {
@@ -107,3 +112,21 @@ export const fakeGuard = {
   http: (options: FakeGuardOptions = {}): HttpGuard =>
     Layer.merge(httpGuardLayer(resolverOf(options)), Layer.effectDiscard(warn)),
 };
+
+/**
+ * The Guard's client half for a device signed in on a Sign-in of its own
+ * (`fakeSignIn`), as `ke-connect` holds one: every call signed with its
+ * User's fake token; for nobody, never sent, failing Unauthenticated, as a
+ * device signed out. A client built with it calls as that device whatever
+ * other `Signing` is around, such as a browser tab's Accounts in the same
+ * page.
+ */
+export const fakeSigning = (signIn: Principal | null): Layer.Layer<Signing> =>
+  signing({
+    signature:
+      signIn === null
+        ? Effect.fail(new Unauthenticated({ reason: 'Not signed in' }))
+        : Effect.succeed(bearer(fakeToken.make(signIn.user))),
+    refused: 'Unauthenticated',
+    recheck: Effect.void,
+  });

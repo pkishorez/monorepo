@@ -48,7 +48,12 @@ export {
   type SignInMessage,
   type SignInModel,
 } from './actor.js';
-export { fakeAccounts, fakeGuard, type FakeChoice } from './fake.js';
+export {
+  fakeAccounts,
+  fakeGuard,
+  fakeSigning,
+  type FakeChoice,
+} from './fake.js';
 export { FAKE_MARK } from './mark.js';
 export { fakeSignIn } from './principal.js';
 export {
