@@ -111,7 +111,10 @@ export const reasonOf = (cause: Failure): string => {
     case 'VersionGap':
       return gapReason(cause);
     case 'RpcClientError':
-      return cause.message || 'The server could not be reached';
+      // The socket's own failures say only its code (`SocketCloseError: 1006`).
+      return cause.reason._tag.startsWith('Socket')
+        ? 'The Connection could not be reached'
+        : cause.message || 'The server could not be reached';
   }
 };
 

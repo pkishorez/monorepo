@@ -1,4 +1,6 @@
 import { Effect } from 'effect';
+import { RpcClientError } from 'effect/rpc';
+import { Socket } from 'effect/socket';
 import { VersionGap } from '@kestack/rpc-toolkit/rpc/version-gap';
 import { describe, expect, it } from 'vitest';
 import { orRefused, reasonOf } from '../refusal.ts';
@@ -6,6 +8,8 @@ import { orRefused, reasonOf } from '../refusal.ts';
 /*
  * A call that failed because one side is older says which: a Connection
  * that lacks the call, or cannot read what Code sent, needs a newer Connect.
+ * One that failed on the socket says the Connection could not be reached,
+ * not the socket's code.
  */
 
 describe('a refused call', () => {
@@ -22,5 +26,13 @@ describe('a refused call', () => {
     expect(reasonOf(new VersionGap({ older: 'client' }))).toBe(
       'Updating Code to its newest version',
     );
+  });
+
+  it("says a Connection out of reach could not be reached, not the socket's code", () => {
+    const closed = new RpcClientError.RpcClientError({
+      reason: new Socket.SocketCloseError({ code: 1006 }),
+    });
+    expect(closed.message).toBe('SocketCloseError: 1006');
+    expect(reasonOf(closed)).toBe('The Connection could not be reached');
   });
 });
