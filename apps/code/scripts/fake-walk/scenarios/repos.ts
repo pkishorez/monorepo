@@ -57,14 +57,6 @@ const pickBranch = async (walk: Walk, branch: RegExp) => {
   await picker.waitFor({ state: 'detached' });
 };
 
-/** The local branches of shop under `ke-code/`, as git keeps them. */
-const keCode = async (walk: Walk) =>
-  (
-    (await walk.bubble.model(DISK, ['tree'])).match(
-      /\/code\/shop\/\.git\/refs\/heads\/ke-code\/[^:]+/g,
-    ) ?? []
-  ).map((head) => head.split('/heads/')[1]!);
-
 /** Sends the Draft; it stays on this page, saying `why`, its text kept. */
 const refused = async (walk: Walk, text: string, why: string | RegExp) => {
   const at = walk.page.url();
@@ -279,25 +271,34 @@ export const repos: Scenario = {
     await bubble.must('Agent', 'Title slowly', { ms: 8000 });
     await bubble.close();
     await page.getByRole('switch', { name: 'New worktree' }).click();
-    const made = await keCode(walk);
     await send(page, 'Push it before the title');
     await walk.see('echo: Push it before the title');
-    const id = (await keCode(walk)).find((branch) => !made.includes(branch));
-    if (id === undefined) throw new Error('No new ke-code/ branch');
-    console.log(`  made ${id}, pushed`);
+    // Its branch as the sidebar says it, without `ke-code/`: the bubble's
+    // tree lists 100 entries a level, fewer than this disk holds by now.
+    const first = sidebar.getByRole('link', {
+      name: /^Push it before the title Worktree /,
+    });
+    const id = /Worktree ([^\s"]+)/.exec(await first.ariaSnapshot())?.[1];
+    if (id === undefined) throw new Error('No Worktree branch in the sidebar');
+    console.log(`  made ke-code/${id}, pushed`);
     await bubble.must(DISK, 'Push branch', {
       project: '~/code/shop',
-      branch: id,
+      branch: `ke-code/${id}`,
     });
     await bubble.close();
     await sidebar
-      .getByRole('link', { name: /^Push the fix early Worktree / })
+      .getByRole('link', { name: `Push the fix early Worktree ${id}` })
       .waitFor({ timeout: 20_000 });
-    const kept = await keCode(walk);
-    console.log(`  ke-code/ branches: ${kept.join(', ')}`);
-    if (!kept.includes(id) || kept.includes('ke-code/push-the-fix-early'))
-      throw new Error(`Renamed though pushed: ${kept.join(', ')}`);
-    await walk.see(id.replace('ke-code/', ''), sidebar);
+    await newSession(walk);
+    const local = await branchRows(walk);
+    console.log(`  branches: ${local.rows.join(', ')}`);
+    if (
+      !local.rows.includes(`ke-code/${id}`) ||
+      local.rows.includes('ke-code/push-the-fix-early')
+    )
+      throw new Error(`Renamed though pushed: ${local.rows.join(', ')}`);
+    await page.keyboard.press('Escape');
+    await local.picker.waitFor({ state: 'detached' });
     await walk.shot('pushed-keeps-id');
 
     walk.step(
