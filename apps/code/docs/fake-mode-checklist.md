@@ -252,34 +252,34 @@ mode are under [Limits](#limits).
 
 ## 6. Pickers and commands
 
-- [ ] Every Picker drawn as opened: by keys a fuzzy list in the middle; by mouse beside its button; by touch a Drawer, tall Drawer or Sheet; the screen dims; swipe down or tap away closes. **Reach:** each Picker. **Needs:** real middle; touch.
-- [ ] Session Switcher: every Session, unsettled most recently active first, then the Settled quieter; Project and Connection named; the open one checked. **Reach:** `s` (Vim), Ctrl+J. **Needs:** Agent: Sessions.
-- [ ] Actions: `a`, Ctrl+K, `?` (Vim), Ctrl+?, the header's button: the Session's (Settle/Un-settle, Fork, Go to original, Regenerate title, Session details, Stop while running), then every key Action with its keys in either Mode; on touch the Session's alone. **Reach:** a Session. **Needs:** Agent.
-- [ ] Actions refusal said in the Picker, which stays. **Reach:** Fork in Actions. **Needs:** Agent: fork refused.
-- [ ] A key Action chosen in Actions runs as its keys would, once the Picker closes. **Reach:** Actions. **Needs:** real middle.
-- [ ] Keys anywhere: sidebar/page (`h`/`l`), previous/next Session (`[`/`]`), Back/Forward, new Session in this Project (`n`, Ctrl+N), show/hide the sidebar (`b`, Ctrl+B), Settings (Ctrl+,), theme (`t`), microphone (`d`), Dictation (Space, Ctrl+Space), each "even while typing" variant. **Reach:** keyboard. **Needs:** real middle (some need Agent: Sessions).
-- [ ] Sidebar keys (Vim): `j`/`k`, `g g`, `shift+g`, Enter, back to the page. **Reach:** `h`. **Needs:** Agent: Sessions.
-- [ ] Page keys (Vim): scroll `j`/`k`, Ctrl+D/U, a page, top/bottom. **Reach:** a Session. **Needs:** Agent: a long Session.
-- [ ] Vim Mode's status line at the app's foot. **Reach:** Vim on. **Needs:** real middle.
+- [x] Every Picker drawn as opened: by keys a fuzzy list in the middle; by mouse beside its button; by touch a Drawer, tall Drawer or Sheet; the screen dims; swipe down or tap away closes. **Reach:** each Picker. **Needs:** real middle; touch. A refusal shows under the rows, never scrolled away with them (fixed in 22b2: Actions said a Fork refused far below the fold).
+- [x] Session Switcher: every Session, unsettled most recently active first, then the Settled quieter; Project and Connection named; the open one checked. **Reach:** `s` (Vim), Ctrl+J. **Needs:** Agent: Sessions.
+- [x] Actions: `a`, Ctrl+K, `?` (Vim), Ctrl+?, the header's button: the Session's (Settle/Un-settle, Fork, Go to original, Regenerate title, Session details, Stop while running), then every key Action with its keys in either Mode; on touch the Session's alone. **Reach:** a Session. **Needs:** Agent. Fixed in 22b2: by mouse its popover was too narrow for the key Actions' names; while a Turn ran, Stop the turn was listed twice.
+- [x] Actions refusal said in the Picker, which stays. **Reach:** Fork in Actions while a Session's first Turn runs ("No Turn has finished yet"), or after a Turn stopped ("ended without a Fork Point"). **Needs:** real middle.
+- [x] A key Action chosen in Actions runs as its keys would, once the Picker closes. **Reach:** Actions. **Needs:** real middle.
+- [x] Keys anywhere: sidebar/page (`h`/`l`), previous/next Session (`[`/`]`), Back/Forward, new Session in this Project (`n`, Ctrl+N), show/hide the sidebar (`b`, Ctrl+B), Settings (Ctrl+,), theme (`t`), microphone (`d`), Dictation (Space, Ctrl+Space), what the Session runs (`r`, the Running Picker, while something runs), each "even while typing" variant. **Reach:** keyboard. **Needs:** real middle (some need Agent: Sessions).
+- [x] Sidebar keys (Vim): `j`/`k`, `g g`, `shift+g`, Enter, back to the page. **Reach:** `h`. **Needs:** Agent: Sessions.
+- [x] Page keys (Vim): scroll `j`/`k`, Ctrl+D/U, a page, top/bottom. **Reach:** a Session. **Needs:** Agent: a long Session.
+- [x] Vim Mode's status line at the app's foot. **Reach:** Vim on. **Needs:** real middle.
 
 ## 7. Sidebar
 
-- [ ] Projects with their Sessions, most recently active first; the heading's branch; `+` or the heading opens the new Session's page. **Reach:** sidebar. **Needs:** Agent: Sessions in two Projects.
+- [x] Projects with their Sessions, most recently active first; the heading's branch; `+` or the heading opens the new Session's page. **Reach:** sidebar. **Needs:** Agent: Sessions in two Projects.
 - [x] A row: title, Unseen bold, fork glyph, Worktree mark and branch, status (mark, time ago, "Question" pill). **Reach:** sidebar. **Needs:** Agent; Git: a Worktree.
-- [ ] A Session shows only once started; a new Session's page puts nothing there. **Reach:** sidebar. **Needs:** Agent.
-- [ ] Connection Filter: the title opens the Connections Drawer (state, sessions and how many run, projects, notices, Computer Name, tunnel, Connect version), All Connections or one; kept per Account. **Reach:** sidebar header. **Needs:** Computers: two computers.
-- [ ] A Connection no longer listed in the Filter shows every Connection. **Reach:** sidebar. **Needs:** Computers: forget the chosen one.
-- [ ] Collapse a Connection's Projects (click, tap, Enter on its name): "(3 projects)", kept; `[`/`]` skip what is hidden. **Reach:** sidebar Connection name. **Needs:** Computers: two computers.
-- [ ] Order by Connection, those out of reach last, moving as one goes down or comes back. **Reach:** sidebar. **Needs:** Computers: two computers, one offline.
-- [ ] A Connection never synced here: listed saying how far it got (downloading cloudflared, opening its tunnel, linking). **Reach:** sidebar after Start fresh. **Needs:** Computers: tunnel state.
-- [ ] Swipe a row to Settle (touch: left to right): "Settled" toast with Undo; Undo brings it back. **Reach:** sidebar row. **Needs:** Agent: a Session; touch.
-- [ ] Settle and Un-settle from Actions. **Reach:** Actions. **Needs:** Agent.
-- [ ] Settled List: "Settled" with how many opens it, most recently Settled first, Un-settle on each; empty, it says how to Settle. **Reach:** sidebar foot of the list. **Needs:** Agent.
-- [ ] A Move shows at once and stays until synced; refused, it goes back and says why ("Not Settled", "Still Settled"). **Reach:** swipe. **Needs:** Computers: offline (a refusal needs the Session gone, see Limits).
-- [ ] Sending to a Settled Session un-settles it. **Reach:** open from the Settled List, send. **Needs:** Agent.
-- [ ] Width dragged on wide, kept. **Reach:** sidebar edge. **Needs:** real middle.
-- [ ] Phone: the sidebar is the home page; its foot's You (who is signed in, theme, Settings) and New project. **Reach:** touch. **Needs:** real middle.
-- [ ] Prefetch: a Session shown opens with its messages drawn at once, even offline. **Reach:** open a Session after its computer went offline. **Needs:** Agent; Computers: offline.
+- [x] A Session shows only once started; a new Session's page puts nothing there. **Reach:** sidebar. **Needs:** Agent.
+- [x] Connection Filter: the title opens the Connections Drawer (state, sessions and how many run, projects, notices, Computer Name, tunnel, Connect version), All Connections or one; kept per Account. Sessions and projects are counted only for the Connections the sidebar shows, the only ones read on this device (fixed in 22b2: with one chosen, every other said 0). **Reach:** sidebar header. **Needs:** Computers: two computers.
+- [x] A Connection no longer listed in the Filter shows every Connection. **Reach:** sidebar. **Needs:** Computers: forget the chosen one.
+- [x] Collapse a Connection's Projects (click, tap, Enter on its name): "(3 projects)", kept; `[`/`]` skip what is hidden. **Reach:** sidebar Connection name. **Needs:** Computers: two computers.
+- [x] Order by Connection, those out of reach last, moving as one goes down or comes back. **Reach:** sidebar. **Needs:** Computers: two computers, one offline.
+- [x] A Connection never synced here: listed saying how far it got (downloading cloudflared, opening its tunnel, linking). **Reach:** sidebar after Start fresh, or a new computer chosen in the Connection Filter while it sets up. **Needs:** Computers: tunnel state.
+- [x] Swipe a row to Settle (touch: left to right): "Settled" toast with Undo; Undo brings it back. **Reach:** sidebar row. **Needs:** Agent: a Session; touch. Fixed in 22b2: an Undo tapped while the list still closed the gap brought the row back invisible.
+- [x] Settle and Un-settle from Actions. **Reach:** Actions. **Needs:** Agent.
+- [x] Settled List: "Settled" with how many opens it, most recently Settled first, Un-settle on each; empty, it says how to Settle. **Reach:** sidebar foot of the list. **Needs:** Agent.
+- [x] A Move shows at once and stays until synced; refused, it goes back and says why ("Not Settled", "Still Settled"). **Reach:** swipe, Actions, the Settled List. **Needs:** Computers: offline, which refuses at once ("The Connection could not be reached"); a refusal from a live Connection needs the Session gone, see Limits.
+- [x] Sending to a Settled Session un-settles it. **Reach:** open from the Settled List, send. **Needs:** Agent.
+- [x] Width dragged on wide, kept. **Reach:** sidebar edge. **Needs:** real middle.
+- [x] Phone: the sidebar is the home page; its foot's You (who is signed in, theme, Settings) and New project. **Reach:** touch. **Needs:** real middle.
+- [x] Prefetch: a Session shown opens with its messages drawn at once, even offline. **Reach:** open a Session after its computer went offline. **Needs:** Agent; Computers: offline.
 
 ## 8. Settings
 

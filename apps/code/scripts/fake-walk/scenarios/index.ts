@@ -8,12 +8,14 @@ import { devtools } from './devtools.ts';
 import { folders } from './folders.ts';
 import { fresh } from './fresh.ts';
 import { home } from './home.ts';
+import { pickers } from './pickers.ts';
 import { projects } from './projects.ts';
 import { reach } from './reach.ts';
 import { reload } from './reload.ts';
 import { repos } from './repos.ts';
 import { sessions } from './sessions.ts';
 import { settings } from './settings.ts';
+import { sidebar } from './sidebar.ts';
 import { tunnels } from './tunnels.ts';
 
 /** One flow of the app, walked from where the scenarios it needs left it. */
@@ -39,6 +41,8 @@ export const scenarios: ReadonlyArray<Scenario> = [
   folders,
   repos,
   reach,
+  pickers,
+  sidebar,
   devtools,
   reload,
   accounts,
