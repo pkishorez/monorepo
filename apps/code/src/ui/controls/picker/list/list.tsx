@@ -64,7 +64,9 @@ import { useDrawn } from '../shape/shape.ts';
  * another, or ends on itself. Rows that carry an Action's keys show them
  * in two columns, out of Vim Mode and in it, under heads that say so, the set in effect
  * lit and the other quieter; on a narrow screen, the name has its own line
- * and the set in effect sits under it, alone.
+ * and the set in effect sits under it, alone. Why the owner refused a
+ * choice, and Working… while it settles one, show under the rows, never
+ * scrolled away with them.
  *
  * Opened by touch, in a Drawer or a Sheet, a header names
  * the Step, with a button back to the one under it; the keys' hints are
@@ -400,23 +402,20 @@ export function List<P>({
               ))}
             </CommandGroup>
           ))}
-          {groups.length > 0 && shown.problem !== null && (
-            <p role="alert" className="px-3 py-2 text-xs text-destructive">
-              {shown.problem}
-            </p>
-          )}
           {groups.length > 0 && shown.problem === null && shown.loading && (
             <p className="px-3 py-2 text-xs text-muted-foreground">Loading…</p>
           )}
-          {model.busy && (
-            <p
-              role="status"
-              className="px-3 py-2 text-xs text-muted-foreground"
-            >
-              Working…
-            </p>
-          )}
         </CommandList>
+        {groups.length > 0 && shown.problem !== null && (
+          <p role="alert" className="px-3 py-2 text-xs text-destructive">
+            {shown.problem}
+          </p>
+        )}
+        {model.busy && (
+          <p role="status" className="px-3 py-2 text-xs text-muted-foreground">
+            Working…
+          </p>
+        )}
         {!touch && (
           <p
             aria-hidden

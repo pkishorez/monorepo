@@ -364,7 +364,10 @@ describe('Picker Steps', () => {
     await type('bad');
     await key('Enter');
     await flush();
-    expect(document.body.textContent).toContain('Not a good name');
+    // Under the rows, not among them: a long list never scrolls it away.
+    const said = document.querySelector('[role="alert"]');
+    expect(said?.textContent).toBe('Not a good name');
+    expect(said?.closest('[cmdk-list]')).toBeNull();
     expect(search()).not.toBeNull();
     expect(state.heard).toBeNull();
   });
