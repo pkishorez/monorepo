@@ -353,7 +353,9 @@ How it works:
   one that no longer fits its Actor's code is set aside with a warning, and
   the Fake starts blank. Each change is saved `SAVE_AFTER` after the Fake
   settles, many as one, and one waiting is saved as the page hides and as
-  the Scope closes. A Fake's `kept(snapshot)` says what a reload keeps,
+  the Scope closes. A write begun as the page unloads may not land, so
+  whatever leaves the page right after a change awaits `world.saved()`
+  first: it saves every change waiting at once. A Fake's `kept(snapshot)` says what a reload keeps,
   else the whole Snapshot.
 - `startFresh()` sets `FRESH` in sessionStorage and reloads;
   `beforeStart()` on the next start deletes what the origin keeps, and says

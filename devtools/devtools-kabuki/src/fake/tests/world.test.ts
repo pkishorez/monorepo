@@ -104,6 +104,39 @@ describe('FakeWorld.make', () => {
     expect(last.model).toEqual({ degrees: 31, untilReload: { storm: false } });
   });
 
+  it('saves a change waiting at once when asked, settling once it is written', async () => {
+    const { kept, saved } = memory();
+    let write = () => {};
+    const slow: SavedFakes = {
+      load: saved.load,
+      save: (name, snapshot) =>
+        new Promise<void>((done) => {
+          write = () => {
+            void saved.save(name, snapshot);
+            done();
+          };
+        }),
+    };
+    const world = FakeWorld.make([weather], { saved: slow });
+    const order: Array<string> = [];
+    await run(
+      Effect.gen(function* () {
+        yield* Weather;
+        const { root } = world.runtimes[0]!.runtime;
+        root.send({ _tag: 'SetTemperature', degrees: 12 });
+        const asked = world.saved().then(() => order.push('saved'));
+        yield* Effect.promise(() => wait(0));
+        order.push('writing');
+        write();
+        yield* Effect.promise(() => asked);
+        // Nothing new since: settled at once.
+        yield* Effect.promise(() => world.saved());
+      }).pipe(Effect.provide(world.layer)),
+    );
+    expect(order).toEqual(['writing', 'saved']);
+    expect(kept.get('Weather')!.root.model).toMatchObject({ degrees: 12 });
+  });
+
   it('starts each Fake from its saved Snapshot', async () => {
     const { saved } = memory();
     const first = FakeWorld.make([weather, garage], { saved });

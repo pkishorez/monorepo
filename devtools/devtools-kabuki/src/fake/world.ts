@@ -20,7 +20,9 @@ import type { SavedFakes } from './saved.ts';
  * 3. Keep   on every change, once the Fake settles, save what a reload
  *           keeps: `kept` of the Snapshot, or the whole one. Changes close
  *           together are one save; one waiting is saved at once as the page
- *           hides and as the Scope closes.
+ *           hides and as the Scope closes, and when `saved()` is asked: a
+ *           write begun as the page unloads may not land, so whatever
+ *           leaves the page right after a change asks first.
  * 4. Tell   the Fakes running now, in the order given, to whoever listens.
  */
 
@@ -48,6 +50,8 @@ export interface World<Out = any, E = any, R = any> {
   readonly runtimes: ReadonlyArray<RunningFake>;
   /** Calls `listener` whenever a Fake starts or stops running. Returns how to stop. */
   subscribe(listener: () => void): () => void;
+  /** Saves every change still waiting, now; settles once each Fake's last save is written. Ask before leaving the page. */
+  saved(): Promise<void>;
 }
 
 // Its prefix holds the mark every fake carries: a production build that has it fails.
@@ -71,40 +75,50 @@ const startOf = (fake: Fake, saved: SavedFakes | undefined) =>
   });
 
 // 3. Keep
+/** Saves a Fake's change waiting, now; settles once its last save is written. */
+type Flush = () => Promise<void>;
+
 const keeping = (
   fake: Fake,
   runtime: Runtime<AnyActor>,
   saved: SavedFakes,
+  flushes: Set<Flush>,
 ): Effect.Effect<void, never, Scope.Scope> =>
   Effect.acquireRelease(
     Effect.sync(() => {
       let last = runtime.snapshot;
       let timer: ReturnType<typeof setTimeout> | undefined;
-      const flush = () => {
+      // The last save asked, written or failed.
+      let written: Promise<void> = Promise.resolve();
+      const flush: Flush = () => {
         clearTimeout(timer);
         timer = undefined;
         const now = runtime.snapshot;
-        if (now === last) return;
+        if (now === last) return written;
         last = now;
         try {
           const kept = fake.kept ? fake.kept(now) : now;
-          void Promise.resolve(
+          written = Promise.resolve(
             saved.save(fake.name, Snapshot.save(fake.actor, kept)),
           ).catch((error) => warn(fake, 'its Snapshot was not saved', error));
         } catch (error) {
           warn(fake, 'its Snapshot was not saved', error);
         }
+        return written;
       };
       const unsubscribe = runtime.subscribe(() => {
         if (runtime.snapshot !== last && timer === undefined)
           timer = setTimeout(flush, SAVE_AFTER);
       });
+      const hide = () => void flush();
       const page = typeof window === 'undefined' ? undefined : window;
-      page?.addEventListener('pagehide', flush);
+      page?.addEventListener('pagehide', hide);
+      flushes.add(flush);
       return () => {
+        flushes.delete(flush);
         unsubscribe();
-        page?.removeEventListener('pagehide', flush);
-        flush();
+        page?.removeEventListener('pagehide', hide);
+        void flush();
       };
     }),
     (stop) => Effect.sync(stop),
@@ -130,6 +144,9 @@ const make = <const Fakes extends ReadonlyArray<Fake>>(
     listeners.forEach((listener) => listener());
   };
 
+  // 3. Keep
+  const flushes = new Set<Flush>();
+
   // 2. Run
   const layerOf = (fake: Fake, index: number) =>
     Layer.unwrap(
@@ -139,7 +156,8 @@ const make = <const Fakes extends ReadonlyArray<Fake>>(
           fake.actor,
           (snapshot ? { snapshot } : {}) as never,
         );
-        if (options.saved) yield* keeping(fake, runtime, options.saved);
+        if (options.saved)
+          yield* keeping(fake, runtime, options.saved, flushes);
         yield* Effect.acquireRelease(
           Effect.sync(() => {
             running.set(index, { fake, runtime });
@@ -166,6 +184,9 @@ const make = <const Fakes extends ReadonlyArray<Fake>>(
     subscribe: (listener) => {
       listeners.add(listener);
       return () => void listeners.delete(listener);
+    },
+    saved: async () => {
+      await Promise.all([...flushes].map((flush) => flush()));
     },
   };
 };
