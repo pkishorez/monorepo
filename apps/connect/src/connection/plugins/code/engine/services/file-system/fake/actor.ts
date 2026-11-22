@@ -84,7 +84,9 @@ export const Message = Schema.TaggedUnion({
   MakeUnreadable: { folder: Path },
   /** Listing the folder fails, as a failing disk would. */
   MakeFailToList: { folder: Path },
-  /** The folder is readable again, and lists again. */
+  /** Listing the folder takes long, as a slow disk or a network folder would. */
+  MakeSlowToList: { folder: Path },
+  /** The folder is readable again, and lists again, at once. */
   MakeReadable: { folder: Path },
   /** The folder is gone, as if moved away, with all it held. */
   RemoveFolder: { folder: Path },
@@ -117,6 +119,7 @@ export const CONTROLS = [
   'AddSymlink',
   'MakeUnreadable',
   'MakeFailToList',
+  'MakeSlowToList',
   'MakeReadable',
   'RemoveFolder',
   'PutFolderBack',
@@ -211,11 +214,19 @@ export const FileSystemFake = Actor.define('FileSystem', {
         }),
       },
     }),
+    MakeSlowToList: ({ folder }, { model }) => ({
+      model: {
+        tree: changeFolder(model.tree, fromHome(model.home, folder), {
+          slow: true,
+        }),
+      },
+    }),
     MakeReadable: ({ folder }, { model }) => ({
       model: {
         tree: changeFolder(model.tree, fromHome(model.home, folder), {
           unreadable: false,
           failing: false,
+          slow: false,
         }),
       },
     }),

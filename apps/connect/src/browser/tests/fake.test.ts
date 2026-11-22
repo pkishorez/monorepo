@@ -513,6 +513,53 @@ describe(
         }),
       ));
 
+    it('has another device remove an agent account the user added, by its name', () =>
+      run(
+        Effect.gen(function* () {
+          const { on, computer, listed, add } = yield* world();
+          add('laptop');
+          const laptop = computer('computer-1');
+          laptop.children.fileSystem.send({
+            _tag: 'AddFolder',
+            folder: '~/.claude-work',
+          });
+          yield* eventually(async () => expect(await listed()).toHaveLength(1));
+          const names = on(
+            'computer-1',
+            Effect.flatMap(CodeClient, (api) => api.harnessAccounts()).pipe(
+              Effect.map((accounts) => accounts.map(({ name }) => name)),
+            ),
+          );
+          yield* on(
+            'computer-1',
+            Effect.flatMap(CodeClient, (api) =>
+              api.saveHarnessAccount({
+                id: null,
+                harness: 'claude',
+                name: 'Work',
+                binaryPath: null,
+                configFolder: '~/.claude-work',
+              }),
+            ),
+          );
+          expect(yield* names).toContain('Work');
+
+          laptop.send({ _tag: 'RemoveAgentAccountElsewhere', name: 'Gone' });
+          yield* eventually(() =>
+            expect(laptop.model.saidElsewhere).toBe(
+              'No agent account named Gone',
+            ),
+          );
+          laptop.send({ _tag: 'RemoveAgentAccountElsewhere', name: 'Work' });
+          yield* eventually(() =>
+            expect(laptop.model.saidElsewhere).toBe(
+              'Removed agent account Work',
+            ),
+          );
+          expect(yield* names).not.toContain('Work');
+        }),
+      ));
+
     it('has another device answer the question a Session waits on, each part with its first choice', () => {
       const harness = makeFakeHarness({ hold: true });
       return run(

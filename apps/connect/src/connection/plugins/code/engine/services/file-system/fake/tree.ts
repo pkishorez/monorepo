@@ -4,7 +4,8 @@ import { dirname, join, normalize, partsOf, isWithin } from './paths.js';
 /*
  * The fake's tree, as plain data: every entry by its absolute path, `/`
  * included. A folder may be unreadable (as `chmod 000`: neither listed
- * nor gone into) or failing (listing it is an I/O error); a file holds its
+ * nor gone into), failing (listing it is an I/O error) or slow (listing it
+ * takes longer than anyone waits); a file holds its
  * text, or its bytes as base64; a symlink holds its target, absolute or
  * from its own folder. Hidden is only a name starting with `.`. Every
  * function here is pure: the Actor's Updates change the tree with them,
@@ -20,6 +21,8 @@ export const Entry = Schema.TaggedUnion({
     unreadable: Schema.Boolean,
     /** Listing it fails, as a disk failing would. */
     failing: Schema.Boolean,
+    /** Listing it takes long, as a slow disk or a network folder would. */
+    slow: Schema.Boolean,
   },
   File: {
     data: Schema.String,
@@ -36,6 +39,7 @@ export const folder: Entry = {
   _tag: 'Folder',
   unreadable: false,
   failing: false,
+  slow: false,
 };
 
 export const textFile = (data: string): Entry => ({
@@ -87,7 +91,11 @@ export const remove = (tree: Tree, path: string): Tree => {
 export const changeFolder = (
   tree: Tree,
   path: string,
-  change: { readonly unreadable?: boolean; readonly failing?: boolean },
+  change: {
+    readonly unreadable?: boolean;
+    readonly failing?: boolean;
+    readonly slow?: boolean;
+  },
 ): Tree => {
   const normal = normalize(path);
   const found = tree[normal];

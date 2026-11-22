@@ -1,4 +1,5 @@
-import { Effect } from 'effect';
+import { Effect, Fiber } from 'effect';
+import { TestClock } from 'effect/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Runtime, Snapshot } from '@kestack/kabuki';
 import { FileSystem } from '../../../../capabilities/index.js';
@@ -162,6 +163,31 @@ describe('the Controls', () => {
     });
     control({ _tag: 'MakeReadable', folder: '~/locked' });
     expect(names(await fs((each) => each.list(`${HOME}/locked`)))).toEqual([
+      'inside',
+    ]);
+  });
+
+  it('make a folder slow to list, and quick again', async () => {
+    const { runtime, fs, control } = computer();
+    control({ _tag: 'AddFolder', folder: 'mounted/inside' });
+    control({ _tag: 'MakeSlowToList', folder: '~/mounted' });
+    const listed = await Effect.runPromise(
+      Effect.gen(function* () {
+        const files = yield* FileSystem;
+        const fiber = yield* Effect.forkChild(files.list(`${HOME}/mounted`));
+        yield* TestClock.adjust('29 seconds');
+        const early = fiber.pollUnsafe();
+        yield* TestClock.adjust('1 second');
+        return { early, entries: yield* Fiber.join(fiber) };
+      }).pipe(
+        Effect.provide(fileSystem.serve(runtime)),
+        Effect.provide(TestClock.layer()),
+      ),
+    );
+    expect(listed.early).toBeUndefined();
+    expect(names(listed.entries)).toEqual(['inside']);
+    control({ _tag: 'MakeReadable', folder: '~/mounted' });
+    expect(names(await fs((each) => each.list(`${HOME}/mounted`)))).toEqual([
       'inside',
     ]);
   });
