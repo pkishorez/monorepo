@@ -39,6 +39,7 @@ export const home: Scenario = {
     await walk.button('Look again').click();
     await walk.see(STUDIO);
     await walk.gone('No Connection yet');
+    await walk.see('Open a folder to start a project', walk.main);
     await walk.shot('computer-listed');
   },
 };
