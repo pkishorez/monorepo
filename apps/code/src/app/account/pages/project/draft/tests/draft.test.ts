@@ -141,10 +141,11 @@ const keptIn = (
     Effect.provide(saved),
   );
 
-/** What the server does with a send: takes it, refuses it, or waits to be told. */
+/** What the server does with a send: takes it, refuses it, dies taking it, or waits to be told. */
 type Answer =
   | 'take'
   | 'refuse'
+  | 'die'
   | Deferred.Deferred<boolean>
   | ReadonlyArray<Deferred.Deferred<boolean>>;
 
@@ -197,6 +198,8 @@ const world = (
       send: ((args: unknown) =>
         Effect.suspend(() => {
           sent.push(args);
+          if (answer === 'die')
+            return Effect.die(new Error('EACCES: permission denied'));
           const taken =
             answer === 'take'
               ? Effect.succeed(true)
@@ -435,6 +438,20 @@ describe('Draft', () => {
         yield* say(app, 'Carry on');
         expect(textOf(app, 'Message')).toBe('Carry on');
         expect(modelOf(app).problem).toBe('This session no longer exists');
+      }),
+    ));
+
+  it('brings back a send the Connection died taking, and says why', () =>
+    run(
+      Effect.gen(function* () {
+        const { layer } = world('die');
+        const app = yield* start('Session', layer);
+        yield* wait();
+        yield* say(app, 'Read my notes');
+        expect(textOf(app, 'Message')).toBe('Read my notes');
+        expect(modelOf(app).problem).toBe(
+          'The Connection could not take it: EACCES: permission denied',
+        );
       }),
     ));
 
