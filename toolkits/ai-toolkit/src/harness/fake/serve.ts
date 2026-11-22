@@ -1,4 +1,12 @@
-import { Cause, Deferred, Effect, Layer, Queue, Stream } from 'effect';
+import {
+  Cause,
+  Deferred,
+  Duration,
+  Effect,
+  Layer,
+  Queue,
+  Stream,
+} from 'effect';
 import type { Runtime } from '@kestack/kabuki';
 import type { HarnessName } from '../../contract/raw/index.js';
 import type {
@@ -183,6 +191,8 @@ export const agentOver = (
           const binary = binaryOf(played, install, account.binary);
           if (binary.error !== null)
             return yield* new HarnessError({ message: binary.error });
+          if (install.opensInMs > 0)
+            yield* Effect.sleep(Duration.millis(install.opensInMs));
           if (install.opensFail !== null)
             return yield* new HarnessError({ message: install.opensFail });
           const loggedIn = signedIn(played, account.configFolder);
@@ -658,6 +668,8 @@ export const agentOver = (
           Effect.gen(function* () {
             const { title } = model();
             yield* send({ _tag: 'TitleTaken' });
+            if (title.inMs > 0)
+              yield* Effect.sleep(Duration.millis(title.inMs));
             if (title.failNext !== null)
               return yield* new HarnessError({ message: title.failNext });
             if (title.next !== '') return title.next;

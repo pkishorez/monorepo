@@ -7,6 +7,7 @@ import {
   type Scope,
   Stream,
 } from 'effect';
+import { TestClock } from 'effect/testing';
 import { Runtime } from '@kestack/kabuki';
 import { describe, expect, it } from 'vitest';
 import type { Part } from '../../../contract/projection/index.js';
@@ -300,6 +301,48 @@ describe('the Agent fake, its world', () => {
 });
 
 describe('the Agent fake, its replies', () => {
+  it('opens an Agent and writes the next Title slowly, as told', async () => {
+    const found = await run((fake, edges) =>
+      Effect.gen(function* () {
+        const oneShot = Context.get(edges, OneShotPrompt);
+        const prompt =
+          'Write a title\n\n<latest-message>\nfix the login page\n</latest-message>';
+        yield* control(fake, {
+          _tag: 'OpensSlowly',
+          harness: 'claude',
+          ms: 3000,
+        });
+        yield* control(fake, { _tag: 'TitleSlowly', ms: 2000 });
+        const opening = yield* Effect.forkChild(opened(edges, 'claude'));
+        const titling = yield* Effect.forkChild(oneShot.prompt(prompt));
+        yield* TestClock.adjust('1999 millis');
+        const early = [opening.pollUnsafe(), titling.pollUnsafe()];
+        yield* TestClock.adjust('1 millis');
+        const title = yield* Fiber.join(titling);
+        const stillOpening = opening.pollUnsafe();
+        yield* TestClock.adjust('1 second');
+        yield* Fiber.join(opening);
+        // Only the next Title is slow.
+        const next = yield* Effect.forkChild(oneShot.prompt(prompt));
+        yield* TestClock.adjust('1 millis');
+        return {
+          early,
+          title,
+          stillOpening,
+          next: next.pollUnsafe(),
+          opensInMs: fake.root.model.claude.opensInMs,
+        };
+      }).pipe(Effect.provide(TestClock.layer())),
+    );
+    expect(found).toMatchObject({
+      early: [undefined, undefined],
+      title: 'fix the login page',
+      stillOpening: undefined,
+      next: Exit.succeed('fix the login page'),
+      opensInMs: 3000,
+    });
+  });
+
   it('echoes by default, and shows each running reply in its Model', async () => {
     const found = await run((fake, edges) =>
       Effect.gen(function* () {
