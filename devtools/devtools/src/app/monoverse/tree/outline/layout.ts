@@ -1,14 +1,14 @@
 // Where Outline's rows sit in the tree.
-import type { FolderTree, Row } from '../../model/index.js';
+import type { Row } from '../../model/index.js';
 
 /*
  * One row under the other, the full width of one column, so a selection
  * reads as a calm band; a Package's row takes two lines, its folder's name
  * over its own name and version. Left of the column runs the link gutter, where the
  * selection's connections curve from row to row: always on screen beside
- * the names, however narrow the screen. The column is as wide as the
- * widest name the tree could show (worked out once per tree, so it never
- * moves as folders open), but never wider than the screen leaves room for.
+ * the names, however narrow the screen. The column is the same width for
+ * every tree, so nothing moves as folders open or trees change, but never
+ * wider than the screen leaves room for.
  */
 
 export const rowHeight = 26;
@@ -58,29 +58,13 @@ export const guideX = (depth: number) => gutter + depth * indent + 8;
 
 const minWidth = 260;
 const maxWidth = 520;
-// Inter at 13px averages a little under 7px a character; the trailing
-// room holds a change count, a broken count and a reveal chip.
-const charWidth = 6.6;
-const leading = 16 + 4 + 16 + 6;
-const trailing = 96;
 
-/** The width of the column: room for the deepest, longest name the tree holds. */
-export function columnWidth(tree: FolderTree, room: number): number {
-  const base = tree.root.path;
-  let widest = 0;
-  for (const node of tree.nodes.values()) {
-    if (node.path === base) continue;
-    const rest = base === '' ? node.path : node.path.slice(base.length + 1);
-    let depth = 0;
-    for (const char of rest) if (char === '/') depth += 1;
-    const text = node.label ?? node.name;
-    const width =
-      gutter + depth * indent + leading + text.length * charWidth + trailing;
-    if (width > widest) widest = width;
-  }
-  return Math.round(
-    Math.max(minWidth, Math.min(maxWidth, Math.max(360, widest), room)),
-  );
+/**
+ * The width of the column: as wide as it can be up to `maxWidth`, the
+ * same whatever tree is drawn, so moving between trees moves nothing.
+ */
+export function columnWidth(room: number): number {
+  return Math.round(Math.max(minWidth, Math.min(maxWidth, room)));
 }
 
 /** One indent guide: the line down the left of an open folder's contents. */

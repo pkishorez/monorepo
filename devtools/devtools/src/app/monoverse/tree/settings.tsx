@@ -53,8 +53,16 @@ export const ignoredHint = "A Package's files outside its source roots";
 /** The settings as rows: compact for a popover, a thumb's height each for a sheet. */
 export function TreeSettingsRows({
   sheet,
+  keep = false,
   ...props
-}: TreeSettingsProps & { sheet: boolean }) {
+}: TreeSettingsProps & {
+  sheet: boolean;
+  /**
+   * Always drawn, as in a side panel: while Changes is off its own rows
+   * stay, greyed and out of reach, so nothing below them moves.
+   */
+  keep?: boolean;
+}) {
   const divider = (
     <div
       aria-hidden
@@ -91,10 +99,18 @@ export function TreeSettingsRows({
         />
       </>
     );
+  const changeRows = props.changesOn || keep;
   return (
     <>
-      {props.changesOn ? (
-        <>
+      {changeRows ? (
+        <div
+          inert={!props.changesOn}
+          title={props.changesOn ? undefined : 'Turn Changes on to choose'}
+          className={cn(
+            'transition-opacity duration-150',
+            !props.changesOn && 'opacity-40',
+          )}
+        >
           <div className="flex items-center justify-between gap-3 px-2 py-1.5">
             <span className="text-sm">Unchanged</span>
             {unchanged}
@@ -106,7 +122,7 @@ export function TreeSettingsRows({
             onChange={props.onDeleted}
           />
           {divider}
-        </>
+        </div>
       ) : null}
       <SwitchRow
         label="Ignored"

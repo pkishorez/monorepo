@@ -126,7 +126,7 @@ function WideGitControls(props: GitControlsProps) {
 }
 
 /** A switch with its label, the whole of it one target; why it is off, when it cannot be on. */
-function ChangesToggle({
+export function ChangesToggle({
   on,
   blocked,
   problem,

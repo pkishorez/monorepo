@@ -4,17 +4,22 @@
 // each row. While something is selected, the rest steps back.
 import {
   useCallback,
-  useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type KeyboardEvent,
   type PointerEvent,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { scrollbarStyles } from '@kestack/web-platform/ui/components/scroll-styles';
 import { cn } from '@kestack/web-platform/ui/components/utils';
-import { ChevronsDownUpIcon, ChevronsUpDownIcon } from 'lucide-react';
+import {
+  ChevronsDownUpIcon,
+  ChevronsUpDownIcon,
+  RotateCcwIcon,
+} from 'lucide-react';
 
 import type {
   Connection,
@@ -23,6 +28,7 @@ import type {
   TreeNode,
 } from '../../model/index.js';
 import { parentOf } from '../../model/index.js';
+import { usePanelSlots } from '../../ui/index.js';
 import type { NodeChange } from '../lenses/git/index.js';
 import { SelectionBar } from '../selection-bar/index.js';
 import { OutlineArcs, createHovered } from './arcs.js';
@@ -35,7 +41,7 @@ import {
   placeRows,
   topInset,
 } from './layout.js';
-import { OutlineRow, type OutlineRowActions } from './row.js';
+import { OutlineRow, type OutlineRowActions, type RowOpens } from './row.js';
 import './outline.css';
 
 /** What Outline draws: the facts the Tree view works out from its Model and Props. */
@@ -80,6 +86,8 @@ export interface OutlineProps {
     readonly all: boolean;
     readonly inside: (path: string) => boolean | null;
   };
+  /** The tree is as it opened: the default view, nothing selected. */
+  readonly atHome: boolean;
   readonly actions: TreeActions;
 }
 
@@ -101,12 +109,16 @@ export interface TreeActions {
   readonly reveal: (path: string) => void;
   /** Every folder open, or, if every one is, all closed down to the top level. */
   readonly toggleAll: () => void;
+  /** Back to the default view: the folders open at first, nothing selected. */
+  readonly reset: () => void;
   /** Everything inside a folder open, or every folder in it closed. */
   readonly toggleInside: (path: string) => void;
 }
 
 /** Room left and right of the tree, inside the scrolling box. */
 const side = 12;
+/** The bar held at the top of the tree as it scrolls: the fold toggle, and reset. */
+const topBarHeight = 32;
 
 // The Selection Bar's key, in the colours the arcs are drawn in.
 const outlineColours = {
@@ -129,15 +141,19 @@ export function Outline({
   faded,
   ignored,
   folding,
+  atHome,
   actions,
 }: OutlineProps) {
   // The screen's width: the gutter and the column fit it, so on a phone the
   // names, their marks and every arc show without scrolling sideways.
+  // Measured before the first paint, so the tree never moves once drawn.
   const frame = useRef<HTMLDivElement>(null);
-  const [screen, setScreen] = useState(1024);
-  useEffect(() => {
+  const scroller = useRef<HTMLDivElement>(null);
+  const [screen, setScreen] = useState(0);
+  useLayoutEffect(() => {
     const element = frame.current;
     if (element === null) return;
+    setScreen(Math.round(element.getBoundingClientRect().width));
     const observer = new ResizeObserver(([entry]) => {
       const next = Math.round(entry?.contentRect.width ?? 0);
       if (next > 0) setScreen(next);
@@ -146,17 +162,18 @@ export function Outline({
     return () => observer.disconnect();
   }, []);
   const lead = leadFor(screen);
-  const width = useMemo(
-    () => columnWidth(tree, screen - 2 * side - lead - endInset),
-    [tree, screen, lead],
-  );
+  // The same for every tree, so moving between them moves nothing.
+  const width = columnWidth(screen - 2 * side - lead - endInset);
   // The tree, centred; wider than the screen, it scrolls sideways.
   const blockWidth = lead + width + endInset;
-  // Room above, clear of the corner button when the tree reaches under it;
-  // room below, clear of the Selection Bar.
+  // On a wide screen the side panels hold what is selected and the reset
+  // button; elsewhere the Selection Bar sits over the tree, and reset in
+  // the tree's own top bar. Room below, clear of the Selection Bar; rows
+  // brought into view by the keys stop clear of the top bar.
+  const slots = usePanelSlots();
   const room = {
-    top: (screen - blockWidth) / 2 >= 64 ? 16 : 60,
-    bottom: screen < 640 ? 112 : 88,
+    top: 12,
+    bottom: slots.docked ? 32 : screen < 640 ? 112 : 88,
   };
   const indexOf = useMemo(() => {
     const at = new Map(rows.map(({ node }, index) => [node.path, index]));
@@ -186,9 +203,16 @@ export function Outline({
       activate: actions.activate,
       reveal: actions.reveal,
       toggleInside: actions.toggleInside,
+      open: (node) =>
+        node.kind === 'package' ? actions.changes(node) : actions.view(node),
     }),
     [actions],
   );
+  // What each row's open button opens, on every row at any depth: what
+  // changed in it while Changes is on, or a Package's changes, which turn
+  // Changes on; else a file, or a folder's files.
+  const opensOf = (node: TreeNode): RowOpens =>
+    changesOn || node.kind === 'package' ? 'diff' : 'view';
 
   // Focuses a row, scrolling only as far as it takes to show it clear of
   // the corner button and the Selection Bar.
@@ -283,9 +307,35 @@ export function Outline({
   const tabbable =
     selectedIndex === undefined ? rows[0]?.node.path : (selected ?? undefined);
 
+  const reset = () => {
+    byKeys.current = false;
+    actions.reset();
+    scroller.current?.scrollTo({ top: 0, left: 0 });
+  };
+  const FoldIcon = folding.all ? ChevronsDownUpIcon : ChevronsUpDownIcon;
+  const selectionBar = (panel: boolean) => (
+    <SelectionBar
+      panel={panel}
+      scope={scope}
+      node={selectedNode ?? tree.root}
+      root={selectedNode === undefined}
+      changesOn={changesOn}
+      connections={connections}
+      colours={outlineColours}
+      onActivate={() => actions.view(selectedNode ?? tree.root)}
+      onChanges={
+        selectedNode?.kind === 'package'
+          ? () => actions.changes(selectedNode)
+          : undefined
+      }
+      onClear={() => actions.select(null)}
+    />
+  );
+
   return (
     <div ref={frame} className="outline-tree relative h-full w-full">
       <div
+        ref={scroller}
         role="tree"
         aria-label="Folder tree"
         className={cn(
@@ -293,7 +343,7 @@ export function Outline({
           scrollbarStyles,
         )}
         style={{
-          scrollPaddingTop: room.top,
+          scrollPaddingTop: topBarHeight,
           scrollPaddingBottom: room.bottom,
         }}
         onClick={(event) => {
@@ -313,6 +363,40 @@ export function Outline({
             paddingInline: side,
           }}
         >
+          <div
+            data-space-ignore
+            className="sticky top-0 z-20 mx-auto flex items-center justify-between bg-background"
+            style={{
+              width: blockWidth,
+              height: topBarHeight,
+              paddingLeft: lead,
+              paddingRight: endInset,
+            }}
+          >
+            <Button
+              variant="ghost"
+              size="xs"
+              className="-ml-1 gap-1.5 px-1.5 font-normal text-muted-foreground"
+              aria-pressed={folding.all}
+              onClick={actions.toggleAll}
+            >
+              <FoldIcon className="size-3.5" />
+              {folding.all ? 'Collapse all' : 'Expand all'}
+            </Button>
+            {slots.docked ? null : (
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                className="text-muted-foreground max-sm:size-9"
+                aria-label="Reset to the default view"
+                title="Reset to the default view"
+                disabled={atHome}
+                onClick={reset}
+              >
+                <RotateCcwIcon className="size-3.5" />
+              </Button>
+            )}
+          </div>
           <div
             ref={content}
             className="relative mx-auto"
@@ -344,6 +428,7 @@ export function Outline({
                 broken={broken.get(node.path) ?? 0}
                 change={changes.get(node.path) ?? null}
                 inside={folding.inside(node.path)}
+                opens={opensOf(node)}
                 actions={rowActions}
               />
             ))}
@@ -362,42 +447,30 @@ export function Outline({
           </div>
         </div>
       </div>
-      <div
-        data-space-ignore
-        className="absolute top-3 right-3 z-10 flex rounded-lg bg-background/90 p-0.5 shadow-[0_0_0_1px_var(--color-border),0_2px_8px_-2px_rgb(0_0_0/0.15)] backdrop-blur-md"
-      >
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="max-sm:size-10"
-          aria-label={
-            folding.all ? 'Collapse all folders' : 'Expand all folders'
-          }
-          title={folding.all ? 'Collapse all folders' : 'Expand all folders'}
-          onClick={actions.toggleAll}
-        >
-          {folding.all ? (
-            <ChevronsDownUpIcon className="size-3.5" />
-          ) : (
-            <ChevronsUpDownIcon className="size-3.5" />
+      {slots.folders === null
+        ? null
+        : createPortal(
+            <Button
+              variant="outline"
+              size="sm"
+              className="mx-1"
+              disabled={atHome}
+              onClick={reset}
+            >
+              <RotateCcwIcon data-icon="inline-start" />
+              Reset to default view
+            </Button>,
+            slots.folders,
           )}
-        </Button>
-      </div>
-      <SelectionBar
-        scope={scope}
-        node={selectedNode ?? tree.root}
-        root={selectedNode === undefined}
-        changesOn={changesOn}
-        connections={connections}
-        colours={outlineColours}
-        onActivate={() => actions.view(selectedNode ?? tree.root)}
-        onChanges={
-          selectedNode?.kind === 'package'
-            ? () => actions.changes(selectedNode)
-            : undefined
-        }
-        onClear={() => actions.select(null)}
-      />
+      {!slots.docked
+        ? selectionBar(false)
+        : slots.selection === null
+          ? null
+          : createPortal(
+              // Its colours are the tree's own.
+              <div className="outline-tree">{selectionBar(true)}</div>,
+              slots.selection,
+            )}
     </div>
   );
 }

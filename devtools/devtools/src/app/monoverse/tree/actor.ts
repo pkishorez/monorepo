@@ -9,8 +9,9 @@ import { ancestorsOf, isWithin } from '../model/index.js';
  * Package's view: its parent hands it what to draw, and it keeps which
  * folders are open and what is selected.
  *
- * 1. Open    a folder's chevron opens or closes it; so does a button for
- *            every folder at once, or for everything inside one. Closing
+ * 1. Open    a folder's chevron opens or closes it; so do buttons for
+ *            every folder at once, or for everything inside one; and one
+ *            puts the tree back as it opened, nothing selected. Closing
  *            a folder that holds the selection selects the outermost
  *            folder closed over it instead, so what is selected is always
  *            on screen.
@@ -68,12 +69,16 @@ export const Tree = Actor.define('Tree', {
   props: TreePropsSchema,
   model: Schema.Struct({
     open: Schema.Array(Schema.String),
+    /** The folders open at first: the default view, to go back to. */
+    home: Schema.Array(Schema.String),
     selected: Schema.NullOr(Schema.String),
   }),
   message: Schema.TaggedUnion({
     Toggled: { path: Schema.String },
     /** These folders open, and no others. */
     OpenSet: { open: Schema.Array(Schema.String) },
+    /** Back to the default view: the folders open at first, nothing selected. */
+    Reset: {},
     Selected: { path: Schema.NullOr(Schema.String) },
     Revealed: { folders: Schema.Array(Schema.String) },
     Opened: { path: Schema.String },
@@ -93,7 +98,9 @@ export const Tree = Actor.define('Tree', {
 });
 
 export const TreeLive = Tree.build({
-  init: ({ open }) => ({ model: { open: [...open], selected: null } }),
+  init: ({ open }) => ({
+    model: { open: [...open], home: [...open], selected: null },
+  }),
   on: {
     // 1. Open
     Toggled: ({ path }, { model }) => {
@@ -131,6 +138,9 @@ export const TreeLive = Tree.build({
         },
       };
     },
+    Reset: (_, { model }) => ({
+      model: { open: [...model.home], selected: null },
+    }),
     // 2. Select
     Selected: ({ path }, { model }) => ({
       model: { selected: path === model.selected ? null : path },

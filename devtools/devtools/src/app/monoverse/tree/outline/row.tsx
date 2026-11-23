@@ -7,6 +7,8 @@ import {
   ChevronRightIcon,
   ChevronsDownUpIcon,
   ChevronsUpDownIcon,
+  EyeIcon,
+  FileDiffIcon,
   FileIcon,
   FolderIcon,
   FolderOpenIcon,
@@ -25,7 +27,15 @@ export interface OutlineRowActions {
   readonly reveal: (path: string) => void;
   /** Opens everything inside a folder, or closes every folder in it. */
   readonly toggleInside: (path: string) => void;
+  /** The row's open button: what changed in it, or the file or folder itself. */
+  readonly open: (node: TreeNode) => void;
 }
+
+/**
+ * What a row's open button opens: `diff`, what changed in it; `view`, a
+ * file or a folder's files, while Changes is off.
+ */
+export type RowOpens = 'diff' | 'view';
 
 const changeTone: Record<ChangeStatus, string> = {
   added: 'text-added',
@@ -129,7 +139,9 @@ function linkOf(connection: Connection | null) {
  * inside by its depth. A click selects it, whatever it is; its chevron
  * opens and closes a folder, and on a closed folder the selection reaches
  * into, the chip of counts opens it to what is connected. A double click
- * opens a folder, a file in the viewer, or a Package in its own view.
+ * opens a folder, a file in the viewer, or a Package in its own view; a
+ * right click on a folder opens or closes everything inside it. On hover,
+ * a button at its end opens what changed in it, or the file or folder.
  */
 export const OutlineRow = memo(function OutlineRow({
   node,
@@ -148,6 +160,7 @@ export const OutlineRow = memo(function OutlineRow({
   broken,
   change,
   inside,
+  opens,
   actions,
 }: {
   node: TreeNode;
@@ -172,6 +185,7 @@ export const OutlineRow = memo(function OutlineRow({
   change: { readonly status: ChangeStatus; readonly count: number } | null;
   /** A folder holding folders: whether everything inside it is open; null for any other row. */
   inside: boolean | null;
+  opens: RowOpens;
   actions: OutlineRowActions;
 }) {
   const isFolder = node.kind === 'folder';
@@ -214,6 +228,17 @@ export const OutlineRow = memo(function OutlineRow({
         actions.press(node);
       }}
       onDoubleClick={() => actions.activate(node)}
+      // A right click on a folder is its fold button's press: everything
+      // inside it opened, or closed; one holding no folders just toggles.
+      onContextMenu={
+        isFolder
+          ? (event) => {
+              event.preventDefault();
+              if (inside === null) actions.toggle(node.path);
+              else actions.toggleInside(node.path);
+            }
+          : undefined
+      }
     >
       {selected || link !== null ? (
         <span
@@ -253,7 +278,7 @@ export const OutlineRow = memo(function OutlineRow({
       {change === null ? null : (
         <span className="sr-only">, {changeWord[change.status]}</span>
       )}
-      {revealing || broken > 0 || inside !== null ? (
+      {revealing || broken > 0 || inside !== null || hover ? (
         <span className="ml-auto flex shrink-0 items-center gap-2.5 pl-2">
           {revealing ? (
             <RevealChip node={node} connection={connection} actions={actions} />
@@ -267,11 +292,70 @@ export const OutlineRow = memo(function OutlineRow({
               actions={actions}
             />
           )}
+          {/* Held on every row a pointer can hover, so the marks beside
+              it line up whether or not it shows. */}
+          <span className="flex size-5 shrink-0 items-center justify-center [@media(hover:none)]:hidden">
+            <OpenButton
+              node={node}
+              opens={opens}
+              shown={selected}
+              actions={actions}
+            />
+          </span>
         </span>
       ) : null}
     </div>
   );
 });
+
+// A pointer that can hover: only there do rows hold the open button.
+const hover = globalThis.matchMedia?.('(hover: hover)').matches ?? true;
+
+/**
+ * At the end of a row, on hover: one press opens what changed in it, or
+ * the file or the folder's files, with no need to select it first. Phones
+ * have the Selection Bar instead.
+ */
+function OpenButton({
+  node,
+  opens,
+  shown,
+  actions,
+}: {
+  node: TreeNode;
+  opens: RowOpens;
+  shown: boolean;
+  actions: OutlineRowActions;
+}) {
+  const label =
+    opens === 'diff'
+      ? `View changes in ${node.label ?? node.name}`
+      : node.kind === 'file'
+        ? `Open ${node.name}`
+        : `Browse files in ${node.name}`;
+  const Icon = opens === 'diff' ? FileDiffIcon : EyeIcon;
+  return (
+    <button
+      type="button"
+      tabIndex={-1}
+      aria-label={label}
+      title={label}
+      className={cn(
+        'relative flex size-5 items-center justify-center rounded-md text-muted-foreground transition-[opacity,background-color] duration-150 before:absolute before:-inset-1 hover:bg-foreground/[0.08] hover:text-foreground',
+        shown
+          ? 'opacity-100'
+          : 'opacity-0 group-hover/outline-row:opacity-100 focus-visible:opacity-100',
+      )}
+      onClick={(event) => {
+        event.stopPropagation();
+        actions.open(node);
+      }}
+      onDoubleClick={stop}
+    >
+      <Icon strokeWidth={2} className="size-3.5" />
+    </button>
+  );
+}
 
 function Glyph({
   node,
