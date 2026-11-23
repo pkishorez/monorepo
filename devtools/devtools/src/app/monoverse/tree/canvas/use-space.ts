@@ -15,6 +15,9 @@ const glide = { type: 'spring', duration: 0.5, bounce: 0 } as const;
 /** Where the camera starts: the content's top left corner, a little in. */
 export const homeCamera: Camera = { x: 24, y: 16, zoom: 1 };
 
+/** What the space offers whoever holds it: the same on a phone's scrolling box. */
+export type CanvasControls = Pick<Space, 'reveal' | 'zoomBy' | 'home'>;
+
 export interface Space {
   readonly x: MotionValue<number>;
   readonly y: MotionValue<number>;

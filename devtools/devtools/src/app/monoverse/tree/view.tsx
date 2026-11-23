@@ -34,6 +34,7 @@ export const TreeView = View.make(TreeLive, ({ root, model, props, send }) => {
     sourceRoots,
     changes,
     unchanged,
+    ignored: ignoredShown,
   } = props;
   const { selected } = model;
 
@@ -58,20 +59,54 @@ export const TreeView = View.make(TreeLive, ({ root, model, props, send }) => {
   const openSet = useMemo(() => new Set(model.open), [model.open]);
   const isOpen = useCallback((path: string) => openSet.has(path), [openSet]);
 
-  // Ignored files always show, dimmed; connections and Violations are
-  // always drawn. While Changes is on, what the branch left unchanged is
-  // drawn as it is, faded, or not at all.
+  // Ignored files show dimmed, unless they are left out; connections and
+  // Violations are always drawn. While Changes is on, what the branch left
+  // unchanged is drawn as it is, faded, or not at all.
   const changeOf = useChanges(changes);
   const hiding = changes !== null && unchanged === 'hide';
   const rows = useMemo(() => {
     const all = visibleRows(tree, isOpen);
-    return hiding ? all.filter(({ node }) => changeOf.has(node.path)) : all;
-  }, [tree, isOpen, hiding, changeOf]);
+    return all.filter(
+      ({ node }) =>
+        (!hiding || changeOf.has(node.path)) &&
+        (ignoredShown || !isIgnored(node.path, sourceRoots)),
+    );
+  }, [tree, isOpen, hiding, changeOf, ignoredShown, sourceRoots]);
   const faded = useCallback(
     (path: string) =>
       changes !== null && unchanged === 'dim' && !changeOf.has(path),
     [changes, unchanged, changeOf],
   );
+  // The folders inside each folder holding folders, at any depth; and
+  // every folder, for opening or closing them all.
+  const foldersInside = useMemo(() => {
+    const inside = new Map<string, Array<string>>();
+    const all: Array<string> = [];
+    const walk = (node: TreeNode): Array<string> => {
+      const found: Array<string> = [];
+      for (const child of node.children) {
+        if (child.kind !== 'folder') continue;
+        found.push(child.path, ...walk(child));
+      }
+      if (found.length > 0) inside.set(node.path, found);
+      return found;
+    };
+    all.push(...walk(tree.root));
+    return { inside, all };
+  }, [tree]);
+  const folding = useMemo(() => {
+    const allOpen = (paths: ReadonlyArray<string>) =>
+      paths.every((path) => openSet.has(path));
+    return {
+      all: allOpen(foldersInside.all),
+      inside: (path: string) => {
+        const inside = foldersInside.inside.get(path);
+        return inside === undefined
+          ? null
+          : openSet.has(path) && allOpen(inside);
+      },
+    };
+  }, [foldersInside, openSet]);
   const connections = useConnections(tree, isOpen, selected, links, broken);
   const brokenCounts = useBrokenCounts(broken);
   // A selection keeps in front itself, what is inside it, what it connects
@@ -89,8 +124,22 @@ export const TreeView = View.make(TreeLive, ({ root, model, props, send }) => {
   );
 
   // Read by the actions as they run, so nothing draws again for them.
-  const latest = useRef({ selected, links, every });
-  latest.current = { selected, links, every };
+  const latest = useRef({
+    selected,
+    links,
+    every,
+    open: openSet,
+    foldersInside,
+    folding,
+  });
+  latest.current = {
+    selected,
+    links,
+    every,
+    open: openSet,
+    foldersInside,
+    folding,
+  };
   const actions = useMemo<TreeActions>(
     () => ({
       select: (path) => send({ _tag: 'Selected', path }),
@@ -117,6 +166,27 @@ export const TreeView = View.make(TreeLive, ({ root, model, props, send }) => {
                   ),
                 },
         ),
+      changes: (node: TreeNode) =>
+        send({
+          _tag: 'Viewed',
+          path: node.path,
+          files: latest.current.every.filter((path) =>
+            isWithin(path, node.path),
+          ),
+        }),
+      toggleAll: () => {
+        const { folding, foldersInside } = latest.current;
+        send({ _tag: 'OpenSet', open: folding.all ? [] : foldersInside.all });
+      },
+      toggleInside: (path) => {
+        const { open, folding, foldersInside } = latest.current;
+        const inside = foldersInside.inside.get(path) ?? [];
+        const next = new Set(open);
+        if (folding.inside(path) === true)
+          for (const folder of inside) next.delete(folder);
+        else for (const folder of [path, ...inside]) next.add(folder);
+        send({ _tag: 'OpenSet', open: [...next] });
+      },
       reveal: (path) => {
         const { selected: from, links: all } = latest.current;
         if (from === null) return;
@@ -146,6 +216,7 @@ export const TreeView = View.make(TreeLive, ({ root, model, props, send }) => {
           dimmed={dimmed}
           faded={faded}
           ignored={ignored}
+          folding={folding}
           actions={actions}
         />
       )}

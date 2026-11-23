@@ -19,20 +19,24 @@ import {
 import { useId } from 'react';
 
 import type { Branches } from '../contract/index.js';
-import type { Unchanged } from '../tree/index.js';
-import { Segments, SettingsIcon, usePhone } from '../ui/index.js';
+import {
+  TreeSettingsRows,
+  type TreeSettingsProps,
+  type Unchanged,
+} from '../tree/index.js';
+import { SettingsIcon, usePhone } from '../ui/index.js';
 import { changesBlocked } from './blocked.js';
 import { BranchMenu } from './branch-menu.js';
 import { PhoneGitSettings } from './phone-settings.js';
-import { unchangedChoices } from './choices.js';
 
 /*
  * The three controls at the top right, and nothing else: Branch, the
  * branch whose files are shown; Compare to, the branch its changes are
  * measured against; and Changes, which colours what the branch changed,
- * with its options beside it while it is on: how what the branch left
- * unchanged is drawn, and whether the files it deleted are. On a phone
- * all of them sit in one settings sheet, behind the sliders button.
+ * and the sliders beside it: whether a Package's ignored files are drawn,
+ * and while Changes is on, how what the branch left unchanged is drawn
+ * and whether the files it deleted are. On a phone all of them sit in one
+ * settings sheet, behind the sliders button.
  */
 
 export interface GitControlsProps {
@@ -53,11 +57,14 @@ export interface GitControlsProps {
   readonly deleted: boolean;
   /** How what the branch left unchanged is drawn. */
   readonly unchanged: Unchanged;
+  /** Whether a Package's files outside its Source roots are drawn. */
+  readonly ignored: boolean;
   readonly onBranch: (name: string) => void;
   readonly onBase: (name: string) => void;
   readonly onChanges: () => void;
   readonly onDeleted: () => void;
   readonly onUnchanged: (unchanged: Unchanged) => void;
+  readonly onIgnored: () => void;
 }
 
 export function GitControls(props: GitControlsProps) {
@@ -103,14 +110,16 @@ function WideGitControls(props: GitControlsProps) {
         problem={changes ? props.changesProblem : null}
         onToggle={props.onChanges}
       />
-      <ChangesOptions
-        shown={changes && blocked === null}
-        reading={props.reading && blocked === null}
+      <ViewSettings
+        changesOn={changes && blocked === null}
+        reading={changes && props.reading && blocked === null}
         problem={changes ? props.changesProblem : null}
         deleted={props.deleted}
         onDeleted={props.onDeleted}
         unchanged={props.unchanged}
         onUnchanged={props.onUnchanged}
+        ignored={props.ignored}
+        onIgnored={props.onIgnored}
       />
     </div>
   );
@@ -171,42 +180,23 @@ function ChangesToggle({
 }
 
 /**
- * What Changes shows, a quiet arrow beside it: it keeps its place
- * whether Changes is on or off, so nothing beside it moves, and opens
- * only while it is on. While the changes are read it turns a spinner, and
- * a warning when they cannot be. Each option takes one line.
+ * What the tree draws, behind the sliders, always there so nothing beside
+ * it moves: the same settings a folder looked into offers. While the
+ * changes are read it turns a spinner, and a warning when they cannot be.
  */
-function ChangesOptions({
-  shown,
+function ViewSettings({
   reading,
   problem,
-  deleted,
-  onDeleted,
-  unchanged,
-  onUnchanged,
-}: {
-  /** Changes is on: the options are there to open. */
-  shown: boolean;
-  reading: boolean;
-  problem: string | null;
-  deleted: boolean;
-  onDeleted: () => void;
-  unchanged: Unchanged;
-  onUnchanged: (unchanged: Unchanged) => void;
-}) {
-  const id = useId();
+  ...settings
+}: TreeSettingsProps & { reading: boolean; problem: string | null }) {
   return (
     <Popover>
       <PopoverTrigger
-        disabled={!shown}
-        aria-hidden={!shown}
-        tabIndex={shown ? undefined : -1}
-        aria-label={problem ?? 'Changes options'}
-        title={problem ?? 'Changes options'}
+        aria-label={problem ?? 'View settings'}
+        title={problem ?? 'View settings'}
         className={cn(
-          'inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-[background-color,opacity] duration-150 outline-none',
+          'inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 outline-none',
           'hover:bg-muted/70 focus-visible:ring-2 focus-visible:ring-ring/50 data-[popup-open]:bg-muted/70',
-          !shown && 'pointer-events-none opacity-0',
         )}
       >
         {problem !== null ? (
@@ -217,31 +207,8 @@ function ChangesOptions({
           <SettingsIcon />
         )}
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-60 gap-0 p-1">
-        <div className="flex items-center justify-between gap-3 px-2 py-1.5">
-          <span id={`${id}-unchanged`} className="text-sm">
-            Unchanged
-          </span>
-          <Segments
-            label="Unchanged files"
-            value={unchanged}
-            choices={unchangedChoices}
-            onChange={onUnchanged}
-          />
-        </div>
-        <label
-          htmlFor={id}
-          title="Draw the files the branch deleted"
-          className="flex cursor-pointer items-center justify-between gap-3 rounded-md px-2 py-2 text-sm transition-colors duration-150 select-none hover:bg-muted/70"
-        >
-          Deleted
-          <Switch
-            id={id}
-            size="sm"
-            checked={deleted}
-            onCheckedChange={onDeleted}
-          />
-        </label>
+      <PopoverContent align="end" className="w-64 gap-0 p-1">
+        <TreeSettingsRows sheet={false} {...settings} />
       </PopoverContent>
     </Popover>
   );

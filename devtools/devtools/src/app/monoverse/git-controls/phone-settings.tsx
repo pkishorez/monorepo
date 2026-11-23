@@ -5,21 +5,17 @@ import {
   TriangleAlertIcon,
 } from 'lucide-react';
 
-import {
-  Segments,
-  SettingRow,
-  SettingsSheet,
-  SettingSwitch,
-} from '../ui/index.js';
+import { SettingRow, SettingsSheet, SettingSwitch } from '../ui/index.js';
 import { changesBlocked } from './blocked.js';
 import { BranchMenu } from './branch-menu.js';
-import { unchangedChoices } from './choices.js';
+import { TreeSettingsRows } from '../tree/index.js';
 import type { GitControlsProps } from './git-controls.js';
 
 /*
  * The git controls on a phone: one settings button beside the name, so
  * the header keeps one row, and a sheet with a row for each: Branch,
- * Compare to, Changes, and while Changes is on, its two options. The
+ * Compare to, Changes, and while Changes is on, its two options; and
+ * whether a Package's ignored files are drawn. The
  * button turns a spinner while the changes are read, and a warning when
  * they cannot be.
  */
@@ -72,23 +68,17 @@ export function PhoneGitSettings(props: GitControlsProps) {
         disabled={blocked !== null}
         onChange={props.onChanges}
       />
-      {on ? (
-        <>
-          <SettingRow label="Unchanged files">
-            <Segments
-              label="Unchanged files"
-              value={props.unchanged}
-              choices={unchangedChoices}
-              onChange={props.onUnchanged}
-            />
-          </SettingRow>
-          <SettingSwitch
-            label="Deleted files"
-            checked={props.deleted}
-            onChange={props.onDeleted}
-          />
-        </>
-      ) : null}
+      <div aria-hidden className="mx-3 my-1 h-px bg-border/60" />
+      <TreeSettingsRows
+        sheet
+        changesOn={on}
+        unchanged={props.unchanged}
+        deleted={props.deleted}
+        ignored={props.ignored}
+        onUnchanged={props.onUnchanged}
+        onDeleted={props.onDeleted}
+        onIgnored={props.onIgnored}
+      />
     </SettingsSheet>
   );
 }

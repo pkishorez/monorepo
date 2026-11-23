@@ -1,77 +1,76 @@
 import { cn } from '@kestack/web-platform/ui/components/utils';
-import { ChevronRightIcon, ChevronsUpDownIcon } from 'lucide-react';
+import { FolderGit2Icon } from 'lucide-react';
 
 import { shortenHome } from '../model/index.js';
+import { CrumbLabel, crumbTrigger } from './crumb.js';
+import {
+  PackageMenu,
+  type PackageChanges,
+  type PackageChoice,
+} from './package-menu.js';
 
 /*
- * Where you are, top left: the project, and the Package entered in it, if
- * one is. The project's crumb goes back to its tree from a Package, and
- * otherwise opens the picker; the chevrons beside it always open it.
+ * Where you are, top left, on one line: the project, a menu that opens
+ * the picker, and in a Monorepo the Package shown, or All packages, a
+ * menu to go straight to another or back to the Monorepo's tree. A Single
+ * Package is its project alone.
  */
-
-const crumb =
-  'inline-flex h-7 min-w-0 items-center rounded-md px-1.5 text-sm transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring/50';
 
 export function Breadcrumb({
   project,
   path,
-  inside,
-  onProject,
+  packages,
   onSwitch,
 }: {
   /** The project's name. */
   project: string;
   /** Its folder, absolute. */
   path: string;
-  /** The Package entered, by its name; null for none. */
-  inside: string | null;
-  onProject: () => void;
+  /** A Monorepo's Packages, the one shown, and where a choice goes; null for a Single Package. */
+  packages: {
+    readonly all: ReadonlyArray<PackageChoice>;
+    /** By its folder; null: the Monorepo's tree. */
+    readonly current: string | null;
+    /** While Changes is on, what changed in each; null while it is off. */
+    readonly changes: PackageChanges | null;
+    readonly onChoose: (path: string | null) => void;
+  } | null;
   onSwitch: () => void;
 }) {
   return (
-    <nav aria-label="Where" className="flex min-w-0 items-center gap-0.5">
+    <nav aria-label="Where" className="flex min-w-0 flex-1 items-center">
       <ol className="flex min-w-0 items-center gap-0.5">
-        <li className="flex min-w-0 items-center">
-          <button
-            type="button"
-            onClick={onProject}
-            title={
-              inside === null
-                ? `${shortenHome(path)}: open another project`
-                : `Back to ${project}`
-            }
-            className={cn(
-              crumb,
-              'max-w-64 hover:bg-muted/70',
-              inside === null
-                ? 'font-medium text-foreground'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            <span className="truncate">{project}</span>
-          </button>
+        <li className="flex min-w-0 shrink items-center">
           <button
             type="button"
             onClick={onSwitch}
-            aria-label="Open another project"
-            title="Open another project"
+            aria-label={`Project: ${project}`}
+            title={`${shortenHome(path)}: open another project`}
             className={cn(
-              crumb,
-              'size-7 justify-center px-0 text-muted-foreground hover:bg-muted/70 hover:text-foreground',
+              crumbTrigger,
+              packages === null ? 'max-w-72' : 'max-w-64 max-sm:max-w-[45vw]',
             )}
           >
-            <ChevronsUpDownIcon className="size-3.5" />
+            <CrumbLabel icon={FolderGit2Icon}>{project}</CrumbLabel>
           </button>
         </li>
-        {inside === null ? null : (
-          <li aria-current="page" className="flex min-w-0 items-center gap-0.5">
-            <ChevronRightIcon
+        {packages === null ? null : (
+          <li
+            aria-current="page"
+            className="flex min-w-0 shrink-[2] items-center"
+          >
+            <span
               aria-hidden
-              className="size-3.5 shrink-0 text-muted-foreground/60"
-            />
-            <span className={cn(crumb, 'max-w-72 font-medium text-foreground')}>
-              <span className="truncate">{inside}</span>
+              className="px-0.5 text-sm text-muted-foreground/50"
+            >
+              /
             </span>
+            <PackageMenu
+              packages={packages.all}
+              current={packages.current}
+              changes={packages.changes}
+              onChoose={packages.onChoose}
+            />
           </li>
         )}
       </ol>

@@ -45,16 +45,26 @@ export const Monorepo = Actor.define('Monorepo', {
     changes: Schema.NullOr(Schema.Array(ChangedPathSchema)),
     /** How what it left unchanged is drawn, while Changes is on. */
     unchanged: UnchangedSchema,
+    /** Whether the files outside the Source roots are drawn, dimmed. */
+    ignored: Schema.Boolean,
   }),
   message: Schema.TaggedUnion({
     Entered: { path: Schema.String },
     Opened: { path: Schema.String },
-    Viewed: { path: Schema.String, files: Schema.Array(Schema.String) },
+    Viewed: {
+      path: Schema.String,
+      files: Schema.Array(Schema.String),
+      sourceRoots: Schema.NullOr(Schema.Array(Schema.String)),
+    },
   }),
   emits: {
     Entered: { path: Schema.String },
     Opened: { path: Schema.String },
-    Viewed: { path: Schema.String, files: Schema.Array(Schema.String) },
+    Viewed: {
+      path: Schema.String,
+      files: Schema.Array(Schema.String),
+      sourceRoots: Schema.NullOr(Schema.Array(Schema.String)),
+    },
   },
 });
 
@@ -83,11 +93,17 @@ export const MonorepoLive = Monorepo.build({
         sourceRoots: null,
         changes: props.changes,
         unchanged: props.unchanged,
+        ignored: props.ignored,
       }),
       emits: {
         Entered: ({ path }) => ({ _tag: 'Entered', path }),
         Opened: ({ path }) => ({ _tag: 'Opened', path }),
-        Viewed: ({ path, files }) => ({ _tag: 'Viewed', path, files }),
+        Viewed: ({ path, files, sourceRoots }) => ({
+          _tag: 'Viewed',
+          path,
+          files,
+          sourceRoots,
+        }),
       },
     }),
     // 2. Enter
@@ -107,16 +123,24 @@ export const MonorepoLive = Monorepo.build({
         branch: props.branch,
         changes: props.changes,
         unchanged: props.unchanged,
+        ignored: props.ignored,
       }),
       emits: {
         Opened: ({ path }) => ({ _tag: 'Opened', path }),
-        Viewed: ({ path, files }) => ({ _tag: 'Viewed', path, files }),
+        Viewed: ({ path, files, sourceRoots }) => ({
+          _tag: 'Viewed',
+          path,
+          files,
+          sourceRoots,
+        }),
       },
     }),
   },
   on: {
     Entered: ({ path }) => ({ emit: { _tag: 'Entered', path } }),
     Opened: ({ path }) => ({ emit: { _tag: 'Opened', path } }),
-    Viewed: ({ path, files }) => ({ emit: { _tag: 'Viewed', path, files } }),
+    Viewed: ({ path, files, sourceRoots }) => ({
+      emit: { _tag: 'Viewed', path, files, sourceRoots },
+    }),
   },
 });

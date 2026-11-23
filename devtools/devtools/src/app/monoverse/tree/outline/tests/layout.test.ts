@@ -4,7 +4,9 @@ import { buildTree, visibleRows } from '../../../model/index.js';
 import {
   guidesOf,
   packageRowHeight,
+  pageWidth,
   placeRows,
+  shiftFor,
   rowHeight,
   topInset,
 } from '../layout.js';
@@ -51,5 +53,11 @@ describe('placeRows', () => {
       label: '@acme/web',
       version: '1.2.0',
     });
+  });
+
+  it('centres a page of at most pageWidth on a wide screen, and never shifts on a phone', () => {
+    expect(shiftFor(390)).toBe(0);
+    expect(shiftFor(900)).toBe(0);
+    expect(shiftFor(pageWidth + 400)).toBe(200);
   });
 });

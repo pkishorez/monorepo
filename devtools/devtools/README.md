@@ -106,18 +106,30 @@ repo view     the real folders; each Package a row of two lines, its
               folder's name over its own name and version. Select a
               Package: arcs show what it uses and what uses it, the rest
               dims; a Package cycle is red. Double-click it to go in.
-package view  the Package's git-known files; outside its Source roots dimmed.
+package view  the Package's git-known files; outside its Source roots dimmed,
+              or left out.
               Select a folder: its links to its siblings and to folders
               beside its ancestors; a file reaching up into an ancestor
               folder's own files is a Violation, in red.
-bottom bar    the selection, or the whole tree, and one button: Open
-              package, Open file, View changes or Browse files.
+top left      two menus on one line: the project, to open another, and in
+              a Monorepo the Package shown or All packages, to go straight
+              to another Package or back to the repo view.
+corner        every folder opened or closed down to the top level, zoom,
+              and back to the top; beside a folder holding folders, one
+              button opens or closes everything inside it. On a phone the
+              tree scrolls like a page.
+bottom bar    the selection, or the whole tree, and what to do with it:
+              Open file, View changes or Browse files; a Package in the
+              repo view has View changes beside Open package, which turns
+              Changes on if it is off.
 top right     Branch: whose files you see, read from its worktree, or from
               git when none has it checked out. Compare to: what changes
               are measured against. Changes: added green, modified yellow,
-              deleted red, rolled up to folders; beside it, whether the
-              unchanged are shown, dimmed or hidden, and whether the
-              deleted are drawn. On a phone all of it is one settings sheet.
+              deleted red, rolled up to folders. The sliders beside it:
+              whether a Package's ignored files are drawn, and while
+              Changes is on, whether the unchanged are shown, dimmed or
+              hidden and whether the deleted are drawn. On a phone all of
+              it is one settings sheet.
 ```
 
 How it works:
@@ -129,8 +141,13 @@ How it works:
 - Source roots come from `sourceRoots` in a `laymos.config.json` beside a
   Package's `package.json`; nothing else in it is read. Without one, the
   whole Package is its one Source root.
-- View changes opens a folder, the root included, as a tree of the files
-  that changed in it beside one file's diff; Browse files does the same for
-  every file. ← and →, the bar under the file, or a swipe on it step from
-  file to file; on a phone the list and the file are a screen each, a swipe
-  apart. How a diff reads is kept by the browser.
+- View changes opens a folder, the root included, as a tree of its files
+  beside one file's diff, drawn by the canvas's settings, behind the same
+  sliders; Browse files does the same with Changes off. One button folds
+  every folder to the top level or opens them all, and one beside a folder
+  opens or folds everything inside it. ← and →, the bar
+  under the file, or a swipe on it step from changed file to changed file;
+  on a phone the list and the file are a screen each, a swipe apart, and a
+  back arrow top left leaves the file, then the folder. Three buttons in a
+  diff's header expand it, wrap it and lay it side by side; the browser
+  keeps them.

@@ -12,6 +12,8 @@ import {
   type KeyboardEvent,
   type PointerEvent,
 } from 'react';
+import { Button } from '@kestack/web-platform/ui/components/button';
+import { ChevronsDownUpIcon, ChevronsUpDownIcon } from 'lucide-react';
 
 import type {
   Connection,
@@ -21,7 +23,7 @@ import type {
 } from '../../model/index.js';
 import { parentOf } from '../../model/index.js';
 import type { NodeChange } from '../lenses/git/index.js';
-import { Canvas, type Space } from '../canvas/index.js';
+import { Canvas, type CanvasControls } from '../canvas/index.js';
 import { SelectionBar } from '../selection-bar/index.js';
 import { OutlineArcs, createHovered } from './arcs.js';
 import { OutlineGuides } from './guides.js';
@@ -32,7 +34,9 @@ import {
   gutter,
   indent,
   leadFor,
+  pageWidth,
   placeRows,
+  shiftFor,
   topInset,
 } from './layout.js';
 import { OutlineRow, type OutlineRowActions } from './row.js';
@@ -71,6 +75,15 @@ export interface OutlineProps {
   readonly faded: (path: string) => boolean;
   /** Outside the Source roots: drawn dimmed, never analysed. */
   readonly ignored: (path: string) => boolean;
+  /**
+   * Which folders open and close everything inside them at once: those
+   * holding folders, each whether all of it is open; and whether every
+   * folder in the tree is.
+   */
+  readonly folding: {
+    readonly all: boolean;
+    readonly inside: (path: string) => boolean | null;
+  };
   readonly actions: TreeActions;
 }
 
@@ -86,8 +99,14 @@ export interface TreeActions {
    * its own view, a folder (the root too) in the folder viewer.
    */
   readonly view: (node: TreeNode) => void;
+  /** A Package's changes, from the repository's tree, in the folder viewer. */
+  readonly changes: (node: TreeNode) => void;
   /** Opens the folders down to what a connected closed folder holds that is connected. */
   readonly reveal: (path: string) => void;
+  /** Every folder open, or, if every one is, all closed down to the top level. */
+  readonly toggleAll: () => void;
+  /** Everything inside a folder open, or every folder in it closed. */
+  readonly toggleInside: (path: string) => void;
 }
 
 // The Selection Bar's key, in the colours the arcs are drawn in.
@@ -110,6 +129,7 @@ export function Outline({
   dimmed,
   faded,
   ignored,
+  folding,
   actions,
 }: OutlineProps) {
   // The screen's width: the gutter and the column fit it, so on a phone the
@@ -127,9 +147,12 @@ export function Outline({
     return () => observer.disconnect();
   }, []);
   const lead = leadFor(screen);
+  // On a wide screen the tree sits in a column of at most `pageWidth`,
+  // centred: `shift` in from the left of the space.
+  const shift = shiftFor(screen);
   // The camera rests 24px in from the left edge.
   const width = useMemo(
-    () => columnWidth(tree, screen - 24 - lead - endInset),
+    () => columnWidth(tree, Math.min(screen, pageWidth) - 24 - lead - endInset),
     [tree, screen, lead],
   );
   const indexOf = useMemo(() => {
@@ -142,7 +165,7 @@ export function Outline({
     [rows, place, lead],
   );
   const [hovered] = useState(createHovered);
-  const space = useRef<Space | null>(null);
+  const space = useRef<CanvasControls | null>(null);
   const content = useRef<HTMLDivElement>(null);
   // Whether the selection last moved by the keys: those moves never animate.
   const byKeys = useRef(false);
@@ -156,6 +179,7 @@ export function Outline({
     indexOf,
     place,
     lead,
+    shift,
   });
   latest.current = {
     rows,
@@ -165,6 +189,7 @@ export function Outline({
     indexOf,
     place,
     lead,
+    shift,
   };
 
   const rowActions = useMemo<OutlineRowActions>(
@@ -176,11 +201,12 @@ export function Outline({
       toggle: actions.toggle,
       activate: actions.activate,
       reveal: actions.reveal,
+      toggleInside: actions.toggleInside,
     }),
     [actions],
   );
 
-  const onSpace = useCallback((given: Space) => {
+  const onSpace = useCallback((given: CanvasControls) => {
     space.current = given;
   }, []);
 
@@ -203,7 +229,12 @@ export function Outline({
     if (box.top >= frame.top && box.bottom <= frame.bottom - 64) return;
     const { depth } = latest.current.rows[index]!;
     camera.reveal({
-      x: latest.current.lead + gutter + depth * indent + 40,
+      x:
+        latest.current.shift +
+        latest.current.lead +
+        gutter +
+        depth * indent +
+        40,
       // Room below for the Selection Bar.
       y: latest.current.place.top(index) - 8,
       width: 120,
@@ -306,10 +337,10 @@ export function Outline({
     () => ({
       x: 0,
       y: 0,
-      width: lead + width + endInset,
+      width: shift + lead + width + endInset,
       height: place.bottom + topInset,
     }),
-    [lead, width, place],
+    [shift, lead, width, place],
   );
   const selectedIndex = selected === null ? undefined : indexOf(selected);
   const selectedNode: TreeNode | undefined =
@@ -323,6 +354,24 @@ export function Outline({
         bounds={bounds}
         label="Folder tree"
         onSpace={onSpace}
+        controls={
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="max-sm:size-10"
+            aria-label={
+              folding.all ? 'Collapse all folders' : 'Expand all folders'
+            }
+            title={folding.all ? 'Collapse all folders' : 'Expand all folders'}
+            onClick={actions.toggleAll}
+          >
+            {folding.all ? (
+              <ChevronsDownUpIcon className="size-3.5" />
+            ) : (
+              <ChevronsUpDownIcon className="size-3.5" />
+            )}
+          </Button>
+        }
         onEmptyClick={() => {
           byKeys.current = false;
           if (latest.current.selected !== null) actions.select(null);
@@ -331,7 +380,11 @@ export function Outline({
         <div
           ref={content}
           className="relative"
-          style={{ width: bounds.width, height: bounds.height }}
+          style={{
+            left: shift,
+            width: bounds.width - shift,
+            height: bounds.height,
+          }}
           onKeyDown={onKeyDown}
           onFocus={onFocus}
           onPointerOver={onPointerOver}
@@ -359,6 +412,7 @@ export function Outline({
               connection={connections.get(node.path) ?? null}
               broken={broken.get(node.path) ?? 0}
               change={changes.get(node.path) ?? null}
+              inside={folding.inside(node.path)}
               actions={rowActions}
             />
           ))}
@@ -384,6 +438,11 @@ export function Outline({
         connections={connections}
         colours={outlineColours}
         onActivate={() => actions.view(selectedNode ?? tree.root)}
+        onChanges={
+          selectedNode?.kind === 'package'
+            ? () => actions.changes(selectedNode)
+            : undefined
+        }
         onClear={() => actions.select(null)}
       />
     </div>

@@ -48,6 +48,7 @@
       "src/app/monoverse/contract",
       "src/app/monoverse/file-viewer",
       "src/app/monoverse/model",
+      "src/app/monoverse/tree",
       "src/app/monoverse/ui"
     ],
     "src/app/monoverse/git-controls": [
@@ -103,7 +104,8 @@
     ],
     "src/app/monoverse/tree": [
       "src/app/monoverse/contract",
-      "src/app/monoverse/model"
+      "src/app/monoverse/model",
+      "src/app/monoverse/ui"
     ],
     "src/app/monoverse/tree/outline": [
       "src/app/monoverse/tree/canvas",

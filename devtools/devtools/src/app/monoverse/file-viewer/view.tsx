@@ -9,7 +9,7 @@ import { ArrowLeftIcon, XIcon } from 'lucide-react';
 import type { FileDiff } from '../contract/index.js';
 import { FileViewerLive } from './actor.js';
 import { setDiffOptions, useDiffOptions } from './diff-options.js';
-import { ViewOptions } from './options-menu.js';
+import { DiffToggles } from './diff-toggles.js';
 
 const nameOf = (path: string) => path.slice(path.lastIndexOf('/') + 1);
 const folderOf = (path: string) => {
@@ -30,11 +30,11 @@ const countsOf = (diff: FileDiff) => {
 };
 
 /*
- * The open file: its name, folder, what its diff adds and removes, the
- * view options and a close button over its body, in a dialog its parent
- * holds. On a phone the dialog fills the screen, so the header grows to a
- * thumb's size. Beside a folder's list on a wide screen, the folder's
- * header holds the view options.
+ * The open file: its name, folder, what its diff adds and removes, and
+ * how its diff reads, over its body, in a dialog its parent holds. On a
+ * wide screen a close button ends the header; on a phone, where the
+ * dialog fills the screen, a back arrow starts it, to a folder's list or
+ * out of the file, and the header grows to a thumb's size.
  */
 
 export const FileViewerView = View.make(
@@ -51,22 +51,19 @@ export const FileViewerView = View.make(
         <header
           className={cn(
             'flex h-11 shrink-0 items-center gap-3 border-b border-border/60 pr-1.5 pl-3',
-            model.inside
-              ? 'max-sm:h-auto max-sm:min-h-14 max-sm:pt-[env(safe-area-inset-top)] max-sm:pr-3 max-sm:pl-1.5'
-              : 'max-sm:h-auto max-sm:min-h-14 max-sm:pt-[env(safe-area-inset-top)]',
+            'max-sm:h-auto max-sm:min-h-14 max-sm:pt-[env(safe-area-inset-top)] max-sm:pr-1.5 max-sm:pl-1.5',
           )}
         >
-          {model.inside ? (
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Back to the list"
-              className="size-11 sm:hidden"
-              onClick={() => send({ _tag: 'Closed' })}
-            >
-              <ArrowLeftIcon className="size-4" />
-            </Button>
-          ) : null}
+          {/* On a phone, back sits top left: to the list, or out of the file. */}
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={model.inside ? 'Back to the list' : 'Close the file'}
+            className="size-11 sm:hidden"
+            onClick={() => send({ _tag: 'Closed' })}
+          >
+            <ArrowLeftIcon className="size-4" />
+          </Button>
           <div className="flex min-w-0 flex-1 flex-col" title={model.path}>
             <span className="truncate font-mono text-xs font-medium">
               {nameOf(model.path)}
@@ -84,17 +81,14 @@ export const FileViewerView = View.make(
               <span className="text-removed">−{counts.removed}</span>
             </span>
           )}
-          <ViewOptions
-            diff={_tag === 'Diff'}
-            {...(model.inside ? { className: 'sm:hidden' } : {})}
-          />
+          {_tag === 'Diff' ? <DiffToggles /> : null}
           {model.inside ? null : (
             <Button
               variant="ghost"
               size="icon"
               aria-label="Close the file"
               title="Close"
-              className="max-sm:size-11"
+              className="max-sm:hidden"
               onClick={() => send({ _tag: 'Closed' })}
             >
               <XIcon className="size-4" />

@@ -20,6 +20,7 @@ const props: TreeProps = {
   sourceRoots: null,
   changes: null,
   unchanged: 'dim' as const,
+  ignored: true,
 };
 
 /** A parent handing the tree its Props, and hearing all it Emits. */
@@ -73,6 +74,18 @@ describe('the tree', () => {
       open: [],
       selected: null,
     });
+  });
+
+  it('opens just the folders it is handed, the outermost one closed over the selection taking it', () => {
+    expect(
+      play({ _tag: 'OpenSet', open: ['src', 'src/a'] } as never).model,
+    ).toEqual({ open: ['src', 'src/a'], selected: null });
+    const { model } = play(
+      { _tag: 'Toggled', path: 'src/a' } as never,
+      { _tag: 'Selected', path: 'src/a/x.ts' } as never,
+      { _tag: 'OpenSet', open: [] } as never,
+    );
+    expect(model).toEqual({ open: [], selected: 'src' });
   });
 
   it('selects the folder it closes over the selection, so it stays on screen', () => {

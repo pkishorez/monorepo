@@ -18,28 +18,51 @@ import { Button } from '@kestack/web-platform/ui/components/button';
 import { scrollbarStyles } from '@kestack/web-platform/ui/components/scroll-styles';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import { GestureProvider, GestureZone } from '@kestack/web-platform/ui/input';
-import { ChevronLeftIcon, ChevronRightIcon, XIcon } from 'lucide-react';
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  FileIcon,
+  FolderIcon,
+  FolderOpenIcon,
+  ArrowLeftIcon,
+  ChevronsDownUpIcon,
+  ChevronsUpDownIcon,
+  XIcon,
+} from 'lucide-react';
 
 import type { ChangeStatus } from '../contract/index.js';
-import { FileViewerView, ViewOptions } from '../file-viewer/index.js';
-import { FolderViewerLive, entriesOf, filesInOrder } from './actor.js';
+import { FileViewerView } from '../file-viewer/index.js';
+import { TreeSettings } from '../tree/index.js';
+import {
+  FolderViewerLive,
+  defaultSettings,
+  entriesOf,
+  foldersOf,
+  shownOf,
+  stepFrom,
+  stepsOf,
+} from './actor.js';
 import { fileTreeRows, type FileTreeRow } from './file-tree.js';
 import { settle, Swipes, useRestAt } from './swipes.js';
-import { usePhone } from '../ui/index.js';
+import { isIgnored, isWithin } from '../model/index.js';
+import { settingsTrigger, usePhone } from '../ui/index.js';
 
 /*
  * A folder looked into: its files on the left, as a tree of their
  * folders, the one chosen on the right. On a phone the two take the whole
- * screen in turn. A changed file's name takes the colour of how it
- * changed, with one quiet letter beside it, and a folder the colour its
- * changes roll up to; nothing more.
+ * screen in turn. The list is drawn as the canvas draws its tree, by the
+ * canvas's settings, behind the same sliders: a changed file's name takes
+ * the colour of how it changed, a folder the colour its changes roll up
+ * to, what the branch left unchanged is dimmed or left out, and so is an
+ * ignored file.
  *
  * The file before or after the one shown is a step away: the bar under
  * it, a swipe across that bar, or ← and →; the file slides with the
  * finger, and the next one slides in from the side it came. On a phone
  * the list and the file sit side by side on one track, a screen each,
- * that slides under the finger from one to the other. How a diff reads,
- * and whether the deleted files are listed, sit in one menu.
+ * that slides under the finger from one to the other, and a back arrow
+ * top left, or a swipe right, leaves the file for the list, and the list
+ * for the canvas.
  */
 
 /** Keys typed into a field are its own. */
@@ -54,29 +77,18 @@ const colour: Record<ChangeStatus, string> = {
   modified: 'text-changed',
   deleted: 'text-removed',
 };
-/** A name takes its colour, and a deleted one is struck through. */
-const tone: Record<ChangeStatus, string> = {
-  ...colour,
-  deleted: 'text-removed line-through decoration-1',
-};
-const letter: Record<ChangeStatus, string> = {
-  added: 'A',
-  modified: 'M',
-  deleted: 'D',
-};
 
 const plural = (count: number, one: string) =>
   `${count} ${one}${count === 1 ? '' : 's'}`;
 
-/** How far in a row starts, by its depth. */
-const indent = (depth: number) => ({
-  paddingLeft: `${0.5 + depth * 0.875}rem`,
-});
-
 export const FolderViewerView = View.make(
   FolderViewerLive,
-  ({ root, model, children, send }) => {
-    const entries = useMemo(() => entriesOf(model), [model]);
+  ({ root, model, props, children, send }) => {
+    const settings = props ?? defaultSettings;
+    const entries = useMemo(
+      () => entriesOf(model, settings),
+      [model, settings],
+    );
     const rows = useMemo(
       () => fileTreeRows(model.path, entries, new Set(model.closed)),
       [model.path, entries, model.closed],
@@ -86,17 +98,36 @@ export const FolderViewerView = View.make(
     const deletedCount = changesOn
       ? model.changed.filter(({ status }) => status === 'deleted').length
       : 0;
-    const order = useMemo(() => filesInOrder(model), [model]);
-    const at = model.selected === null ? -1 : order.indexOf(model.selected);
+    const changedCount = entries.filter(({ status }) => status !== null).length;
+    const order = useMemo(() => stepsOf(model, settings), [model, settings]);
+    const shown = shownOf(model, settings);
+    const at = shown === null ? -1 : order.indexOf(shown);
+    const hasNext = stepFrom(model, settings, 1) !== null;
+    const hasPrevious = stepFrom(model, settings, -1) !== null;
     const reduced = useReducedMotion() ?? false;
+
+    // The folders holding folders: each has a button opening or closing
+    // everything inside it.
+    const holders = useMemo(() => {
+      const folders = foldersOf(model, settings);
+      return new Set(
+        folders.filter((folder) =>
+          folders.some((one) => one !== folder && isWithin(one, folder)),
+        ),
+      );
+    }, [model, settings]);
+    const closedSet = new Set(model.closed);
+    const allOpenInside = (path: string) =>
+      !closedSet.has(path) &&
+      !model.closed.some((one) => one !== path && isWithin(one, path));
+    const anyClosed = model.closed.length > 0;
 
     // The file shown slides with a swipe on the bar, and the next one in
     // from the side it came, fading as it goes.
     const fileX = useMotionValue(0);
     const fileOpacity = useTransform(fileX, [-200, 0, 200], [0.3, 1, 0.3]);
     const step = (by: number) => {
-      const to = at + by;
-      if (at === -1 || to < 0 || to >= order.length) return;
+      if (stepFrom(model, settings, by) === null) return;
       send({ _tag: 'Stepped', by });
       if (reduced) return;
       fileX.set(by > 0 ? 56 : -56);
@@ -105,7 +136,7 @@ export const FolderViewerView = View.make(
 
     // On a phone, the list and the file are a screen each on one track.
     const phone = usePhone();
-    const selected = model.selected;
+    const selected = shown;
     const [width, setWidth] = useState(0);
     const observer = useRef<ResizeObserver | null>(null);
     const measure = useCallback((element: HTMLDivElement | null) => {
@@ -135,17 +166,15 @@ export const FolderViewerView = View.make(
 
     // The file shown stays in sight in the list, however it was reached.
     useEffect(() => {
-      if (model.selected === null) return;
+      if (shown === null) return;
       list.current
-        ?.querySelector(`[title="${CSS.escape(model.selected)}"]`)
+        ?.querySelector(`[title="${CSS.escape(shown)}"]`)
         ?.scrollIntoView({ block: 'nearest' });
-    }, [model.selected]);
+    }, [shown]);
 
     // One row takes Tab: the file shown, else the first.
     const tabStop =
-      rows.find(({ path }) => path === model.selected)?.path ??
-      rows[0]?.path ??
-      null;
+      rows.find(({ path }) => path === shown)?.path ?? rows[0]?.path ?? null;
 
     const focusRow = (index: number) =>
       list.current
@@ -206,39 +235,66 @@ export const FolderViewerView = View.make(
       <header
         className={cn(
           'flex h-11 shrink-0 items-center gap-3 border-b border-border/60 pr-1.5 pl-3',
-          'max-sm:h-auto max-sm:min-h-14 max-sm:pt-[env(safe-area-inset-top)]',
+          'max-sm:h-auto max-sm:min-h-14 max-sm:gap-1 max-sm:pt-[env(safe-area-inset-top)] max-sm:pl-1.5',
         )}
       >
+        {/* On a phone, back sits top left: out of the folder, to the canvas. */}
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Close the folder"
+          className="size-11 sm:hidden"
+          onClick={() => send({ _tag: 'Closed' })}
+        >
+          <ArrowLeftIcon className="size-4" />
+        </Button>
         <div className="flex min-w-0 flex-1 flex-col" title={model.title}>
           <span className="truncate font-mono text-xs font-medium">
             {model.title}
           </span>
           <span className="truncate text-[11px] text-muted-foreground tabular-nums">
             {changesOn
-              ? `${plural(entries.length, 'file')} changed since ${model.base}`
+              ? `${plural(changedCount, 'file')} changed since ${model.base}`
               : plural(entries.length, 'file')}
-            {changesOn && !model.deleted && deletedCount > 0
+            {changesOn && !settings.deleted && deletedCount > 0
               ? ` · ${deletedCount} deleted hidden`
               : null}
           </span>
         </div>
-        <ViewOptions
-          diff={changesOn}
-          {...(deletedCount > 0
-            ? {
-                deleted: {
-                  shown: model.deleted,
-                  onToggle: () => send({ _tag: 'DeletedToggled' }),
-                },
-              }
-            : {})}
+        {entries.length === 0 ? null : (
+          <button
+            type="button"
+            aria-label={
+              anyClosed ? 'Expand all folders' : 'Collapse all folders'
+            }
+            title={anyClosed ? 'Expand all folders' : 'Collapse all folders'}
+            className={settingsTrigger}
+            onClick={() => send({ _tag: 'AllToggled' })}
+          >
+            {anyClosed ? (
+              <ChevronsUpDownIcon className="size-4" />
+            ) : (
+              <ChevronsDownUpIcon className="size-4" />
+            )}
+          </button>
+        )}
+        <TreeSettings
+          changesOn={changesOn}
+          unchanged={settings.unchanged}
+          deleted={settings.deleted}
+          ignored={settings.ignored}
+          onUnchanged={(unchanged) =>
+            send({ _tag: 'UnchangedChosen', unchanged })
+          }
+          onDeleted={() => send({ _tag: 'DeletedToggled' })}
+          onIgnored={() => send({ _tag: 'IgnoredToggled' })}
         />
         <Button
           variant="ghost"
           size="icon"
           aria-label="Close the folder"
           title="Close"
-          className="max-sm:size-11"
+          className="max-sm:hidden"
           onClick={() => send({ _tag: 'Closed' })}
         >
           <XIcon className="size-4" />
@@ -259,7 +315,7 @@ export const FolderViewerView = View.make(
           <p className="flex flex-1 items-center justify-center p-8 text-center text-sm text-balance text-muted-foreground">
             {!changesOn
               ? `No files in ${model.title}.`
-              : deletedCount > 0 && !model.deleted
+              : deletedCount > 0 && !settings.deleted
                 ? `Only deleted files changed in ${model.title} since ${model.base}.`
                 : `Nothing changed in ${model.title} since ${model.base}.`}
           </p>
@@ -275,8 +331,13 @@ export const FolderViewerView = View.make(
                 {...(phone && !model.showing && selected !== null
                   ? { onLeft: () => send({ _tag: 'Selected', path: selected }) }
                   : {})}
-                {...(phone && model.showing
-                  ? { onRight: () => send({ _tag: 'Back' }) }
+                {...(phone
+                  ? {
+                      // Right: from the file to the list, and from the
+                      // list out of the folder.
+                      onRight: () =>
+                        send({ _tag: model.showing ? 'Back' : 'Closed' }),
+                    }
                   : {})}
               />
               <motion.div
@@ -303,11 +364,22 @@ export const FolderViewerView = View.make(
                       className="flex flex-col px-1.5"
                     >
                       {rows.map((row, index) => (
-                        <li key={row.path} role="presentation">
+                        <li
+                          key={row.path}
+                          role="presentation"
+                          className="group/row relative"
+                        >
                           <Row
+                            trailing={holders.has(row.path)}
                             row={row}
                             index={index}
-                            selected={row.path === model.selected}
+                            selected={row.path === shown}
+                            faded={
+                              changesOn &&
+                              settings.unchanged === 'dim' &&
+                              row.status === null
+                            }
+                            ignored={isIgnored(row.path, model.sourceRoots)}
                             focusable={row.path === tabStop}
                             onPress={() =>
                               send(
@@ -317,6 +389,15 @@ export const FolderViewerView = View.make(
                               )
                             }
                           />
+                          {holders.has(row.path) ? (
+                            <InsideToggle
+                              name={row.kind === 'folder' ? row.label : ''}
+                              open={allOpenInside(row.path)}
+                              onToggle={() =>
+                                send({ _tag: 'InsideToggled', path: row.path })
+                              }
+                            />
+                          ) : null}
                         </li>
                       ))}
                     </ul>
@@ -334,7 +415,7 @@ export const FolderViewerView = View.make(
                       <FileViewerView instance={children.file} />
                     )}
                   </motion.div>
-                  {order.length > 1 ? (
+                  {order.length > 1 || (order.length === 1 && at === -1) ? (
                     <GestureZone
                       role="group"
                       aria-label="Step between files"
@@ -345,7 +426,7 @@ export const FolderViewerView = View.make(
                         size="icon"
                         aria-label="Previous file"
                         title="Previous file (←)"
-                        disabled={at <= 0}
+                        disabled={!hasPrevious}
                         className="max-sm:size-11"
                         onClick={() => step(-1)}
                       >
@@ -354,20 +435,19 @@ export const FolderViewerView = View.make(
                       <Swipes
                         x={fileX}
                         follow={0.6}
-                        {...(at < order.length - 1 && at !== -1
-                          ? { onLeft: () => step(1) }
-                          : {})}
-                        {...(at > 0 ? { onRight: () => step(-1) } : {})}
+                        {...(hasNext ? { onLeft: () => step(1) } : {})}
+                        {...(hasPrevious ? { onRight: () => step(-1) } : {})}
                       />
                       <span className="min-w-0 flex-1 text-center text-[11px] text-muted-foreground tabular-nums">
-                        {at + 1} of {order.length}
+                        {at === -1 ? '–' : at + 1} of {order.length}
+                        {changesOn ? ' changed' : ''}
                       </span>
                       <Button
                         variant="ghost"
                         size="icon"
                         aria-label="Next file"
                         title="Next file (→)"
-                        disabled={at === -1 || at >= order.length - 1}
+                        disabled={!hasNext}
                         className="max-sm:size-11"
                         onClick={() => step(1)}
                       >
@@ -385,21 +465,41 @@ export const FolderViewerView = View.make(
   },
 );
 
-/** One row of the list: a folder, which opens and closes, or a file, which shows. */
+/** Where a row's chevron starts, and how far in each level goes: the canvas's. */
+const gutter = 8;
+const levelWidth = 16;
+
+/**
+ * One row of the list, drawn as the canvas draws its own: a chevron, an
+ * icon and a name in the colour of what changed, a hairline down the left
+ * of each open folder's contents, and the file shown a band with a bar.
+ * A folder opens and closes; a file shows.
+ */
 function Row({
   row,
   index,
   selected,
+  faded,
+  ignored,
+  trailing,
   focusable,
   onPress,
 }: {
   row: FileTreeRow;
+  /** Room on the right for the button that opens or closes what is inside. */
+  trailing: boolean;
   index: number;
   selected: boolean;
+  /** Left unchanged by the branch, while the unchanged are dimmed. */
+  faded: boolean;
+  /** Outside the Package's Source roots. */
+  ignored: boolean;
   focusable: boolean;
   onPress: () => void;
 }) {
   const folder = row.kind === 'folder';
+  const Icon = folder ? (row.open ? FolderOpenIcon : FolderIcon) : FileIcon;
+  const toneClass = row.status === null ? null : colour[row.status];
   return (
     <button
       type="button"
@@ -411,50 +511,108 @@ function Row({
       tabIndex={focusable ? 0 : -1}
       title={row.path}
       onClick={onPress}
-      style={indent(row.depth)}
+      style={{ paddingLeft: gutter + row.depth * levelWidth }}
       className={cn(
-        'flex w-full min-w-0 items-center gap-1 rounded-md py-1 pr-2.5 text-left text-[13px] transition-colors duration-150 outline-none',
-        'hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/50',
-        'max-sm:min-h-11',
-        selected && 'bg-muted sm:hover:bg-muted',
+        'relative flex h-[26px] w-full min-w-0 items-center gap-1 rounded-md pr-2 text-left text-[13px] leading-none transition-colors duration-150 outline-none max-sm:h-[30px]',
+        'focus-visible:ring-2 focus-visible:ring-ring/50',
+        trailing && 'pr-8 max-sm:pr-9',
+        faded && 'opacity-45 hover:opacity-80',
+        selected
+          ? 'bg-foreground/[0.1] dark:bg-foreground/[0.13]'
+          : 'hover:bg-foreground/[0.035] active:bg-foreground/[0.06]',
       )}
     >
+      {Array.from({ length: row.depth }, (_, level) => (
+        <span
+          key={level}
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 w-px bg-foreground/[0.08]"
+          style={{ left: gutter + level * levelWidth + 8 }}
+        />
+      ))}
+      {selected ? (
+        <span
+          aria-hidden
+          className="absolute inset-y-[5px] left-0 w-[3px] rounded-full bg-foreground"
+        />
+      ) : null}
       {folder ? (
         <ChevronRightIcon
           aria-hidden
+          strokeWidth={2}
           className={cn(
-            'size-3.5 shrink-0 text-muted-foreground/70 transition-transform duration-150',
+            'size-3.5 w-4 shrink-0 text-muted-foreground/70 transition-transform duration-150 motion-reduce:transition-none',
             row.open && 'rotate-90',
           )}
         />
       ) : (
-        <span aria-hidden className="w-3.5 shrink-0" />
+        <span aria-hidden className="size-4 shrink-0" />
       )}
+      <Icon
+        aria-hidden
+        strokeWidth={1.5}
+        className={cn(
+          'ml-0.5 size-4 shrink-0',
+          toneClass === null
+            ? cn('text-muted-foreground', ignored ? 'opacity-50' : 'opacity-85')
+            : cn(toneClass, 'opacity-70'),
+        )}
+      />
       <span
         className={cn(
-          'min-w-0 flex-1 truncate',
-          folder
-            ? row.status === null
-              ? 'text-muted-foreground'
-              : colour[row.status]
-            : row.status === null
-              ? null
-              : tone[row.status],
+          'ml-1.5 min-w-0 flex-1 truncate',
+          toneClass === null
+            ? ignored
+              ? 'text-muted-foreground/80'
+              : 'text-foreground/90'
+            : cn(toneClass, ignored && 'opacity-75'),
+          row.status === 'deleted' &&
+            'line-through decoration-current/50 decoration-1',
         )}
       >
         {folder ? row.label : row.name}
       </span>
-      {folder || row.status === null ? null : (
-        <span
-          aria-label={row.status}
-          className={cn(
-            'shrink-0 font-mono text-[10.5px] opacity-70',
-            colour[row.status],
-          )}
-        >
-          {letter[row.status]}
-        </span>
+      {row.status === null ? null : (
+        <span className="sr-only">, {row.status}</span>
       )}
+    </button>
+  );
+}
+
+/**
+ * Beside a folder holding folders, on the right: one press opens
+ * everything inside it, or, when all of it is open, closes every folder
+ * inside it, the folder itself staying open. Shown on hover, or always on
+ * a phone, where there is none.
+ */
+function InsideToggle({
+  name,
+  open,
+  onToggle,
+}: {
+  name: string;
+  /** Everything inside it is open. */
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const label = open
+    ? `Collapse everything in ${name}`
+    : `Expand everything in ${name}`;
+  const Icon = open ? ChevronsDownUpIcon : ChevronsUpDownIcon;
+  return (
+    <button
+      type="button"
+      tabIndex={-1}
+      aria-label={label}
+      title={label}
+      onClick={onToggle}
+      className={cn(
+        'absolute top-1/2 right-1 flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-[opacity,background-color] duration-150 outline-none max-sm:size-7',
+        'hover:bg-foreground/[0.08] hover:text-foreground',
+        'opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 max-sm:opacity-70',
+      )}
+    >
+      <Icon className="size-3.5" />
     </button>
   );
 }

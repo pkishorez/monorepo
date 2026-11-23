@@ -5,6 +5,8 @@ import {
   ArrowDownLeftIcon,
   ArrowUpRightIcon,
   ChevronRightIcon,
+  ChevronsDownUpIcon,
+  ChevronsUpDownIcon,
   FileIcon,
   FolderIcon,
   FolderOpenIcon,
@@ -21,6 +23,8 @@ export interface OutlineRowActions {
   readonly toggle: (path: string) => void;
   readonly activate: (node: TreeNode) => void;
   readonly reveal: (path: string) => void;
+  /** Opens everything inside a folder, or closes every folder in it. */
+  readonly toggleInside: (path: string) => void;
 }
 
 const changeTone: Record<ChangeStatus, string> = {
@@ -143,6 +147,7 @@ export const OutlineRow = memo(function OutlineRow({
   connection,
   broken,
   change,
+  inside,
   actions,
 }: {
   node: TreeNode;
@@ -165,6 +170,8 @@ export const OutlineRow = memo(function OutlineRow({
   connection: Connection | null;
   broken: number;
   change: { readonly status: ChangeStatus; readonly count: number } | null;
+  /** A folder holding folders: whether everything inside it is open; null for any other row. */
+  inside: boolean | null;
   actions: OutlineRowActions;
 }) {
   const isFolder = node.kind === 'folder';
@@ -183,7 +190,7 @@ export const OutlineRow = memo(function OutlineRow({
       tabIndex={tabbable ? 0 : -1}
       title={node.path}
       className={cn(
-        'focus-ring absolute flex cursor-default items-center gap-1 rounded-md pr-2 text-[13px] leading-none transition-[opacity,filter] duration-200 ease-out motion-reduce:transition-none',
+        'group/outline-row focus-ring absolute flex cursor-default items-center gap-1 rounded-md pr-2 text-[13px] leading-none transition-[opacity,filter] duration-200 ease-out motion-reduce:transition-none',
         dimmed
           ? 'opacity-25 grayscale hover:opacity-60'
           : faded && 'opacity-45 hover:opacity-80',
@@ -246,12 +253,20 @@ export const OutlineRow = memo(function OutlineRow({
       {change === null ? null : (
         <span className="sr-only">, {changeWord[change.status]}</span>
       )}
-      {revealing || broken > 0 ? (
+      {revealing || broken > 0 || inside !== null ? (
         <span className="ml-auto flex shrink-0 items-center gap-2.5 pl-2">
           {revealing ? (
             <RevealChip node={node} connection={connection} actions={actions} />
           ) : null}
           {broken > 0 ? <Broken node={node} count={broken} /> : null}
+          {inside === null ? null : (
+            <InsideToggle
+              node={node}
+              open={inside}
+              shown={selected}
+              actions={actions}
+            />
+          )}
         </span>
       ) : null}
     </div>
@@ -328,6 +343,50 @@ function Name({ node, tone }: { node: TreeNode; tone: Tone }) {
     <span className={cn('ml-1.5 min-w-0 truncate', tone.className, strike)}>
       {node.name}
     </span>
+  );
+}
+
+/**
+ * Beside a folder holding folders: one press opens everything inside it,
+ * or, when all of it is open, closes every folder inside it, the folder
+ * itself staying open. Shown on hover and on the selection, and always,
+ * faintly, on a phone, where there is no hover.
+ */
+function InsideToggle({
+  node,
+  open,
+  shown,
+  actions,
+}: {
+  node: TreeNode;
+  open: boolean;
+  shown: boolean;
+  actions: OutlineRowActions;
+}) {
+  const label = open
+    ? `Collapse everything in ${node.name}`
+    : `Expand everything in ${node.name}`;
+  const Icon = open ? ChevronsDownUpIcon : ChevronsUpDownIcon;
+  return (
+    <button
+      type="button"
+      tabIndex={-1}
+      aria-label={label}
+      title={label}
+      className={cn(
+        'relative -my-1 flex size-5 items-center justify-center rounded-md text-muted-foreground transition-[opacity,background-color] duration-150 before:absolute before:-inset-1 hover:bg-foreground/[0.08] hover:text-foreground',
+        shown
+          ? 'opacity-100'
+          : 'opacity-0 group-hover/outline-row:opacity-100 focus-visible:opacity-100 max-sm:opacity-60',
+      )}
+      onClick={(event) => {
+        event.stopPropagation();
+        actions.toggleInside(node.path);
+      }}
+      onDoubleClick={stop}
+    >
+      <Icon strokeWidth={2} className="size-3.5" />
+    </button>
   );
 }
 
