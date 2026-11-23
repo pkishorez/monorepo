@@ -1,4 +1,4 @@
-// Where Outline's rows sit on the canvas.
+// Where Outline's rows sit in the tree.
 import type { FolderTree, Row } from '../../model/index.js';
 
 /*
@@ -21,13 +21,6 @@ export const gutter = 8;
 export const topInset = 8;
 /** Room right of the column. */
 export const endInset = 12;
-
-/** The widest a wide screen's page runs: the tree sits at its left, the page centred. */
-export const pageWidth = 1024;
-
-/** How far in the tree starts, so it sits at the left of a centred page; none on a phone. */
-export const shiftFor = (screen: number) =>
-  screen < 640 ? 0 : Math.max(0, Math.round((screen - pageWidth) / 2));
 
 /** The width of the link gutter left of the rows, by the screen's width. */
 export const leadFor = (screen: number) => (screen < 640 ? 52 : 84);

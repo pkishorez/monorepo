@@ -13,7 +13,7 @@ import type { Connection, TreeNode } from '../../model/index.js';
 
 /*
  * What is selected, and what to do with it, in a bar docked
- * along the bottom of the canvas: the only way in on a touch screen, where
+ * along the bottom of the tree: the only way in on a touch screen, where
  * a double tap is no double click, and the way that shows itself
  * everywhere else. With nothing selected it stands for the whole tree,
  * the repository or the Package, and can be viewed the same way. A
@@ -95,7 +95,7 @@ export function SelectionBar({
       role="region"
       aria-label="Selection"
       className={cn(
-        // Phones: docked along the bottom of the canvas.
+        // Phones: docked along the bottom of the tree.
         'absolute inset-x-0 bottom-0 z-10 flex items-center gap-3 border-t border-border/70 bg-background/95 py-2 pr-2 pl-4 backdrop-blur-md',
         'pb-[max(0.5rem,env(safe-area-inset-bottom))]',
         // Wider screens: one pill, centred at the bottom.

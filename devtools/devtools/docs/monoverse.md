@@ -138,7 +138,7 @@ deleted (red). A deleted file is shown where it stood.
 
 **Unchanged files**:
 While Changes is on, how the files and folders the Branch left untouched are
-drawn, on the canvas and in a Folder view alike: shown as they are, dimmed
+drawn, in the tree and in a Folder view alike: shown as they are, dimmed
 (the default) or hidden, leaving only what changed.
 _Avoid_: noise filter
 
@@ -149,7 +149,7 @@ _Avoid_: tombstones
 
 **Folder view**:
 A folder, the root included, looked into: its files as a tree of their
-folders, drawn by the same settings as the canvas, beside one file's diff,
+folders, drawn by the same settings as the tree, beside one file's diff,
 or with Changes off its text. Opened from the selection bar, View changes
 or Browse files; a Package in the Repo view is looked into for what changed
 in it only.

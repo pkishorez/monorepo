@@ -1,5 +1,5 @@
-// Outline: the folder tree as a dense, editor-like indented list on the
-// canvas. Connections curve through a gutter on the left, beside the names
+// Outline: the folder tree as a dense, editor-like indented list that
+// scrolls like a page, centred. Connections curve through a gutter on the left, beside the names
 // on any screen; git changes, broken links and the ignored sit quietly in
 // each row. While something is selected, the rest steps back.
 import {
@@ -8,11 +8,12 @@ import {
   useMemo,
   useRef,
   useState,
-  type FocusEvent,
   type KeyboardEvent,
   type PointerEvent,
 } from 'react';
 import { Button } from '@kestack/web-platform/ui/components/button';
+import { scrollbarStyles } from '@kestack/web-platform/ui/components/scroll-styles';
+import { cn } from '@kestack/web-platform/ui/components/utils';
 import { ChevronsDownUpIcon, ChevronsUpDownIcon } from 'lucide-react';
 
 import type {
@@ -23,7 +24,6 @@ import type {
 } from '../../model/index.js';
 import { parentOf } from '../../model/index.js';
 import type { NodeChange } from '../lenses/git/index.js';
-import { Canvas, type CanvasControls } from '../canvas/index.js';
 import { SelectionBar } from '../selection-bar/index.js';
 import { OutlineArcs, createHovered } from './arcs.js';
 import { OutlineGuides } from './guides.js';
@@ -31,12 +31,8 @@ import {
   columnWidth,
   endInset,
   guidesOf,
-  gutter,
-  indent,
   leadFor,
-  pageWidth,
   placeRows,
-  shiftFor,
   topInset,
 } from './layout.js';
 import { OutlineRow, type OutlineRowActions } from './row.js';
@@ -109,6 +105,9 @@ export interface TreeActions {
   readonly toggleInside: (path: string) => void;
 }
 
+/** Room left and right of the tree, inside the scrolling box. */
+const side = 12;
+
 // The Selection Bar's key, in the colours the arcs are drawn in.
 const outlineColours = {
   uses: 'var(--outline-uses)',
@@ -133,7 +132,7 @@ export function Outline({
   actions,
 }: OutlineProps) {
   // The screen's width: the gutter and the column fit it, so on a phone the
-  // names, their marks and every arc show without panning.
+  // names, their marks and every arc show without scrolling sideways.
   const frame = useRef<HTMLDivElement>(null);
   const [screen, setScreen] = useState(1024);
   useEffect(() => {
@@ -147,14 +146,18 @@ export function Outline({
     return () => observer.disconnect();
   }, []);
   const lead = leadFor(screen);
-  // On a wide screen the tree sits in a column of at most `pageWidth`,
-  // centred: `shift` in from the left of the space.
-  const shift = shiftFor(screen);
-  // The camera rests 24px in from the left edge.
   const width = useMemo(
-    () => columnWidth(tree, Math.min(screen, pageWidth) - 24 - lead - endInset),
+    () => columnWidth(tree, screen - 2 * side - lead - endInset),
     [tree, screen, lead],
   );
+  // The tree, centred; wider than the screen, it scrolls sideways.
+  const blockWidth = lead + width + endInset;
+  // Room above, clear of the corner button when the tree reaches under it;
+  // room below, clear of the Selection Bar.
+  const room = {
+    top: (screen - blockWidth) / 2 >= 64 ? 16 : 60,
+    bottom: screen < 640 ? 112 : 88,
+  };
   const indexOf = useMemo(() => {
     const at = new Map(rows.map(({ node }, index) => [node.path, index]));
     return (path: string) => at.get(path);
@@ -165,32 +168,13 @@ export function Outline({
     [rows, place, lead],
   );
   const [hovered] = useState(createHovered);
-  const space = useRef<CanvasControls | null>(null);
   const content = useRef<HTMLDivElement>(null);
   // Whether the selection last moved by the keys: those moves never animate.
   const byKeys = useRef(false);
 
   // Read by the handlers as they run, so nothing draws again for them.
-  const latest = useRef({
-    rows,
-    open,
-    selected,
-    connections,
-    indexOf,
-    place,
-    lead,
-    shift,
-  });
-  latest.current = {
-    rows,
-    open,
-    selected,
-    connections,
-    indexOf,
-    place,
-    lead,
-    shift,
-  };
+  const latest = useRef({ rows, open, selected, connections, indexOf });
+  latest.current = { rows, open, selected, connections, indexOf };
 
   const rowActions = useMemo<OutlineRowActions>(
     () => ({
@@ -206,40 +190,15 @@ export function Outline({
     [actions],
   );
 
-  const onSpace = useCallback((given: CanvasControls) => {
-    space.current = given;
-  }, []);
-
-  // Brings a row on screen, focused, without the browser scrolling the
-  // canvas under the camera.
+  // Focuses a row, scrolling only as far as it takes to show it clear of
+  // the corner button and the Selection Bar.
   const focusRow = useCallback((path: string) => {
-    const index = latest.current.indexOf(path);
-    if (index === undefined) return;
     const element = content.current?.querySelector<HTMLElement>(
       `[data-path="${CSS.escape(path)}"]`,
     );
-    element?.focus({ preventScroll: true });
-    const camera = space.current;
-    const viewport = content.current?.closest('[role="tree"]');
-    if (camera === null || element === null || element === undefined) return;
-    if (viewport === null || viewport === undefined) return;
-    // Only a row off screen (or under the corner controls) moves the camera.
-    const box = element.getBoundingClientRect();
-    const frame = viewport.getBoundingClientRect();
-    if (box.top >= frame.top && box.bottom <= frame.bottom - 64) return;
-    const { depth } = latest.current.rows[index]!;
-    camera.reveal({
-      x:
-        latest.current.shift +
-        latest.current.lead +
-        gutter +
-        depth * indent +
-        40,
-      // Room below for the Selection Bar.
-      y: latest.current.place.top(index) - 8,
-      width: 120,
-      height: latest.current.place.height(index) + 56,
-    });
+    if (element === null || element === undefined) return;
+    element.focus({ preventScroll: true });
+    element.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }, []);
 
   const onKeyDown = useCallback(
@@ -306,21 +265,6 @@ export function Outline({
     [actions, focusRow],
   );
 
-  // Tab landing on a row scrolls the canvas to it; put the canvas back and
-  // move the camera instead.
-  const onFocus = useCallback(
-    (event: FocusEvent<HTMLDivElement>) => {
-      const viewport = event.currentTarget.closest('[role="tree"]');
-      if (viewport === null) return;
-      if (viewport.scrollTop === 0 && viewport.scrollLeft === 0) return;
-      viewport.scrollTop = 0;
-      viewport.scrollLeft = 0;
-      const path = event.target.getAttribute('data-path');
-      if (path !== null) focusRow(path);
-    },
-    [focusRow],
-  );
-
   const onPointerOver = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
       if (!(event.target instanceof Element)) return;
@@ -333,15 +277,6 @@ export function Outline({
     [hovered],
   );
 
-  const bounds = useMemo(
-    () => ({
-      x: 0,
-      y: 0,
-      width: shift + lead + width + endInset,
-      height: place.bottom + topInset,
-    }),
-    [shift, lead, width, place],
-  );
   const selectedIndex = selected === null ? undefined : indexOf(selected);
   const selectedNode: TreeNode | undefined =
     selected === null ? undefined : tree.nodes.get(selected);
@@ -350,86 +285,104 @@ export function Outline({
 
   return (
     <div ref={frame} className="outline-tree relative h-full w-full">
-      <Canvas
-        bounds={bounds}
-        label="Folder tree"
-        onSpace={onSpace}
-        controls={
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="max-sm:size-10"
-            aria-label={
-              folding.all ? 'Collapse all folders' : 'Expand all folders'
-            }
-            title={folding.all ? 'Collapse all folders' : 'Expand all folders'}
-            onClick={actions.toggleAll}
-          >
-            {folding.all ? (
-              <ChevronsDownUpIcon className="size-3.5" />
-            ) : (
-              <ChevronsUpDownIcon className="size-3.5" />
-            )}
-          </Button>
-        }
-        onEmptyClick={() => {
+      <div
+        role="tree"
+        aria-label="Folder tree"
+        className={cn(
+          'absolute inset-0 overflow-auto overscroll-contain select-none',
+          scrollbarStyles,
+        )}
+        style={{
+          scrollPaddingTop: room.top,
+          scrollPaddingBottom: room.bottom,
+        }}
+        onClick={(event) => {
+          if (!(event.target instanceof Element)) return;
+          // Neither a row nor the controls over the tree: empty space.
+          if (event.target.closest('[data-row], [data-space-ignore]') !== null)
+            return;
           byKeys.current = false;
           if (latest.current.selected !== null) actions.select(null);
         }}
       >
         <div
-          ref={content}
-          className="relative"
+          className="w-max min-w-full"
           style={{
-            left: shift,
-            width: bounds.width - shift,
-            height: bounds.height,
+            paddingTop: room.top,
+            paddingBottom: room.bottom,
+            paddingInline: side,
           }}
-          onKeyDown={onKeyDown}
-          onFocus={onFocus}
-          onPointerOver={onPointerOver}
-          onPointerLeave={() => hovered.set(null)}
         >
-          <OutlineGuides
-            guides={guides}
-            current={selected === null ? null : parentOf(selected)}
-          />
-          {rows.map(({ node, depth }, index) => (
-            <OutlineRow
-              key={node.path}
-              node={node}
-              depth={depth}
-              top={place.top(index)}
-              height={place.height(index)}
-              lead={lead}
-              width={width}
-              open={open.has(node.path)}
-              selected={node.path === selected}
-              tabbable={node.path === tabbable}
-              ignored={ignored(node.path)}
-              dimmed={dimmed(node.path)}
-              faded={faded(node.path)}
-              connection={connections.get(node.path) ?? null}
-              broken={broken.get(node.path) ?? 0}
-              change={changes.get(node.path) ?? null}
-              inside={folding.inside(node.path)}
-              actions={rowActions}
+          <div
+            ref={content}
+            className="relative mx-auto"
+            style={{ width: blockWidth, height: place.bottom + topInset }}
+            onKeyDown={onKeyDown}
+            onPointerOver={onPointerOver}
+            onPointerLeave={() => hovered.set(null)}
+          >
+            <OutlineGuides
+              guides={guides}
+              current={selected === null ? null : parentOf(selected)}
             />
-          ))}
-          {selected !== null && selectedIndex !== undefined ? (
-            <OutlineArcs
-              selected={selected}
-              selectedIndex={selectedIndex}
-              connections={connections}
-              indexOf={indexOf}
-              place={place}
-              lead={lead}
-              hovered={hovered}
-              still={byKeys.current}
-            />
-          ) : null}
+            {rows.map(({ node, depth }, index) => (
+              <OutlineRow
+                key={node.path}
+                node={node}
+                depth={depth}
+                top={place.top(index)}
+                height={place.height(index)}
+                lead={lead}
+                width={width}
+                open={open.has(node.path)}
+                selected={node.path === selected}
+                tabbable={node.path === tabbable}
+                ignored={ignored(node.path)}
+                dimmed={dimmed(node.path)}
+                faded={faded(node.path)}
+                connection={connections.get(node.path) ?? null}
+                broken={broken.get(node.path) ?? 0}
+                change={changes.get(node.path) ?? null}
+                inside={folding.inside(node.path)}
+                actions={rowActions}
+              />
+            ))}
+            {selected !== null && selectedIndex !== undefined ? (
+              <OutlineArcs
+                selected={selected}
+                selectedIndex={selectedIndex}
+                connections={connections}
+                indexOf={indexOf}
+                place={place}
+                lead={lead}
+                hovered={hovered}
+                still={byKeys.current}
+              />
+            ) : null}
+          </div>
         </div>
-      </Canvas>
+      </div>
+      <div
+        data-space-ignore
+        className="absolute top-3 right-3 z-10 flex rounded-lg bg-background/90 p-0.5 shadow-[0_0_0_1px_var(--color-border),0_2px_8px_-2px_rgb(0_0_0/0.15)] backdrop-blur-md"
+      >
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="max-sm:size-10"
+          aria-label={
+            folding.all ? 'Collapse all folders' : 'Expand all folders'
+          }
+          title={folding.all ? 'Collapse all folders' : 'Expand all folders'}
+          onClick={actions.toggleAll}
+        >
+          {folding.all ? (
+            <ChevronsDownUpIcon className="size-3.5" />
+          ) : (
+            <ChevronsUpDownIcon className="size-3.5" />
+          )}
+        </Button>
+      </div>
       <SelectionBar
         scope={scope}
         node={selectedNode ?? tree.root}

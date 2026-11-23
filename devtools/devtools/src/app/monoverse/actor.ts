@@ -54,7 +54,7 @@ import { Monorepo } from './services/monorepo/index.js';
  *             it, or as its diff while Changes is on and the branch changed
  *             it; a folder, the root included, opens there as the list of
  *             its files, what changed in it marked while Changes is on,
- *             drawn by the canvas's settings, which it changes too. One of
+ *             drawn by the tree's settings, which it changes too. One of
  *             the two at a time. A Package viewed from the
  *             Monorepo's tree is viewed for its changes: Changes turns on
  *             if it is off, and the folder opens once they are read.
@@ -525,7 +525,7 @@ export const MonoverseLive = Monoverse.build({
           sourceRoots: model.folder?.sourceRoots ?? null,
         };
       },
-      // Its list is drawn by the canvas's settings, and changes them.
+      // Its list is drawn by the tree's settings, and changes them.
       props: ({ model }) => ({
         unchanged: model.unchanged,
         deleted: model.deleted,

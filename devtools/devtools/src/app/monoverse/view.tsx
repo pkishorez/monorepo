@@ -27,7 +27,7 @@ import { Breadcrumb, CannotOpen, Opening, Rereading } from './ui/index.js';
 /*
  * Monoverse drawn: with no project, the picker alone in the middle of the
  * page. With one, a slim bar, where you are on the left and the three git
- * controls on the right, over a canvas as big as it can be, the open file
+ * controls on the right, over the tree, as big as it can be, the open file
  * beside it; the picker opens over it from the project's crumb.
  */
 

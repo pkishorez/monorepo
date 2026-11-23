@@ -5,7 +5,7 @@ import { ChangedPathSchema, ImportSchema } from '../contract/index.js';
 import { ancestorsOf, isWithin } from '../model/index.js';
 
 /*
- * One folder tree on the canvas, the same for the repo view and a
+ * One folder tree, the same for the repo view and a
  * Package's view: its parent hands it what to draw, and it keeps which
  * folders are open and what is selected.
  *

@@ -50,8 +50,8 @@ import { settingsTrigger, usePhone } from '../ui/index.js';
 /*
  * A folder looked into: its files on the left, as a tree of their
  * folders, the one chosen on the right. On a phone the two take the whole
- * screen in turn. The list is drawn as the canvas draws its tree, by the
- * canvas's settings, behind the same sliders: a changed file's name takes
+ * screen in turn. The list is drawn as the tree is drawn, by the
+ * tree's settings, behind the same sliders: a changed file's name takes
  * the colour of how it changed, a folder the colour its changes roll up
  * to, what the branch left unchanged is dimmed or left out, and so is an
  * ignored file.
@@ -62,7 +62,7 @@ import { settingsTrigger, usePhone } from '../ui/index.js';
  * the list and the file sit side by side on one track, a screen each,
  * that slides under the finger from one to the other, and a back arrow
  * top left, or a swipe right, leaves the file for the list, and the list
- * for the canvas.
+ * for the tree.
  */
 
 /** Keys typed into a field are its own. */
@@ -238,7 +238,7 @@ export const FolderViewerView = View.make(
           'max-sm:h-auto max-sm:min-h-14 max-sm:gap-1 max-sm:pt-[env(safe-area-inset-top)] max-sm:pl-1.5',
         )}
       >
-        {/* On a phone, back sits top left: out of the folder, to the canvas. */}
+        {/* On a phone, back sits top left: out of the folder, to the tree. */}
         <Button
           variant="ghost"
           size="icon"
@@ -465,12 +465,12 @@ export const FolderViewerView = View.make(
   },
 );
 
-/** Where a row's chevron starts, and how far in each level goes: the canvas's. */
+/** Where a row's chevron starts, and how far in each level goes: the tree's. */
 const gutter = 8;
 const levelWidth = 16;
 
 /**
- * One row of the list, drawn as the canvas draws its own: a chevron, an
+ * One row of the list, drawn as the tree draws its own: a chevron, an
  * icon and a name in the colour of what changed, a hairline down the left
  * of each open folder's contents, and the file shown a band with a bar.
  * A folder opens and closes; a file shows.

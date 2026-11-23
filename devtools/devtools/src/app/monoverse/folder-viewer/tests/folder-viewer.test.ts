@@ -12,7 +12,7 @@ import { FolderViewerLive, entriesOf, shownOf, stepFrom } from '../index.js';
 
 /*
  * A folder looked into, on a service that answers what the test says: its
- * files drawn by the canvas's settings, the first changed one shown to
+ * files drawn by the tree's settings, the first changed one shown to
  * start with, another when it is chosen, and a step going between the
  * changed ones.
  */

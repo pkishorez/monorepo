@@ -114,10 +114,10 @@ package view  the Package's git-known files; outside its Source roots dimmed,
 top left      two menus on one line: the project, to open another, and in
               a Monorepo the Package shown or All packages, to go straight
               to another Package or back to the repo view.
-corner        every folder opened or closed down to the top level, zoom,
-              and back to the top; beside a folder holding folders, one
-              button opens or closes everything inside it. On a phone the
-              tree scrolls like a page.
+corner        every folder opened or closed down to the top level; beside
+              a folder holding folders, one button opens or closes
+              everything inside it. The tree scrolls like a page, centred,
+              and sideways only when it is wider than the screen.
 bottom bar    the selection, or the whole tree, and what to do with it:
               Open file, View changes or Browse files; a Package in the
               repo view has View changes beside Open package, which turns
@@ -142,7 +142,7 @@ How it works:
   Package's `package.json`; nothing else in it is read. Without one, the
   whole Package is its one Source root.
 - View changes opens a folder, the root included, as a tree of its files
-  beside one file's diff, drawn by the canvas's settings, behind the same
+  beside one file's diff, drawn by the tree's settings, behind the same
   sliders; Browse files does the same with Changes off. One button folds
   every folder to the top level or opens them all, and one beside a folder
   opens or folds everything inside it. ← and →, the bar

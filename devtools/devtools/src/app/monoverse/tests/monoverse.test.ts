@@ -614,7 +614,7 @@ describe('Monoverse', () => {
       }),
     ));
 
-  it("draws a folder looked into by the canvas's settings, and changes them for both", () =>
+  it("draws a folder looked into by the tree's settings, and changes them for both", () =>
     run(
       Effect.gen(function* () {
         const app = yield* start({ project: 'm', changes: true });
