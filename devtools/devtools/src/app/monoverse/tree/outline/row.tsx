@@ -146,6 +146,7 @@ function linkOf(connection: Connection | null) {
 export const OutlineRow = memo(function OutlineRow({
   node,
   depth,
+  among,
   top,
   height,
   lead,
@@ -165,6 +166,8 @@ export const OutlineRow = memo(function OutlineRow({
 }: {
   node: TreeNode;
   depth: number;
+  /** Its place among the rows beside it, for those who cannot see the rows not drawn. */
+  among: { readonly position: number; readonly of: number };
   /** Where it sits, and how tall it is: a Package's row takes two lines. */
   top: number;
   height: number;
@@ -201,6 +204,8 @@ export const OutlineRow = memo(function OutlineRow({
       aria-selected={selected}
       aria-expanded={isFolder ? open : undefined}
       aria-level={depth + 1}
+      aria-posinset={among.position}
+      aria-setsize={among.of}
       tabIndex={tabbable ? 0 : -1}
       title={node.path}
       className={cn(

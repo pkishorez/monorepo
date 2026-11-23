@@ -46,6 +46,7 @@
     "@kestack/web-platform": "workspace:*",
     "@tailwindcss/vite": "catalog:",
     "@tanstack/react-db": "catalog:",
+    "@tanstack/react-virtual": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",

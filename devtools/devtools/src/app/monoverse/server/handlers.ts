@@ -1,7 +1,7 @@
 import { Effect } from 'effect';
 
 import { ExploreRpc, WorkspaceReadError } from '../contract/index.js';
-import { isWithin, rootRelative } from '../model/index.js';
+import { rootRelative } from '../model/index.js';
 import { getBranches, getChanges, getFileDiff } from './changes/index.js';
 import { readSourceRoots } from './config/index.js';
 import { buildFileGraph } from './file-graph/index.js';
@@ -18,16 +18,16 @@ import { analyzeMonorepo } from './workspace/index.js';
  * the server.
  */
 
-/** The workspace and the files outside its Packages, for the repo view. */
+/**
+ * The workspace and every file in it, for the repo view: its tree draws
+ * each Package as one node, and a folder viewed lists the files inside
+ * its Packages too.
+ */
 export function openProject(root: string, branch: string | null) {
   return Effect.gen(function* () {
     const snapshot = yield* openSnapshot(root, branch);
-    const known = yield* listFiles(snapshot, '');
-    const workspace = yield* analyzeMonorepo(snapshot, known);
-    const packages = workspace.packages.map(({ path }) => rootRelative(path));
-    const files = known.filter(
-      (path) => !packages.some((pkg) => isWithin(path, pkg)),
-    );
+    const files = yield* listFiles(snapshot, '');
+    const workspace = yield* analyzeMonorepo(snapshot, files);
     return { ...workspace, files };
   });
 }

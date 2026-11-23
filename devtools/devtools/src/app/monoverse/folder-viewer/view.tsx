@@ -1,6 +1,5 @@
 import {
   useCallback,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -15,22 +14,17 @@ import {
 } from 'motion/react';
 import { View } from '@kestack/kabuki/react';
 import { Button } from '@kestack/web-platform/ui/components/button';
-import { scrollbarStyles } from '@kestack/web-platform/ui/components/scroll-styles';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import { GestureProvider, GestureZone } from '@kestack/web-platform/ui/input';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
-  FileIcon,
-  FolderIcon,
-  FolderOpenIcon,
   ArrowLeftIcon,
   ChevronsDownUpIcon,
   ChevronsUpDownIcon,
   XIcon,
 } from 'lucide-react';
 
-import type { ChangeStatus } from '../contract/index.js';
 import { FileViewerView } from '../file-viewer/index.js';
 import { TreeSettings } from '../tree/index.js';
 import {
@@ -42,7 +36,8 @@ import {
   stepFrom,
   stepsOf,
 } from './actor.js';
-import { fileTreeRows, type FileTreeRow } from './file-tree.js';
+import { FileList } from './file-list.js';
+import { fileTreeRows } from './file-tree.js';
 import { settle, Swipes, useRestAt } from './swipes.js';
 import { isIgnored, isWithin } from '../model/index.js';
 import { settingsTrigger, usePhone } from '../ui/index.js';
@@ -72,12 +67,6 @@ const typing = (target: EventTarget) =>
     target.tagName === 'INPUT' ||
     target.tagName === 'TEXTAREA');
 
-const colour: Record<ChangeStatus, string> = {
-  added: 'text-added',
-  modified: 'text-changed',
-  deleted: 'text-removed',
-};
-
 const plural = (count: number, one: string) =>
   `${count} ${one}${count === 1 ? '' : 's'}`;
 
@@ -93,7 +82,6 @@ export const FolderViewerView = View.make(
       () => fileTreeRows(model.path, entries, new Set(model.closed)),
       [model.path, entries, model.closed],
     );
-    const list = useRef<HTMLUListElement>(null);
     const changesOn = model.base !== null;
     const deletedCount = changesOn
       ? model.changed.filter(({ status }) => status === 'deleted').length
@@ -110,11 +98,18 @@ export const FolderViewerView = View.make(
     // everything inside it.
     const holders = useMemo(() => {
       const folders = foldersOf(model, settings);
-      return new Set(
-        folders.filter((folder) =>
-          folders.some((one) => one !== folder && isWithin(one, folder)),
-        ),
-      );
+      const known = new Set(folders);
+      const holding = new Set<string>();
+      for (const folder of folders)
+        for (
+          let at = folder.lastIndexOf('/');
+          at > 0;
+          at = folder.lastIndexOf('/', at - 1)
+        ) {
+          const above = folder.slice(0, at);
+          if (known.has(above)) holding.add(above);
+        }
+      return holding;
     }, [model, settings]);
     const closedSet = new Set(model.closed);
     const allOpenInside = (path: string) =>
@@ -162,73 +157,6 @@ export const FolderViewerView = View.make(
         return;
       event.preventDefault();
       step(event.key === 'ArrowLeft' ? -1 : 1);
-    };
-
-    // The file shown stays in sight in the list, however it was reached.
-    useEffect(() => {
-      if (shown === null) return;
-      list.current
-        ?.querySelector(`[title="${CSS.escape(shown)}"]`)
-        ?.scrollIntoView({ block: 'nearest' });
-    }, [shown]);
-
-    // One row takes Tab: the file shown, else the first.
-    const tabStop =
-      rows.find(({ path }) => path === shown)?.path ?? rows[0]?.path ?? null;
-
-    const focusRow = (index: number) =>
-      list.current
-        ?.querySelector<HTMLElement>(`[data-index="${index}"]`)
-        ?.focus();
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      const target = (event.target as Element).closest<HTMLElement>(
-        '[data-index]',
-      );
-      if (target === null) return;
-      const at = Number(target.dataset.index);
-      const row = rows[at]!;
-      let next: number | undefined;
-      switch (event.key) {
-        case 'ArrowDown':
-          next = Math.min(rows.length - 1, at + 1);
-          break;
-        case 'ArrowUp':
-          next = Math.max(0, at - 1);
-          break;
-        case 'Home':
-          next = 0;
-          break;
-        case 'End':
-          next = rows.length - 1;
-          break;
-        case 'ArrowRight':
-          if (row.kind !== 'folder') return;
-          if (row.open) next = at + 1;
-          else send({ _tag: 'FolderToggled', path: row.path });
-          break;
-        case 'ArrowLeft': {
-          if (row.kind === 'folder' && row.open) {
-            send({ _tag: 'FolderToggled', path: row.path });
-            break;
-          }
-          // To the folder holding it.
-          const parent = rows
-            .slice(0, at)
-            .findLastIndex(
-              (one) => one.kind === 'folder' && one.depth < row.depth,
-            );
-          if (parent !== -1) next = parent;
-          break;
-        }
-        default:
-          return;
-      }
-      event.preventDefault();
-      if (next === undefined || next === at) return;
-      const to = rows[next]!;
-      if (to.kind === 'file') send({ _tag: 'Selected', path: to.path });
-      focusRow(next);
     };
 
     const header = (
@@ -349,59 +277,23 @@ export const FolderViewerView = View.make(
                   className="flex min-h-0 w-72 shrink-0 flex-col border-r border-border/60 max-sm:w-1/2 max-sm:border-r-0"
                 >
                   {phone ? header : null}
-                  <nav
-                    aria-label="Files"
-                    className={cn(
-                      'min-h-0 flex-1 overflow-y-auto py-1.5',
-                      scrollbarStyles,
-                    )}
-                  >
-                    <ul
-                      ref={list}
-                      role="tree"
-                      aria-label="Files"
-                      onKeyDown={onKeyDown}
-                      className="flex flex-col px-1.5"
-                    >
-                      {rows.map((row, index) => (
-                        <li
-                          key={row.path}
-                          role="presentation"
-                          className="group/row relative"
-                        >
-                          <Row
-                            trailing={holders.has(row.path)}
-                            row={row}
-                            index={index}
-                            selected={row.path === shown}
-                            faded={
-                              changesOn &&
-                              settings.unchanged === 'dim' &&
-                              row.status === null
-                            }
-                            ignored={isIgnored(row.path, model.sourceRoots)}
-                            focusable={row.path === tabStop}
-                            onPress={() =>
-                              send(
-                                row.kind === 'folder'
-                                  ? { _tag: 'FolderToggled', path: row.path }
-                                  : { _tag: 'Selected', path: row.path },
-                              )
-                            }
-                          />
-                          {holders.has(row.path) ? (
-                            <InsideToggle
-                              name={row.kind === 'folder' ? row.label : ''}
-                              open={allOpenInside(row.path)}
-                              onToggle={() =>
-                                send({ _tag: 'InsideToggled', path: row.path })
-                              }
-                            />
-                          ) : null}
-                        </li>
-                      ))}
-                    </ul>
-                  </nav>
+                  <FileList
+                    rows={rows}
+                    shown={shown}
+                    holders={holders}
+                    faded={(row) =>
+                      changesOn &&
+                      settings.unchanged === 'dim' &&
+                      row.status === null
+                    }
+                    ignored={(path) => isIgnored(path, model.sourceRoots)}
+                    allOpenInside={allOpenInside}
+                    onToggle={(path) => send({ _tag: 'FolderToggled', path })}
+                    onShow={(path) => send({ _tag: 'Selected', path })}
+                    onToggleInside={(path) =>
+                      send({ _tag: 'InsideToggled', path })
+                    }
+                  />
                 </div>
                 <div
                   inert={phone && !model.showing}
@@ -464,155 +356,3 @@ export const FolderViewerView = View.make(
     );
   },
 );
-
-/** Where a row's chevron starts, and how far in each level goes: the tree's. */
-const gutter = 8;
-const levelWidth = 16;
-
-/**
- * One row of the list, drawn as the tree draws its own: a chevron, an
- * icon and a name in the colour of what changed, a hairline down the left
- * of each open folder's contents, and the file shown a band with a bar.
- * A folder opens and closes; a file shows.
- */
-function Row({
-  row,
-  index,
-  selected,
-  faded,
-  ignored,
-  trailing,
-  focusable,
-  onPress,
-}: {
-  row: FileTreeRow;
-  /** Room on the right for the button that opens or closes what is inside. */
-  trailing: boolean;
-  index: number;
-  selected: boolean;
-  /** Left unchanged by the branch, while the unchanged are dimmed. */
-  faded: boolean;
-  /** Outside the Package's Source roots. */
-  ignored: boolean;
-  focusable: boolean;
-  onPress: () => void;
-}) {
-  const folder = row.kind === 'folder';
-  const Icon = folder ? (row.open ? FolderOpenIcon : FolderIcon) : FileIcon;
-  const toneClass = row.status === null ? null : colour[row.status];
-  return (
-    <button
-      type="button"
-      role="treeitem"
-      aria-level={row.depth + 1}
-      aria-expanded={folder ? row.open : undefined}
-      aria-selected={folder ? undefined : selected}
-      data-index={index}
-      tabIndex={focusable ? 0 : -1}
-      title={row.path}
-      onClick={onPress}
-      style={{ paddingLeft: gutter + row.depth * levelWidth }}
-      className={cn(
-        'relative flex h-[26px] w-full min-w-0 items-center gap-1 rounded-md pr-2 text-left text-[13px] leading-none transition-colors duration-150 outline-none max-sm:h-[30px]',
-        'focus-visible:ring-2 focus-visible:ring-ring/50',
-        trailing && 'pr-8 max-sm:pr-9',
-        faded && 'opacity-45 hover:opacity-80',
-        selected
-          ? 'bg-foreground/[0.1] dark:bg-foreground/[0.13]'
-          : 'hover:bg-foreground/[0.035] active:bg-foreground/[0.06]',
-      )}
-    >
-      {Array.from({ length: row.depth }, (_, level) => (
-        <span
-          key={level}
-          aria-hidden
-          className="pointer-events-none absolute inset-y-0 w-px bg-foreground/[0.08]"
-          style={{ left: gutter + level * levelWidth + 8 }}
-        />
-      ))}
-      {selected ? (
-        <span
-          aria-hidden
-          className="absolute inset-y-[5px] left-0 w-[3px] rounded-full bg-foreground"
-        />
-      ) : null}
-      {folder ? (
-        <ChevronRightIcon
-          aria-hidden
-          strokeWidth={2}
-          className={cn(
-            'size-3.5 w-4 shrink-0 text-muted-foreground/70 transition-transform duration-150 motion-reduce:transition-none',
-            row.open && 'rotate-90',
-          )}
-        />
-      ) : (
-        <span aria-hidden className="size-4 shrink-0" />
-      )}
-      <Icon
-        aria-hidden
-        strokeWidth={1.5}
-        className={cn(
-          'ml-0.5 size-4 shrink-0',
-          toneClass === null
-            ? cn('text-muted-foreground', ignored ? 'opacity-50' : 'opacity-85')
-            : cn(toneClass, 'opacity-70'),
-        )}
-      />
-      <span
-        className={cn(
-          'ml-1.5 min-w-0 flex-1 truncate',
-          toneClass === null
-            ? ignored
-              ? 'text-muted-foreground/80'
-              : 'text-foreground/90'
-            : cn(toneClass, ignored && 'opacity-75'),
-          row.status === 'deleted' &&
-            'line-through decoration-current/50 decoration-1',
-        )}
-      >
-        {folder ? row.label : row.name}
-      </span>
-      {row.status === null ? null : (
-        <span className="sr-only">, {row.status}</span>
-      )}
-    </button>
-  );
-}
-
-/**
- * Beside a folder holding folders, on the right: one press opens
- * everything inside it, or, when all of it is open, closes every folder
- * inside it, the folder itself staying open. Shown on hover, or always on
- * a phone, where there is none.
- */
-function InsideToggle({
-  name,
-  open,
-  onToggle,
-}: {
-  name: string;
-  /** Everything inside it is open. */
-  open: boolean;
-  onToggle: () => void;
-}) {
-  const label = open
-    ? `Collapse everything in ${name}`
-    : `Expand everything in ${name}`;
-  const Icon = open ? ChevronsDownUpIcon : ChevronsUpDownIcon;
-  return (
-    <button
-      type="button"
-      tabIndex={-1}
-      aria-label={label}
-      title={label}
-      onClick={onToggle}
-      className={cn(
-        'absolute top-1/2 right-1 flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-[opacity,background-color] duration-150 outline-none max-sm:size-7',
-        'hover:bg-foreground/[0.08] hover:text-foreground',
-        'opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 max-sm:opacity-70',
-      )}
-    >
-      <Icon className="size-3.5" />
-    </button>
-  );
-}
