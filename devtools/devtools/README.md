@@ -114,10 +114,18 @@ package view  the Package's git-known files; outside its Source roots dimmed,
 top left      two menus on one line: the project, to open another, and in
               a Monorepo the Package shown or All packages, to go straight
               to another Package or back to the repo view.
-corner        every folder opened or closed down to the top level; beside
-              a folder holding folders, one button opens or closes
-              everything inside it. The tree scrolls like a page, centred,
-              and sideways only when it is wider than the screen.
+top of tree   one toggle, held there as the tree scrolls: every folder
+              opened, or closed down to the top level; beside it, the tree
+              reset to its default view (in a Monorepo, open down to its
+              Packages), in the right panel on a wide screen. Beside a folder holding folders, one button
+              opens or closes everything inside it; so does a right click
+              on any folder. The tree scrolls like a page, centred, and
+              sideways only when it is wider than the screen.
+row, hover    one button at the end of every row, at any depth: with
+              Changes on it opens what changed in it (a file's diff, a
+              folder's or Package's changed files); with Changes off, the
+              file or a folder's files, and a Package's changes. No need
+              to select it first.
 bottom bar    the selection, or the whole tree, and what to do with it:
               Open file, View changes or Browse files; a Package in the
               repo view has View changes beside Open package, which turns
@@ -130,6 +138,12 @@ top right     Branch: whose files you see, read from its worktree, or from
               Changes is on, whether the unchanged are shown, dimmed or
               hidden and whether the deleted are drawn. On a phone all of
               it is one settings sheet.
+wide screen   from 1200px, no bar: the tree in the middle, a panel either
+              side of it. Left: the project, the selection and what to do
+              with it, and every Package under All packages, one click
+              back to the repo view. Right: Branch, Compare to, Changes,
+              what the tree draws, and Reset to default view. Nothing in them moves as the tree loads or
+              changes.
 ```
 
 How it works:

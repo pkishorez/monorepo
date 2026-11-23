@@ -23,7 +23,7 @@ import { cn } from '@kestack/web-platform/ui/components/utils';
 import { BoxIcon, LayersIcon } from 'lucide-react';
 
 import { CrumbLabel, crumbTrigger } from './crumb.js';
-import { usePhone } from './phone.js';
+import { usePhone } from './screen.js';
 
 /*
  * Which Package of a Monorepo is shown, top left beside the project: a
@@ -130,6 +130,31 @@ export function PackageMenu({
 }
 
 /**
+ * The Packages in the order every list shows them: by name; while Changes
+ * is on, those the branch changed first, and the rest after as the tree
+ * draws the unchanged, but for the one shown, which is never hidden.
+ */
+export function orderPackages(
+  packages: ReadonlyArray<PackageChoice>,
+  current: string | null,
+  changes: PackageChanges | null,
+): {
+  readonly changed: ReadonlyArray<PackageChoice>;
+  readonly rest: ReadonlyArray<PackageChoice>;
+} {
+  const sorted = [...packages].sort((a, b) => a.name.localeCompare(b.name));
+  if (changes === null) return { changed: [], rest: sorted };
+  return {
+    changed: sorted.filter((one) => changes.of.has(one.path)),
+    rest: sorted.filter(
+      (one) =>
+        !changes.of.has(one.path) &&
+        (changes.unchanged !== 'hide' || one.path === current),
+    ),
+  };
+}
+
+/**
  * The list: All packages held at the top, then the Packages by name. While
  * Changes is on, those the branch changed come first, each with how many
  * files, in the colour they roll up to; the rest follow as the tree draws
@@ -146,17 +171,7 @@ function PackageList({
   changes: PackageChanges | null;
   onChoose: (path: string | null) => void;
 }) {
-  const sorted = [...packages].sort((a, b) => a.name.localeCompare(b.name));
-  const changed =
-    changes === null ? [] : sorted.filter((one) => changes.of.has(one.path));
-  const rest =
-    changes === null
-      ? sorted
-      : sorted.filter(
-          (one) =>
-            !changes.of.has(one.path) &&
-            (changes.unchanged !== 'hide' || one.path === current),
-        );
+  const { changed, rest } = orderPackages(packages, current, changes);
   const item = (one: PackageChoice, quiet: boolean) => {
     const change = changes?.of.get(one.path);
     return (

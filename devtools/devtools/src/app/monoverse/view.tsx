@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { View } from '@kestack/kabuki/react';
 import {
   Dialog,
@@ -17,18 +18,28 @@ import {
 } from './actor.js';
 import { FileViewerView } from './file-viewer/index.js';
 import { FolderViewerView } from './folder-viewer/index.js';
-import { GitControls } from './git-controls/index.js';
+import { GitControls, type GitControlsProps } from './git-controls/index.js';
 import { changeTallies, nameOf, statusOf, type Change } from './model/index.js';
 import { MonorepoView } from './monorepo/index.js';
 import { PackageView } from './package/index.js';
+import { ViewPanel, WherePanel, type WherePanelProps } from './panels/index.js';
 import { ProjectPickerView } from './picker/index.js';
-import { Breadcrumb, CannotOpen, Opening, Rereading } from './ui/index.js';
+import {
+  Breadcrumb,
+  CannotOpen,
+  Opening,
+  PanelSlotsContext,
+  Rereading,
+  useWide,
+} from './ui/index.js';
 
 /*
  * Monoverse drawn: with no project, the picker alone in the middle of the
  * page. With one, a slim bar, where you are on the left and the three git
  * controls on the right, over the tree, as big as it can be, the open file
- * beside it; the picker opens over it from the project's crumb.
+ * beside it; the picker opens over it from the project's crumb. On a wide
+ * screen no bar: the tree sits in the middle, a panel either side holding
+ * every control, so none is far from another.
  */
 
 /** What changed in each Package: how many files, and the colour they roll up to. */
@@ -55,6 +66,10 @@ const changesByPackage = (
 export const MonoverseView = View.make(
   MonoverseLive,
   ({ root, model, state, children, send }) => {
+    const wide = useWide();
+    // Where the tree draws its own controls, in the side panels.
+    const [selection, setSelection] = useState<HTMLDivElement | null>(null);
+    const [folders, setFolders] = useState<HTMLDivElement | null>(null);
     if (state._tag === 'Picking')
       return (
         <div
@@ -112,73 +127,91 @@ export const MonoverseView = View.make(
         ? null
         : changesByPackage(state.workspace.packages, shown);
 
+    const packages: WherePanelProps['packages'] =
+      state._tag === 'Monorepo'
+        ? {
+            all: state.workspace.packages,
+            current: model.package,
+            changes:
+              packageChanges === null
+                ? null
+                : { of: packageChanges, unchanged: model.unchanged },
+            onChoose: (path) =>
+              send(
+                path === null
+                  ? { _tag: 'Left' }
+                  : { _tag: 'Entered', package: path },
+              ),
+          }
+        : null;
+    const git: GitControlsProps = {
+      branches: model.branches,
+      problem: model.gitProblem,
+      branch: branchOf(model),
+      base: baseOf(model),
+      changes: model.changes,
+      reading: model.changes && changes === null,
+      changesProblem: model.changesProblem,
+      onBranch: (branch) => send({ _tag: 'BranchChosen', branch }),
+      onBase: (base) => send({ _tag: 'BaseChosen', base }),
+      onChanges: () => send({ _tag: 'ChangesToggled' }),
+      deleted: model.deleted,
+      onDeleted: () => send({ _tag: 'DeletedToggled' }),
+      unchanged: model.unchanged,
+      onUnchanged: (unchanged) => send({ _tag: 'UnchangedChosen', unchanged }),
+      ignored: model.ignored,
+      onIgnored: () => send({ _tag: 'IgnoredToggled' }),
+    };
+
     return (
       <div {...root} className="flex h-full min-h-0 flex-col">
-        <header className="flex min-h-11 shrink-0 items-center gap-3 border-b border-border/60 py-1 pr-2 pl-2 max-sm:pl-1.5">
-          <Breadcrumb
-            project={project?.name ?? nameOf(folder)}
-            path={folder}
-            packages={
-              state._tag === 'Monorepo'
-                ? {
-                    all: state.workspace.packages,
-                    current: model.package,
-                    changes:
-                      packageChanges === null
-                        ? null
-                        : { of: packageChanges, unchanged: model.unchanged },
-                    onChoose: (path) =>
-                      send(
-                        path === null
-                          ? { _tag: 'Left' }
-                          : { _tag: 'Entered', package: path },
-                      ),
-                  }
-                : null
-            }
-            onSwitch={() => send({ _tag: 'Switching' })}
-          />
-          {/* Phones: one settings button at the end of the line. */}
-          <div className="ml-auto shrink-0">
-            <GitControls
-              branches={model.branches}
-              problem={model.gitProblem}
-              branch={branchOf(model)}
-              base={baseOf(model)}
-              changes={model.changes}
-              reading={model.changes && changes === null}
-              changesProblem={model.changesProblem}
-              onBranch={(branch) => send({ _tag: 'BranchChosen', branch })}
-              onBase={(base) => send({ _tag: 'BaseChosen', base })}
-              onChanges={() => send({ _tag: 'ChangesToggled' })}
-              deleted={model.deleted}
-              onDeleted={() => send({ _tag: 'DeletedToggled' })}
-              unchanged={model.unchanged}
-              onUnchanged={(unchanged) =>
-                send({ _tag: 'UnchangedChosen', unchanged })
-              }
-              ignored={model.ignored}
-              onIgnored={() => send({ _tag: 'IgnoredToggled' })}
+        {wide ? null : (
+          <header className="flex min-h-11 shrink-0 items-center gap-3 border-b border-border/60 py-1 pr-2 pl-2 max-sm:pl-1.5">
+            <Breadcrumb
+              project={project?.name ?? nameOf(folder)}
+              path={folder}
+              packages={packages}
+              onSwitch={() => send({ _tag: 'Switching' })}
             />
-          </div>
-        </header>
+            {/* Phones: one settings button at the end of the line. */}
+            <div className="ml-auto shrink-0">
+              <GitControls {...git} />
+            </div>
+          </header>
+        )}
         <div className="flex min-h-0 flex-1">
           <main className="relative min-h-0 min-w-0 flex-1">
-            {state._tag === 'Opening' ? (
-              <Opening root={state.root} />
-            ) : state._tag === 'Failed' ? (
-              <CannotOpen
-                root={state.root}
-                problem={state.problem}
-                missing={state.missing}
-                onRetry={() => send({ _tag: 'Retried' })}
-                onPickAnother={() => send({ _tag: 'Switching' })}
-              />
-            ) : state._tag === 'Monorepo' && 'monorepo' in children ? (
-              <MonorepoView instance={children.monorepo} />
-            ) : state._tag === 'Package' && 'package' in children ? (
-              <PackageView instance={children.package} />
+            {wide ? (
+              <>
+                <WherePanel
+                  project={project?.name ?? nameOf(folder)}
+                  path={folder}
+                  onSwitch={() => send({ _tag: 'Switching' })}
+                  packages={packages}
+                  selectionSlot={setSelection}
+                />
+                <ViewPanel {...git} foldersSlot={setFolders} />
+              </>
             ) : null}
+            <PanelSlotsContext.Provider
+              value={{ docked: wide, selection, folders }}
+            >
+              {state._tag === 'Opening' ? (
+                <Opening root={state.root} />
+              ) : state._tag === 'Failed' ? (
+                <CannotOpen
+                  root={state.root}
+                  problem={state.problem}
+                  missing={state.missing}
+                  onRetry={() => send({ _tag: 'Retried' })}
+                  onPickAnother={() => send({ _tag: 'Switching' })}
+                />
+              ) : state._tag === 'Monorepo' && 'monorepo' in children ? (
+                <MonorepoView instance={children.monorepo} />
+              ) : state._tag === 'Package' && 'package' in children ? (
+                <PackageView instance={children.package} />
+              ) : null}
+            </PanelSlotsContext.Provider>
             {rereading ? <Rereading>Reading the branch…</Rereading> : null}
           </main>
         </div>

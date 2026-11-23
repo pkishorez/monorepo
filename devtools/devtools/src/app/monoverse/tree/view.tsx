@@ -107,6 +107,14 @@ export const TreeView = View.make(TreeLive, ({ root, model, props, send }) => {
       },
     };
   }, [foldersInside, openSet]);
+  // Whether the tree is as it opened: the default view, nothing selected.
+  const atHome = useMemo(
+    () =>
+      selected === null &&
+      model.home.length === openSet.size &&
+      model.home.every((path) => openSet.has(path)),
+    [selected, model.home, openSet],
+  );
   const connections = useConnections(tree, isOpen, selected, links, broken);
   const brokenCounts = useBrokenCounts(broken);
   // A selection keeps in front itself, what is inside it, what it connects
@@ -178,6 +186,7 @@ export const TreeView = View.make(TreeLive, ({ root, model, props, send }) => {
         const { folding, foldersInside } = latest.current;
         send({ _tag: 'OpenSet', open: folding.all ? [] : foldersInside.all });
       },
+      reset: () => send({ _tag: 'Reset' }),
       toggleInside: (path) => {
         const { open, folding, foldersInside } = latest.current;
         const inside = foldersInside.inside.get(path) ?? [];
@@ -217,6 +226,7 @@ export const TreeView = View.make(TreeLive, ({ root, model, props, send }) => {
           faded={faded}
           ignored={ignored}
           folding={folding}
+          atHome={atHome}
           actions={actions}
         />
       )}

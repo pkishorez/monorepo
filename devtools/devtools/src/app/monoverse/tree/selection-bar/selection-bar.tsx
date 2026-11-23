@@ -21,6 +21,8 @@ import type { Connection, TreeNode } from '../../model/index.js';
  * changes, what the branch changed in it, without going in. Its
  * counts are what the selection connects to, coloured as the tree draws
  * them, so it is the key to those colours too; the whole tree has none.
+ * On a wide screen it is a card in the side panel instead, its buttons
+ * one under the other.
  */
 
 export interface SelectionColours {
@@ -51,6 +53,7 @@ export function SelectionBar({
   onActivate,
   onChanges,
   onClear,
+  panel = false,
 }: {
   scope: 'repo' | 'package';
   /** What is selected, or the tree's root with nothing selected. */
@@ -66,6 +69,8 @@ export function SelectionBar({
   /** Views what the branch changed in a Package, from the repository's tree. */
   onChanges?: (() => void) | undefined;
   onClear: () => void;
+  /** Drawn in a wide screen's side panel, not docked over the tree. */
+  panel?: boolean;
 }) {
   let uses = 0;
   let usedBy = 0;
@@ -87,7 +92,105 @@ export function SelectionBar({
     : iconOf[node.kind];
   const label = node.label ?? node.name;
   // Two buttons leave a phone room for the counts' colours, not their words.
-  const compact = onChanges !== undefined;
+  const compact = onChanges !== undefined && !panel;
+  const counts = (
+    <>
+      <Count
+        colour={colours.uses}
+        label={words.uses}
+        value={uses}
+        compact={compact}
+      />
+      <Count
+        colour={colours.usedBy}
+        label={words.usedBy}
+        value={usedBy}
+        compact={compact}
+      />
+      {broken > 0 ? (
+        <span
+          className="flex items-center gap-1"
+          style={{ color: colours.broken }}
+        >
+          <TriangleAlertIcon aria-hidden className="size-3.5" />
+          {broken} broken
+        </span>
+      ) : null}
+    </>
+  );
+
+  // One height whatever is selected, nothing or a Package with two
+  // buttons, so the panel around it never moves.
+  if (panel)
+    return (
+      <div
+        role="region"
+        aria-label="Selection"
+        className="flex h-24 flex-col gap-2 px-1"
+      >
+        <div className="flex h-8 min-w-0 items-center gap-2 pl-1">
+          {root ? (
+            <span className="min-w-0 flex-1 truncate text-[13px] text-muted-foreground">
+              Nothing selected
+            </span>
+          ) : (
+            <>
+              <Icon
+                aria-hidden
+                className="size-4 shrink-0 text-muted-foreground"
+                strokeWidth={1.75}
+              />
+              <span
+                className="min-w-0 flex-1 truncate text-sm font-medium"
+                title={node.path}
+              >
+                {label}
+              </span>
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                aria-label="Clear selection"
+                title="Clear selection"
+                className="shrink-0 text-muted-foreground"
+                onClick={onClear}
+              >
+                <XIcon aria-hidden className="size-3.5" />
+              </Button>
+            </>
+          )}
+        </div>
+        <div className="flex h-4 min-w-0 items-center gap-x-3 overflow-hidden pl-1 text-xs whitespace-nowrap text-muted-foreground tabular-nums">
+          {root ? 'Click a row to see what it connects to.' : counts}
+        </div>
+        <div
+          className={cn(
+            'mt-auto grid gap-1.5',
+            onChanges === undefined ? 'grid-cols-1' : 'grid-cols-2',
+          )}
+        >
+          {/* With nothing selected, a quiet way into the whole tree; a
+              selection's own action is the one filled button in view. */}
+          <Button
+            size="sm"
+            variant={root ? 'outline' : 'default'}
+            onClick={onActivate}
+          >
+            {root
+              ? changesOn
+                ? 'View all changes'
+                : 'Browse all files'
+              : onChanges === undefined
+                ? action
+                : 'Open'}
+          </Button>
+          {onChanges === undefined ? null : (
+            <Button size="sm" variant="outline" onClick={onChanges}>
+              View changes
+            </Button>
+          )}
+        </div>
+      </div>
+    );
 
   return (
     <div
@@ -117,27 +220,7 @@ export function SelectionBar({
         </span>
         {root ? null : (
           <span className="flex min-w-0 items-center gap-3 text-xs whitespace-nowrap text-muted-foreground tabular-nums">
-            <Count
-              colour={colours.uses}
-              label={words.uses}
-              value={uses}
-              compact={compact}
-            />
-            <Count
-              colour={colours.usedBy}
-              label={words.usedBy}
-              value={usedBy}
-              compact={compact}
-            />
-            {broken > 0 ? (
-              <span
-                className="flex items-center gap-1"
-                style={{ color: colours.broken }}
-              >
-                <TriangleAlertIcon aria-hidden className="size-3.5" />
-                {broken} broken
-              </span>
-            ) : null}
+            {counts}
           </span>
         )}
       </div>
