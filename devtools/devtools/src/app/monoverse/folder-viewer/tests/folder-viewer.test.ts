@@ -8,12 +8,13 @@ import {
   Monorepo,
   type MonorepoService,
 } from '../../services/monorepo/index.js';
-import { FolderViewerLive, entriesOf } from '../index.js';
+import { FolderViewerLive, entriesOf, shownOf, stepFrom } from '../index.js';
 
 /*
- * A folder looked into, on a service that answers what the test says:
- * the changed files while Changes is on, every file while it is off, the
- * first one shown to start with, and another when it is chosen.
+ * A folder looked into, on a service that answers what the test says: its
+ * files drawn by the canvas's settings, the first changed one shown to
+ * start with, another when it is chosen, and a step going between the
+ * changed ones.
  */
 
 const files = ['src/b.ts', 'src/a/x.ts', 'src/gone.ts'];
@@ -44,8 +45,16 @@ const input = (base: string | null) => ({
   title: 'src',
   files,
   changed,
-  deleted: true,
+  sourceRoots: null,
 });
+
+const settings = (
+  more: Partial<{
+    unchanged: 'show' | 'dim' | 'hide';
+    deleted: boolean;
+    ignored: boolean;
+  }> = {},
+) => ({ unchanged: 'dim' as const, deleted: true, ignored: true, ...more });
 
 const settle = Effect.promise(
   () => new Promise((done) => setTimeout(done, 20)),
@@ -60,29 +69,50 @@ const start = (base: string | null) =>
 const fileOf = (root: Instance) => root.children.file as Instance | undefined;
 
 describe('FolderViewer', () => {
-  it('lists the changed files, by path, while Changes is on', () => {
-    expect(entriesOf(input('main'))).toEqual([
-      { path: 'src/a/x.ts', status: 'modified' },
-      { path: 'src/gone.ts', status: 'deleted' },
+  it('lists every file while Changes is on, each changed one marked, unless the unchanged are hidden', () => {
+    expect(entriesOf(input('main'), settings())).toEqual([
+      { path: 'src/a/x.ts', status: 'modified', ignored: false },
+      { path: 'src/b.ts', status: null, ignored: false },
+      { path: 'src/gone.ts', status: 'deleted', ignored: false },
     ]);
+    expect(
+      entriesOf(input('main'), settings({ unchanged: 'hide' })).map(
+        ({ path }) => path,
+      ),
+    ).toEqual(['src/a/x.ts', 'src/gone.ts']);
   });
 
-  it('lists every file while Changes is off', () => {
-    expect(entriesOf(input(null)).map(({ path }) => path)).toEqual([
-      'src/a/x.ts',
-      'src/b.ts',
-      'src/gone.ts',
-    ]);
+  it('leaves out the deleted files, and the ignored ones, as the settings say', () => {
+    expect(
+      entriesOf(input('main'), settings({ deleted: false })).map(
+        ({ path }) => path,
+      ),
+    ).toEqual(['src/a/x.ts', 'src/b.ts']);
+    const rooted = { ...input('main'), sourceRoots: ['src/a'] };
+    expect(entriesOf(rooted, settings())).toContainEqual({
+      path: 'src/b.ts',
+      status: null,
+      ignored: true,
+    });
+    expect(
+      entriesOf(rooted, settings({ ignored: false })).map(({ path }) => path),
+    ).toEqual(['src/a/x.ts']);
   });
 
-  it('shows the first file to start with, as its diff once changed, and another chosen', () =>
+  it('lists every file while Changes is off, none marked', () => {
+    expect(
+      entriesOf(input(null), settings()).map(({ status }) => status),
+    ).toEqual([null, null, null]);
+  });
+
+  it('shows the first changed file to start with, as its diff, and another chosen', () =>
     run(
       Effect.gen(function* () {
         asked.length = 0;
         const app = yield* start('main');
         yield* settle;
         expect(app.snapshot.root.model).toMatchObject({
-          selected: 'src/a/x.ts',
+          selected: null,
           showing: false,
         });
         expect(fileOf(app.snapshot.root)!.model).toMatchObject({
@@ -125,23 +155,20 @@ describe('FolderViewer', () => {
       }),
     ));
 
-  it('leaves out the deleted files, and says so, the file shown giving way', () =>
-    run(
-      Effect.gen(function* () {
-        const app = yield* start('main');
-        yield* settle;
-        app.root.send({ _tag: 'Selected', path: 'src/gone.ts' });
-        app.root.send({ _tag: 'DeletedToggled' });
-        yield* settle;
-        expect(app.snapshot.root.model).toMatchObject({
-          deleted: false,
-          selected: 'src/a/x.ts',
-        });
-        expect(entriesOf(app.snapshot.root.model as never)).toEqual([
-          { path: 'src/a/x.ts', status: 'modified' },
-        ]);
-      }),
-    ));
+  it('gives way to the first changed file when the settings leave out the one shown', () => {
+    const model = { ...input('main'), selected: 'src/gone.ts' };
+    expect(shownOf(model, settings())).toBe('src/gone.ts');
+    expect(shownOf(model, settings({ deleted: false }))).toBe('src/a/x.ts');
+  });
+
+  it('steps between the changed files, from an unchanged one too', () => {
+    const at = (selected: string) => ({ ...input('main'), selected });
+    expect(stepFrom(at('src/a/x.ts'), settings(), 1)).toBe('src/gone.ts');
+    // src/b.ts sits between the two changed files.
+    expect(stepFrom(at('src/b.ts'), settings(), 1)).toBe('src/gone.ts');
+    expect(stepFrom(at('src/b.ts'), settings(), -1)).toBe('src/a/x.ts');
+    expect(stepFrom(at('src/gone.ts'), settings(), 1)).toBeNull();
+  });
 
   it('steps to the file after or before the one shown, opening a closed folder on the way', () =>
     run(
@@ -149,8 +176,8 @@ describe('FolderViewer', () => {
         const app = yield* start(null);
         yield* settle;
         // In the list's order: src/a/x.ts, then src/b.ts, then src/gone.ts.
-        expect(app.snapshot.root.model).toMatchObject({
-          selected: 'src/a/x.ts',
+        expect(fileOf(app.snapshot.root)!.model).toMatchObject({
+          path: 'src/a/x.ts',
         });
         app.root.send({ _tag: 'Stepped', by: 1 });
         expect(app.snapshot.root.model).toMatchObject({ selected: 'src/b.ts' });
@@ -179,14 +206,53 @@ describe('FolderViewer', () => {
       }),
     ));
 
-  it('shows nothing when nothing changed', () =>
+  it('closes every folder down to the top level, opening one only opens it; and opens them all again', () =>
     run(
       Effect.gen(function* () {
         const app = yield* Runtime.scoped(FolderViewerLive, {
-          input: { ...input('main'), changed: [] },
+          input: {
+            ...input(null),
+            files: ['src/p/q/r.ts', 'src/p/s.ts', 'src/t.ts'],
+          },
           layer: Layer.succeed(Monorepo)(service),
         });
-        expect(app.snapshot.root.model).toMatchObject({ selected: null });
+        const closed = () =>
+          [...(app.snapshot.root.model as { closed: string[] }).closed].sort();
+        app.root.send({ _tag: 'AllToggled' });
+        expect(closed()).toEqual(['src/p', 'src/p/q']);
+        app.root.send({ _tag: 'FolderToggled', path: 'src/p' });
+        expect(closed()).toEqual(['src/p/q']);
+        app.root.send({ _tag: 'AllToggled' });
+        expect(closed()).toEqual([]);
+      }),
+    ));
+
+  it('opens everything inside a folder, or closes every folder in it, the folder staying open', () =>
+    run(
+      Effect.gen(function* () {
+        const app = yield* Runtime.scoped(FolderViewerLive, {
+          input: {
+            ...input(null),
+            files: ['src/p/q/r.ts', 'src/p/q/u/v.ts', 'src/p/s.ts'],
+          },
+          layer: Layer.succeed(Monorepo)(service),
+        });
+        const closed = () =>
+          [...(app.snapshot.root.model as { closed: string[] }).closed].sort();
+        app.root.send({ _tag: 'InsideToggled', path: 'src/p' });
+        expect(closed()).toEqual(['src/p/q', 'src/p/q/u']);
+        app.root.send({ _tag: 'InsideToggled', path: 'src/p' });
+        expect(closed()).toEqual([]);
+      }),
+    ));
+
+  it('shows nothing when there is nothing to list', () =>
+    run(
+      Effect.gen(function* () {
+        const app = yield* Runtime.scoped(FolderViewerLive, {
+          input: { ...input('main'), files: [], changed: [] },
+          layer: Layer.succeed(Monorepo)(service),
+        });
         expect(fileOf(app.snapshot.root)).toBeUndefined();
       }),
     ));

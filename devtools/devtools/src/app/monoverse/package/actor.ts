@@ -53,6 +53,8 @@ export const Package = Actor.define('Package', {
     changes: Schema.NullOr(Schema.Array(ChangedPathSchema)),
     /** How what it left unchanged is drawn, while Changes is on. */
     unchanged: UnchangedSchema,
+    /** Whether the files outside the Source roots are drawn, dimmed. */
+    ignored: Schema.Boolean,
   }),
   model: Schema.Struct({
     root: Schema.String,
@@ -71,11 +73,19 @@ export const Package = Actor.define('Package', {
     Refused: { at: Schema.String, problem: Schema.String },
     Retried: {},
     Opened: { path: Schema.String },
-    Viewed: { path: Schema.String, files: Schema.Array(Schema.String) },
+    Viewed: {
+      path: Schema.String,
+      files: Schema.Array(Schema.String),
+      sourceRoots: Schema.NullOr(Schema.Array(Schema.String)),
+    },
   }),
   emits: {
     Opened: { path: Schema.String },
-    Viewed: { path: Schema.String, files: Schema.Array(Schema.String) },
+    Viewed: {
+      path: Schema.String,
+      files: Schema.Array(Schema.String),
+      sourceRoots: Schema.NullOr(Schema.Array(Schema.String)),
+    },
   },
 });
 
@@ -139,7 +149,9 @@ export const PackageLive = Package.build({
         : {},
     Retried: (_, { model }) => ({ model: { tries: model.tries + 1 } }),
     Opened: ({ path }) => ({ emit: { _tag: 'Opened', path } }),
-    Viewed: ({ path, files }) => ({ emit: { _tag: 'Viewed', path, files } }),
+    Viewed: ({ path, files, sourceRoots }) => ({
+      emit: { _tag: 'Viewed', path, files, sourceRoots },
+    }),
   },
   states: {
     // 2. Show
@@ -169,10 +181,16 @@ export const PackageLive = Package.build({
             sourceRoots: state.contents.sourceRoots,
             changes: props.changes,
             unchanged: props.unchanged,
+            ignored: props.ignored,
           }),
           emits: {
             Opened: ({ path }) => ({ _tag: 'Opened', path }),
-            Viewed: ({ path, files }) => ({ _tag: 'Viewed', path, files }),
+            Viewed: ({ path, files, sourceRoots }) => ({
+              _tag: 'Viewed',
+              path,
+              files,
+              sourceRoots,
+            }),
           },
         }),
       },

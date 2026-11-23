@@ -12,11 +12,13 @@ import {
 import type { Connection, TreeNode } from '../../model/index.js';
 
 /*
- * What is selected, and the one thing to do with it, in a bar docked
+ * What is selected, and what to do with it, in a bar docked
  * along the bottom of the canvas: the only way in on a touch screen, where
  * a double tap is no double click, and the way that shows itself
  * everywhere else. With nothing selected it stands for the whole tree,
- * the repository or the Package, and can be viewed the same way. Its
+ * the repository or the Package, and can be viewed the same way. A
+ * Package of the repository has a second button beside Open package: View
+ * changes, what the branch changed in it, without going in. Its
  * counts are what the selection connects to, coloured as the tree draws
  * them, so it is the key to those colours too; the whole tree has none.
  */
@@ -47,6 +49,7 @@ export function SelectionBar({
   connections,
   colours,
   onActivate,
+  onChanges,
   onClear,
 }: {
   scope: 'repo' | 'package';
@@ -60,6 +63,8 @@ export function SelectionBar({
   colours: SelectionColours;
   /** Views it: a file in the viewer, a Package in its view, a folder in the folder viewer. */
   onActivate: () => void;
+  /** Views what the branch changed in a Package, from the repository's tree. */
+  onChanges?: (() => void) | undefined;
   onClear: () => void;
 }) {
   let uses = 0;
@@ -81,6 +86,8 @@ export function SelectionBar({
       : PackageIcon
     : iconOf[node.kind];
   const label = node.label ?? node.name;
+  // Two buttons leave a phone room for the counts' colours, not their words.
+  const compact = onChanges !== undefined;
 
   return (
     <div
@@ -110,11 +117,17 @@ export function SelectionBar({
         </span>
         {root ? null : (
           <span className="flex min-w-0 items-center gap-3 text-xs whitespace-nowrap text-muted-foreground tabular-nums">
-            <Count colour={colours.uses} label={words.uses} value={uses} />
+            <Count
+              colour={colours.uses}
+              label={words.uses}
+              value={uses}
+              compact={compact}
+            />
             <Count
               colour={colours.usedBy}
               label={words.usedBy}
               value={usedBy}
+              compact={compact}
             />
             {broken > 0 ? (
               <span
@@ -128,12 +141,26 @@ export function SelectionBar({
           </span>
         )}
       </div>
+      {onChanges === undefined ? null : (
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-9 shrink-0 px-3.5 max-sm:h-10 max-sm:px-3"
+          onClick={onChanges}
+        >
+          <Short wide="View changes" narrow="Changes" />
+        </Button>
+      )}
       <Button
         size="sm"
-        className="h-9 shrink-0 px-3.5 max-sm:h-10"
+        className="h-9 shrink-0 px-3.5 max-sm:h-10 max-sm:px-3"
         onClick={onActivate}
       >
-        {action}
+        {onChanges === undefined ? (
+          action
+        ) : (
+          <Short wide={action} narrow="Open" />
+        )}
       </Button>
       {root ? null : (
         <Button
@@ -150,14 +177,27 @@ export function SelectionBar({
   );
 }
 
+/** A button's words, shorter on a phone, where two buttons share the bar. */
+function Short({ wide, narrow }: { wide: string; narrow: string }) {
+  return (
+    <>
+      <span className="sm:hidden">{narrow}</span>
+      <span className="max-sm:hidden">{wide}</span>
+    </>
+  );
+}
+
 function Count({
   colour,
   label,
   value,
+  compact,
 }: {
   colour: string;
   label: string;
   value: number;
+  /** Its words for assistive technology only, on a phone. */
+  compact: boolean;
 }) {
   return (
     <span className="flex items-center gap-1.5">
@@ -166,7 +206,8 @@ function Count({
         className="block h-0.5 w-3 rounded-full"
         style={{ background: colour }}
       />
-      {label} <span className="text-foreground">{value}</span>
+      <span className={compact ? 'max-sm:sr-only' : undefined}>{label}</span>{' '}
+      <span className="text-foreground">{value}</span>
     </span>
   );
 }

@@ -536,11 +536,16 @@ describe('Monoverse', () => {
       Effect.gen(function* () {
         const app = yield* start({ project: 'm', package: 'apps/web' });
         yield* settle;
-        send(app, 'Tree', {
+        // The Package's own tree, inside the Monorepo's.
+        const inner = walk(app.snapshot.root)
+          .filter((each) => each.actor === 'Tree')
+          .at(-1)!;
+        // oxlint-disable-next-line typescript/no-explicit-any -- any Actor's Message
+        app.at(inner.address)!.send({
           _tag: 'Viewed',
           path: 'apps/web/src',
           files: ['apps/web/src/index.ts', 'apps/web/src/app/actor.ts'],
-        });
+        } as any);
         yield* settle;
         expect(find(app, 'FolderViewer')!.model).toMatchObject({
           root: '/repo',
@@ -548,7 +553,11 @@ describe('Monoverse', () => {
           path: 'apps/web/src',
           title: 'apps/web/src',
           files: ['apps/web/src/index.ts', 'apps/web/src/app/actor.ts'],
-          selected: 'apps/web/src/app/actor.ts',
+          // The Package's, so its ignored files can be told apart.
+          sourceRoots: ['apps/web/src'],
+        });
+        expect(find(app, 'FileViewer')!.model).toMatchObject({
+          path: 'apps/web/src/app/actor.ts',
         });
 
         send(app, 'Monoverse', { _tag: 'ChangesToggled' });
@@ -556,13 +565,35 @@ describe('Monoverse', () => {
         expect(find(app, 'FolderViewer')!.model).toMatchObject({
           base: 'main',
           changed: [{ path: 'apps/web/src/index.ts', status: 'modified' }],
-          selected: 'apps/web/src/index.ts',
+        });
+        // The first changed file, though an unchanged one comes first.
+        expect(find(app, 'FileViewer')!.model).toMatchObject({
+          path: 'apps/web/src/index.ts',
         });
 
         send(app, 'Tree', { _tag: 'Opened', path: 'apps/web/README.md' });
         expect(find(app, 'FolderViewer')).toBeUndefined();
         expect(find(app, 'FileViewer')!.model).toMatchObject({
           path: 'apps/web/README.md',
+        });
+      }),
+    ));
+
+  it("views a Package's changes from the Monorepo's tree, turning Changes on", () =>
+    run(
+      Effect.gen(function* () {
+        const asked: Asked = [];
+        const app = yield* start({ project: 'm' }, asked);
+        yield* settle;
+        send(app, 'Tree', { _tag: 'Viewed', path: 'apps/web', files: [] });
+        // Changes turns on, in the Monorepo's tree still.
+        expect(host(app).place).toMatchObject({ package: null, changes: true });
+        yield* settle;
+        expect(named(asked, 'changes')).toHaveLength(1);
+        expect(find(app, 'FolderViewer')!.model).toMatchObject({
+          path: 'apps/web',
+          base: 'main',
+          changed: [{ path: 'apps/web/src/index.ts', status: 'modified' }],
         });
       }),
     ));
@@ -583,6 +614,34 @@ describe('Monoverse', () => {
       }),
     ));
 
+  it("draws a folder looked into by the canvas's settings, and changes them for both", () =>
+    run(
+      Effect.gen(function* () {
+        const app = yield* start({ project: 'm', changes: true });
+        yield* settle;
+        send(app, 'Tree', { _tag: 'Viewed', path: '', files: [] });
+        yield* settle;
+        expect(find(app, 'FolderViewer')!.props).toEqual({
+          unchanged: 'dim',
+          deleted: true,
+          ignored: true,
+        });
+        send(app, 'FolderViewer', {
+          _tag: 'UnchangedChosen',
+          unchanged: 'hide',
+        });
+        send(app, 'FolderViewer', { _tag: 'IgnoredToggled' });
+        expect(find(app, 'Tree')!.props).toMatchObject({
+          unchanged: 'hide',
+          ignored: false,
+        });
+        expect(find(app, 'FolderViewer')!.props).toMatchObject({
+          unchanged: 'hide',
+          ignored: false,
+        });
+      }),
+    ));
+
   it('leaves out the deleted files, from the tree and a folder looked into alike', () =>
     run(
       Effect.gen(function* () {
@@ -597,12 +656,17 @@ describe('Monoverse', () => {
         send(app, 'Tree', { _tag: 'Viewed', path: '', files: [] });
         yield* settle;
         expect(find(app, 'FolderViewer')!.model).toMatchObject({
-          deleted: false,
           changed: changeSet.files,
+        });
+        expect(find(app, 'FolderViewer')!.props).toMatchObject({
+          deleted: false,
         });
         send(app, 'FolderViewer', { _tag: 'DeletedToggled' });
         expect(find(app, 'Tree')!.props).toMatchObject({
           changes: changeSet.files,
+        });
+        expect(find(app, 'FolderViewer')!.props).toMatchObject({
+          deleted: true,
         });
       }),
     ));
@@ -615,6 +679,17 @@ describe('Monoverse', () => {
         expect(find(app, 'Tree')!.props).toMatchObject({ unchanged: 'dim' });
         send(app, 'Monoverse', { _tag: 'UnchangedChosen', unchanged: 'hide' });
         expect(find(app, 'Tree')!.props).toMatchObject({ unchanged: 'hide' });
+      }),
+    ));
+
+  it("draws a Package's ignored files to start with, and leaves them out once asked, in it too", () =>
+    run(
+      Effect.gen(function* () {
+        const app = yield* start({ project: 'm', package: 'apps/web' });
+        yield* settle;
+        expect(find(app, 'Tree')!.props).toMatchObject({ ignored: true });
+        send(app, 'Monoverse', { _tag: 'IgnoredToggled' });
+        expect(find(app, 'Tree')!.props).toMatchObject({ ignored: false });
       }),
     ));
 });

@@ -46,14 +46,18 @@ import { Monorepo } from './services/monorepo/index.js';
  *             down to colour the tree; the files it deleted are drawn
  *             unless they are left out, here or in a folder looked into;
  *             what it left unchanged is drawn as it is, faded (the
- *             default) or not at all.
- * 6. Enter    a Package of the Monorepo, by a double click on it; the
- *             project's crumb goes back to the Monorepo's tree.
+ *             default) or not at all. A Package's files outside its
+ *             Source roots are drawn dimmed, unless they are left out.
+ * 6. Enter    a Package of the Monorepo, by a double click on it or from
+ *             the Package menu, which goes back to the Monorepo's tree too.
  * 7. View     a file opens in a dialog over the tree, as the branch has
  *             it, or as its diff while Changes is on and the branch changed
  *             it; a folder, the root included, opens there as the list of
- *             what changed in it while Changes is on, else of every file
- *             in it. One of the two at a time.
+ *             its files, what changed in it marked while Changes is on,
+ *             drawn by the canvas's settings, which it changes too. One of
+ *             the two at a time. A Package viewed from the
+ *             Monorepo's tree is viewed for its changes: Changes turns on
+ *             if it is off, and the folder opens once they are read.
  */
 
 /** Where Monoverse is: the project, the Package in it, and how it is read. */
@@ -131,6 +135,8 @@ const Model = Schema.Struct({
   deleted: Schema.Boolean,
   /** How what the branch left unchanged is drawn, while Changes is on. */
   unchanged: UnchangedSchema,
+  /** Whether a Package's files outside its Source roots are drawn, dimmed. */
+  ignored: Schema.Boolean,
   /** The file open over the tree, relative to the root. */
   file: Schema.NullOr(Schema.String),
   /** The folder open over the tree, and every file in it. */
@@ -138,6 +144,8 @@ const Model = Schema.Struct({
     Schema.Struct({
       path: Schema.String,
       files: Schema.Array(Schema.String),
+      /** The Source roots of the Package it is in; null: none ignored. */
+      sourceRoots: Schema.NullOr(Schema.Array(Schema.String)),
     }),
   ),
   /** The picker is open over an open project. */
@@ -184,13 +192,18 @@ export const Monoverse = Actor.define('Monoverse', {
     ChangesToggled: {},
     DeletedToggled: {},
     UnchangedChosen: { unchanged: UnchangedSchema },
+    IgnoredToggled: {},
     ChangesRead: { at: Schema.String, files: Schema.Array(ChangedPathSchema) },
     ChangesRefused: { at: Schema.String, problem: Schema.String },
     Entered: { package: Schema.String },
     Left: {},
     FileOpened: { path: Schema.String },
     FileClosed: {},
-    FolderViewed: { path: Schema.String, files: Schema.Array(Schema.String) },
+    FolderViewed: {
+      path: Schema.String,
+      files: Schema.Array(Schema.String),
+      sourceRoots: Schema.NullOr(Schema.Array(Schema.String)),
+    },
     FolderClosed: {},
   }),
   emits: { Moved: PlaceSchema.fields },
@@ -267,6 +280,12 @@ export const shownChangesOf = (model: Model, state: State) => {
     : changes.filter(({ status }) => status !== 'deleted');
 };
 
+/** Whether what is open waits on the change set, still being read. */
+const awaitingChanges = (model: Model, state: State) =>
+  changesAt(model, state) !== null &&
+  changesOf(model, state) === null &&
+  model.changesProblem === null;
+
 /** Where a saved project opens. */
 const opening = (
   projects: ReadonlyArray<ProjectEntry> | null,
@@ -302,6 +321,7 @@ export const MonoverseLive = Monoverse.build({
       changes: place.changes,
       deleted: true,
       unchanged: 'dim',
+      ignored: true,
       ...leaving,
       reloads: 0,
     },
@@ -472,7 +492,8 @@ export const MonoverseLive = Monoverse.build({
     folder: Actor.child(FolderViewerLive, {
       while: ({ model, state }) =>
         model.folder !== null &&
-        (state._tag === 'Monorepo' || state._tag === 'Package'),
+        (state._tag === 'Monorepo' || state._tag === 'Package') &&
+        !awaitingChanges(model, state),
       key: ({ model, state }) => {
         const changes = changesOf(model, state);
         return JSON.stringify([
@@ -501,12 +522,23 @@ export const MonoverseLive = Monoverse.build({
           changed: (changes ?? []).filter((change) =>
             isWithin(change.path, path),
           ),
-          deleted: model.deleted,
+          sourceRoots: model.folder?.sourceRoots ?? null,
         };
       },
+      // Its list is drawn by the canvas's settings, and changes them.
+      props: ({ model }) => ({
+        unchanged: model.unchanged,
+        deleted: model.deleted,
+        ignored: model.ignored,
+      }),
       emits: {
         Closed: () => ({ _tag: 'FolderClosed' }),
+        UnchangedChosen: ({ unchanged }) => ({
+          _tag: 'UnchangedChosen',
+          unchanged,
+        }),
         DeletedToggled: () => ({ _tag: 'DeletedToggled' }),
+        IgnoredToggled: () => ({ _tag: 'IgnoredToggled' }),
       },
     }),
   },
@@ -657,6 +689,7 @@ export const MonoverseLive = Monoverse.build({
     },
     DeletedToggled: (_, { model }) => ({ model: { deleted: !model.deleted } }),
     UnchangedChosen: ({ unchanged }) => ({ model: { unchanged } }),
+    IgnoredToggled: (_, { model }) => ({ model: { ignored: !model.ignored } }),
     ChangesRead: ({ at, files }, { model, state }) =>
       at === changesAt(model, state)
         ? { model: { changed: { at, files }, changesProblem: null } }
@@ -685,9 +718,20 @@ export const MonoverseLive = Monoverse.build({
     // 7. View
     FileOpened: ({ path }) => ({ model: { file: path, folder: null } }),
     FileClosed: () => ({ model: { file: null } }),
-    FolderViewed: ({ path, files }) => ({
-      model: { folder: { path, files }, file: null },
-    }),
+    FolderViewed: ({ path, files, sourceRoots }, { model, state }) => {
+      const folder = { folder: { path, files, sourceRoots }, file: null };
+      // The Monorepo's tree knows no Package's files, only what changed.
+      const aPackage =
+        state._tag === 'Monorepo' &&
+        model.package === null &&
+        state.workspace.packages.some((one) => one.path === path);
+      if (!aPackage || model.changes) return { model: folder };
+      const next = { ...model, changes: true };
+      return {
+        model: { ...folder, changes: true, changesProblem: null },
+        emit: moved(placeOf(next, state)),
+      };
+    },
     FolderClosed: () => ({ model: { folder: null } }),
   },
   states: {
@@ -706,14 +750,16 @@ export const MonoverseLive = Monoverse.build({
             package: model.package,
             changes: shownChangesOf(model, state),
             unchanged: model.unchanged,
+            ignored: model.ignored,
           }),
           emits: {
             Entered: ({ path }) => ({ _tag: 'Entered', package: path }),
             Opened: ({ path }) => ({ _tag: 'FileOpened', path }),
-            Viewed: ({ path, files }) => ({
+            Viewed: ({ path, files, sourceRoots }) => ({
               _tag: 'FolderViewed',
               path,
               files,
+              sourceRoots,
             }),
           },
         }),
@@ -733,13 +779,15 @@ export const MonoverseLive = Monoverse.build({
             branch: model.branch,
             changes: shownChangesOf(model, state),
             unchanged: model.unchanged,
+            ignored: model.ignored,
           }),
           emits: {
             Opened: ({ path }) => ({ _tag: 'FileOpened', path }),
-            Viewed: ({ path, files }) => ({
+            Viewed: ({ path, files, sourceRoots }) => ({
               _tag: 'FolderViewed',
               path,
               files,
+              sourceRoots,
             }),
           },
         }),

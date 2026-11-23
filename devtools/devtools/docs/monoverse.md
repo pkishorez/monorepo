@@ -64,8 +64,15 @@ _Avoid_: monorepo graph, package cards
 
 **Package view**:
 The Folder tree of one Package, every folder open to its files, entered by
-double-clicking a Package in the Repo view.
+double-clicking a Package in the Repo view, or by choosing it from the
+Package menu.
 _Avoid_: Embedded Laymos, drill-down
+
+**Package menu**:
+Top left beside the project's own menu in a Monorepo: the Package shown,
+or All packages for the Repo view, listing both to go straight to another.
+A Single Package has none.
+_Avoid_: package switcher, package picker
 
 **Source root**:
 A folder of a Package whose files are analysed: their imports are read and
@@ -74,8 +81,8 @@ the Folder rule applies to them. Read only from `sourceRoots` in the
 whole Package is its one Source root.
 
 **Ignored file**:
-A file of a Package outside its Source roots: always shown, dimmed, never
-analysed.
+A file of a Package outside its Source roots: shown dimmed unless the
+settings leave the ignored files out, and never analysed.
 _Avoid_: excluded file, git-ignored file (never shown at all)
 
 **Connection**:
@@ -131,8 +138,8 @@ deleted (red). A deleted file is shown where it stood.
 
 **Unchanged files**:
 While Changes is on, how the files and folders the Branch left untouched are
-drawn: shown as they are, dimmed (the default) or hidden, leaving only what
-changed.
+drawn, on the canvas and in a Folder view alike: shown as they are, dimmed
+(the default) or hidden, leaving only what changed.
 _Avoid_: noise filter
 
 **Deleted files**:
@@ -141,8 +148,9 @@ they stood and listed when a folder is looked into. One choice for both.
 _Avoid_: tombstones
 
 **Folder view**:
-A folder, the root included, looked into: the files the Branch changed in it
-as a tree of their folders beside one file's diff, or, with Changes off,
-every file in it beside its text. Opened from the selection bar's one
-button, View changes or Browse files.
+A folder, the root included, looked into: its files as a tree of their
+folders, drawn by the same settings as the canvas, beside one file's diff,
+or with Changes off its text. Opened from the selection bar, View changes
+or Browse files; a Package in the Repo view is looked into for what changed
+in it only.
 _Avoid_: changes panel, file list

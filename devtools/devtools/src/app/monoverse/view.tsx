@@ -13,11 +13,12 @@ import {
   changesOf,
   isRereading,
   rootOf,
+  shownChangesOf,
 } from './actor.js';
 import { FileViewerView } from './file-viewer/index.js';
 import { FolderViewerView } from './folder-viewer/index.js';
 import { GitControls } from './git-controls/index.js';
-import { nameOf } from './model/index.js';
+import { changeTallies, nameOf, statusOf, type Change } from './model/index.js';
 import { MonorepoView } from './monorepo/index.js';
 import { PackageView } from './package/index.js';
 import { ProjectPickerView } from './picker/index.js';
@@ -29,6 +30,27 @@ import { Breadcrumb, CannotOpen, Opening, Rereading } from './ui/index.js';
  * controls on the right, over a canvas as big as it can be, the open file
  * beside it; the picker opens over it from the project's crumb.
  */
+
+/** What changed in each Package: how many files, and the colour they roll up to. */
+const changesByPackage = (
+  packages: ReadonlyArray<{ readonly path: string }>,
+  changes: ReadonlyArray<Change>,
+) => {
+  const tallies = changeTallies(changes);
+  const byPackage = new Map<
+    string,
+    { count: number; status: ReturnType<typeof statusOf> }
+  >();
+  for (const { path } of packages) {
+    const tally = tallies.get(path);
+    if (tally === undefined) continue;
+    byPackage.set(path, {
+      count: tally.added + tally.modified + tally.deleted,
+      status: statusOf(tally),
+    });
+  }
+  return byPackage;
+};
 
 export const MonoverseView = View.make(
   MonoverseLive,
@@ -77,36 +99,47 @@ export const MonoverseView = View.make(
 
     const project = model.projects?.find((one) => one.id === state.project);
     const folder = rootOf(state) ?? '';
-    const workspace =
-      state._tag === 'Monorepo' || state._tag === 'Package'
-        ? state.workspace
-        : null;
-    const inside =
-      state._tag === 'Monorepo' && model.package !== null
-        ? (workspace?.packages.find((one) => one.path === model.package)
-            ?.name ?? nameOf(model.package))
-        : null;
     // A Package entered, or a Single Package, says so itself.
     const rereading =
       state._tag === 'Monorepo' &&
       model.package === null &&
       isRereading(model, state);
     const changes = changesOf(model, state);
+    // What changed in each Package, for the Package menu.
+    const shown = shownChangesOf(model, state);
+    const packageChanges =
+      state._tag !== 'Monorepo' || shown === null
+        ? null
+        : changesByPackage(state.workspace.packages, shown);
 
     return (
       <div {...root} className="flex h-full min-h-0 flex-col">
-        <header className="flex min-h-11 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-border/60 py-1.5 pr-2 pl-3 sm:py-0">
+        <header className="flex min-h-11 shrink-0 items-center gap-3 border-b border-border/60 py-1 pr-2 pl-2 max-sm:pl-1.5">
           <Breadcrumb
             project={project?.name ?? nameOf(folder)}
             path={folder}
-            inside={inside}
-            onProject={() =>
-              send(inside === null ? { _tag: 'Switching' } : { _tag: 'Left' })
+            packages={
+              state._tag === 'Monorepo'
+                ? {
+                    all: state.workspace.packages,
+                    current: model.package,
+                    changes:
+                      packageChanges === null
+                        ? null
+                        : { of: packageChanges, unchanged: model.unchanged },
+                    onChoose: (path) =>
+                      send(
+                        path === null
+                          ? { _tag: 'Left' }
+                          : { _tag: 'Entered', package: path },
+                      ),
+                  }
+                : null
             }
             onSwitch={() => send({ _tag: 'Switching' })}
           />
-          {/* Phones: one settings button beside the name. */}
-          <div className="ml-auto">
+          {/* Phones: one settings button at the end of the line. */}
+          <div className="ml-auto shrink-0">
             <GitControls
               branches={model.branches}
               problem={model.gitProblem}
@@ -124,6 +157,8 @@ export const MonoverseView = View.make(
               onUnchanged={(unchanged) =>
                 send({ _tag: 'UnchangedChosen', unchanged })
               }
+              ignored={model.ignored}
+              onIgnored={() => send({ _tag: 'IgnoredToggled' })}
             />
           </div>
         </header>
