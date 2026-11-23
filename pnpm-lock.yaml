@@ -141,6 +141,9 @@ catalogs:
     '@tanstack/react-query':
       specifier: 5.104.5
       version: 5.104.5
+    '@tanstack/react-virtual':
+      specifier: 3.14.27
+      version: 3.14.27
     '@tsconfig/node22':
       specifier: 22.0.6
       version: 22.0.6
@@ -743,6 +746,9 @@ importers:
       '@tanstack/react-db':
         specifier: 'catalog:'
         version: 0.5.12(@typescript/typescript6@6.0.2)(react@19.3.1)
+      '@tanstack/react-virtual':
+        specifier: 'catalog:'
+        version: 3.14.27(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.5
@@ -4565,6 +4571,12 @@ packages:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
       react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
+  '@tanstack/react-virtual@3.14.27':
+    resolution: {integrity: sha512-0p85suVnPMl17kx+nDnwZ+Pf9t1Q0/fd3x32O1VPVCe/JLIAjjxGsyM4b6xhheepmNWpuyze18Bu4vbtEudJ+Q==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+      react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+
   '@tanstack/router-core@1.171.27':
     resolution: {integrity: sha512-wDwSLvoLwIaNcnx9UNcN9Mb7Y8QwCYq1U1RQZwyN186gnkIoIYI2SOxy8VqH1vFigbkHkk4FmwMAQlghPgDK2g==}
     engines: {node: '>=20.19'}
@@ -4628,6 +4640,9 @@ packages:
 
   '@tanstack/store@0.9.3':
     resolution: {integrity: sha512-8reSzl/qGWGGVKhBoxXPMWzATSbZLZFWhwBAFO9NAyp0TxzfBP0mIrGb8CP8KrQTmvzXlR/vFPPUrHTLBGyFyw==}
+
+  '@tanstack/virtual-core@3.19.12':
+    resolution: {integrity: sha512-yxdda+JeX5DcVQAA3FO8oICcfF8Z6aU+M/eYUla4eRV3MIk3tCFUEwufhQsVnQMW4iscfnEAesMKjixmUjb3bQ==}
 
   '@tanstack/virtual-file-routes@1.162.0':
     resolution: {integrity: sha512-uhOeFyxLcU41HzvrxsGpiWdcMbScY1EDgbZ5K7DVRMYInbLYWAC0EA/kx9wXAoSM8q82bUG2hRl8+EAjE6XAbA==}
@@ -11313,6 +11328,12 @@ snapshots:
       use-sync-external-store: 1.7.0(react@19.3.1)
     optional: true
 
+  '@tanstack/react-virtual@3.14.27(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
+    dependencies:
+      '@tanstack/virtual-core': 3.19.12
+      react: 19.3.1
+      react-dom: 19.3.1(react@19.3.1)
+
   '@tanstack/router-core@1.171.27':
     dependencies:
       '@tanstack/history': 1.162.1
@@ -11445,6 +11466,8 @@ snapshots:
 
   '@tanstack/store@0.9.3':
     optional: true
+
+  '@tanstack/virtual-core@3.19.12': {}
 
   '@tanstack/virtual-file-routes@1.162.0':
     optional: true

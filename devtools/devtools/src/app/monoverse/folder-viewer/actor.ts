@@ -145,23 +145,48 @@ export function entriesOf(
   return entries.sort((a, b) => a.path.localeCompare(b.path));
 }
 
+// The list with every folder open, worked out once for each list and its
+// settings: every step, and the buttons either side of the file shown,
+// read it, and a Monorepo's list holds thousands of files.
+let lastOpen: {
+  readonly key: ReadonlyArray<unknown>;
+  readonly files: ReadonlyArray<string>;
+  readonly folders: ReadonlyArray<string>;
+} | null = null;
+
+function allOpen(model: Listed, settings: FolderSettings = defaultSettings) {
+  const key = [
+    model.path,
+    model.base,
+    model.files,
+    model.changed,
+    model.sourceRoots,
+    settings.unchanged,
+    settings.deleted,
+    settings.ignored,
+  ];
+  if (lastOpen?.key.every((one, index) => one === key[index]) === true)
+    return lastOpen;
+  const rows = fileTreeRows(model.path, entriesOf(model, settings), new Set());
+  lastOpen = {
+    key,
+    files: rows.flatMap((row) => (row.kind === 'file' ? [row.path] : [])),
+    folders: rows.flatMap((row) => (row.kind === 'folder' ? [row.path] : [])),
+  };
+  return lastOpen;
+}
+
 /** Every file the list shows, in its order with every folder open. */
 export const filesInOrder = (
   model: Listed,
   settings?: FolderSettings,
-): ReadonlyArray<string> =>
-  fileTreeRows(model.path, entriesOf(model, settings), new Set()).flatMap(
-    (row) => (row.kind === 'file' ? [row.path] : []),
-  );
+): ReadonlyArray<string> => allOpen(model, settings).files;
 
 /** Every folder the list can show, by the path of its row. */
 export const foldersOf = (
   model: Listed,
   settings?: FolderSettings,
-): ReadonlyArray<string> =>
-  fileTreeRows(model.path, entriesOf(model, settings), new Set()).flatMap(
-    (row) => (row.kind === 'folder' ? [row.path] : []),
-  );
+): ReadonlyArray<string> => allOpen(model, settings).folders;
 
 /** The files a step goes between: the changed ones while Changes is on, else all. */
 export function stepsOf(

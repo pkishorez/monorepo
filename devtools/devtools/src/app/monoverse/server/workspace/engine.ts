@@ -10,7 +10,7 @@ import {
 import { buildPackageGraph } from './package-graph/index.js';
 import { detectPackageManager } from './package-manager/index.js';
 
-/** A Workspace before the files outside its Packages are listed. */
+/** A Workspace before its files are listed. */
 export type WorkspaceAnalysis = Omit<Workspace, 'files'>;
 
 export type AnalyzeMonorepoError = MonorepoReadError | ManifestError;

@@ -13,7 +13,16 @@ describe('a Project opened at a branch', () => {
         name: 'fixture',
         path: repo,
         packageManager: 'pnpm',
-        files: ['package.json', 'pnpm-workspace.yaml', 'README.md'],
+        // Every file, those inside its Packages too.
+        files: [
+          'package.json',
+          'packages/core/package.json',
+          'packages/core/src/feature.ts',
+          'packages/core/src/index.ts',
+          'packages/core/src/util.ts',
+          'pnpm-workspace.yaml',
+          'README.md',
+        ],
       });
       expect(workspace.packages.map(({ name, path }) => [name, path])).toEqual([
         ['core', 'packages/core'],

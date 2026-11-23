@@ -28,7 +28,11 @@ import type {
   TreeNode,
 } from '../../model/index.js';
 import { parentOf } from '../../model/index.js';
-import { usePanelSlots } from '../../ui/index.js';
+import {
+  placesAmongSiblings,
+  usePanelSlots,
+  useVirtualRows,
+} from '../../ui/index.js';
 import type { NodeChange } from '../lenses/git/index.js';
 import { SelectionBar } from '../selection-bar/index.js';
 import { OutlineArcs, createHovered } from './arcs.js';
@@ -180,6 +184,10 @@ export function Outline({
     return (path: string) => at.get(path);
   }, [rows]);
   const place = useMemo(() => placeRows(rows), [rows]);
+  const among = useMemo(
+    () => placesAmongSiblings(rows.map(({ depth }) => depth)),
+    [rows],
+  );
   const guides = useMemo(
     () => guidesOf(rows, place, lead),
     [rows, place, lead],
@@ -216,13 +224,21 @@ export function Outline({
 
   // Focuses a row, scrolling only as far as it takes to show it clear of
   // the corner button and the Selection Bar.
+  // The row may be far out of sight, and not drawn: it is drawn first.
+  const reachRow = useRef<(index: number, then: () => void) => void>(
+    () => undefined,
+  );
   const focusRow = useCallback((path: string) => {
-    const element = content.current?.querySelector<HTMLElement>(
-      `[data-path="${CSS.escape(path)}"]`,
-    );
-    if (element === null || element === undefined) return;
-    element.focus({ preventScroll: true });
-    element.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    const index = latest.current.indexOf(path);
+    if (index === undefined) return;
+    reachRow.current(index, () => {
+      const element = content.current?.querySelector<HTMLElement>(
+        `[data-path="${CSS.escape(path)}"]`,
+      );
+      if (element === null || element === undefined) return;
+      element.focus({ preventScroll: true });
+      element.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    });
   }, []);
 
   const onKeyDown = useCallback(
@@ -306,6 +322,28 @@ export function Outline({
     selected === null ? undefined : tree.nodes.get(selected);
   const tabbable =
     selectedIndex === undefined ? rows[0]?.node.path : (selected ?? undefined);
+
+  // Only the rows that show are drawn, and those the keys and Tab need
+  // wherever the tree is scrolled: the selection, the row Tab lands on,
+  // and the one focused.
+  const [focused, setFocused] = useState<string | null>(null);
+  const keyOf = useCallback(
+    (index: number) => rows[index]?.node.path ?? String(index),
+    [rows],
+  );
+  const drawn = useVirtualRows({
+    count: rows.length,
+    scroller,
+    sizeOf: place.height,
+    keyOf,
+    offset: room.top + topBarHeight + topInset,
+    keep: [
+      selectedIndex,
+      tabbable === undefined ? undefined : indexOf(tabbable),
+      focused === null ? undefined : indexOf(focused),
+    ],
+  });
+  reachRow.current = drawn.reach;
 
   const reset = () => {
     byKeys.current = false;
@@ -404,34 +442,44 @@ export function Outline({
             onKeyDown={onKeyDown}
             onPointerOver={onPointerOver}
             onPointerLeave={() => hovered.set(null)}
+            onFocus={(event) => {
+              const path = event.target
+                .closest('[data-row]')
+                ?.getAttribute('data-path');
+              if (path !== null && path !== undefined) setFocused(path);
+            }}
           >
             <OutlineGuides
               guides={guides}
               current={selected === null ? null : parentOf(selected)}
             />
-            {rows.map(({ node, depth }, index) => (
-              <OutlineRow
-                key={node.path}
-                node={node}
-                depth={depth}
-                top={place.top(index)}
-                height={place.height(index)}
-                lead={lead}
-                width={width}
-                open={open.has(node.path)}
-                selected={node.path === selected}
-                tabbable={node.path === tabbable}
-                ignored={ignored(node.path)}
-                dimmed={dimmed(node.path)}
-                faded={faded(node.path)}
-                connection={connections.get(node.path) ?? null}
-                broken={broken.get(node.path) ?? 0}
-                change={changes.get(node.path) ?? null}
-                inside={folding.inside(node.path)}
-                opens={opensOf(node)}
-                actions={rowActions}
-              />
-            ))}
+            {drawn.indices.map((index) => {
+              const { node, depth } = rows[index]!;
+              return (
+                <OutlineRow
+                  key={node.path}
+                  node={node}
+                  depth={depth}
+                  among={among[index]!}
+                  top={place.top(index)}
+                  height={place.height(index)}
+                  lead={lead}
+                  width={width}
+                  open={open.has(node.path)}
+                  selected={node.path === selected}
+                  tabbable={node.path === tabbable}
+                  ignored={ignored(node.path)}
+                  dimmed={dimmed(node.path)}
+                  faded={faded(node.path)}
+                  connection={connections.get(node.path) ?? null}
+                  broken={broken.get(node.path) ?? 0}
+                  change={changes.get(node.path) ?? null}
+                  inside={folding.inside(node.path)}
+                  opens={opensOf(node)}
+                  actions={rowActions}
+                />
+              );
+            })}
             {selected !== null && selectedIndex !== undefined ? (
               <OutlineArcs
                 selected={selected}

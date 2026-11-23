@@ -65,14 +65,15 @@ export const WorkspaceSchema = Schema.Struct({
   packages: Schema.Array(PackageSchema),
   cycles: Schema.Array(PackageCycleSchema),
   /**
-   * Every file git knows (tracked, or new and not ignored) outside every
-   * Package, relative to the root: what the repo view shows besides them.
+   * Every file git knows (tracked, or new and not ignored), relative to
+   * the root: the repo view draws those outside every Package, and lists
+   * them all when a folder is viewed.
    */
   files: Schema.Array(Schema.String),
 }).annotate({
   title: 'Workspace',
   description:
-    'One Monorepo or Single Package as Monoverse opens it: which of the two it is, its Package Manager, its Packages and their dependencies on each other, the Package cycles among them, and the files outside every Package.',
+    'One Monorepo or Single Package as Monoverse opens it: which of the two it is, its Package Manager, its Packages and their dependencies on each other, the Package cycles among them, and every file in it.',
 });
 
 export type Workspace = typeof WorkspaceSchema.Type;
