@@ -19,7 +19,7 @@ import {
 import type { Unchanged } from './actor.js';
 
 /*
- * What a file tree draws, the same wherever one is drawn, the canvas or a
+ * What a file tree draws, the same wherever one is drawn, the tree or a
  * folder looked into: a Package's ignored files, and while Changes is on,
  * what the branch left unchanged (shown, dimmed or hidden) and what it
  * deleted. Compact rows in a popover on a wide screen; a thumb's height

@@ -9,7 +9,7 @@ import { fileTreeRows } from './file-tree.js';
 
 /*
  * One folder looked into, the root included: its files as a tree of their
- * folders, drawn as the canvas draws its own, by the same settings. While
+ * folders, drawn as the tree draws its own, by the same settings. While
  * Changes is on, each changed file is marked with how, and what the branch
  * left unchanged is listed as it is, dimmed or not at all; the files it
  * deleted are listed unless they are left out. A Package's files outside
@@ -21,7 +21,7 @@ import { fileTreeRows } from './file-tree.js';
  *            open; or everything inside one folder, all open or every
  *            folder in it closed, it staying open. The settings come from
  *            whoever holds it, and a change to one Emits it, so the
- *            canvas changes with it.
+ *            tree changes with it.
  * 2. Show    the one chosen, else the first changed (or, with Changes off,
  *            the first file), in a FileViewer; one the settings leave out
  *            gives way to that first one. On a phone the list and the file
@@ -51,7 +51,7 @@ const FolderInput = Schema.Struct({
   sourceRoots: Schema.NullOr(Schema.Array(Schema.String)),
 });
 
-/** How the list draws its files: the canvas's settings. */
+/** How the list draws its files: the tree's settings. */
 export const FolderSettingsSchema = Schema.Struct({
   unchanged: UnchangedSchema,
   deleted: Schema.Boolean,

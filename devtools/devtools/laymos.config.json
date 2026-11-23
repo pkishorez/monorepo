@@ -108,7 +108,6 @@
       "src/app/monoverse/ui"
     ],
     "src/app/monoverse/tree/outline": [
-      "src/app/monoverse/tree/canvas",
       "src/app/monoverse/tree/lenses",
       "src/app/monoverse/tree/selection-bar"
     ],
