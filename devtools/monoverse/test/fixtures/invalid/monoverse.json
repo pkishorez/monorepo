@@ -1,0 +1,5 @@
+{
+  "sourceRoots": ["src"],
+  "preset": "kabuki",
+  "rules": { "imports": { "doors": ["shared"] } }
+}
