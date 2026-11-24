@@ -4,13 +4,13 @@ import { describe, expect, it } from 'vitest';
 import { Actor, Runtime } from '@kestack/kabuki';
 import type { Instance } from '@kestack/kabuki/types';
 import {
-  MonoverseClient,
-  type MonoverseClientService,
-} from '../../../../services/monoverse-client/contract/index.js';
-import {
-  FolderError,
-  type Folder,
-  type FolderListing,
+  Projects,
+  ProjectsProblem,
+  type ProjectsService,
+} from '../../../../services/projects/contract/index.js';
+import type {
+  Folder,
+  FolderListing,
 } from '../../../../server/rpc/folders/contract/index.js';
 import {
   ProjectEntrySchema,
@@ -25,10 +25,10 @@ import {
 } from '../logic/shared/index.js';
 
 /*
- * The Project Picker in memory, on a server that answers what the test
- * says, mounted by a host that keeps what it Emits: a recent Project picked
- * opens, the folders are walked from home and back, a typed path goes
- * there, a chosen folder is added and opens, a Project is removed.
+ * The Project Picker in memory, on a Projects service that answers what
+ * the test says, mounted by a host that keeps what it Emits: a recent
+ * Project picked opens, the folders are walked from home and back, a typed
+ * path goes there, a chosen folder is added and opens, a Project is removed.
  */
 
 const Host = Actor.define('Host', {
@@ -110,7 +110,7 @@ const listFolders = ({
   const folders = disk[at];
   if (folders === undefined)
     return Effect.fail(
-      new FolderError({ reason: 'not-found', path: at, message: 'Not found' }),
+      new ProjectsProblem({ reason: 'failed', message: 'Not found' }),
     );
   const listing: FolderListing = {
     path: at,
@@ -127,24 +127,24 @@ const listFolders = ({
   return Effect.succeed(listing);
 };
 
-/** The server as the test says: anything it does not say never answers. */
+/** The service as the test says: anything it does not say never answers. */
 const server = (asked: Asked, projects: Array<ProjectEntry>) => {
   const answers: Record<
     string,
     (payload: never) => Effect.Effect<unknown, unknown>
   > = {
-    ListProjects: () => Effect.succeed([...projects]),
-    AddProject: ({ path }: { path: string }) =>
+    projects: () => Effect.succeed([...projects]),
+    addProject: ({ path }: { path: string }) =>
       Effect.succeed(project('new', path)),
-    RemoveProject: ({ id }: { id: string }) => {
+    removeProject: ({ id }: { id: string }) => {
       const at = projects.findIndex((each) => each.id === id);
       if (at !== -1) projects.splice(at, 1);
       return Effect.succeed({ removed: at !== -1 });
     },
-    ListFolders: listFolders,
+    listFolders,
   };
-  return Layer.succeed(MonoverseClient)(
-    new Proxy({} as MonoverseClientService, {
+  return Layer.succeed(Projects)(
+    new Proxy({} as ProjectsService, {
       get: (_, method: string) => (payload: never) => {
         asked.push({ method, payload });
         return answers[method]?.(payload) ?? Effect.never;
@@ -229,7 +229,7 @@ describe('ProjectPicker', () => {
         });
         expect(labels(app)).toEqual(['kestack', 'foo', 'food', 'bar']);
         expect(asked).toContainEqual({
-          method: 'ListFolders',
+          method: 'listFolders',
           payload: { path: `${HOME}/code`, query: '', hidden: false },
         });
         send(app, { _tag: 'WentBack' });
@@ -276,7 +276,7 @@ describe('ProjectPicker', () => {
         send(app, { _tag: 'Typed', query: '.co' });
         yield* wait(250);
         expect(asked).toContainEqual({
-          method: 'ListFolders',
+          method: 'listFolders',
           payload: { path: null, query: '.co', hidden: true },
         });
         expect(labels(app)).toEqual(['.config']);
@@ -296,7 +296,7 @@ describe('ProjectPicker', () => {
         send(app, { _tag: 'Chose', on: `${HOME}/code/foo` });
         yield* wait();
         expect(asked).toContainEqual({
-          method: 'AddProject',
+          method: 'addProject',
           payload: { path: `${HOME}/code/foo` },
         });
         expect(host(app).picked).toMatchObject([
@@ -339,7 +339,7 @@ describe('ProjectPicker', () => {
         expect(picker(app).model.highlighted).toBe(projectValue('n'));
         yield* wait();
         expect(asked).toContainEqual({
-          method: 'RemoveProject',
+          method: 'removeProject',
           payload: { id: 'k' },
         });
         expect(picker(app).model.recent).toMatchObject([{ id: 'n' }]);

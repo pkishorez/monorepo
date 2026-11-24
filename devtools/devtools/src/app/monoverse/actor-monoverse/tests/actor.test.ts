@@ -4,14 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { Actor, Runtime } from '@kestack/kabuki';
 import type { Instance } from '@kestack/kabuki/types';
 
-import {
-  MonoverseClient,
-  type MonoverseClientService,
-} from '../../services/monoverse-client/contract/index.js';
-import type {
-  Branches,
-  ChangeSet,
-} from '../../server/rpc/git/contract/index.js';
+import type { Branches } from '../../server/rpc/git/contract/index.js';
 import type { ProjectEntry } from '../../server/rpc/project-registry/contract/index.js';
 import type {
   PackageContents,
@@ -19,22 +12,21 @@ import type {
 } from '../../server/rpc/project/contract/index.js';
 import { Monoverse, PlaceSchema, type Place } from '../index.js';
 import {
-  Monorepo,
-  MonorepoProblem,
-  type MonorepoService,
-} from '../../services/monorepo/contract/index.js';
+  Projects,
+  type ProjectsService,
+} from '../../services/projects/contract/index.js';
 
 /*
- * Monoverse in memory, on a Monorepo service that answers what the test
+ * Monoverse in memory, on a Projects service that answers what the test
  * says, mounted by a host that keeps the Place it hears of and hands it
  * back as Props, as the page does with the address: the project its
- * Input names opens in the Monorepo's tree, a Single Package goes straight
- * to its Package, a Package is entered and left, the branch and Compare
- * to move the Place, Changes reads what the branch changed, and the host
- * naming another Place moves the same Monoverse there.
+ * Input names opens as a Project at the Place, a project not saved shows
+ * the picker, the picker opens over a project, every move made in the
+ * Project moves the Place, and the host naming another Place moves the
+ * same Monoverse there.
  */
 
-const Host = Actor.define('Host', {
+const HostShape = Actor.define('Host', {
   input: PlaceSchema,
   model: Schema.Struct({
     /** What the host names, as an address would. */
@@ -48,7 +40,7 @@ const Host = Actor.define('Host', {
   },
 });
 
-const HostLive = Host.build({
+const Host = HostShape.build({
   init: (place) => ({ model: { place, moved: [] } }),
   children: {
     monoverse: Actor.child(Monoverse, {
@@ -158,19 +150,11 @@ const branches: Branches = {
   ],
 };
 
-const changeSet: ChangeSet = {
-  baseRef: 'abc123',
-  files: [
-    { path: 'apps/web/src/index.ts', status: 'modified' },
-    { path: 'docs/gone.md', status: 'deleted' },
-  ],
-};
-
 /** Every call the service was asked, with what. */
 type Asked = Array<readonly [string, unknown]>;
 
-/** The service as the test says. */
-const service = (asked: Asked): MonorepoService => {
+/** The service as the test says; the picker's folders never answer. */
+const service = (asked: Asked): ProjectsService => {
   const answer =
     <A, I>(name: string, value: (input: I) => A) =>
     (input: I) =>
@@ -183,6 +167,9 @@ const service = (asked: Asked): MonorepoService => {
       entry('m', '/repo'),
       entry('s', '/solo'),
     ]),
+    addProject: () => Effect.never,
+    removeProject: () => Effect.never,
+    listFolders: () => Effect.never,
     analyse: answer('analyse', ({ root }: { root: string }) => {
       const workspace = root === '/repo' ? monorepo : single;
       // The Package links the real service works out of each workspace.
@@ -199,7 +186,7 @@ const service = (asked: Asked): MonorepoService => {
       contents(path === '.' ? '' : path),
     ),
     branches: answer('branches', () => branches),
-    changes: answer('changes', () => changeSet),
+    changes: answer('changes', () => ({ baseRef: 'abc123', files: [] })),
     readFile: answer('readFile', ({ path }: { path: string }) => ({
       path,
       content: 'text',
@@ -211,19 +198,7 @@ const service = (asked: Asked): MonorepoService => {
   };
 };
 
-/** The picker's client: it lists nothing the tests read, and never answers the rest. */
-const client = Layer.succeed(MonoverseClient)(
-  new Proxy({} as MonoverseClientService, {
-    get: (_, method: string) => () =>
-      method === 'ListProjects' ? Effect.succeed([]) : Effect.never,
-  }),
-);
-
-const layer = (asked: Asked, overrides: Partial<MonorepoService> = {}) =>
-  Layer.merge(
-    Layer.succeed(Monorepo)({ ...service(asked), ...overrides }),
-    client,
-  );
+const layer = (asked: Asked) => Layer.succeed(Projects)(service(asked));
 
 const settle = Effect.promise(
   () => new Promise((done) => setTimeout(done, 20)),
@@ -237,7 +212,7 @@ const walk = (at: Instance): ReadonlyArray<Instance> => [
     ((Array.isArray(child) ? child : [child]) as Array<Instance>).flatMap(walk),
   ),
 ];
-type App = Runtime<typeof HostLive>;
+type App = Runtime<typeof Host>;
 
 const find = (app: App, actor: string) =>
   walk(app.snapshot.root).find((each) => each.actor === actor);
@@ -254,115 +229,68 @@ const send = (
 const named = (asked: Asked, name: string) =>
   asked.filter(([each]) => each === name).map(([, input]) => input);
 
-const start = (
-  at: Partial<Place>,
-  asked: Asked = [],
-  overrides: Partial<MonorepoService> = {},
-) =>
-  Runtime.scoped(HostLive, {
+const start = (at: Partial<Place>, asked: Asked = []) =>
+  Runtime.scoped(Host, {
     input: place(at),
-    layer: layer(asked, overrides),
+    layer: layer(asked),
   });
 
 describe('Monoverse', () => {
-  it('opens the project its Input names in the Monorepo tree, each Package one node', () =>
+  it('opens the project its Input names as a Project, at the Place', () =>
     run(
       Effect.gen(function* () {
         const asked: Asked = [];
-        const app = yield* start({ project: 'm' }, asked);
+        const app = yield* start({ project: 'm', base: 'next' }, asked);
         yield* settle;
-        expect(tool(app).state).toMatchObject({
-          _tag: 'Monorepo',
+        expect(tool(app).state).toEqual({
+          _tag: 'Showing',
           project: 'm',
           root: '/repo',
+        });
+        expect(find(app, 'Project')!.props).toEqual({
+          name: 'repo',
+          package: null,
+          branch: null,
+          base: 'next',
+          changes: false,
+          deleted: true,
+          unchanged: 'dim',
+          ignored: true,
+        });
+        expect(find(app, 'Project')!.state).toMatchObject({
+          _tag: 'Monorepo',
         });
         expect(named(asked, 'analyse')).toEqual([
           { root: '/repo', branch: null },
         ]);
-        expect(tool(app).model).toMatchObject({ branches });
-        const tree = find(app, 'Tree')!;
-        expect(tree.props).toMatchObject({
-          base: '',
-          name: 'repo',
-          files: ['package.json', 'docs/notes.md'],
-          packages: [
-            {
-              path: 'packages/core',
-              name: '@me/core',
-              check: { _tag: 'Unchecked' },
-            },
-            {
-              path: 'apps/web',
-              name: 'web',
-              check: { _tag: 'Checked', violations: [] },
-            },
-          ],
-          links: [['apps/web', 'packages/core']],
-          broken: [],
-          changes: null,
-        });
-        expect(tree.model).toMatchObject({ open: ['apps', 'packages'] });
         // Started from the Input: nothing to tell.
         expect(host(app).moved).toEqual([]);
       }),
     ));
 
-  it('enters a Package on a double click, at the branch, and leaves it from the crumb', () =>
+  it('moves the Place as a Package is entered in the Project, and left', () =>
     run(
       Effect.gen(function* () {
-        const asked: Asked = [];
-        const app = yield* start({ project: 'm' }, asked);
+        const app = yield* start({ project: 'm' });
         yield* settle;
         send(app, 'Tree', { _tag: 'Entered', path: 'apps/web' });
         yield* settle;
         expect(host(app).place).toEqual(
           place({ project: 'm', package: 'apps/web' }),
         );
-        expect(find(app, 'Package')!.state).toMatchObject({
-          _tag: 'Contents',
+        expect(find(app, 'Project')!.props).toMatchObject({
+          package: 'apps/web',
         });
-        // Its Violations, as the server checked them, are the tree's broken links.
-        const trees = walk(app.snapshot.root).filter(
-          (each) => each.actor === 'Tree',
-        );
-        expect(
-          trees.find(({ props }) => props.base === 'apps/web'),
-        ).toMatchObject({
-          props: {
-            broken: [
-              {
-                from: 'apps/web/src/app/actor.ts',
-                to: 'apps/web/src/index.ts',
-                line: 1,
-                column: 22,
-                message: "'src/index.ts' is beside or above this file.",
-              },
-            ],
-          },
+        expect(find(app, 'Package')!.model).toMatchObject({
+          path: 'apps/web',
         });
-        expect(named(asked, 'readPackage')).toEqual([
-          { root: '/repo', branch: null, path: 'apps/web' },
-        ]);
-        send(app, 'Monoverse', { _tag: 'Left' });
+        send(app, 'Project', { _tag: 'Left' });
         yield* settle;
         expect(find(app, 'Package')).toBeUndefined();
         expect(host(app).moved.map((one) => one.package)).toEqual([
           'apps/web',
           null,
         ]);
-      }),
-    ));
-
-  it('takes a Single Package straight to its Package', () =>
-    run(
-      Effect.gen(function* () {
-        const app = yield* start({ project: 's' });
-        yield* settle;
-        expect(tool(app).state).toMatchObject({ _tag: 'Package' });
-        expect(find(app, 'Tree')!.props).toMatchObject({
-          base: '',
-          sourceRoots: ['src'],
-        });
       }),
     ));
 
@@ -380,8 +308,11 @@ describe('Monoverse', () => {
         });
         yield* settle;
         expect(tool(app).state).toMatchObject({
-          _tag: 'Monorepo',
+          _tag: 'Showing',
           project: 'n',
+        });
+        expect(find(app, 'Project')!.state).toMatchObject({
+          _tag: 'Monorepo',
         });
         expect(find(app, 'ProjectPicker')).toBeUndefined();
         // Another project opens at its own branch.
@@ -389,125 +320,75 @@ describe('Monoverse', () => {
       }),
     ));
 
-  it('opens the picker over an open project, and closes it', () =>
+  it("opens the picker over an open project from the Project's crumb, and closes it", () =>
     run(
       Effect.gen(function* () {
         const app = yield* start({ project: 'm' });
         yield* settle;
-        send(app, 'Monoverse', { _tag: 'SwitchAsked' });
+        const project = find(app, 'Project')!.address;
+        send(app, 'Project', { _tag: 'SwitchAsked' });
         expect(find(app, 'ProjectPicker')!.props).toEqual({ current: 'm' });
         send(app, 'Monoverse', { _tag: 'Dismissed' });
         expect(find(app, 'ProjectPicker')).toBeUndefined();
-        expect(tool(app).state).toMatchObject({ _tag: 'Monorepo' });
+        expect(find(app, 'Project')!.address).toBe(project);
       }),
     ));
 
-  it('analyses another branch with the views on screen, and names the current one as none', () =>
+  it('keeps the same Project as another branch is chosen in it, the views on screen', () =>
     run(
       Effect.gen(function* () {
         const asked: Asked = [];
         const app = yield* start({ project: 'm', package: 'apps/web' }, asked);
         yield* settle;
-        const monorepo = find(app, 'Monorepo')!.address;
-        send(app, 'Monoverse', { _tag: 'BranchChosen', branch: 'next' });
+        const project = find(app, 'Project')!.address;
+        send(app, 'Project', { _tag: 'BranchChosen', branch: 'next' });
         yield* settle;
         expect(host(app).place).toMatchObject({ branch: 'next' });
+        expect(tool(app).model).toMatchObject({ branch: 'next' });
+        expect(find(app, 'Project')!.address).toBe(project);
         expect(named(asked, 'analyse')).toEqual([
           { root: '/repo', branch: null },
           { root: '/repo', branch: 'next' },
         ]);
-        expect(find(app, 'Monorepo')!.address).toEqual(monorepo);
         expect(named(asked, 'readPackage')).toEqual([
           { root: '/repo', branch: null, path: 'apps/web' },
           { root: '/repo', branch: 'next', path: 'apps/web' },
         ]);
-        send(app, 'Monoverse', { _tag: 'BranchChosen', branch: 'feature' });
+        send(app, 'Project', { _tag: 'BranchChosen', branch: 'feature' });
         expect(host(app).place).toMatchObject({ branch: null });
       }),
     ));
 
-  it('reads what the branch changed while Changes is on, and colours the tree', () =>
+  it('keeps how the trees are drawn as another project opens', () =>
     run(
       Effect.gen(function* () {
-        const asked: Asked = [];
-        const app = yield* start({ project: 'm' }, asked);
+        const app = yield* start({ project: 'm' });
         yield* settle;
-        expect(named(asked, 'changes')).toEqual([]);
-        send(app, 'Monoverse', { _tag: 'ChangesToggled' });
+        send(app, 'Project', { _tag: 'DeletedToggled' });
+        send(app, 'Project', { _tag: 'UnchangedChosen', unchanged: 'hide' });
+        send(app, 'Project', { _tag: 'IgnoredToggled' });
+        app.root.send({ _tag: 'Go', place: place({ project: 's' }) });
         yield* settle;
-        expect(host(app).place).toMatchObject({ changes: true });
-        expect(named(asked, 'changes')).toEqual([
-          { root: '/repo', branch: null, base: 'main' },
-        ]);
+        expect(find(app, 'Project')!.props).toMatchObject({
+          deleted: false,
+          unchanged: 'hide',
+          ignored: false,
+        });
         expect(find(app, 'Tree')!.props).toMatchObject({
-          changes: changeSet.files,
+          unchanged: 'hide',
+          ignored: false,
         });
-        send(app, 'Monoverse', { _tag: 'ChangesToggled' });
-        expect(find(app, 'Tree')!.props).toMatchObject({ changes: null });
       }),
     ));
 
-  it('reads no changes while the branch is the one compared to', () =>
+  it('turns Changes on as a Package is viewed for its changes, and says so', () =>
     run(
       Effect.gen(function* () {
-        const asked: Asked = [];
-        const app = yield* start(
-          { project: 'm', base: 'feature', changes: true },
-          asked,
-        );
+        const app = yield* start({ project: 'm' });
         yield* settle;
-        expect(named(asked, 'changes')).toEqual([]);
-        expect(find(app, 'Tree')!.props).toMatchObject({ changes: null });
-      }),
-    ));
-
-  it('opens a file beside the tree, as its diff once the branch changed it', () =>
-    run(
-      Effect.gen(function* () {
-        const app = yield* start({ project: 'm', branch: 'next' });
-        yield* settle;
-        send(app, 'Tree', { _tag: 'Opened', path: 'docs/notes.md' });
-        expect(find(app, 'FileViewer')!.model).toEqual({
-          root: '/repo',
-          branch: 'next',
-          path: 'docs/notes.md',
-          base: null,
-          status: null,
-          inside: false,
-        });
-        send(app, 'FileViewer', { _tag: 'Closed' });
-        expect(find(app, 'FileViewer')).toBeUndefined();
-
-        send(app, 'Monoverse', { _tag: 'ChangesToggled' });
-        yield* settle;
-        send(app, 'Tree', { _tag: 'Opened', path: 'apps/web/src/index.ts' });
-        yield* settle;
-        expect(find(app, 'FileViewer')!.model).toMatchObject({
-          base: 'main',
-          status: 'modified',
-        });
-        expect(find(app, 'FileViewer')!.state).toMatchObject({ _tag: 'Diff' });
-      }),
-    ));
-
-  it('says why a project cannot be opened, in a sentence', () =>
-    run(
-      Effect.gen(function* () {
-        const app = yield* start({ project: 'm' }, [], {
-          analyse: () =>
-            Effect.fail(
-              new MonorepoProblem({
-                reason: 'missing',
-                message: '~/repo does not exist.',
-              }),
-            ),
-        });
-        yield* settle;
-        expect(tool(app).state).toMatchObject({
-          _tag: 'Failure',
-          problem: '~/repo does not exist.',
-          missing: true,
-        });
+        send(app, 'Tree', { _tag: 'Viewed', path: 'apps/web', files: [] });
+        expect(host(app).place).toEqual(place({ project: 'm', changes: true }));
+        expect(find(app, 'Project')!.props).toMatchObject({ changes: true });
       }),
     ));
 
@@ -518,22 +399,28 @@ describe('Monoverse', () => {
         const app = yield* start({ project: 'm' }, asked);
         yield* settle;
         const before = tool(app).address;
+        const first = find(app, 'Project')!.address;
 
         app.root.send({ _tag: 'Go', place: place({ project: 's' }) });
         yield* settle;
         expect(tool(app).address).toBe(before);
-        expect(tool(app).state).toMatchObject({
-          _tag: 'Package',
+        expect(tool(app).state).toEqual({
+          _tag: 'Showing',
           project: 's',
           root: '/solo',
         });
+        // Another project is a Project of its own.
+        expect(find(app, 'Project')!.address).not.toBe(first);
+        expect(find(app, 'Project')!.state).toMatchObject({ _tag: 'Package' });
 
         app.root.send({
           _tag: 'Go',
           place: place({ project: 'm', package: 'packages/core' }),
         });
         yield* settle;
-        expect(tool(app).state).toMatchObject({ _tag: 'Monorepo' });
+        expect(find(app, 'Project')!.state).toMatchObject({
+          _tag: 'Monorepo',
+        });
         expect(find(app, 'Package')!.model).toMatchObject({
           path: 'packages/core',
         });
@@ -541,9 +428,11 @@ describe('Monoverse', () => {
         app.root.send({ _tag: 'Go', place: place() });
         yield* settle;
         expect(tool(app).state).toEqual({ _tag: 'Picking' });
+        expect(find(app, 'Project')).toBeUndefined();
 
-        // The projects were listed once, and the host was told nothing.
-        expect(named(asked, 'projects')).toHaveLength(1);
+        // The projects were listed once by Monoverse, once by the picker it
+        // shows, and the host was told nothing.
+        expect(named(asked, 'projects')).toHaveLength(2);
         expect(host(app).moved).toEqual([]);
       }),
     ));
@@ -554,8 +443,8 @@ describe('Monoverse', () => {
         const asked: Asked = [];
         const app = yield* start({ project: 'm' }, asked);
         yield* settle;
-        send(app, 'Monoverse', { _tag: 'BranchChosen', branch: 'next' });
-        send(app, 'Monoverse', { _tag: 'ChangesToggled' });
+        send(app, 'Project', { _tag: 'BranchChosen', branch: 'next' });
+        send(app, 'Project', { _tag: 'ChangesToggled' });
         yield* settle;
         expect(tool(app).props).toEqual(
           place({ project: 'm', branch: 'next', changes: true }),
@@ -576,171 +465,12 @@ describe('Monoverse', () => {
         yield* settle;
         expect(app.snapshot.root.props).toBeUndefined();
         expect(app.snapshot.root.state).toMatchObject({
-          _tag: 'Monorepo',
+          _tag: 'Showing',
           project: 'm',
         });
-      }),
-    ));
-
-  it('views a folder: what changed in it while Changes is on, every file else; one of file and folder at a time', () =>
-    run(
-      Effect.gen(function* () {
-        const app = yield* start({ project: 'm', package: 'apps/web' });
-        yield* settle;
-        // The Package's own tree, inside the Monorepo's.
-        const inner = walk(app.snapshot.root)
-          .filter((each) => each.actor === 'Tree')
-          .at(-1)!;
-        // oxlint-disable-next-line typescript/no-explicit-any -- any Actor's Message
-        app.at(inner.address)!.send({
-          _tag: 'Viewed',
-          path: 'apps/web/src',
-          files: ['apps/web/src/index.ts', 'apps/web/src/app/actor.ts'],
-        } as any);
-        yield* settle;
-        expect(find(app, 'FolderViewer')!.model).toMatchObject({
-          root: '/repo',
-          base: null,
-          path: 'apps/web/src',
-          title: 'apps/web/src',
-          files: ['apps/web/src/index.ts', 'apps/web/src/app/actor.ts'],
-          // The Package's, so its ignored files can be told apart.
-          sourceRoots: ['apps/web/src'],
-        });
-        expect(find(app, 'FileViewer')!.model).toMatchObject({
-          path: 'apps/web/src/app/actor.ts',
-        });
-
-        send(app, 'Monoverse', { _tag: 'ChangesToggled' });
-        yield* settle;
-        expect(find(app, 'FolderViewer')!.model).toMatchObject({
-          base: 'main',
-          changed: [{ path: 'apps/web/src/index.ts', status: 'modified' }],
-        });
-        // The first changed file, though an unchanged one comes first.
-        expect(find(app, 'FileViewer')!.model).toMatchObject({
-          path: 'apps/web/src/index.ts',
-        });
-
-        send(app, 'Tree', { _tag: 'Opened', path: 'apps/web/README.md' });
-        expect(find(app, 'FolderViewer')).toBeUndefined();
-        expect(find(app, 'FileViewer')!.model).toMatchObject({
-          path: 'apps/web/README.md',
-        });
-      }),
-    ));
-
-  it("views a Package's changes from the Monorepo's tree, turning Changes on", () =>
-    run(
-      Effect.gen(function* () {
-        const asked: Asked = [];
-        const app = yield* start({ project: 'm' }, asked);
-        yield* settle;
-        send(app, 'Tree', { _tag: 'Viewed', path: 'apps/web', files: [] });
-        // Changes turns on, in the Monorepo's tree still.
-        expect(host(app).place).toMatchObject({ package: null, changes: true });
-        yield* settle;
-        expect(named(asked, 'changes')).toHaveLength(1);
-        expect(find(app, 'FolderViewer')!.model).toMatchObject({
-          path: 'apps/web',
-          base: 'main',
-          changed: [{ path: 'apps/web/src/index.ts', status: 'modified' }],
-        });
-      }),
-    ));
-
-  it("views the repository's root by the project's name", () =>
-    run(
-      Effect.gen(function* () {
-        const app = yield* start({ project: 'm', changes: true });
-        yield* settle;
-        send(app, 'Tree', { _tag: 'Viewed', path: '', files: [] });
-        yield* settle;
-        expect(find(app, 'FolderViewer')!.model).toMatchObject({
-          title: 'repo',
-          changed: changeSet.files,
-        });
-        send(app, 'FolderViewer', { _tag: 'Closed' });
-        expect(find(app, 'FolderViewer')).toBeUndefined();
-      }),
-    ));
-
-  it("draws a folder looked into by the tree's settings, and changes them for both", () =>
-    run(
-      Effect.gen(function* () {
-        const app = yield* start({ project: 'm', changes: true });
-        yield* settle;
-        send(app, 'Tree', { _tag: 'Viewed', path: '', files: [] });
-        yield* settle;
-        expect(find(app, 'FolderViewer')!.props).toEqual({
-          unchanged: 'dim',
-          deleted: true,
-          ignored: true,
-        });
-        send(app, 'FolderViewer', {
-          _tag: 'UnchangedChosen',
-          unchanged: 'hide',
-        });
-        send(app, 'FolderViewer', { _tag: 'IgnoredToggled' });
-        expect(find(app, 'Tree')!.props).toMatchObject({
-          unchanged: 'hide',
-          ignored: false,
-        });
-        expect(find(app, 'FolderViewer')!.props).toMatchObject({
-          unchanged: 'hide',
-          ignored: false,
-        });
-      }),
-    ));
-
-  it('leaves out the deleted files, from the tree and a folder looked into alike', () =>
-    run(
-      Effect.gen(function* () {
-        const app = yield* start({ project: 'm', changes: true });
-        yield* settle;
-        send(app, 'Monoverse', { _tag: 'DeletedToggled' });
-        expect(find(app, 'Tree')!.props).toMatchObject({
-          changes: [changeSet.files[0]],
-        });
-
-        // Looked into, the folder starts without them, and brings them back.
-        send(app, 'Tree', { _tag: 'Viewed', path: '', files: [] });
-        yield* settle;
-        expect(find(app, 'FolderViewer')!.model).toMatchObject({
-          changed: changeSet.files,
-        });
-        expect(find(app, 'FolderViewer')!.props).toMatchObject({
-          deleted: false,
-        });
-        send(app, 'FolderViewer', { _tag: 'DeletedToggled' });
-        expect(find(app, 'Tree')!.props).toMatchObject({
-          changes: changeSet.files,
-        });
-        expect(find(app, 'FolderViewer')!.props).toMatchObject({
-          deleted: true,
-        });
-      }),
-    ));
-
-  it('draws what the branch left unchanged faded, to start with, or as chosen', () =>
-    run(
-      Effect.gen(function* () {
-        const app = yield* start({ project: 'm', changes: true });
-        yield* settle;
-        expect(find(app, 'Tree')!.props).toMatchObject({ unchanged: 'dim' });
-        send(app, 'Monoverse', { _tag: 'UnchangedChosen', unchanged: 'hide' });
-        expect(find(app, 'Tree')!.props).toMatchObject({ unchanged: 'hide' });
-      }),
-    ));
-
-  it("draws a Package's ignored files to start with, and leaves them out once asked, in it too", () =>
-    run(
-      Effect.gen(function* () {
-        const app = yield* start({ project: 'm', package: 'apps/web' });
-        yield* settle;
-        expect(find(app, 'Tree')!.props).toMatchObject({ ignored: true });
-        send(app, 'Monoverse', { _tag: 'IgnoredToggled' });
-        expect(find(app, 'Tree')!.props).toMatchObject({ ignored: false });
+        // oxlint-disable-next-line typescript/no-explicit-any -- the Project slot
+        const project = (app.snapshot.root.children as any).project as Instance;
+        expect(project.state).toMatchObject({ _tag: 'Monorepo' });
       }),
     ));
 });

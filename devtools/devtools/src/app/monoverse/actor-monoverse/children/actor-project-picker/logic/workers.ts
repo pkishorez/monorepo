@@ -1,7 +1,7 @@
 import { Effect } from 'effect';
 import type { WorkersOf } from '@kestack/kabuki/types';
 
-import { MonoverseClient } from '../../../../services/monoverse-client/contract/index.js';
+import { Projects } from '../../../../services/projects/contract/index.js';
 import { listingOf } from './selectors.js';
 import {
   absolute,
@@ -14,42 +14,19 @@ import {
 // A moment after the typing stops: each key typed stops the asking before.
 const DEBOUNCE = '150 millis';
 
-/** What went wrong, in words, whatever the server or the wire failed with. */
-export function problemOf(error: unknown): string {
-  if (typeof error === 'object' && error !== null) {
-    if (
-      'message' in error &&
-      typeof error.message === 'string' &&
-      error.message !== ''
-    )
-      return error.message;
-    if ('_tag' in error) {
-      const { _tag, ...rest } = error as { _tag: string };
-      const detail = Object.values(rest).filter(
-        (value) => typeof value === 'string',
-      );
-      return [String(_tag), ...detail].join(': ');
-    }
-  }
-  return String(error);
-}
-
 export const workers: WorkersOf<typeof ProjectPickerShape> = {
   // 1. Recent, read again after a refusal only when asked.
   recent: {
     each: ({ model }) =>
       model.recent === null && model.recentProblem === null ? ['read'] : [],
     run: (self) =>
-      Effect.flatMap(MonoverseClient, (client) => client.ListProjects()).pipe(
+      Effect.flatMap(Projects, (service) => service.projects()).pipe(
         Effect.map((projects) => ({
           _tag: 'RecentRead' as const,
           projects,
         })),
-        Effect.catch((error) =>
-          Effect.succeed({
-            _tag: 'RecentRefused' as const,
-            problem: problemOf(error),
-          }),
+        Effect.catch(({ message: problem }) =>
+          Effect.succeed({ _tag: 'RecentRefused' as const, problem }),
         ),
         Effect.flatMap((message) => self.send(message)),
       ),
@@ -59,8 +36,8 @@ export const workers: WorkersOf<typeof ProjectPickerShape> = {
   home: {
     each: ({ model }) => (model.home === null ? ['home'] : []),
     run: (self) =>
-      Effect.flatMap(MonoverseClient, (client) =>
-        client.ListFolders({ path: null, query: '', hidden: false }),
+      Effect.flatMap(Projects, (projects) =>
+        projects.listFolders({ path: null, query: '', hidden: false }),
       ).pipe(
         Effect.flatMap((listing) => self.send({ _tag: 'HomeFound', listing })),
         Effect.ignore,
@@ -82,7 +59,7 @@ export const workers: WorkersOf<typeof ProjectPickerShape> = {
           boolean,
         ];
         if (query !== '') yield* Effect.sleep(DEBOUNCE);
-        const client = yield* MonoverseClient;
+        const projects = yield* Projects;
         const { model } = yield* self.get;
         const message = yield* Effect.gen(function* () {
           // Below home, the folder is written out from home, found first
@@ -91,12 +68,12 @@ export const workers: WorkersOf<typeof ProjectPickerShape> = {
             segments.length === 0
               ? null
               : (model.home ??
-                (yield* client.ListFolders({
+                (yield* projects.listFolders({
                   path: null,
                   query: '',
                   hidden: false,
                 })).home);
-          const listing = yield* client.ListFolders({
+          const listing = yield* projects.listFolders({
             path: home === null ? null : absolute(home, segments),
             query,
             hidden,
@@ -108,7 +85,7 @@ export const workers: WorkersOf<typeof ProjectPickerShape> = {
             home: listing.home,
           };
         }).pipe(
-          Effect.catch((error) =>
+          Effect.catch(({ message: problem }) =>
             Effect.succeed({
               _tag: 'Loaded' as const,
               segments,
@@ -119,7 +96,7 @@ export const workers: WorkersOf<typeof ProjectPickerShape> = {
                 kind: null,
                 folders: [],
                 truncated: false,
-                problem: problemOf(error),
+                problem,
               },
               home: null,
             }),
