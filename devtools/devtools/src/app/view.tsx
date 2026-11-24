@@ -6,9 +6,9 @@ import { Toaster } from '@kestack/web-platform/ui/components/toast';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { ArrowRightIcon, MoonIcon, SunIcon } from 'lucide-react';
 import { DevToolsLive } from './actor.js';
-import { KabukiPageView } from './pages/kabuki.js';
-import { LotelPageView } from './pages/lotel.js';
-import { MonoversePageView } from './pages/monoverse.js';
+import { KabukiPageView } from './kabuki/page.js';
+import { LotelPageView } from './lotel/page.js';
+import { MonoversePageView } from './monoverse/page.js';
 
 /*
  * The frame around every Tool: on a wide screen a header with the Tools as

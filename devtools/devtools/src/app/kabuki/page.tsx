@@ -2,7 +2,7 @@ import { Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
 import { Page, Router } from '@kestack/kabuki/routing';
-import { Kabuki, KabukiView } from '../kabuki/actor-kabuki/index.js';
+import { Kabuki, KabukiView } from './actor-kabuki/index.js';
 
 /*
  * `/kabuki`: the Kabuki Tool, with the Kabuki Session it shows in

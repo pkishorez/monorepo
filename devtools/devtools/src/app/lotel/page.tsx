@@ -1,7 +1,7 @@
 import { Actor } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
 import { Page } from '@kestack/kabuki/routing';
-import { Lotel, LotelView } from '../lotel/actor-lotel/index.js';
+import { Lotel, LotelView } from './actor-lotel/index.js';
 
 /*
  * `/lotel`: the Lotel Tool, as it is. Its Traces and Logs keep nothing in
