@@ -112,6 +112,9 @@ const State = Schema.TaggedUnion({
 });
 export type State = typeof State.Type;
 
+/** What a Package's monoverse.json makes of it, as the Package lists mark it. */
+export type Check = (typeof WorkspaceSchema.Type)['packages'][number]['check'];
+
 const Model = Schema.Struct({
   /** The saved projects, newest first; null until they are listed. */
   projects: Schema.NullOr(Schema.Array(ProjectEntrySchema)),

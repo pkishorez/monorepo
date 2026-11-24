@@ -108,7 +108,7 @@ export function Body({
             </h1>
             <p className="text-sm text-pretty text-muted-foreground">
               A monorepo or a single package: Monoverse draws it as its folder
-              tree, and shows what breaks the folder rule.
+              tree, and shows what breaks its monoverse.json rules.
             </p>
           </header>
           {model.projectsProblem === null ? null : (

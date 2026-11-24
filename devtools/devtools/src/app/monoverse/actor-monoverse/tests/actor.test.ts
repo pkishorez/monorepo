@@ -23,7 +23,6 @@ import {
   MonorepoProblem,
   type MonorepoService,
 } from '../../services/monorepo/contract/index.js';
-import { violationsOf } from '../../services/monorepo/real/rules.js';
 
 /*
  * Monoverse in memory, on a Monorepo service that answers what the test
@@ -94,12 +93,14 @@ const monorepo: Workspace = {
       path: 'packages/core',
       private: false,
       dependencies: [],
+      check: { _tag: 'Unchecked' },
     },
     {
       name: 'web',
       path: 'apps/web',
       private: true,
       dependencies: [{ name: '@me/core', kinds: ['runtime'] }],
+      check: { _tag: 'Checked', violations: [] },
     },
   ],
   cycles: [],
@@ -111,7 +112,15 @@ const single: Workspace = {
   name: 'solo',
   path: '/solo',
   packageManager: 'npm',
-  packages: [{ name: 'solo', path: '.', private: false, dependencies: [] }],
+  packages: [
+    {
+      name: 'solo',
+      path: '.',
+      private: false,
+      dependencies: [],
+      check: { _tag: 'Unchecked' },
+    },
+  ],
   cycles: [],
   files: [],
 };
@@ -123,6 +132,17 @@ const contents = (path: string): PackageContents => {
     files: [at('src/index.ts'), at('src/app/actor.ts'), at('README.md')],
     sourceRoots: [at('src')],
     imports: [[at('src/app/actor.ts'), at('src/index.ts')]],
+    check: {
+      _tag: 'Checked',
+      violations: [
+        {
+          from: at('src/app/actor.ts'),
+          to: at('src/index.ts'),
+          reason: 'door',
+          message: "'src/index.ts' is beside or above this file.",
+        },
+      ],
+    },
   };
 };
 
@@ -173,10 +193,9 @@ const service = (asked: Asked): MonorepoService => {
         cycles: [],
       };
     }),
-    readPackage: answer('readPackage', ({ path }: { path: string }) => {
-      const read = contents(path === '.' ? '' : path);
-      return { contents: read, violations: violationsOf(read.imports) };
-    }),
+    readPackage: answer('readPackage', ({ path }: { path: string }) =>
+      contents(path === '.' ? '' : path),
+    ),
     branches: answer('branches', () => branches),
     changes: answer('changes', () => changeSet),
     readFile: answer('readFile', ({ path }: { path: string }) => ({
@@ -265,8 +284,16 @@ describe('Monoverse', () => {
           name: 'repo',
           files: ['package.json', 'docs/notes.md'],
           packages: [
-            { path: 'packages/core', name: '@me/core' },
-            { path: 'apps/web', name: 'web' },
+            {
+              path: 'packages/core',
+              name: '@me/core',
+              check: { _tag: 'Unchecked' },
+            },
+            {
+              path: 'apps/web',
+              name: 'web',
+              check: { _tag: 'Checked', violations: [] },
+            },
           ],
           links: [['apps/web', 'packages/core']],
           broken: [],
@@ -291,7 +318,23 @@ describe('Monoverse', () => {
         );
         expect(find(app, 'Package')!.state).toMatchObject({
           _tag: 'Contents',
-          violations: [['apps/web/src/app/actor.ts', 'apps/web/src/index.ts']],
+        });
+        // Its Violations, as the server checked them, are the tree's broken links.
+        const trees = walk(app.snapshot.root).filter(
+          (each) => each.actor === 'Tree',
+        );
+        expect(
+          trees.find(({ props }) => props.base === 'apps/web'),
+        ).toMatchObject({
+          props: {
+            broken: [
+              {
+                from: 'apps/web/src/app/actor.ts',
+                to: 'apps/web/src/index.ts',
+                message: "'src/index.ts' is beside or above this file.",
+              },
+            ],
+          },
         });
         expect(named(asked, 'readPackage')).toEqual([
           { root: '/repo', branch: null, path: 'apps/web' },

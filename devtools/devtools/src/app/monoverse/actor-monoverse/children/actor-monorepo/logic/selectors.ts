@@ -16,18 +16,23 @@ export const treeInput = ({ props }: Data) => ({
   ),
 });
 
-/** The tree's Props: the Monorepo's files, each Package one leaf, their links, the cycles broken. */
+/** The tree's Props: the Monorepo's files, each Package one leaf with its Check, their links, the cycles broken. */
 export const treeProps = ({ props }: Data) => ({
   base: '',
   name: props.name,
   files: props.workspace.files,
-  packages: props.workspace.packages.map(({ path, name, version }) => ({
+  packages: props.workspace.packages.map(({ path, name, version, check }) => ({
     path: rootRelative(path),
     name,
     ...(version === undefined ? {} : { version }),
+    check,
   })),
   links: props.links,
-  broken: props.cycles,
+  broken: props.cycles.map(([from, to]) => ({
+    from,
+    to,
+    message: `In a Package cycle: ${from} depends on ${to}, which leads back to it.`,
+  })),
   sourceRoots: null,
   changes: props.changes,
   unchanged: props.unchanged,

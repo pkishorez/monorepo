@@ -40,29 +40,23 @@ beforeEach(async () => {
 afterEach(() => rm(root, { recursive: true, force: true }));
 
 describe('the file import graph', () => {
-  test('links each source file to what it imports inside the Source roots', async () => {
+  test('links every source file to what it imports, tests and scripts too', async () => {
     const snapshot = await Effect.runPromise(openSnapshot(root, null));
     const graph = await Effect.runPromise(
-      buildFileGraph(snapshot, Object.keys(files), ['pkg/src']),
+      buildFileGraph(snapshot, Object.keys(files)),
     );
     expect(graph).toEqual([
+      ['pkg/scripts/x.ts', 'pkg/src/index.ts'],
       ['pkg/src/aliased.ts', 'pkg/src/app/run.ts'],
       ['pkg/src/aliased.ts', 'pkg/src/types.ts'],
       ['pkg/src/aliased.ts', 'pkg/src/util.ts'],
       ['pkg/src/app/index.ts', 'pkg/src/app/run.ts'],
+      ['pkg/src/app/run.ts', 'pkg/scripts/x.ts'],
       ['pkg/src/app/run.ts', 'pkg/src/util.ts'],
+      ['pkg/src/app/tests/run.test.ts', 'pkg/src/app/run.ts'],
       ['pkg/src/index.ts', 'pkg/src/app/index.ts'],
       ['pkg/src/util.ts', 'pkg/src/types.ts'],
     ]);
-  });
-
-  test('takes in every Source root', async () => {
-    const snapshot = await Effect.runPromise(openSnapshot(root, null));
-    const graph = await Effect.runPromise(
-      buildFileGraph(snapshot, Object.keys(files), ['pkg/src', 'pkg/scripts']),
-    );
-    expect(graph).toContainEqual(['pkg/src/app/run.ts', 'pkg/scripts/x.ts']);
-    expect(graph).toContainEqual(['pkg/scripts/x.ts', 'pkg/src/index.ts']);
   });
 });
 
@@ -71,9 +65,7 @@ describe('the file import graph at a branch read from git', () => {
     withFixture(async ({ repo }) => {
       const snapshot = await Effect.runPromise(openSnapshot(repo, 'feature'));
       const files = await snapshot.list('packages/core');
-      const graph = await Effect.runPromise(
-        buildFileGraph(snapshot, files, ['packages/core/src']),
-      );
+      const graph = await Effect.runPromise(buildFileGraph(snapshot, files));
       expect(graph).toEqual([
         ['packages/core/src/feature.ts', 'packages/core/src/util.ts'],
         ['packages/core/src/index.ts', 'packages/core/src/feature.ts'],

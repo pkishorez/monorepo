@@ -2,10 +2,7 @@ import { Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
 
 import { ChangedPathSchema } from '../../../../../../server/rpc/git/contract/index.js';
-import {
-  ImportSchema,
-  PackageContentsSchema,
-} from '../../../../../../server/rpc/project/contract/index.js';
+import { PackageContentsSchema } from '../../../../../../server/rpc/project/contract/index.js';
 import { Monorepo } from '../../../../../../services/monorepo/contract/index.js';
 import { UnchangedSchema } from '../../../../../logic/shared/index.js';
 
@@ -15,11 +12,11 @@ import { UnchangedSchema } from '../../../../../logic/shared/index.js';
  * links. The same for a Single Package and a Package entered from its
  * Monorepo.
  *
- * 1. Read   the Package's files, Source roots and imports at the branch
- *           its Props name, checked against the folder rule: every import
- *           of a file sitting directly in an ancestor folder is a
- *           Violation, a broken link. Again whenever the branch changes,
- *           the tree staying as it is while the new one is read.
+ * 1. Read   the Package's files, Source roots, imports and Check at the
+ *           branch its Props name: with a monoverse.json, each import its
+ *           rules forbid is a Violation, a broken link, checked on the
+ *           server as `vp lint` checks it. Again whenever the branch
+ *           changes, the tree staying as it is while the new one is read.
  * 2. Show   the tree, with the Source roots open. A double click on a file
  *           Emits `Opened`; viewing a folder Emits `Viewed`.
  */
@@ -31,7 +28,6 @@ const State = Schema.TaggedUnion({
     /** The branch and try it was read at. */
     at: Schema.String,
     contents: PackageContentsSchema,
-    violations: Schema.Array(ImportSchema),
   },
 });
 
@@ -69,7 +65,6 @@ export const PackageShape = Actor.define('Package', {
     Read: {
       at: Schema.String,
       contents: PackageContentsSchema,
-      violations: Schema.Array(ImportSchema),
     },
     Refused: { at: Schema.String, problem: Schema.String },
     Retried: {},

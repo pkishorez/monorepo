@@ -9,7 +9,7 @@ only; no implementation detail.
 **Monoverse**:
 The DevTools Tool, and the collection of Monorepos and Single Packages a
 developer has added to it, each shown as its Folder tree: which Packages it
-holds, how its folders import each other, where they break the Folder rule,
+holds, how its folders import each other, where they break their monoverse.json rules,
 and what changed.
 _Avoid_: Monorepo Tool, Workspace view, Laymos
 
@@ -74,15 +74,22 @@ or All packages for the Repo view, listing both to go straight to another.
 A Single Package has none.
 _Avoid_: package switcher, package picker
 
+**monoverse.json**:
+The file beside a Package's `package.json` that turns its rules on, the
+same for `vp lint` and for Monoverse: its Source roots, the files it
+ignores, and a preset or its own rules. A Package without one is drawn
+but never checked.
+_Avoid_: laymos.config.json, lint config
+
 **Source root**:
-A folder of a Package whose files are analysed: their imports are read and
-the Folder rule applies to them. Read only from `sourceRoots` in the
-`laymos.config.json` beside the Package's `package.json`; without one the
-whole Package is its one Source root.
+A folder of a Package whose files its rules check: the `sourceRoots` of
+its monoverse.json. Without a monoverse.json that can be read, the whole
+Package is its one Source root.
 
 **Ignored file**:
 A file of a Package outside its Source roots: shown dimmed unless the
-settings leave the ignored files out, and never analysed.
+settings leave the ignored files out, and never checked. Its imports are
+still drawn.
 _Avoid_: excluded file, git-ignored file (never shown at all)
 
 **Connection**:
@@ -97,15 +104,18 @@ _Avoid_: edge, dependency (that is a Package dependency), link
 The two directions of a Connection from the selected folder: what it imports,
 and what imports it. Drawn in two colours.
 
-**Folder rule**:
-Monoverse's one rule, applied with no configuration: a file may import any
-file in its own folder, inside its child folders at any depth, in its
-sibling folders and in folders beside its ancestors, but never a file sitting
-directly in one of its ancestor folders.
-_Avoid_: Laymos Rule, import law, boundary
+**Check**:
+What a Package's monoverse.json makes of its imports at a branch, worked
+out on the server by @kestack/monoverse as `vp lint` works it out: none
+without the file, a sentence saying why when the file cannot be read, or
+its Violations.
+_Avoid_: lint run, analysis
 
 **Violation**:
-One import that breaks the Folder rule, drawn red.
+One import, from a file its monoverse.json checks, that its rules forbid,
+with the lint's own sentence saying why and what to do: drawn red, and
+counted on the file, every folder above it, and the Package. A Package
+cycle is drawn red too, but is never a Violation.
 _Avoid_: error, lint failure
 
 **Project picker**:

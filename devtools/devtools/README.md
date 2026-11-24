@@ -105,12 +105,16 @@ shows it as its folder tree. Its place is the address:
 repo view     the real folders; each Package a row of two lines, its
               folder's name over its own name and version. Select a
               Package: arcs show what it uses and what uses it, the rest
-              dims; a Package cycle is red. Double-click it to go in.
+              dims; a Package cycle is red. A Package with a
+              monoverse.json shows its Violation count, or a quiet shield
+              when it has none. Double-click it to go in.
 package view  the Package's git-known files; outside its Source roots dimmed,
               or left out.
               Select a folder: its links to its siblings and to folders
-              beside its ancestors; a file reaching up into an ancestor
-              folder's own files is a Violation, in red.
+              beside its ancestors. With a monoverse.json, an import its
+              rules forbid is a Violation, in red, counted on each file
+              and folder that holds one; the selection's count opens what
+              `vp lint` says of each.
 top left      two menus on one line: the project, to open another, and in
               a Monorepo the Package shown or All packages, to go straight
               to another Package or back to the repo view.
@@ -148,13 +152,16 @@ wide screen   from 1200px, no bar: the tree in the middle, a panel either
 
 How it works:
 
-- The server answers raw facts only, at a branch: the git-known files, each
-  Package's Source roots and its import graph, read with oxc. The browser builds the
-  tree, rolls up connections and applies the rule, so a selection never
-  waits on the server.
-- Source roots come from `sourceRoots` in a `laymos.config.json` beside a
-  Package's `package.json`; nothing else in it is read. Without one, the
-  whole Package is its one Source root.
+- The server answers facts, at a branch: the git-known files, and each
+  Package's import graph, read with oxc over every source file, tests
+  included. The browser builds the tree and rolls up connections, so a
+  selection never waits on the server.
+- A Package with a `monoverse.json` beside its `package.json` is checked
+  on the server by [@kestack/monoverse](../monoverse/README.md), the rules
+  `vp lint` runs: its `sourceRoots` and `ignore` say which files are
+  checked, and each Violation carries the lint's own message. Without one,
+  or with one that cannot be read, the whole Package is its Source root and
+  nothing is checked.
 - View changes opens a folder, the root included, as a tree of its files
   beside one file's diff, drawn by the tree's settings, behind the same
   sliders; Browse files does the same with Changes off. One button folds

@@ -734,6 +734,9 @@ importers:
       '@kestack/kabuki':
         specifier: workspace:*
         version: link:../../packages/kabuki
+      '@kestack/monoverse':
+        specifier: workspace:*
+        version: link:../monoverse
       '@kestack/std-toolkit':
         specifier: workspace:*
         version: link:../../toolkits/std-toolkit

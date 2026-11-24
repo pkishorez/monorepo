@@ -52,6 +52,8 @@ describe('a Project opened at a branch', () => {
           ['packages/core/src/index.ts', 'packages/core/src/feature.ts'],
           ['packages/core/src/index.ts', 'packages/core/src/util.ts'],
         ],
+        // No monoverse.json: not checked.
+        check: { _tag: 'Unchecked' },
       });
     }));
 

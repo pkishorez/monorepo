@@ -41,6 +41,7 @@
     "@kestack/devtools-kabuki": "workspace:*",
     "@kestack/effect-tracer": "workspace:*",
     "@kestack/kabuki": "workspace:*",
+    "@kestack/monoverse": "workspace:*",
     "@kestack/std-toolkit": "workspace:*",
     "@kestack/use-gesture": "workspace:*",
     "@kestack/web-platform": "workspace:*",

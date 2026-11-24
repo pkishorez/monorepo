@@ -17,7 +17,7 @@ import { monorepoLayer, problemOf } from '../index.js';
 /*
  * The Monorepo service on a client that answers what the test says: an
  * analysis carries the Package links and cycles, a Package read carries
- * its Violations, and every failure is one plain sentence.
+ * the Check the server made, and every failure is one plain sentence.
  */
 
 const workspace: Workspace = {
@@ -31,17 +31,26 @@ const workspace: Workspace = {
       path: 'packages/a',
       private: false,
       dependencies: [{ name: 'b', kinds: ['runtime'] }],
+      check: { _tag: 'Unchecked' },
     },
     {
       name: 'b',
       path: 'packages/b',
       private: false,
       dependencies: [{ name: 'a', kinds: ['dev'] }],
+      check: { _tag: 'Unchecked' },
     },
   ],
   cycles: [{ packages: ['a', 'b'] }],
   files: [],
 };
+
+const violation = {
+  from: 'packages/a/src/x/y.ts',
+  to: 'packages/a/src/z.ts',
+  reason: 'door',
+  message: "'src/z.ts' is beside or above this file and is not a door.",
+} as const;
 
 const answers: Partial<
   Record<string, (payload: never) => Effect.Effect<unknown, unknown>>
@@ -56,6 +65,7 @@ const answers: Partial<
         ['packages/a/src/x/y.ts', 'packages/a/src/z.ts'],
         ['packages/a/src/z.ts', 'packages/a/src/x/y.ts'],
       ],
+      check: { _tag: 'Checked', violations: [violation] },
     }),
   GetBranches: () =>
     Effect.fail(new GitUnavailableError({ reason: 'not-a-repo' })),
@@ -90,18 +100,16 @@ describe('Monorepo service', () => {
       }),
     ));
 
-  it('reads a Package with the imports that break the folder rule', () =>
+  it("reads a Package with the server's Check, as it came", () =>
     use(
       Effect.gen(function* () {
         const monorepo = yield* Monorepo;
-        const { violations } = yield* monorepo.readPackage({
+        const { check } = yield* monorepo.readPackage({
           root: '/repo',
           branch: 'main',
           path: 'packages/a',
         });
-        expect(violations).toEqual([
-          ['packages/a/src/x/y.ts', 'packages/a/src/z.ts'],
-        ]);
+        expect(check).toEqual({ _tag: 'Checked', violations: [violation] });
       }),
     ));
 

@@ -2,7 +2,7 @@
 // they take from it, the folder tree, git roll-up, paths, and the
 // selectors its view reads.
 export { MonoverseShape, PlaceSchema, UnchangedSchema } from './shape.js';
-export type { Model, Place, State, Unchanged } from './shape.js';
+export type { Check, Model, Place, State, Unchanged } from './shape.js';
 export {
   analysisAt,
   baseOf,

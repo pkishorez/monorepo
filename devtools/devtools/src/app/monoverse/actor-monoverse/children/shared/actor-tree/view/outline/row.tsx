@@ -12,7 +12,9 @@ import {
   FileIcon,
   FolderIcon,
   FolderOpenIcon,
+  FileWarningIcon,
   PackageIcon,
+  ShieldCheckIcon,
   TriangleAlertIcon,
 } from 'lucide-react';
 
@@ -20,8 +22,10 @@ import type {
   ChangeStatus,
   TreeNode,
 } from '../../../../../logic/shared/index.js';
-import type { Connection } from '../../logic/shared/index.js';
+import type { CheckedPackage, Connection } from '../../logic/shared/index.js';
 import { gutter, indent } from './layout.js';
+
+type Check = CheckedPackage['check'];
 
 export interface OutlineRowActions {
   /** A single click on the row: it selects, whatever the row. */
@@ -162,7 +166,9 @@ export const OutlineRow = memo(function OutlineRow({
   dimmed,
   faded,
   connection,
-  broken,
+  violations,
+  cycle,
+  check,
   change,
   inside,
   opens,
@@ -188,7 +194,12 @@ export const OutlineRow = memo(function OutlineRow({
   /** Left unchanged by the branch, while the unchanged are dimmed. */
   faded: boolean;
   connection: Connection | null;
-  broken: number;
+  /** How many Violations it holds. */
+  violations: number;
+  /** A Package in a cycle, or a folder holding one. */
+  cycle: boolean;
+  /** A Package's Check; null for any other row. */
+  check: Check | null;
   change: { readonly status: ChangeStatus; readonly count: number } | null;
   /** A folder holding folders: whether everything inside it is open; null for any other row. */
   inside: boolean | null;
@@ -287,12 +298,20 @@ export const OutlineRow = memo(function OutlineRow({
       {change === null ? null : (
         <span className="sr-only">, {changeWord[change.status]}</span>
       )}
-      {revealing || broken > 0 || inside !== null || hover ? (
+      {revealing ||
+      marked(violations, cycle, check) ||
+      inside !== null ||
+      hover ? (
         <span className="ml-auto flex shrink-0 items-center gap-2.5 pl-2">
           {revealing ? (
             <RevealChip node={node} connection={connection} actions={actions} />
           ) : null}
-          {broken > 0 ? <Broken node={node} count={broken} /> : null}
+          <Findings
+            node={node}
+            violations={violations}
+            cycle={cycle}
+            check={check}
+          />
           {inside === null ? null : (
             <InsideToggle
               node={node}
@@ -483,21 +502,97 @@ function InsideToggle({
   );
 }
 
-function Broken({ node, count }: { node: TreeNode; count: number }) {
-  const label =
-    node.kind === 'package'
-      ? 'In a Package cycle'
-      : node.kind === 'file'
-        ? 'Imports a file directly in an ancestor folder'
-        : `${count} ${count === 1 ? 'file imports' : 'files import'} a file directly in an ancestor folder`;
-  return (
-    <span role="img" aria-label={label} title={label} className="flex">
-      <TriangleAlertIcon
-        strokeWidth={2}
-        className="size-3.5 text-(--outline-broken)"
-      />
-    </span>
-  );
+/** Whether a row has anything wrong, or a Check, to mark. */
+const marked = (violations: number, cycle: boolean, check: Check | null) =>
+  violations > 0 || cycle || (check !== null && check._tag !== 'Unchecked');
+
+const plural = (count: number, one: string, many: string) =>
+  `${count} ${count === 1 ? one : many}`;
+
+/**
+ * What is wrong in a row, in the broken colour: how many Violations it
+ * holds, beside a warning; a Package in a cycle; a Package whose
+ * monoverse.json cannot be read. A Package its monoverse.json checks and
+ * finds clean gets a quiet shield, so it reads apart from one unchecked.
+ */
+function Findings({
+  node,
+  violations,
+  cycle,
+  check,
+}: {
+  node: TreeNode;
+  violations: number;
+  cycle: boolean;
+  check: Check | null;
+}) {
+  if (check?._tag === 'Invalid') {
+    const label = `Its monoverse.json cannot be read: ${check.message}`;
+    return (
+      <span role="img" aria-label={label} title={label} className="flex">
+        <FileWarningIcon
+          strokeWidth={2}
+          className="size-3.5 text-(--outline-broken)"
+        />
+      </span>
+    );
+  }
+  if (violations > 0) {
+    const what =
+      node.kind === 'file'
+        ? plural(
+            violations,
+            "import breaks its Package's monoverse.json rules",
+            "imports break its Package's monoverse.json rules",
+          )
+        : node.kind === 'package'
+          ? plural(
+              violations,
+              'Violation of its monoverse.json rules',
+              'Violations of its monoverse.json rules',
+            )
+          : plural(
+              violations,
+              'Violation in the files inside',
+              'Violations in the files inside',
+            );
+    const label = cycle ? `${what}; in a Package cycle` : what;
+    return (
+      <span
+        role="img"
+        aria-label={label}
+        title={label}
+        className="flex items-center gap-0.5 text-[11px] font-medium text-(--outline-broken) tabular-nums"
+      >
+        <TriangleAlertIcon strokeWidth={2} className="size-3.5" />
+        {violations}
+      </span>
+    );
+  }
+  if (cycle) {
+    const label =
+      node.kind === 'package' ? 'In a Package cycle' : 'Holds a Package cycle';
+    return (
+      <span role="img" aria-label={label} title={label} className="flex">
+        <TriangleAlertIcon
+          strokeWidth={2}
+          className="size-3.5 text-(--outline-broken)"
+        />
+      </span>
+    );
+  }
+  if (check?._tag === 'Checked') {
+    const label = 'Checked by its monoverse.json: no Violations';
+    return (
+      <span role="img" aria-label={label} title={label} className="flex">
+        <ShieldCheckIcon
+          strokeWidth={2}
+          className="size-3.5 text-muted-foreground/70"
+        />
+      </span>
+    );
+  }
+  return null;
 }
 
 function RevealChip({

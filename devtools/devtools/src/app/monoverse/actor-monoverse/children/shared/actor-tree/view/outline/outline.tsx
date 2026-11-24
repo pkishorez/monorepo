@@ -27,7 +27,11 @@ import type {
   Row,
   TreeNode,
 } from '../../../../../logic/shared/index.js';
-import type { Connection } from '../../logic/shared/index.js';
+import type {
+  BrokenLink,
+  Connection,
+  Findings,
+} from '../../logic/shared/index.js';
 import {
   placesAmongSiblings,
   usePanelSlots,
@@ -65,8 +69,10 @@ export interface OutlineProps {
    * folder standing for everything in it.
    */
   readonly connections: ReadonlyMap<string, Connection>;
-  /** How many files breaking the folder rule (or Packages in a cycle) each node holds. */
-  readonly broken: ReadonlyMap<string, number>;
+  /** How many Violations, and Packages in a cycle, each node holds, and each Package's Check. */
+  readonly findings: Findings;
+  /** What is wrong with the selection, each with what to do about it. */
+  readonly selectionFindings: ReadonlyArray<BrokenLink>;
   /** What changed in each node since Compare-to; empty while Changes is off. */
   readonly changes: ReadonlyMap<string, NodeChange>;
   /** Whether Changes is on, so a folder is viewed for its changes. */
@@ -138,7 +144,8 @@ export function Outline({
   open,
   selected,
   connections,
-  broken,
+  findings,
+  selectionFindings,
   changes,
   changesOn,
   dimmed,
@@ -359,6 +366,7 @@ export function Outline({
       root={selectedNode === undefined}
       changesOn={changesOn}
       connections={connections}
+      findings={selectionFindings}
       colours={outlineColours}
       onActivate={() => actions.view(selectedNode ?? tree.root)}
       onChanges={
@@ -472,7 +480,9 @@ export function Outline({
                   dimmed={dimmed(node.path)}
                   faded={faded(node.path)}
                   connection={connections.get(node.path) ?? null}
-                  broken={broken.get(node.path) ?? 0}
+                  violations={findings.violations.get(node.path) ?? 0}
+                  cycle={(findings.cycles.get(node.path) ?? 0) > 0}
+                  check={findings.checks.get(node.path) ?? null}
                   change={changes.get(node.path) ?? null}
                   inside={folding.inside(node.path)}
                   opens={opensOf(node)}
