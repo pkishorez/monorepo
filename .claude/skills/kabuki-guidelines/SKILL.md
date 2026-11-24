@@ -71,12 +71,15 @@ Tool. Everything that only this feature uses lives in its folder:
 
 ```
 monoverse/
+├── page.tsx           its page, when the app routes to it: the URL around the root Actor
 ├── actor-monoverse/   its root Actor, in the shape below
 ├── services/          Effect contracts its Actors use, in the shape of capabilities/
 └── server/            its server half, when it has one
 ```
 
-- The app mounts the root Actor through `actor-monoverse/index.ts`.
+- The app mounts the root Actor through `actor-monoverse/index.ts`, or
+  through `page.tsx` when the feature has a page. The page only maps the
+  URL to the root Actor's Input and Props; it decides nothing else.
 - The app's Layer builds the feature's services from `services/*/real/`.
 - The server's host imports `server/index.ts`.
 - The browser half reaches the server only through its RPC contracts.

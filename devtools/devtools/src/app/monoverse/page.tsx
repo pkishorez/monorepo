@@ -7,7 +7,7 @@ import {
   MonoverseView,
   PlaceSchema,
   type Place,
-} from '../monoverse/actor-monoverse/index.js';
+} from './actor-monoverse/index.js';
 
 /*
  * `/monoverse`: the Monoverse Tool, with its Place in the address, so a
