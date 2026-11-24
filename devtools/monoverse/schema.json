@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "monoverse.json",
-  "description": "A package's Monoverse settings, beside its package.json. A package with this file is checked by monoverse/imports and monoverse/contracts; a package without it is not.",
+  "description": "A package's Monoverse settings, beside its package.json. `monoverse lint` and DevTools check a package with this file; a package without it is not checked.",
   "type": "object",
   "properties": {
     "$schema": {
@@ -17,7 +17,7 @@
       "minItems": 1
     },
     "ignore": {
-      "description": "Globs, relative to the package, of files the rules skip: tests, fixtures.",
+      "description": "Globs, relative to the package, of files the rules skip: tests, fixtures. A folder covers everything inside it.",
       "type": "array",
       "items": {
         "type": "string"
@@ -73,6 +73,58 @@
         }
       },
       "additionalProperties": false
+    },
+    "exceptions": {
+      "description": "Imports the imports rule lets through. An exception that lets nothing through is an error.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "description": "A glob, relative to the package, of the importing files. A folder covers everything inside it.",
+            "type": "string",
+            "pattern": "^(?!\\s*$)(?!/)(?!(.*/)?\\.\\.(/|$))"
+          },
+          "to": {
+            "description": "A glob, relative to the package, of the files imported.",
+            "type": "string",
+            "pattern": "^(?!\\s*$)(?!/)(?!(.*/)?\\.\\.(/|$))"
+          },
+          "reason": {
+            "description": "Why. Shown with the import.",
+            "type": "string",
+            "pattern": "\\S"
+          }
+        },
+        "required": ["from", "to", "reason"],
+        "additionalProperties": false
+      }
+    },
+    "restrictions": {
+      "description": "Imports refused on top of the rules; no exception lifts one. A restriction whose \"from\" covers no checked file is an error.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "description": "A glob, relative to the package, of the importing files. A folder covers everything inside it.",
+            "type": "string",
+            "pattern": "^(?!\\s*$)(?!/)(?!(.*/)?\\.\\.(/|$))"
+          },
+          "to": {
+            "description": "What they may not import: a glob of files, relative to the package, or a package name, which covers its subpaths: \"react\", \"@effect/*\".",
+            "type": "string",
+            "pattern": "^(?!\\s*$)(?!/)(?!(.*/)?\\.\\.(/|$))"
+          },
+          "reason": {
+            "description": "Why. Shown with the import.",
+            "type": "string",
+            "pattern": "\\S"
+          }
+        },
+        "required": ["from", "to", "reason"],
+        "additionalProperties": false
+      }
     }
   },
   "required": ["sourceRoots"],

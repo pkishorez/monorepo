@@ -2,11 +2,11 @@
   "name": "@kestack/monoverse",
   "version": "0.0.0",
   "private": false,
-  "description": "The folder rules a package's monoverse.json names, checked by oxlint as you write and by DevTools' Monoverse on every branch",
+  "description": "The folder rules a package's monoverse.json names, checked by the monoverse lint CLI and by DevTools' Monoverse, with one engine",
   "keywords": [
     "lint",
-    "oxlint",
     "architecture",
+    "imports",
     "monorepo"
   ],
   "repository": {
@@ -20,13 +20,13 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./oxlint": {
-      "types": "./dist/oxlint/index.d.ts",
-      "default": "./dist/oxlint/index.js"
-    },
     "./schema.json": "./schema.json"
   },
+  "bin": {
+    "monoverse": "bin/monoverse.mjs"
+  },
   "files": [
+    "bin/",
     "dist/",
     "schema.json",
     "README.md",
@@ -35,11 +35,13 @@
   "scripts": {
     "build": "rm -rf ./dist && tsc -p tsconfig.build.json",
     "fmt": "vp fmt",
-    "lint": "vp check && tsc --noEmit",
+    "lint": "vp check && tsc --noEmit && node src/cli/main.ts lint",
     "test": "vitest run src/tests"
   },
   "dependencies": {
-    "@oxlint/plugins": "catalog:"
+    "oxc-parser": "catalog:",
+    "oxc-resolver": "catalog:",
+    "yaml": "catalog:"
   },
   "devDependencies": {
     "@tsconfig/node22": "catalog:",

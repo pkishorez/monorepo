@@ -1,0 +1,7 @@
+{
+  "name": "fixture-alias",
+  "private": true,
+  "type": "module",
+  "imports": { "#lib/*": "./src/lib/*" },
+  "exports": { "./*": "./src/*" }
+}

@@ -1,2 +1,2 @@
-import { help } from '../helper.ts'; // ✗ imports
+import { help } from '../helper.ts'; // ✗ door
 export const outline = help;

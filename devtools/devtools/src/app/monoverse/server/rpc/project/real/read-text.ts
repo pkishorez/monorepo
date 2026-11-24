@@ -8,8 +8,3 @@ export async function readText(
   const bytes = await snapshot.read(path);
   return bytes === undefined ? undefined : new TextDecoder().decode(bytes);
 }
-
-/** `path` inside `folder`, both root-relative, as one root-relative path. */
-export function joinPath(folder: string, path: string): string {
-  return folder === '' ? path : `${folder}/${path}`;
-}

@@ -1,8 +1,10 @@
+import { readdirSync } from 'node:fs';
+
 import { Effect } from 'effect';
 import { describe, expect, test } from 'vitest';
 
 import { withFixture } from '../../../tests/git-fixture.js';
-import { servicesLayer } from '../../../tests/services.js';
+import { copies, servicesLayer } from '../../../tests/services.js';
 import { openProject, readPackage } from '../real/project.js';
 
 // The handlers, on the real services.
@@ -15,6 +17,9 @@ describe('a Project opened at a branch', () => {
   test('read from git: its Workspace, and a Package with its imports', () =>
     withFixture(async ({ repo }) => {
       const workspace = await Effect.runPromise(open(repo, 'feature'));
+      // No Package has a monoverse.json: nothing is checked, so the branch
+      // is never put on disk.
+      expect(readdirSync(copies)).toEqual([]);
       expect(workspace).toMatchObject({
         kind: 'monorepo',
         name: 'fixture',

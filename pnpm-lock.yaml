@@ -111,9 +111,6 @@ catalogs:
     '@opentelemetry/semantic-conventions':
       specifier: 1.43.0
       version: 1.43.0
-    '@oxlint/plugins':
-      specifier: 1.89.0
-      version: 1.89.0
     '@shadcn/react':
       specifier: 0.3.1
       version: 0.3.1
@@ -712,9 +709,9 @@ importers:
 
   devtools/devtools:
     dependencies:
-      oxc-parser:
-        specifier: 'catalog:'
-        version: 0.155.0
+      '@kestack/monoverse':
+        specifier: workspace:*
+        version: link:../monoverse
       tsx:
         specifier: 'catalog:'
         version: 4.23.15
@@ -734,9 +731,6 @@ importers:
       '@kestack/kabuki':
         specifier: workspace:*
         version: link:../../packages/kabuki
-      '@kestack/monoverse':
-        specifier: workspace:*
-        version: link:../monoverse
       '@kestack/std-toolkit':
         specifier: workspace:*
         version: link:../../toolkits/std-toolkit
@@ -965,9 +959,15 @@ importers:
 
   devtools/monoverse:
     dependencies:
-      '@oxlint/plugins':
+      oxc-parser:
         specifier: 'catalog:'
-        version: 1.89.0
+        version: 0.155.0
+      oxc-resolver:
+        specifier: 'catalog:'
+        version: 11.24.2
+      yaml:
+        specifier: 'catalog:'
+        version: 2.9.1
     devDependencies:
       '@tsconfig/node22':
         specifier: 'catalog:'

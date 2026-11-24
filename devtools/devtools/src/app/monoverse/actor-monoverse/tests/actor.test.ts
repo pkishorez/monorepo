@@ -137,6 +137,8 @@ const contents = (path: string): PackageContents => {
       violations: [
         {
           from: at('src/app/actor.ts'),
+          line: 1,
+          column: 22,
           to: at('src/index.ts'),
           reason: 'door',
           message: "'src/index.ts' is beside or above this file.",
@@ -331,6 +333,8 @@ describe('Monoverse', () => {
               {
                 from: 'apps/web/src/app/actor.ts',
                 to: 'apps/web/src/index.ts',
+                line: 1,
+                column: 22,
                 message: "'src/index.ts' is beside or above this file.",
               },
             ],

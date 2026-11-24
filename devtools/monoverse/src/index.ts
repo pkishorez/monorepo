@@ -1,47 +1,39 @@
 /*
- * Monoverse's rules, for any tool that reads a codebase: the lint runs
- * them file by file, the DevTools over a whole branch. Nothing here
- * depends on oxlint.
+ * Monoverse's rules, for any tool that reads a codebase: the
+ * `monoverse lint` CLI runs them, and so does DevTools, through the same
+ * functions, so both find the same.
  */
 
 export {
   type Config,
   type ConfigResult,
+  type Pass,
   type PresetName,
   type Rules,
   configFile,
   isChecked,
+  matches,
   parseConfig,
   presets,
 } from './shared/config/index.ts';
+export { type ContractsRule } from './shared/contracts/index.ts';
+export { type ImportsRule } from './shared/imports/index.ts';
 export {
-  type ContractFinding,
-  type ContractsRule,
-  contractClass,
-  contractFindings,
-  contractMessages,
-  contractOf,
-  missingContract,
-} from './shared/contracts/index.ts';
-export { type EsNode } from './shared/estree/index.ts';
-export {
-  type ImportStatement,
-  type ImportVerdict,
-  type ImportsRule,
-  checkImport,
-  importMessage,
-  importOf,
-  importsIn,
-  judgeImport,
-} from './shared/imports/index.ts';
-export {
-  isRelative,
-  resolveRelative,
+  type CheckOptions,
+  type Import,
+  type OpenProject,
+  type PackageReport,
+  type PackageResult,
+  type Project,
+  type Violation,
+  type ViolationKind,
+  checkProject,
+  isSource,
+  openProject,
   sourceExtensions,
-} from './shared/resolve/index.ts';
+} from './project/index.ts';
 export {
   type Tree,
-  diskTree,
   indexFiles,
   isIndexFile,
   isInside,

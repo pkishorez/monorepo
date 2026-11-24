@@ -1,1 +1,1 @@
-export const start = 1; // ✗ imports
+export const start = 1;

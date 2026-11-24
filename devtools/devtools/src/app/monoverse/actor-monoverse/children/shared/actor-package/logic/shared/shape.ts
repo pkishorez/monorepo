@@ -15,7 +15,7 @@ import { UnchangedSchema } from '../../../../../logic/shared/index.js';
  * 1. Read   the Package's files, Source roots, imports and Check at the
  *           branch its Props name: with a monoverse.json, each import its
  *           rules forbid is a Violation, a broken link, checked on the
- *           server as `vp lint` checks it. Again whenever the branch
+ *           server as `monoverse lint` checks it. Again whenever the branch
  *           changes, the tree staying as it is while the new one is read.
  * 2. Show   the tree, with the Source roots open. A double click on a file
  *           Emits `Opened`; viewing a folder Emits `Viewed`.

@@ -1,5 +1,5 @@
 import { shape } from './logic/index.ts';
-import { detail } from './logic/shape.ts'; // ✗ imports
+import { detail } from './logic/shape.ts'; // ✗ inside
 import { A } from './children/actor-a/index.ts';
 import { Deep } from './children/actor-a/children/actor-deep/index.ts';
 import { Store } from '../services/store/contract/index.ts';

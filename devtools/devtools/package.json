@@ -32,7 +32,7 @@
     "test": "vitest run && tsx scripts/package-smoke.mts"
   },
   "dependencies": {
-    "oxc-parser": "catalog:",
+    "@kestack/monoverse": "workspace:*",
     "tsx": "catalog:"
   },
   "devDependencies": {
@@ -41,7 +41,6 @@
     "@kestack/devtools-kabuki": "workspace:*",
     "@kestack/effect-tracer": "workspace:*",
     "@kestack/kabuki": "workspace:*",
-    "@kestack/monoverse": "workspace:*",
     "@kestack/std-toolkit": "workspace:*",
     "@kestack/use-gesture": "workspace:*",
     "@kestack/web-platform": "workspace:*",

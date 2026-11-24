@@ -7,12 +7,16 @@ import { isInside } from '../tree/index.ts';
  * A package's `monoverse.json`, beside its `package.json`. A package
  * with one is checked; a package without one is not.
  *
- *   sourceRoots  the folders the rules check, relative to the package
- *   ignore       globs, relative to the package, of files the rules skip
- *   preset       ready-made rules, `"default"` or `"kabuki"`, or
- *   rules        the package's own: `imports`, `contracts`; one left out is off
+ *   sourceRoots   the folders the rules check, relative to the package
+ *   ignore        globs, relative to the package, of files the rules skip
+ *   preset        ready-made rules, `"default"` or `"kabuki"`, or
+ *   rules         the package's own: `imports`, `contracts`; one left out is off
+ *   exceptions    imports the imports rule lets through, each with a reason
+ *   restrictions  imports refused on top of the rules, each with a reason
  *
- * Exactly one of `preset` and `rules`. Any other key is an error.
+ * Exactly one of `preset` and `rules`. Any other key is an error. Every
+ * glob is relative to the package, and a folder, written plainly or with
+ * a trailing `/`, covers everything inside it.
  */
 
 /** The file a package's settings live in. */
@@ -24,6 +28,17 @@ export interface Rules {
   readonly contracts?: ContractsRule;
 }
 
+/**
+ * An import from files matching `from` to targets matching `to`, with
+ * why. As an exception, the imports rule lets it through; as a
+ * restriction, it is refused.
+ */
+export interface Pass {
+  readonly from: string;
+  readonly to: string;
+  readonly reason: string;
+}
+
 /** A package's settings, its preset already expanded into rules. */
 export interface Config {
   /** Folders relative to the package, `''` for the whole package. */
@@ -31,6 +46,8 @@ export interface Config {
   /** Globs relative to the package. */
   readonly ignore: readonly string[];
   readonly rules: Rules;
+  readonly exceptions: readonly Pass[];
+  readonly restrictions: readonly Pass[];
 }
 
 /** The name of a ready-made set of rules. */
@@ -93,6 +110,17 @@ export const parseConfig = (text: string): ConfigResult => {
 };
 
 /**
+ * Whether `glob` matches `path`, or a folder holding it: `src/cli`
+ * matches `src/cli/main.ts`, and `react` matches `react/jsx-runtime`.
+ * A folder written with a trailing `/`, read as `react/**`, matches the
+ * folder or package itself too: `react`.
+ */
+export const matches = (path: string, glob: string): boolean =>
+  posix.matchesGlob(path, glob) ||
+  posix.matchesGlob(path, `${glob}/**`) ||
+  (glob.endsWith('/**') && posix.matchesGlob(path, glob.slice(0, -3)));
+
+/**
  * Whether the rules check `path`, a file relative to its package: it
  * is or sits in a source root, is not a declaration or minified file, and
  * no `ignore` glob matches it.
@@ -101,7 +129,7 @@ export const isChecked = (config: Config, path: string): boolean =>
   config.sourceRoots.some((root) => path === root || isInside(path, root)) &&
   !/\.d\.[cm]?ts$/.test(path) &&
   !/\.min\.[cm]?js$/.test(path) &&
-  !config.ignore.some((glob) => posix.matchesGlob(path, glob));
+  !config.ignore.some((glob) => matches(path, glob));
 
 class Invalid extends Error {}
 
@@ -116,20 +144,58 @@ const invalid = (message: string): never => {
 
 const readConfig = (json: unknown): Config => {
   const top = object(json, 'the file');
-  keys(top, ['$schema', 'sourceRoots', 'ignore', 'preset', 'rules'], '');
+  keys(
+    top,
+    [
+      '$schema',
+      'sourceRoots',
+      'ignore',
+      'preset',
+      'rules',
+      'exceptions',
+      'restrictions',
+    ],
+    '',
+  );
   if (Object.hasOwn(top, 'preset') === Object.hasOwn(top, 'rules'))
     invalid('needs exactly one of "preset" and "rules".');
   return {
     sourceRoots: strings(top.sourceRoots, 'sourceRoots', true).map(folder),
     ignore:
-      top.ignore === undefined
-        ? []
-        : strings(top.ignore, 'ignore').map((glob) =>
-            // A folder written as `src/tests/` skips everything in it.
-            glob.replace(/^(\.\/)+/, '').replace(/\/+$/, '/**'),
-          ),
+      top.ignore === undefined ? [] : strings(top.ignore, 'ignore').map(glob),
     rules: Object.hasOwn(top, 'preset') ? preset(top.preset) : rules(top.rules),
+    exceptions: passes(top.exceptions, 'exceptions'),
+    restrictions: passes(top.restrictions, 'restrictions'),
   };
+};
+
+/** A glob as written, `./src/tests/`, as it is matched: `src/tests/**`. */
+const glob = (entry: string): string =>
+  entry.replace(/^(\.\/)+/, '').replace(/\/+$/, '/**');
+
+/** The `exceptions` or `restrictions` list: each a `from`, a `to` and a `reason`. */
+const passes = (value: unknown, what: string): readonly Pass[] => {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) return invalid(`"${what}" must be a list.`);
+  return value.map((item: unknown, i) => {
+    const at = `${what}[${i}]`;
+    const entry = object(item, `"${at}"`);
+    keys(entry, ['from', 'to', 'reason'], `${at}.`);
+    const path = (key: 'from' | 'to'): string => {
+      const text = entry[key];
+      if (typeof text !== 'string' || text.trim() === '')
+        return invalid(`"${at}.${key}" must be a glob.`);
+      if (text.startsWith('/') || text.split('/').includes('..'))
+        invalid(
+          `"${at}.${key}" is "${text}", which is not inside the package.`,
+        );
+      return glob(text);
+    };
+    const reason = entry.reason;
+    if (typeof reason !== 'string' || reason.trim() === '')
+      invalid(`"${at}.reason" must say why.`);
+    return { from: path('from'), to: path('to'), reason: reason as string };
+  });
 };
 
 const preset = (value: unknown): Rules => {

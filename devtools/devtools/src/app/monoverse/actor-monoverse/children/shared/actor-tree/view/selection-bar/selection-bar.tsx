@@ -269,7 +269,8 @@ export function SelectionBar({
 
 /**
  * How many things are wrong with the selection, as a button that lists
- * each: what `vp lint` says of it, and where, named from its Package.
+ * each: what `monoverse lint` says of it, and where, named from its
+ * Package, at its line and column.
  */
 function FindingList({
   findings,

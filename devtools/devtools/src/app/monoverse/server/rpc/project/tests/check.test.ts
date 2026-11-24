@@ -1,23 +1,23 @@
-import { execFileSync } from 'node:child_process';
-import { existsSync, realpathSync } from 'node:fs';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, join, relative, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 
+import { checkProject } from '@kestack/monoverse';
 import { Effect } from 'effect';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 
+import { withFixture } from '../../../tests/git-fixture.js';
 import { servicesLayer } from '../../../tests/services.js';
 import { openProject, readPackage } from '../real/project.js';
 
 /*
- * Each Package checked by its own monoverse.json, as `vp lint` checks it:
- * `app` has one, `plain` none, `broken` one that cannot be read; `app`
- * and `plain` depend on each other, a Package cycle, which is never a
- * Violation. `app` holds one file for each way the two could disagree,
- * and the last test runs oxlint with the plugin over the same files and
- * asks for the same count at every file.
+ * Each Package checked by its own monoverse.json, as `monoverse lint`
+ * checks it: `app` has one, `plain` none, `broken` one that cannot be
+ * read; `app` and `plain` depend on each other, a Package cycle, which is
+ * never a Violation. `app` holds one file for each way a check could go
+ * wrong, and one test asks @kestack/monoverse's own `checkProject` over
+ * the same files for the very same report. The last checks a branch read
+ * from git as the same commit on disk.
  */
 
 const files: Record<string, string> = {
@@ -28,17 +28,35 @@ const files: Record<string, string> = {
     dependencies: { plain: 'workspace:*' },
     imports: { '#other/*': './src/other/*' },
   }),
-  'packages/app/monoverse.json': JSON.stringify({
-    sourceRoots: ['./src/'],
-    ignore: ['./**/tests/**'],
-    rules: {
-      imports: { doors: ['./shared/'] },
-      contracts: {
-        folders: ['services/*/contract'],
-        required: ['services/*/contract'],
+  'packages/app/tsconfig.json':
+    '{\n  // A comment, as tsconfig allows.\n  "compilerOptions": { "paths": { "@/*": ["./src/*"] } }\n}\n',
+  'packages/app/monoverse.json': JSON.stringify(
+    {
+      sourceRoots: ['./src/'],
+      ignore: ['./**/tests/**'],
+      rules: {
+        imports: { doors: ['./shared/'] },
+        contracts: {
+          folders: ['services/*/contract'],
+          required: ['services/*/contract'],
+        },
       },
+      exceptions: [
+        {
+          from: 'src/host/',
+          to: 'src/other/thing.ts',
+          reason: 'The host wires the parts itself.',
+        },
+        { from: 'src/nowhere/', to: 'src/other/', reason: 'Lets nothing.' },
+      ],
+      restrictions: [
+        { from: 'src/pure/', to: 'react', reason: 'pure code has no React.' },
+        { from: 'src/gone/', to: 'react', reason: 'no such folder.' },
+      ],
     },
-  }),
+    null,
+    2,
+  ),
   'packages/app/src/index.ts': "export * from './feature/index.js';\n",
   // Reaches inside `other`, a module below it, past its index file.
   'packages/app/src/main.ts': "import { thing } from './other/thing.js';\n",
@@ -51,8 +69,15 @@ const files: Record<string, string> = {
   // An import() of a string literal is judged; of anything else, not.
   'packages/app/src/feature/lazy.ts':
     "export const a = () => import('../other/thing.js');\nexport const b = (name: string) => import(name);\n",
-  // An alias is never judged, only relative imports are.
-  'packages/app/src/feature/alias.ts': "import '#other/thing.ts';\n",
+  // An alias is judged as the file it names: package.json `imports`, and
+  // tsconfig `paths`.
+  'packages/app/src/feature/alias.ts':
+    "import '#other/thing.ts';\nimport '@/other/thing.ts';\nimport '@/shared/index.ts';\n",
+  // An exception lets this through.
+  'packages/app/src/host/main.ts': "import '../other/thing.js';\n",
+  // A restriction refuses React, by name, whatever the imports rule says.
+  'packages/app/src/pure/calc.ts':
+    "import { useState } from 'react';\nexport const calc = useState;\n",
   // Two statements naming one file are two Violations.
   'packages/app/src/feature/twice.ts':
     "import type { thing } from '../other/thing.js';\nexport { thing as again } from '../other/thing.js';\n",
@@ -120,11 +145,14 @@ const countsOf = (
 const app = (path: string) => `packages/app/src/${path}`;
 
 const expected = {
+  'packages/app/monoverse.json': 2,
+  [app('feature/alias.ts')]: 2,
   [app('feature/lazy.ts')]: 1,
   [app('feature/legacy.ts')]: 2,
   [app('feature/twice.ts')]: 2,
   [app('feature/view.ts')]: 1,
   [app('main.ts')]: 1,
+  [app('pure/calc.ts')]: 1,
   [app('services/cache/contract/index.ts')]: 1,
   [app('services/store/real/index.ts')]: 1,
 };
@@ -142,6 +170,7 @@ describe("a Package's Check", () => {
     expect(checkOf('plain')).toEqual({ _tag: 'Unchecked' });
     expect(checkOf('broken')).toMatchObject({
       _tag: 'Invalid',
+      file: 'packages/broken/monoverse.json',
       message: expect.stringMatching(/^monoverse\.json /),
     });
     // The cycle is there, and it is no Violation.
@@ -174,9 +203,12 @@ describe("a Package's Check", () => {
     const violations =
       contents.check._tag === 'Checked' ? contents.check.violations : [];
     expect(countsOf(violations)).toEqual(expected);
-    // Each says what the lint says, naming the import as it is written.
+    // Each says what `monoverse lint` says, and where, naming the import
+    // as it is written.
     expect(violations).toContainEqual({
       from: app('main.ts'),
+      line: 1,
+      column: 23,
       to: app('other/thing.ts'),
       reason: 'inside',
       message:
@@ -184,6 +216,8 @@ describe("a Package's Check", () => {
     });
     expect(violations).toContainEqual({
       from: app('feature/view.ts'),
+      line: 1,
+      column: 8,
       to: app('other/index.ts'),
       reason: 'door',
       message:
@@ -191,10 +225,26 @@ describe("a Package's Check", () => {
     });
     expect(violations).toContainEqual({
       from: app('services/store/real/index.ts'),
+      line: 1,
+      column: 1,
       reason: 'contract',
       message:
         'src/services/store has no contract/. Put its Context.Service in src/services/store/contract/index.ts.',
     });
+    // A restriction says its reason.
+    expect(violations).toContainEqual({
+      from: app('pure/calc.ts'),
+      line: 1,
+      column: 26,
+      reason: 'restriction',
+      message: "'react' may not be imported here: pure code has no React.",
+    });
+    // What is wrong with the monoverse.json itself is told on it.
+    expect(
+      violations
+        .filter(({ from }) => from === 'packages/app/monoverse.json')
+        .map(({ reason }) => reason),
+    ).toEqual(['unused-exception', 'stale-restriction']);
   });
 
   test('a Package without a monoverse.json is the whole Package, unchecked', async () => {
@@ -210,7 +260,55 @@ describe("a Package's Check", () => {
   test('a monoverse.json that cannot be read says why, and checks nothing', async () => {
     const contents = await read('packages/broken');
     expect(contents.sourceRoots).toEqual(['packages/broken']);
-    expect(contents.check._tag).toBe('Invalid');
+    expect(contents.check).toMatchObject({
+      _tag: 'Invalid',
+      file: 'packages/broken/monoverse.json',
+    });
+  });
+
+  test("finds exactly what @kestack/monoverse's own checkProject finds", async () => {
+    const workspace = await open();
+    const engine = checkProject({ root, files: Object.keys(files) });
+    // The engine checks only the Packages with a monoverse.json.
+    const checked = workspace.packages.filter(
+      ({ check }) => check._tag !== 'Unchecked',
+    );
+    const asEngine = checked.map(({ path, check }) => ({
+      path,
+      result:
+        check._tag === 'Checked'
+          ? {
+              _tag: 'Checked',
+              violations: check.violations.map(({ from, reason, ...rest }) => ({
+                ...rest,
+                file: from,
+                kind: reason,
+              })),
+            }
+          : check,
+    }));
+    expect(asEngine).toEqual(
+      engine.map(({ path, result }) => ({
+        path,
+        result:
+          result._tag === 'Checked'
+            ? {
+                _tag: 'Checked',
+                // DevTools does not carry the import as written.
+                violations: result.violations.map(
+                  ({ kind, file, line, column, to, message }) => ({
+                    kind,
+                    file,
+                    line,
+                    column,
+                    ...(to === undefined ? {} : { to }),
+                    message,
+                  }),
+                ),
+              }
+            : result,
+      })),
+    );
   });
 
   test('a monoverse.json saved with a byte order mark reads as without one', async () => {
@@ -221,63 +319,122 @@ describe("a Package's Check", () => {
     const contents = await read('packages/plain');
     expect(contents.check._tag).toBe('Checked');
   });
-
-  test('`vp lint` with the plugin finds the same, at the same files', async () => {
-    const config = join(root, '.oxlintrc.json');
-    await writeFile(
-      config,
-      JSON.stringify({
-        jsPlugins: [
-          fileURLToPath(import.meta.resolve('@kestack/monoverse/oxlint')),
-        ],
-        rules: {
-          'monoverse/imports': 'error',
-          'monoverse/contracts': 'error',
-        },
-      }),
-    );
-    const output = run(vp(), [
-      'lint',
-      '-c',
-      config,
-      '-A',
-      'all',
-      '--format',
-      'json',
-      join(root, 'packages/app'),
-    ]);
-    const { diagnostics } = JSON.parse(output) as {
-      diagnostics: ReadonlyArray<{ readonly filename: string }>;
-    };
-    // oxlint names each file from where it runs; /tmp may be a link.
-    const real = realpathSync(root);
-    const linted = countsOf(
-      diagnostics.map(({ filename }) => ({
-        from: relative(real, realpathSync(resolve(process.cwd(), filename))),
-      })),
-    );
-    expect(linted).toEqual(expected);
-  });
 });
 
-/** Vite+'s `vp`, from the nearest node_modules above this file. */
-function vp(): string {
-  for (
-    let at = dirname(fileURLToPath(import.meta.url));
-    at !== dirname(at);
-    at = dirname(at)
-  ) {
-    const bin = join(at, 'node_modules/.bin/vp');
-    if (existsSync(bin)) return bin;
-  }
-  throw new Error('No node_modules/.bin/vp above this test.');
-}
+describe('a branch no worktree has', () => {
+  test('is checked as the same commit on disk, aliases and installed tsconfigs too', () =>
+    withFixture(async ({ repo, worktree, git, write }) => {
+      const core = (path: string) => `packages/core/${path}`;
+      // The Package's tsconfig, which holds the alias, extends one from
+      // node_modules, which git never has: the copy links the checkout's
+      // in, or the tsconfig could not be read.
+      const installed = async (folder: string) =>
+        write(
+          join(folder, core('node_modules/@fixture/base/tsconfig.json')),
+          '{"compilerOptions":{"strict":true}}\n',
+        );
+      git(repo, 'checkout', '-q', '-b', 'checked');
+      const commit: Record<string, string> = {
+        '.gitignore': 'node_modules\n',
+        [core('monoverse.json')]:
+          '{"sourceRoots":["src"],"preset":"default"}\n',
+        [core('tsconfig.json')]:
+          '{"extends":"@fixture/base/tsconfig.json","compilerOptions":{"paths":{"@/*":["./src/*"]}}}\n',
+        [core('src/lib/index.ts')]: "export * from './deep.js';\n",
+        [core('src/lib/deep.ts')]: 'export const deep = 1;\n',
+        [core('src/alias.ts')]: "import '@/lib/deep.ts';\n",
+        [core('src/relative.ts')]: "import './lib/deep.js';\n",
+      };
+      for (const [path, text] of Object.entries(commit))
+        await write(join(repo, path), text);
+      git(repo, 'add', '--all');
+      git(repo, 'commit', '-q', '-m', 'checked');
+      git(repo, 'checkout', '-q', 'main');
+      await installed(repo);
 
-/** Runs a command and returns what it printed; a lint that finds something exits non-zero. */
-function run(command: string, args: ReadonlyArray<string>): string {
-  try {
-    return execFileSync(command, args, { encoding: 'utf8' });
-  } catch (error) {
-    return String((error as { readonly stdout?: unknown }).stdout ?? '');
-  }
-}
+      const checkAt = async () => {
+        const contents = await Effect.runPromise(
+          readPackage(repo, 'checked', 'packages/core').pipe(
+            Effect.provide(servicesLayer),
+          ),
+        );
+        const workspace = await Effect.runPromise(
+          openProject(repo, 'checked').pipe(Effect.provide(servicesLayer)),
+        );
+        return {
+          contents,
+          check: workspace.packages.find(({ name }) => name === 'core')?.check,
+        };
+      };
+      const fromGit = await checkAt();
+      expect(fromGit.contents.check).toEqual(fromGit.check);
+      expect(fromGit.check).toEqual({
+        _tag: 'Checked',
+        violations: [
+          expect.objectContaining({
+            from: core('src/alias.ts'),
+            to: core('src/lib/deep.ts'),
+            reason: 'inside',
+          }),
+          expect.objectContaining({
+            from: core('src/relative.ts'),
+            to: core('src/lib/deep.ts'),
+            reason: 'inside',
+          }),
+        ],
+      });
+      expect(fromGit.contents.imports).toContainEqual([
+        core('src/alias.ts'),
+        core('src/lib/deep.ts'),
+      ]);
+
+      // The same commit checked out in a worktree is read from the disk.
+      const checkout = `${worktree}-checked`;
+      git(repo, 'worktree', 'add', '-q', checkout, 'checked');
+      await installed(checkout);
+      const onDisk = await checkAt();
+      expect(onDisk).toEqual(fromGit);
+    }));
+
+  test('opened at a folder inside the repository, reads what sits above it as the disk does', () =>
+    withFixture(async ({ repo, worktree, git, write }) => {
+      const core = (path: string) => `packages/core/${path}`;
+      git(repo, 'checkout', '-q', '-b', 'nested');
+      const commit: Record<string, string> = {
+        // The alias is in a tsconfig above the Project folder.
+        'tsconfig.base.json':
+          '{"compilerOptions":{"paths":{"@core/*":["./packages/core/src/*"]}}}\n',
+        [core('tsconfig.json')]: '{"extends":"../../tsconfig.base.json"}\n',
+        [core('monoverse.json')]:
+          '{"sourceRoots":["src"],"preset":"default"}\n',
+        [core('src/lib/index.ts')]: "export * from './deep.js';\n",
+        [core('src/lib/deep.ts')]: 'export const deep = 1;\n',
+        [core('src/alias.ts')]: "import '@core/lib/deep.ts';\n",
+      };
+      for (const [path, text] of Object.entries(commit))
+        await write(join(repo, path), text);
+      git(repo, 'add', '--all');
+      git(repo, 'commit', '-q', '-m', 'nested');
+      git(repo, 'checkout', '-q', 'main');
+
+      const root = join(repo, 'packages/core');
+      const checkAt = () =>
+        Effect.runPromise(
+          readPackage(root, 'nested', '.').pipe(Effect.provide(servicesLayer)),
+        );
+      const fromGit = await checkAt();
+      expect(fromGit.check).toEqual({
+        _tag: 'Checked',
+        violations: [
+          expect.objectContaining({
+            from: 'src/alias.ts',
+            to: 'src/lib/deep.ts',
+            reason: 'inside',
+          }),
+        ],
+      });
+
+      git(repo, 'worktree', 'add', '-q', `${worktree}-nested`, 'nested');
+      expect(await checkAt()).toEqual(fromGit);
+    }));
+});

@@ -12,3 +12,7 @@ fi
 # Architecture is checked per Laymos Project, every Project a staged file
 # sits in, whether or not its package's lint script runs Laymos.
 node .github/scripts/laymos-lint.mjs --staged
+
+# Imports are checked per package with a monoverse.json, every package a
+# staged file sits in, from source so the hook never waits on a build.
+node devtools/monoverse/src/cli/main.ts lint --staged

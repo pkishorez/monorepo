@@ -1,0 +1,34 @@
+{
+  "$schema": "../../../schema.json",
+  "sourceRoots": ["src"],
+  "preset": "default",
+  "exceptions": [
+    {
+      "from": "src/host/",
+      "to": "src/feature/part.ts",
+      "reason": "The host wires the feature's parts itself."
+    },
+    {
+      "from": "src/nowhere",
+      "to": "src/feature/part.ts",
+      "reason": "Lets nothing through."
+    }
+  ],
+  "restrictions": [
+    {
+      "from": "src/pure",
+      "to": "react",
+      "reason": "pure code has no React."
+    },
+    {
+      "from": "src/pure/**",
+      "to": "src/feature",
+      "reason": "pure code knows no feature."
+    },
+    {
+      "from": "src/gone",
+      "to": "react",
+      "reason": "no such folder."
+    }
+  ]
+}

@@ -2,13 +2,6 @@ import { defineConfig } from 'vite-plus';
 
 export default defineConfig({
   lint: {
-    // Loaded from source, so linting never waits on a build. Each rule
-    // checks a file only when its package has a monoverse.json.
-    jsPlugins: ['./devtools/monoverse/src/oxlint/index.ts'],
-    rules: {
-      'monoverse/imports': 'error',
-      'monoverse/contracts': 'error',
-    },
     ignorePatterns: [
       '.claude/worktrees/**',
       'dist/**',
