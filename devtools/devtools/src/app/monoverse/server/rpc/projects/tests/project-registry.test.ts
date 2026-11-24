@@ -14,8 +14,8 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 
 import { ProjectStore } from '../../../services/project-store/contract/index.js';
 import { makeSqliteProjectStore } from '../../../services/project-store/real/project-store.js';
-import { ProjectRegistryRpc } from '../contract/index.js';
-import { ProjectRegistryRpcLive } from '../real/index.js';
+import { ProjectsRpc } from '../contract/index.js';
+import { projectsRpcLayer } from '../real/index.js';
 
 let folder: string;
 beforeEach(async () => {
@@ -26,7 +26,7 @@ beforeEach(async () => {
 });
 afterEach(() => rm(folder, { recursive: true, force: true }));
 
-describe('the Project registry RPC', () => {
+describe('the Projects RPC, on the Project registry', () => {
   test('AddProject takes an absolute folder that exists, its links resolved', () =>
     Effect.runPromise(
       Effect.scoped(
@@ -34,11 +34,9 @@ describe('the Project registry RPC', () => {
           const store = yield* makeSqliteProjectStore({
             path: ':memory:',
           });
-          const rpc = yield* ProjectRegistryRpc.accessHandler(
-            'AddProject',
-          ).pipe(
+          const rpc = yield* ProjectsRpc.accessHandler('AddProject').pipe(
             Effect.provide(
-              ProjectRegistryRpcLive.pipe(
+              projectsRpcLayer().pipe(
                 Layer.provide(Layer.succeed(ProjectStore, store)),
               ),
             ),

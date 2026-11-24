@@ -1,5 +1,4 @@
 import { Schema } from 'effect';
-import { Rpc, RpcGroup } from 'effect/rpc';
 
 /** One sub-folder, as the Project picker lists it. */
 export const FolderSchema = Schema.Struct({
@@ -45,20 +44,3 @@ export class FolderError extends Schema.TaggedError<FolderError>('FolderError')(
     message: Schema.String,
   },
 ) {}
-
-/** Browsing folders under home, for the Project picker. */
-export const FoldersRpc = RpcGroup.make(
-  /**
-   * The sub-folders of `path` (home when null) whose name holds `query`,
-   * case-insensitively; hidden ones (`.name`) only when `hidden`.
-   */
-  Rpc.make('ListFolders', {
-    payload: {
-      path: Schema.NullOr(Schema.String),
-      query: Schema.String,
-      hidden: Schema.Boolean,
-    },
-    success: FolderListingSchema,
-    error: FolderError,
-  }),
-);

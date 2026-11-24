@@ -1,6 +1,6 @@
 import { Context, Data, type Effect } from 'effect';
 
-import type { ProjectEntry } from '../../../rpc/project-registry/contract/index.js';
+import type { ProjectEntry } from '../../../rpc/projects/contract/index.js';
 
 /** The store could not be opened, read or written. */
 export class ProjectStoreError extends Data.TaggedError('ProjectStoreError')<{

@@ -1,4 +1,4 @@
-import type { FolderListing } from '../../../../server/rpc/folders/contract/index.js';
+import type { FolderListing } from '../../../../server/rpc/projects/contract/index.js';
 import { shownOf, topOf, type Listing, type Model } from './shared/index.js';
 
 // Steps ----------------------------------------------------------------------

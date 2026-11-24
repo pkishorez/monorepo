@@ -5,7 +5,7 @@ import { Effect, Layer } from 'effect';
 import type { Entity } from '@kestack/std-toolkit/core';
 import { SQLite, type SQLiteDriver } from '@kestack/std-toolkit/db/sqlite';
 import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
-import type { ProjectEntry } from '../../../rpc/project-registry/contract/index.js';
+import type { ProjectEntry } from '../../../rpc/projects/contract/index.js';
 import {
   ProjectStore,
   ProjectStoreError,

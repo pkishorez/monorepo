@@ -1,6 +1,6 @@
 import type { InitOf, UpdatesOf } from '@kestack/kabuki/types';
 
-import type { ProjectEntry } from '../../server/rpc/project-registry/contract/index.js';
+import type { ProjectEntry } from '../../server/rpc/projects/contract/index.js';
 import { placeOf, projectOf, samePlace } from './selectors.js';
 import type { MonoverseShape, Place, State } from './shared/index.js';
 

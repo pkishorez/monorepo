@@ -2,11 +2,9 @@ import { Layer } from 'effect';
 import { RpcSerialization, RpcServer } from 'effect/rpc';
 
 import { MONOVERSE_RPC_PATH, MonoverseRpc } from './rpc/contract/index.js';
-import { FilesRpcLive } from './rpc/files/real/index.js';
-import { foldersRpcLayer } from './rpc/folders/real/index.js';
 import { GitRpcLive } from './rpc/git/real/index.js';
-import { ProjectRegistryRpcLive } from './rpc/project-registry/real/index.js';
 import { ProjectRpcLive } from './rpc/project/real/index.js';
+import { projectsRpcLayer } from './rpc/projects/real/index.js';
 import { gitLayer } from './services/git/real/index.js';
 import { sqliteProjectStoreLayer } from './services/project-store/real/index.js';
 import { snapshotsLayer } from './services/snapshots/real/index.js';
@@ -29,10 +27,8 @@ export const monoverseServer = (options: {
   }).pipe(
     Layer.provide(
       Layer.mergeAll(
-        ProjectRegistryRpcLive,
-        foldersRpcLayer(options.home),
+        projectsRpcLayer(options.home),
         ProjectRpcLive,
-        FilesRpcLive,
         GitRpcLive,
       ),
     ),

@@ -7,7 +7,6 @@ import {
   FileNotFoundError,
   FileOutsideError,
   FileReadError,
-  FilesRpc,
 } from '../contract/index.js';
 
 // Git's own test for binary content: a NUL byte near the start.
@@ -54,8 +53,3 @@ export function readRootFile(
     };
   });
 }
-
-/** Fulfils the file RPC, reading through Snapshots. */
-export const FilesRpcLive = FilesRpc.toLayer({
-  ReadFile: ({ root, branch, path }) => readRootFile(root, branch, path),
-});

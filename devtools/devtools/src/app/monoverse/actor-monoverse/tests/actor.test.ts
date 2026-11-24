@@ -5,7 +5,7 @@ import { Actor, Runtime } from '@kestack/kabuki';
 import type { Instance } from '@kestack/kabuki/types';
 
 import type { Branches } from '../../server/rpc/git/contract/index.js';
-import type { ProjectEntry } from '../../server/rpc/project-registry/contract/index.js';
+import type { ProjectEntry } from '../../server/rpc/projects/contract/index.js';
 import type {
   PackageContents,
   Workspace,
