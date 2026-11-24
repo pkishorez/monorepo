@@ -1,7 +1,10 @@
 import { defineConfig } from 'vite-plus';
+import { kabuki } from './devtools/lint/src/presets/index.ts';
 
 export default defineConfig({
   lint: {
+    // Loaded from source, so linting never waits on a build.
+    jsPlugins: ['./devtools/lint/src/index.ts'],
     ignorePatterns: [
       '.claude/worktrees/**',
       'dist/**',
@@ -12,6 +15,11 @@ export default defineConfig({
       'platforms/web-platform/src/ui/components/primitives/*.tsx',
     ],
     overrides: [
+      {
+        // The Kestack folder rules, on the first app that follows them.
+        files: ['devtools/devtools/src/app/**'],
+        rules: kabuki,
+      },
       {
         // Kabuki apps keep state in Nodes and motion in the Frame. A
         // useEffect there needs a disable comment that says why.
