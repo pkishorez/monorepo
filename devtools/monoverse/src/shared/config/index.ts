@@ -94,12 +94,13 @@ export const parseConfig = (text: string): ConfigResult => {
 
 /**
  * Whether the rules check `path`, a file relative to its package: it
- * sits in a source root, is not a declaration file, and no `ignore` glob
- * matches it.
+ * is or sits in a source root, is not a declaration or minified file, and
+ * no `ignore` glob matches it.
  */
 export const isChecked = (config: Config, path: string): boolean =>
-  config.sourceRoots.some((root) => isInside(path, root)) &&
+  config.sourceRoots.some((root) => path === root || isInside(path, root)) &&
   !/\.d\.[cm]?ts$/.test(path) &&
+  !/\.min\.[cm]?js$/.test(path) &&
   !config.ignore.some((glob) => posix.matchesGlob(path, glob));
 
 class Invalid extends Error {}
@@ -124,7 +125,8 @@ const readConfig = (json: unknown): Config => {
       top.ignore === undefined
         ? []
         : strings(top.ignore, 'ignore').map((glob) =>
-            glob.replace(/^(\.\/)+/, ''),
+            // A folder written as `src/tests/` skips everything in it.
+            glob.replace(/^(\.\/)+/, '').replace(/\/+$/, '/**'),
           ),
     rules: Object.hasOwn(top, 'preset') ? preset(top.preset) : rules(top.rules),
   };
@@ -183,8 +185,14 @@ const folder = (entry: string): string => {
 };
 
 /** A door or contract folder as written, `./shared/`, as the rules match it: `shared`. */
-const pattern = (entry: string): string =>
-  entry.replace(/^(\.\/)+/, '').replace(/\/+$/, '');
+const pattern = (entry: string): string => {
+  const clean = entry.replace(/^(\.\/)+/, '').replace(/\/+$/, '');
+  if (clean === '' || clean.startsWith('/') || clean.split('/').includes('..'))
+    invalid(
+      `"${entry}" is not a folder path; write a door or contract folder from the folder that owns it, such as "shared" or "services/*/contract".`,
+    );
+  return clean;
+};
 
 const object = (value: unknown, what: string): Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)

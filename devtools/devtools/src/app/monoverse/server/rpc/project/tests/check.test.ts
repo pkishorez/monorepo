@@ -180,7 +180,7 @@ describe("a Package's Check", () => {
       to: app('other/thing.ts'),
       reason: 'inside',
       message:
-        "'./other/thing.js' reaches inside src/other. Import src/other/index.ts, and export what you need from there.",
+        "'./other/thing.js' reaches inside src/other. Import src/other through its index file, and export what you need from there.",
     });
     expect(violations).toContainEqual({
       from: app('feature/view.ts'),

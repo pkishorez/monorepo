@@ -129,7 +129,7 @@ describe('what parseConfig cleans and refuses', () => {
     expect(
       config({
         sourceRoots: ['./src/'],
-        ignore: ['./**/tests/**'],
+        ignore: ['./**/tests/**', 'src/fixtures/'],
         rules: {
           imports: { doors: ['./shared/', 'ports/*/'] },
           contracts: { folders: ['./ports/*'], required: ['ports/*/'] },
@@ -137,7 +137,7 @@ describe('what parseConfig cleans and refuses', () => {
       }),
     ).toEqual({
       sourceRoots: ['src'],
-      ignore: ['**/tests/**'],
+      ignore: ['**/tests/**', 'src/fixtures/**'],
       rules: {
         imports: { doors: ['shared', 'ports/*'] },
         contracts: { folders: ['ports/*'], required: ['ports/*'] },
@@ -168,5 +168,42 @@ describe('what parseConfig cleans and refuses', () => {
     expect(isChecked(whole, 'src/types.d.ts')).toBe(false);
     expect(isChecked(whole, 'src/types.d.mts')).toBe(false);
     expect(isChecked(whole, 'src/types.ts')).toBe(true);
+  });
+
+  it('refuses a door or contract folder that is empty, absolute or climbs out, as the schema does', () => {
+    for (const door of ['', './', '/shared', '../shared'])
+      expect(
+        parse({ sourceRoots: ['src'], rules: { imports: { doors: [door] } } })
+          .ok,
+      ).toBe(false);
+    const schema = JSON.parse(
+      readFileSync(new URL('../../schema.json', import.meta.url), 'utf8'),
+    ) as {
+      properties: {
+        rules: {
+          properties: {
+            imports: {
+              properties: { doors: { items: { pattern: string } } };
+            };
+          };
+        };
+      };
+    };
+    const pattern = new RegExp(
+      schema.properties.rules.properties.imports.properties.doors.items.pattern,
+    );
+    for (const door of ['', './', '/shared', '../shared'])
+      expect(pattern.test(door)).toBe(false);
+    for (const door of ['shared', './shared/', 'services/*/contract'])
+      expect(pattern.test(door)).toBe(true);
+  });
+
+  it('checks a source root that names a file, and never a minified file', () => {
+    const roots = config({
+      sourceRoots: ['index.ts', 'src'],
+      preset: 'default',
+    });
+    expect(isChecked(roots, 'index.ts')).toBe(true);
+    expect(isChecked(roots, 'src/vendor/lib.min.js')).toBe(false);
   });
 });
