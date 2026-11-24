@@ -4,26 +4,28 @@ import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { kabuki } from '../presets/index.ts';
 
 /*
- * Runs oxlint, as Vite+ ships it, with the Kabuki preset over a fixture
- * app. Every line that should fail says so with `// ✗ <rule>`: the test
- * reads those marks, so the fixture is its own list of expectations.
+ * Runs oxlint, as Vite+ ships it, with the plugin on and no options over
+ * three fixture packages: `app`, whose monoverse.json sets the Kabuki
+ * preset; `bare`, with none, so nothing is checked; and `invalid`, whose
+ * monoverse.json is broken. Every line that should fail says so with
+ * `// ✗ <rule>`: the test reads those marks, so the fixtures are their
+ * own list of expectations.
  */
 
 const here = fileURLToPath(new URL('.', import.meta.url));
 const pkg = join(here, '../..');
-const fixture = join(pkg, 'test/fixtures/app');
+const fixture = join(pkg, 'test/fixtures');
 const vp = join(pkg, '../../node_modules/.bin/vp');
 
 const lint = (): readonly string[] => {
   const config = {
-    jsPlugins: [join(pkg, 'src/index.ts')],
-    rules: kabuki,
+    jsPlugins: [join(pkg, 'src/oxlint/index.ts')],
+    rules: { 'monoverse/imports': 'error', 'monoverse/contracts': 'error' },
   };
   const configFile = join(
-    mkdtempSync(join(tmpdir(), 'kestack-lint-')),
+    mkdtempSync(join(tmpdir(), 'monoverse-')),
     '.oxlintrc.json',
   );
   writeFileSync(configFile, JSON.stringify(config));
@@ -46,7 +48,7 @@ const lint = (): readonly string[] => {
   };
   return diagnostics
     .map((d) => {
-      const rule = /^kestack\((\w+)\)$/.exec(d.code)?.[1] ?? d.code;
+      const rule = /^monoverse\((\w+)\)$/.exec(d.code)?.[1] ?? d.code;
       const file = relative(fixture, join(pkg, d.filename));
       return `${file}:${d.labels[0]?.span.line} ${rule}`;
     })
@@ -84,8 +86,8 @@ const run = (command: string, args: readonly string[]): string => {
   }
 };
 
-describe('the Kabuki preset', () => {
-  it('fails exactly the lines marked ✗ in the fixture app', () => {
+describe('the oxlint plugin', () => {
+  it('fails exactly the lines marked ✗ in the fixture packages', () => {
     expect(lint()).toEqual(marked());
   });
 });

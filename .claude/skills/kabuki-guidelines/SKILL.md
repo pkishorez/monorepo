@@ -47,9 +47,10 @@ few named folders, the **doors**. A file may import:
 
 A door is open to everything inside the folder that holds it:
 `actor-tree/logic/shared/` is open to all of `actor-tree/`, its `view/`
-and its Children alike. `kestack/imports` from
-[@kestack/lint](../../../devtools/lint/README.md) checks all of this; tests
-are skipped.
+and its Children alike. `monoverse/imports` from
+[@kestack/monoverse](../../../devtools/monoverse/README.md) checks all of
+this in every package whose `monoverse.json` sets `"preset": "kabuki"`;
+the files its `ignore` names, such as tests, are skipped.
 
 ## The app
 
@@ -236,7 +237,7 @@ Anything that branches on data or computes belongs in `logic/`.
 
 ## Rules
 
-`kestack/imports` and `kestack/contracts` check rules 2 and 3; the rest are
+`monoverse/imports` and `monoverse/contracts` check rules 2 and 3; the rest are
 for review.
 
 1. **Closed folders.** Each folder holds only its listed names. Only the
@@ -281,7 +282,7 @@ for review.
    you did and saw in the PR's `## Verification`.
 
 When a mistake repeats, make a check catch it, in
-[@kestack/lint](../../../devtools/lint/README.md), then shorten this file.
+[@kestack/monoverse](../../../devtools/monoverse/README.md), then shorten this file.
 
 ## Review output
 

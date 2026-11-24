@@ -1,12 +1,13 @@
 {
-  "name": "@kestack/lint",
+  "name": "@kestack/monoverse",
   "version": "0.0.0",
   "private": false,
-  "description": "Oxlint rules that keep a codebase's folders to the Kestack guidelines: what a file may import, and what a contract may export",
+  "description": "The folder rules a package's monoverse.json names, checked by oxlint as you write and by DevTools' Monoverse on every branch",
   "keywords": [
     "lint",
     "oxlint",
-    "architecture"
+    "architecture",
+    "monorepo"
   ],
   "repository": {
     "type": "git",
@@ -19,13 +20,15 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./presets": {
-      "types": "./dist/presets/index.d.ts",
-      "default": "./dist/presets/index.js"
-    }
+    "./oxlint": {
+      "types": "./dist/oxlint/index.d.ts",
+      "default": "./dist/oxlint/index.js"
+    },
+    "./schema.json": "./schema.json"
   },
   "files": [
     "dist/",
+    "schema.json",
     "README.md",
     "LICENSE"
   ],

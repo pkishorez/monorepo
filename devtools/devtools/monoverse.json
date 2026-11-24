@@ -1,0 +1,6 @@
+{
+  "$schema": "../monoverse/schema.json",
+  "sourceRoots": ["src"],
+  "ignore": ["src/cli/**", "**/tests/**", "**/*.test.ts", "**/*.test.tsx"],
+  "preset": "kabuki"
+}

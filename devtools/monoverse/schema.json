@@ -1,0 +1,90 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "monoverse.json",
+  "description": "A package's Monoverse settings, beside its package.json. A package with this file is checked by monoverse/imports and monoverse/contracts; a package without it is not.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "sourceRoots": {
+      "description": "The folders the rules check, relative to the package. \".\" is the whole package.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "ignore": {
+      "description": "Globs, relative to the package, of files the rules skip: tests, fixtures.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "preset": {
+      "description": "Ready-made rules. default: code is shared only through shared/ folders. kabuki: a Kabuki app's doors and contracts.",
+      "enum": ["default", "kabuki"]
+    },
+    "rules": {
+      "description": "The package's own rules, instead of a preset. A rule left out is off.",
+      "type": "object",
+      "properties": {
+        "imports": {
+          "description": "A file imports its own module, the index file of any module below it, or, beside or above it, a door's index file.",
+          "type": "object",
+          "properties": {
+            "doors": {
+              "description": "Door folders, as paths from the folder that owns them. A * matches one folder name: services/*/contract.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": ["doors"],
+          "additionalProperties": false
+        },
+        "contracts": {
+          "description": "A contract folder exports only Context.Service and error classes as values, and the required ones exist.",
+          "type": "object",
+          "properties": {
+            "folders": {
+              "description": "Contract folders, as paths from the folder that owns them: services/*/contract.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "required": {
+              "description": "Of those, the ones that must exist.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": ["folders"],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": ["sourceRoots"],
+  "oneOf": [
+    {
+      "required": ["preset"],
+      "not": {
+        "required": ["rules"]
+      }
+    },
+    {
+      "required": ["rules"],
+      "not": {
+        "required": ["preset"]
+      }
+    }
+  ],
+  "additionalProperties": false
+}
