@@ -172,7 +172,7 @@ describe('importMessage', () => {
         'apps/web',
       ),
     ).toBe(
-      "'./feature/part.ts' reaches inside src/feature. Import src/feature/index.ts, and export what you need from there.",
+      "'./feature/part.ts' reaches inside src/feature. Import src/feature through its index file, and export what you need from there.",
     );
   });
 

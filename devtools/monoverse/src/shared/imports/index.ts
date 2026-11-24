@@ -161,7 +161,7 @@ export const importMessage = (
 ): string => {
   if (verdict.reason === 'inside') {
     const module = relativeTo(root, verdict.module);
-    return `'${what}' reaches inside ${module}. Import ${module}/index.ts, and export what you need from there.`;
+    return `'${what}' reaches inside ${module}. Import ${module} through its index file, and export what you need from there.`;
   }
   return verdict.doors.length === 0
     ? `'${what}' is beside or above this file, and this package has no doors. Move what you need below the files that use it.`

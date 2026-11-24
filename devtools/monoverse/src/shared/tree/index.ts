@@ -28,6 +28,8 @@ export const indexFiles = [
   'index.js',
   'index.jsx',
   'index.mjs',
+  'index.cts',
+  'index.cjs',
 ] as const;
 
 /** Whether the file is a module's index file. */

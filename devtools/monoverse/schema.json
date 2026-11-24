@@ -39,7 +39,8 @@
               "description": "Door folders, as paths from the folder that owns them. A * matches one folder name: services/*/contract.",
               "type": "array",
               "items": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^(?!\\.?/?$)(?!/)(?!(.*/)?\\.\\.(/|$))"
               }
             }
           },
@@ -54,14 +55,16 @@
               "description": "Contract folders, as paths from the folder that owns them: services/*/contract.",
               "type": "array",
               "items": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^(?!\\.?/?$)(?!/)(?!(.*/)?\\.\\.(/|$))"
               }
             },
             "required": {
               "description": "Of those, the ones that must exist.",
               "type": "array",
               "items": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^(?!\\.?/?$)(?!/)(?!(.*/)?\\.\\.(/|$))"
               }
             }
           },
