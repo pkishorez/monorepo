@@ -1,6 +1,8 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
 
+import { FolderError, FolderListingSchema } from './folders.js';
+
 /**
  * One Monorepo or Single Package added to Monoverse: one absolute folder,
  * named after it, and when it was added. Which branch is read is never
@@ -23,8 +25,12 @@ export class ProjectRegistryError extends Schema.TaggedError<ProjectRegistryErro
   message: Schema.String,
 }) {}
 
-/** The saved Projects: listed newest first, added by folder, removed by id. */
-export const ProjectRegistryRpc = RpcGroup.make(
+/**
+ * What the Project picker asks: the saved Projects, listed newest first,
+ * added by folder and removed by id, and the folders under home to find
+ * one in.
+ */
+export const ProjectsRpc = RpcGroup.make(
   Rpc.make('ListProjects', {
     success: Schema.Array(ProjectEntrySchema),
     error: ProjectRegistryError,
@@ -39,5 +45,18 @@ export const ProjectRegistryRpc = RpcGroup.make(
     payload: { id: Schema.String },
     success: Schema.Struct({ removed: Schema.Boolean }),
     error: ProjectRegistryError,
+  }),
+  /**
+   * The sub-folders of `path` (home when null) whose name holds `query`,
+   * case-insensitively; hidden ones (`.name`) only when `hidden`.
+   */
+  Rpc.make('ListFolders', {
+    payload: {
+      path: Schema.NullOr(Schema.String),
+      query: Schema.String,
+      hidden: Schema.Boolean,
+    },
+    success: FolderListingSchema,
+    error: FolderError,
   }),
 );

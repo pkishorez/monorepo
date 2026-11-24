@@ -1,3 +1,3 @@
 // Git mode: a Project's branches, what a branch changed since it left
-// another, and one file's diff.
-export { GitRpcLive } from './changes.js';
+// another, one file's diff, and one file as a branch has it.
+export { GitRpcLive } from './layer.js';

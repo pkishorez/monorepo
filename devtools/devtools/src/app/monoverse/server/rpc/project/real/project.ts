@@ -27,10 +27,10 @@ import { analyzeMonorepo } from './workspace/analyze-monorepo.js';
  * at the branch asked for, each Package checked against its
  * monoverse.json by @kestack/monoverse, the engine `monoverse lint` runs,
  * in a worker thread, on a folder on disk holding the branch: the
- * worktree that has it, or a copy of its commit. Everything that depends on what is open or
- * selected (the tree, the roll-up of connections) runs in the browser on
- * those facts, in the Actors' logic and the Monorepo service, so a click
- * never waits on the server.
+ * worktree that has it, or a copy of its commit. Everything that depends
+ * on what is open or selected (the tree, the roll-up of connections) runs
+ * in the browser on those facts, in the Actors' logic and the Projects
+ * service, so a click never waits on the server.
  */
 
 /**

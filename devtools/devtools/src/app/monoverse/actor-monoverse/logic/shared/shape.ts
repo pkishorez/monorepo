@@ -1,7 +1,7 @@
 import { Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
 
-import { ProjectEntrySchema } from '../../../server/rpc/project-registry/contract/index.js';
+import { ProjectEntrySchema } from '../../../server/rpc/projects/contract/index.js';
 import { Projects } from '../../../services/projects/contract/index.js';
 
 /*

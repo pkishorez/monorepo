@@ -8,14 +8,12 @@ import {
   ProjectsProblem,
   type ProjectsService,
 } from '../../../../services/projects/contract/index.js';
-import type {
-  Folder,
-  FolderListing,
-} from '../../../../server/rpc/folders/contract/index.js';
 import {
   ProjectEntrySchema,
+  type Folder,
+  type FolderListing,
   type ProjectEntry,
-} from '../../../../server/rpc/project-registry/contract/index.js';
+} from '../../../../server/rpc/projects/contract/index.js';
 import { ProjectPicker } from '../index.js';
 import {
   OPEN_FOLDER,

@@ -4,12 +4,10 @@ import { Actor } from '@kestack/kabuki';
 import {
   FolderListingSchema,
   FolderSchema,
-  type Folder,
-} from '../../../../../server/rpc/folders/contract/index.js';
-import {
   ProjectEntrySchema,
+  type Folder,
   type ProjectEntry,
-} from '../../../../../server/rpc/project-registry/contract/index.js';
+} from '../../../../../server/rpc/projects/contract/index.js';
 import { Projects } from '../../../../../services/projects/contract/index.js';
 
 /*

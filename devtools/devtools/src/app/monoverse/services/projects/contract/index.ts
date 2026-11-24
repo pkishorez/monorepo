@@ -1,18 +1,20 @@
 import { Context, Data } from 'effect';
 import type { Effect } from 'effect';
 
-import type { FileContent } from '../../../server/rpc/files/contract/index.js';
-import type { FolderListing } from '../../../server/rpc/folders/contract/index.js';
 import type {
   Branches,
   ChangeSet,
+  FileContent,
   FileDiff,
 } from '../../../server/rpc/git/contract/index.js';
-import type { ProjectEntry } from '../../../server/rpc/project-registry/contract/index.js';
 import type {
   PackageContents,
   Workspace,
 } from '../../../server/rpc/project/contract/index.js';
+import type {
+  FolderListing,
+  ProjectEntry,
+} from '../../../server/rpc/projects/contract/index.js';
 
 /*
  * What Monoverse's Actors ask of the server, in their own words: the

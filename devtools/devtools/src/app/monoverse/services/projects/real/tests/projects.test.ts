@@ -7,7 +7,7 @@ import {
   NoPackageJsonError,
   type Workspace,
 } from '../../../../server/rpc/project/contract/index.js';
-import { FolderError } from '../../../../server/rpc/folders/contract/index.js';
+import { FolderError } from '../../../../server/rpc/projects/contract/index.js';
 import { Projects } from '../../contract/index.js';
 import type { Client } from '../client.js';
 import { projectsOn, problemOf } from '../index.js';

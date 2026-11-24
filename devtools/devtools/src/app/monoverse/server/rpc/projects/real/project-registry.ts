@@ -6,7 +6,7 @@ import {
   ProjectStore,
   ProjectStoreError,
 } from '../../../services/project-store/contract/index.js';
-import { ProjectRegistryError, ProjectRegistryRpc } from '../contract/index.js';
+import { ProjectRegistryError } from '../contract/index.js';
 
 const toRpcError = (cause: unknown) =>
   new ProjectRegistryError({
@@ -51,21 +51,25 @@ function projectFolder(path: string) {
   });
 }
 
-/** Fulfils the Project registry RPC contract with the Project store. */
-export const ProjectRegistryRpcLive = ProjectRegistryRpc.toLayer({
-  ListProjects: () =>
-    Effect.flatMap(ProjectStore, (store) => store.list()).pipe(
-      Effect.mapError(toRpcError),
-    ),
-  AddProject: ({ path }) =>
-    Effect.gen(function* () {
-      const store = yield* ProjectStore;
-      const folder = yield* projectFolder(path);
-      return yield* store.add(folder).pipe(Effect.mapError(toRpcError));
-    }),
-  RemoveProject: ({ id }) =>
-    Effect.flatMap(ProjectStore, (store) => store.remove(id)).pipe(
-      Effect.map((removed) => ({ removed })),
-      Effect.mapError(toRpcError),
-    ),
-});
+/** The saved Projects, newest first. */
+export function listProjects() {
+  return Effect.flatMap(ProjectStore, (store) => store.list()).pipe(
+    Effect.mapError(toRpcError),
+  );
+}
+
+/** Adds the folder, or answers the entry it already is. */
+export function addProject(path: string) {
+  return Effect.gen(function* () {
+    const store = yield* ProjectStore;
+    const folder = yield* projectFolder(path);
+    return yield* store.add(folder).pipe(Effect.mapError(toRpcError));
+  });
+}
+
+export function removeProject(id: string) {
+  return Effect.flatMap(ProjectStore, (store) => store.remove(id)).pipe(
+    Effect.map((removed) => ({ removed })),
+    Effect.mapError(toRpcError),
+  );
+}

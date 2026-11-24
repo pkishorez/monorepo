@@ -5,7 +5,6 @@ import { Effect } from 'effect';
 import { Git } from '../../../services/git/contract/index.js';
 import { Snapshots } from '../../../services/snapshots/contract/index.js';
 import { GitUnavailableError } from '../../project/contract/index.js';
-import { GitRpc } from '../contract/index.js';
 import { readChangeSet, readFileDiff } from './change-set.js';
 
 /*
@@ -67,11 +66,3 @@ export function getFileDiff(
     return { path, hunks };
   });
 }
-
-/** Fulfils the git RPC, asking Git and reading roots through Snapshots. */
-export const GitRpcLive = GitRpc.toLayer({
-  GetBranches: ({ root }) => getBranches(root),
-  GetChanges: ({ root, branch, base }) => getChanges(root, branch, base),
-  GetFileDiff: ({ root, branch, base, path }) =>
-    getFileDiff(root, branch, base, path),
-});
