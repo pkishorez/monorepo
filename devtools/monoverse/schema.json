@@ -8,10 +8,11 @@
       "type": "string"
     },
     "sourceRoots": {
-      "description": "The folders the rules check, relative to the package. \".\" is the whole package.",
+      "description": "The folders the rules check, relative to the package. \".\" is the whole package. No absolute path, and no \"..\".",
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "string",
+        "pattern": "^(?!/)(?!(.*/)?\\.\\.(/|$))"
       },
       "minItems": 1
     },

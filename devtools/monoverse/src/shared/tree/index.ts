@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { posix } from 'node:path';
 
 /*
@@ -99,33 +99,40 @@ export const enclosing = (
 };
 
 /**
- * A Tree read from the disk, for absolute paths. What it reads it
- * keeps, so one lint run asks the disk about each folder once.
+ * A Tree read from the disk, for absolute paths. What it reads of a
+ * folder it keeps until the folder changes: adding or removing an index
+ * file or a `package.json` changes the folder's mtime, so a lint that
+ * runs for hours in an editor still sees the folders as they are.
  */
 export const diskTree = (): Tree => {
-  const modules = new Map<string, boolean>();
-  const packages = new Map<string, string>();
-  const packageOf = (dir: string): string => {
-    const known = packages.get(dir);
-    if (known !== undefined) return known;
-    const parent = parentOf(dir);
-    const found =
-      existsSync(joinPath(dir, 'package.json')) || parent === dir
-        ? dir
-        : packageOf(parent);
-    packages.set(dir, found);
-    return found;
+  const folders = new Map<
+    string,
+    {
+      readonly changed: number;
+      readonly module: boolean;
+      readonly package: boolean;
+    }
+  >();
+  const read = (dir: string) => {
+    const stat = statSync(dir === '' ? '/' : dir, { throwIfNoEntry: false });
+    if (!stat) return { module: false, package: false };
+    const known = folders.get(dir);
+    if (known !== undefined && known.changed === stat.mtimeMs) return known;
+    const entry = {
+      changed: stat.mtimeMs,
+      module: indexFiles.some((file) => existsSync(joinPath(dir, file))),
+      package: existsSync(joinPath(dir, 'package.json')),
+    };
+    folders.set(dir, entry);
+    return entry;
   };
   return {
-    isModule: (dir) => {
-      let known = modules.get(dir);
-      if (known === undefined) {
-        known = indexFiles.some((file) => existsSync(joinPath(dir, file)));
-        modules.set(dir, known);
+    isModule: (dir) => read(dir).module,
+    packageOf: (dir) => {
+      for (let at = dir; ; at = parentOf(at)) {
+        if (read(at).package || parentOf(at) === at) return at;
       }
-      return known;
     },
-    packageOf,
   };
 };
 

@@ -1,4 +1,5 @@
 import { type Config, isChecked } from '../config/index.ts';
+import { type EsNode, nodeOf, stringOf, walk } from '../estree/index.ts';
 import {
   type Tree,
   isIndexFile,
@@ -18,7 +19,8 @@ import {
  *      a folder directly inside one, that its own folder or a folder above
  *      it owns.
  *
- * Nothing else. A file outside the importer's package is never judged.
+ * Nothing else. A file outside the importer's package, or in a package
+ * nested inside it, is never judged.
  */
 
 /** The imports rule's settings. */
@@ -26,6 +28,44 @@ export interface ImportsRule {
   /** Door folders, as paths from the folder that owns them: `logic/shared`, `services/*\/contract`. */
   readonly doors: readonly string[];
 }
+
+/** One import statement the rule reads: the string literal it names, and its text. */
+export interface ImportStatement {
+  readonly source: EsNode;
+  readonly specifier: string;
+}
+
+/**
+ * The import `node` makes, when the rule reads it: an `import`, an
+ * `export … from`, an `export * from`, or an `import()` of a string
+ * literal. Each statement counts once, however many names it brings.
+ */
+export const importOf = (node: EsNode): ImportStatement | undefined => {
+  switch (node.type) {
+    case 'ImportDeclaration':
+    case 'ExportNamedDeclaration':
+    case 'ExportAllDeclaration':
+    case 'ImportExpression': {
+      const source = nodeOf(node, 'source');
+      const specifier = stringOf(source);
+      return source && specifier !== undefined
+        ? { source, specifier }
+        : undefined;
+    }
+    default:
+      return undefined;
+  }
+};
+
+/** Every import statement in a parsed file the rule reads, in source order. */
+export const importsIn = (program: EsNode): readonly ImportStatement[] => {
+  const found: ImportStatement[] = [];
+  walk(program, (node) => {
+    const statement = importOf(node);
+    if (statement) found.push(statement);
+  });
+  return found;
+};
 
 /** Whether one import keeps the imports rule, and if not, why. */
 export type ImportVerdict =
@@ -51,7 +91,8 @@ export const judgeImport = (
   target: string,
 ): ImportVerdict => {
   const root = tree.packageOf(parentOf(importer));
-  if (!isInside(target, root)) return { ok: true };
+  if (!isInside(target, root) || tree.packageOf(parentOf(target)) !== root)
+    return { ok: true };
   const own = moduleOf(tree, parentOf(importer), root);
   const targetModule = moduleOf(tree, parentOf(target), root);
   if (targetModule === own) return { ok: true };
@@ -61,7 +102,10 @@ export const judgeImport = (
       ? { ok: true }
       : { ok: false, reason: 'inside', module: targetModule };
 
-  if (isIndexFile(target) && isDoorIndex(importer, parentOf(target), rule))
+  if (
+    isIndexFile(target) &&
+    isDoorIndex(importer, parentOf(target), rule, root)
+  )
     return { ok: true };
   return { ok: false, reason: 'door', doors: rule.doors };
 };
@@ -84,16 +128,24 @@ export const checkImport = (
   return judgeImport(tree, rule, importer, target);
 };
 
-/** Whether `dir` is a door, or a folder directly in one, that a folder holding `importer` owns. */
+/**
+ * Whether `dir` is a door, or a folder directly in one, that a folder
+ * holding `importer` owns: the package `root` or a folder inside it.
+ */
 const isDoorIndex = (
   importer: string,
   dir: string,
   rule: ImportsRule,
+  root: string,
 ): boolean =>
   [dir, parentOf(dir)].some((folder) =>
     rule.doors.some((door) => {
       const owner = ownerThrough(folder, door);
-      return owner !== undefined && isInside(importer, owner);
+      return (
+        owner !== undefined &&
+        (owner === root || isInside(owner, root)) &&
+        isInside(importer, owner)
+      );
     }),
   );
 

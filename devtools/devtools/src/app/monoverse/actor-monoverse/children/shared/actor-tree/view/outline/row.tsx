@@ -12,9 +12,7 @@ import {
   FileIcon,
   FolderIcon,
   FolderOpenIcon,
-  FileWarningIcon,
   PackageIcon,
-  ShieldCheckIcon,
   TriangleAlertIcon,
 } from 'lucide-react';
 
@@ -22,10 +20,11 @@ import type {
   ChangeStatus,
   TreeNode,
 } from '../../../../../logic/shared/index.js';
-import type { CheckedPackage, Connection } from '../../logic/shared/index.js';
+import { CheckMark } from '../../../../../view/shared/index.js';
+import type { Connection, TreePackage } from '../../logic/shared/index.js';
 import { gutter, indent } from './layout.js';
 
-type Check = CheckedPackage['check'];
+type Check = TreePackage['check'];
 
 export interface OutlineRowActions {
   /** A single click on the row: it selects, whatever the row. */
@@ -510,10 +509,10 @@ const plural = (count: number, one: string, many: string) =>
   `${count} ${count === 1 ? one : many}`;
 
 /**
- * What is wrong in a row, in the broken colour: how many Violations it
- * holds, beside a warning; a Package in a cycle; a Package whose
- * monoverse.json cannot be read. A Package its monoverse.json checks and
- * finds clean gets a quiet shield, so it reads apart from one unchecked.
+ * What is wrong in a row, in the broken colour. A Package shows its
+ * Check, as every list of Packages does, and a warning when it is in a
+ * cycle. A folder or a file shows how many Violations it holds, beside
+ * a warning, and a warning when it holds a Package cycle.
  */
 function Findings({
   node,
@@ -526,38 +525,41 @@ function Findings({
   cycle: boolean;
   check: Check | null;
 }) {
-  if (check?._tag === 'Invalid') {
-    const label = `Its monoverse.json cannot be read: ${check.message}`;
+  const cycleMark = cycle ? (
+    <span
+      role="img"
+      aria-label={
+        node.kind === 'package' ? 'In a Package cycle' : 'Holds a Package cycle'
+      }
+      title={
+        node.kind === 'package' ? 'In a Package cycle' : 'Holds a Package cycle'
+      }
+      className="flex"
+    >
+      <TriangleAlertIcon
+        strokeWidth={2}
+        className="size-3.5 text-(--outline-broken)"
+      />
+    </span>
+  ) : null;
+  if (node.kind === 'package')
     return (
-      <span role="img" aria-label={label} title={label} className="flex">
-        <FileWarningIcon
-          strokeWidth={2}
-          className="size-3.5 text-(--outline-broken)"
-        />
-      </span>
+      <>
+        <CheckMark check={check ?? undefined} />
+        {cycleMark}
+      </>
     );
-  }
-  if (violations > 0) {
-    const what =
-      node.kind === 'file'
-        ? plural(
-            violations,
-            "import breaks its Package's monoverse.json rules",
-            "imports break its Package's monoverse.json rules",
-          )
-        : node.kind === 'package'
-          ? plural(
-              violations,
-              'Violation of its monoverse.json rules',
-              'Violations of its monoverse.json rules',
-            )
-          : plural(
-              violations,
-              'Violation in the files inside',
-              'Violations in the files inside',
-            );
-    const label = cycle ? `${what}; in a Package cycle` : what;
-    return (
+  if (violations === 0) return cycleMark;
+  const label =
+    node.kind === 'file'
+      ? plural(violations, 'Violation in this file', 'Violations in this file')
+      : plural(
+          violations,
+          'Violation in the files inside',
+          'Violations in the files inside',
+        );
+  return (
+    <>
       <span
         role="img"
         aria-label={label}
@@ -567,32 +569,9 @@ function Findings({
         <TriangleAlertIcon strokeWidth={2} className="size-3.5" />
         {violations}
       </span>
-    );
-  }
-  if (cycle) {
-    const label =
-      node.kind === 'package' ? 'In a Package cycle' : 'Holds a Package cycle';
-    return (
-      <span role="img" aria-label={label} title={label} className="flex">
-        <TriangleAlertIcon
-          strokeWidth={2}
-          className="size-3.5 text-(--outline-broken)"
-        />
-      </span>
-    );
-  }
-  if (check?._tag === 'Checked') {
-    const label = 'Checked by its monoverse.json: no Violations';
-    return (
-      <span role="img" aria-label={label} title={label} className="flex">
-        <ShieldCheckIcon
-          strokeWidth={2}
-          className="size-3.5 text-muted-foreground/70"
-        />
-      </span>
-    );
-  }
-  return null;
+      {cycleMark}
+    </>
+  );
 }
 
 function RevealChip({

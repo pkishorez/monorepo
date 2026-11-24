@@ -6,8 +6,12 @@ import {
   type Snapshot,
 } from '../../../services/snapshots/contract/index.js';
 import { ProjectRpc, WorkspaceReadError } from '../contract/index.js';
-import { checkOf, readSettings, sourceRootsOf } from './check/check.js';
-import { buildFileGraph } from './file-graph/file-graph.js';
+import { readSettings, sourceRootsOf, startCheck } from './check/check.js';
+import {
+  buildFileGraph,
+  readFiles,
+  type Reader,
+} from './file-graph/file-graph.js';
 import { analyzeMonorepo } from './workspace/analyze-monorepo.js';
 
 /*
@@ -38,12 +42,13 @@ export function openProject(root: string, branch: string | null) {
           const base = rootRelative(pkg.path);
           const inside = files.filter((path) => isWithin(path, base));
           const settings = yield* readSettingsOf(snapshot, inside, base);
-          // Only a Package its monoverse.json checks has its imports read here.
-          const imports =
-            settings._tag === 'Read'
-              ? yield* importsOf(snapshot, inside, base)
-              : [];
-          return { ...pkg, check: checkOf(settings, base, inside, imports) };
+          // Only the files a Package's monoverse.json checks are read here.
+          const checking = startCheck(settings, base, inside);
+          if (checking.reader)
+            yield* readFiles(snapshot, inside, checking.reader).pipe(
+              Effect.mapError(importsError(base)),
+            );
+          return { ...pkg, check: checking.check() };
         }),
       { concurrency: 4 },
     );
@@ -67,13 +72,14 @@ export function readPackage(root: string, branch: string | null, path: string) {
       });
     }
     const settings = yield* readSettingsOf(snapshot, files, base);
-    const imports = yield* importsOf(snapshot, files, base);
+    const checking = startCheck(settings, base, files);
+    const imports = yield* importsOf(snapshot, files, base, checking.reader);
     return {
       path: base,
       files,
       sourceRoots: sourceRootsOf(settings, base),
       imports,
-      check: checkOf(settings, base, files, imports),
+      check: checking.check(),
     };
   });
 }
@@ -98,17 +104,20 @@ function importsOf(
   snapshot: Snapshot,
   files: ReadonlyArray<string>,
   base: string,
+  reader: Reader | undefined,
 ) {
-  return buildFileGraph(snapshot, files).pipe(
-    Effect.mapError(
-      (error) =>
-        new WorkspaceReadError({
-          reason: 'imports',
-          path: base === '' ? '.' : base,
-          message: `Could not read the imports: ${String(error.cause)}`,
-        }),
-    ),
+  return buildFileGraph(snapshot, files, reader).pipe(
+    Effect.mapError(importsError(base)),
   );
+}
+
+function importsError(base: string) {
+  return (error: { readonly cause: unknown }) =>
+    new WorkspaceReadError({
+      reason: 'imports',
+      path: base === '' ? '.' : base,
+      message: `Could not read the imports: ${String(error.cause)}`,
+    });
 }
 
 function listFiles(snapshot: Snapshot, folder: string) {

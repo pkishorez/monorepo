@@ -40,14 +40,36 @@ const TreePackageSchema = Schema.Struct({
   check: CheckSchema,
 });
 
-/** A link that is a finding, and what is wrong with it, in one sentence. */
+export type TreePackage = typeof TreePackageSchema.Type;
+
+/**
+ * A finding, and what is wrong with it, in one sentence: a broken link
+ * from one file to another, or, without `to`, something wrong in `from`
+ * itself, such as a contract.
+ */
 const BrokenLinkSchema = Schema.Struct({
   from: Schema.String,
-  to: Schema.String,
+  to: Schema.optional(Schema.String),
   message: Schema.String,
 });
 
 export type BrokenLink = typeof BrokenLinkSchema.Type;
+
+/** What the tree marks on each node. */
+export interface Findings {
+  /** How many Violations each node holds. */
+  readonly violations: ReadonlyMap<string, number>;
+  /** How many Packages in a cycle each node holds; only in the repo. */
+  readonly cycles: ReadonlyMap<string, number>;
+  /** Each Package's Check, by its folder; only in the repo. */
+  readonly checks: ReadonlyMap<string, TreePackage['check']>;
+}
+
+/** One thing wrong with the selection: what is said of it, and where, from its Package. */
+export interface Finding {
+  readonly message: string;
+  readonly where: string;
+}
 
 const TreePropsSchema = Schema.Struct({
   /** The folder the tree is rooted at, relative to the root; `''` for the root. */

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { isChecked, parseConfig, presets } from '../index.ts';
 
@@ -114,5 +115,58 @@ describe('isChecked', () => {
   it('checks the whole package for a source root of "."', () => {
     const whole = config({ sourceRoots: ['.'], preset: 'default' });
     expect(isChecked(whole, 'scripts/seed.ts')).toBe(true);
+  });
+});
+
+describe('what parseConfig cleans and refuses', () => {
+  it('reads a file saved with a byte order mark', () => {
+    expect(parseConfig('﻿{"sourceRoots":["src"],"preset":"default"}').ok).toBe(
+      true,
+    );
+  });
+
+  it('writes doors, contract folders and ignore globs the way the rules match them', () => {
+    expect(
+      config({
+        sourceRoots: ['./src/'],
+        ignore: ['./**/tests/**'],
+        rules: {
+          imports: { doors: ['./shared/', 'ports/*/'] },
+          contracts: { folders: ['./ports/*'], required: ['ports/*/'] },
+        },
+      }),
+    ).toEqual({
+      sourceRoots: ['src'],
+      ignore: ['**/tests/**'],
+      rules: {
+        imports: { doors: ['shared', 'ports/*'] },
+        contracts: { folders: ['ports/*'], required: ['ports/*'] },
+      },
+    });
+  });
+
+  it('refuses a source root that is absolute or has a ".." anywhere, as the schema does', () => {
+    for (const root of ['/abs', '../x', 'src/../..', 'a/../b'])
+      expect(parse({ sourceRoots: [root], preset: 'default' }).ok).toBe(false);
+    const pattern = new RegExp(
+      (
+        JSON.parse(
+          readFileSync(new URL('../../schema.json', import.meta.url), 'utf8'),
+        ) as {
+          properties: { sourceRoots: { items: { pattern: string } } };
+        }
+      ).properties.sourceRoots.items.pattern,
+    );
+    for (const root of ['/abs', '../x', 'src/../..', 'a/../b'])
+      expect(pattern.test(root)).toBe(false);
+    for (const root of ['src', '.', './src/', 'a/..b'])
+      expect(pattern.test(root)).toBe(true);
+  });
+
+  it('never checks a declaration file', () => {
+    const whole = config({ sourceRoots: ['.'], preset: 'default' });
+    expect(isChecked(whole, 'src/types.d.ts')).toBe(false);
+    expect(isChecked(whole, 'src/types.d.mts')).toBe(false);
+    expect(isChecked(whole, 'src/types.ts')).toBe(true);
   });
 });

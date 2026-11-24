@@ -28,8 +28,8 @@ import type {
   TreeNode,
 } from '../../../../../logic/shared/index.js';
 import type {
-  BrokenLink,
   Connection,
+  Finding,
   Findings,
 } from '../../logic/shared/index.js';
 import {
@@ -72,7 +72,7 @@ export interface OutlineProps {
   /** How many Violations, and Packages in a cycle, each node holds, and each Package's Check. */
   readonly findings: Findings;
   /** What is wrong with the selection, each with what to do about it. */
-  readonly selectionFindings: ReadonlyArray<BrokenLink>;
+  readonly selectionFindings: ReadonlyArray<Finding>;
   /** What changed in each node since Compare-to; empty while Changes is off. */
   readonly changes: ReadonlyMap<string, NodeChange>;
   /** Whether Changes is on, so a folder is viewed for its changes. */

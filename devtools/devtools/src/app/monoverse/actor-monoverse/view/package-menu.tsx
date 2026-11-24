@@ -23,9 +23,8 @@ import { cn } from '@kestack/web-platform/ui/components/utils';
 import { BoxIcon, LayersIcon } from 'lucide-react';
 
 import type { Check } from '../logic/shared/index.js';
-import { CheckMark } from './check-mark.js';
 import { CrumbLabel, crumbTrigger } from './crumb.js';
-import { usePhone } from './shared/index.js';
+import { CheckMark, usePhone } from './shared/index.js';
 
 /*
  * Which Package of a Monorepo is shown, top left beside the project: a
