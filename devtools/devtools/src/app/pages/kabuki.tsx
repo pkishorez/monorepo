@@ -2,7 +2,7 @@ import { Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
 import { Page, Router } from '@kestack/kabuki/routing';
-import { KabukiLive, KabukiView } from '../kabuki/index.js';
+import { Kabuki, KabukiView } from '../kabuki/actor-kabuki/index.js';
 
 /*
  * `/kabuki`: the Kabuki Tool, with the Kabuki Session it shows in
@@ -34,7 +34,7 @@ const routeOf = (name: string | null) =>
 
 export const KabukiPageLive = KabukiPage.build({
   children: {
-    tool: Actor.child(KabukiLive, {
+    tool: Actor.child(Kabuki, {
       // 1. Start
       input: ({ props }) => ({ session: props.query.session ?? null }),
       // 3. Move
