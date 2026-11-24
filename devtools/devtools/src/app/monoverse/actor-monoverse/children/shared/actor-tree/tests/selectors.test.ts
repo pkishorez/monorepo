@@ -58,6 +58,21 @@ describe('in a Package', () => {
       ),
     ).toEqual([{ message: 'm', where: 'src/c.ts' }]);
   });
+
+  test('what is wrong with the monoverse.json counts on it, rolls up, and says where in it', () => {
+    const unused = {
+      from: 'pkg/monoverse.json',
+      line: 7,
+      column: 5,
+      message: "The exception from 'src/x' lets no import through.",
+    };
+    const { violations } = findingsOf([...broken, unused], []);
+    expect(violations.get('pkg/monoverse.json')).toBe(1);
+    expect(violations.get('pkg')).toBe(4);
+    expect(findingsWithin('pkg/monoverse.json', 'pkg', [unused], [])).toEqual([
+      { message: unused.message, where: 'monoverse.json:7:5' },
+    ]);
+  });
 });
 
 describe('in the repo', () => {
@@ -66,10 +81,14 @@ describe('in the repo', () => {
     violations: [
       {
         ...violation('devtools/app/src/a.ts', 'devtools/app/src/b.ts'),
+        line: 3,
+        column: 8,
         reason: 'door',
       },
       {
         ...violation('devtools/app/src/c.ts', 'devtools/app/src/b.ts'),
+        line: 1,
+        column: 22,
         reason: 'door',
       },
     ],
@@ -132,11 +151,11 @@ describe('in the repo', () => {
       ...cycleFindings,
       {
         message: "'devtools/app/src/b.ts' is not a door.",
-        where: 'app: src/a.ts → src/b.ts',
+        where: 'app: src/a.ts:3:8 → src/b.ts',
       },
       {
         message: "'devtools/app/src/b.ts' is not a door.",
-        where: 'app: src/c.ts → src/b.ts',
+        where: 'app: src/c.ts:1:22 → src/b.ts',
       },
     ]);
     expect(findingsWithin('packages/plain', '', cycle, packages)).toEqual(

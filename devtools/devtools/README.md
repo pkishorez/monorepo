@@ -114,7 +114,7 @@ package view  the Package's git-known files; outside its Source roots dimmed,
               beside its ancestors. With a monoverse.json, an import its
               rules forbid is a Violation, in red, counted on each file
               and folder that holds one; the selection's count opens what
-              `vp lint` says of each.
+              `monoverse lint` says of each, at its line and column.
 top left      two menus on one line: the project, to open another, and in
               a Monorepo the Package shown or All packages, to go straight
               to another Package or back to the repo view.
@@ -153,15 +153,25 @@ wide screen   from 1200px, no bar: the tree in the middle, a panel either
 How it works:
 
 - The server answers facts, at a branch: the git-known files, and each
-  Package's import graph, read with oxc over every source file, tests
-  included. The browser builds the tree and rolls up connections, so a
-  selection never waits on the server.
+  Package's import graph over every source file, tests included, each
+  import resolved as its check resolves it, tsconfig `paths` and
+  package.json `imports` too. The browser builds the tree and rolls up
+  connections, so a selection never waits on the server.
 - A Package with a `monoverse.json` beside its `package.json` is checked
-  on the server by [@kestack/monoverse](../monoverse/README.md), the rules
-  `vp lint` runs: its `sourceRoots` and `ignore` say which files are
-  checked, and each Violation carries the lint's own message. Without one,
-  or with one that cannot be read, the whole Package is its Source root and
-  nothing is checked.
+  on the server by [@kestack/monoverse](../monoverse/README.md), the engine
+  `monoverse lint` runs, in a worker thread so the server keeps answering,
+  and the counts are the CLI's: its `sourceRoots`
+  and `ignore` say which files are checked, and each Violation carries
+  the CLI's own message and place. An unused exception or a stale
+  restriction is counted on the `monoverse.json`. Without one, or with one
+  that cannot be read, the whole Package is its Source root and nothing is
+  checked.
+- Every branch is checked the same way, on disk: from the worktree that
+  has it, or from a copy of its whole commit, symbolic links included,
+  written once under the OS temp folder
+  (`kestack-devtools/monoverse/<commit>`), with the checkout's
+  `node_modules` linked in, and kept for later opens while whole; only
+  the last few stay.
 - View changes opens a folder, the root included, as a tree of its files
   beside one file's diff, drawn by the tree's settings, behind the same
   sliders; Browse files does the same with Changes off. One button folds

@@ -8,8 +8,9 @@ import type { BrokenLink, Finding, Findings, TreePackage } from './shape.js';
 /*
  * What the tree marks as wrong, worked out from its Props. In a Package,
  * the broken links are its Violations: each counts once, at the file
- * `vp lint` reports it on and every folder above it. In the repo, the
- * broken links are a Package cycle's, and the Violations are each
+ * `monoverse lint` tells it on and every folder above it, the Package's
+ * monoverse.json for what is wrong with that file itself. In the repo,
+ * the broken links are a Package cycle's, and the Violations are each
  * Package's own, from its Check, counted at the Package and every folder
  * above it.
  */
@@ -32,11 +33,21 @@ const fromPackage = (base: string, path: string) =>
       ? path.slice(base.length + 1)
       : path;
 
-/** Where a finding is, from its Package: `from → to`, or `from` alone. */
-const whereOf = (base: string, { from, to }: Omit<BrokenLink, 'message'>) =>
-  to === undefined
-    ? fromPackage(base, from)
-    : `${fromPackage(base, from)} → ${fromPackage(base, to)}`;
+/**
+ * Where a finding is, from its Package, as `monoverse lint` says it:
+ * `from:line:column → to`, without the line where none is known, or
+ * without `to` for a finding in `from` alone.
+ */
+const whereOf = (
+  base: string,
+  { from, to, line, column }: Omit<BrokenLink, 'message'>,
+) => {
+  const at =
+    line === undefined
+      ? fromPackage(base, from)
+      : `${fromPackage(base, from)}:${line}:${column ?? 1}`;
+  return to === undefined ? at : `${at} → ${fromPackage(base, to)}`;
+};
 
 /** What the tree marks on each node, in a Package or in the repo. */
 export function findingsOf(

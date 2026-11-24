@@ -47,6 +47,8 @@ const workspace: Workspace = {
 
 const violation = {
   from: 'packages/a/src/x/y.ts',
+  line: 1,
+  column: 22,
   to: 'packages/a/src/z.ts',
   reason: 'door',
   message: "'src/z.ts' is beside or above this file and is not a door.",

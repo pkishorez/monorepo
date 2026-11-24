@@ -38,6 +38,15 @@ export interface Snapshot {
   readonly readMany: (
     paths: ReadonlyArray<string>,
   ) => Promise<ReadonlyMap<string, Uint8Array>>;
+  /**
+   * A folder on disk holding these files at the paths `list` gives, for
+   * what reads the disk itself, such as @kestack/monoverse: on disk, the
+   * folder itself; from git, the Project folder in a copy of the whole
+   * commit, so what sits above it is there too, written once and kept
+   * for later opens, each Package's node_modules linked to the
+   * checkout's.
+   */
+  readonly onDisk: () => Promise<string>;
 }
 
 export interface SnapshotsShape {

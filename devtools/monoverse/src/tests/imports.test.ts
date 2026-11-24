@@ -1,12 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  checkImport,
-  importMessage,
-  judgeImport,
-  listTree,
-  parseConfig,
-  presets,
-} from '../index.ts';
+import { listTree, presets } from '../index.ts';
+import { importMessage, judgeImport } from '../shared/imports/index.ts';
 
 /*
  * The imports rule over a list of files relative to a repository root,
@@ -26,7 +20,6 @@ const tree = listTree([
   'apps/web/src/feature/view/body.ts',
   'apps/web/src/feature/view/helper.ts',
   'apps/web/src/other/index.ts',
-  'apps/web/src/tests/start.test.ts',
   'libs/util/package.json',
   'libs/util/index.ts',
 ]);
@@ -73,43 +66,6 @@ describe('judgeImport', () => {
     expect(
       judgeImport(tree, kabuki, 'apps/web/src/start.ts', 'libs/util/index.ts'),
     ).toEqual({ ok: true });
-  });
-});
-
-describe('checkImport', () => {
-  const read = (json: unknown) => {
-    const result = parseConfig(JSON.stringify(json));
-    if (!result.ok) throw new Error(result.error);
-    return result.config;
-  };
-  const config = read({
-    sourceRoots: ['src'],
-    ignore: ['**/tests/**'],
-    preset: 'kabuki',
-  });
-  const wrong = [
-    'apps/web/src/start.ts',
-    'apps/web/src/feature/part.ts',
-  ] as const;
-
-  it('judges a file the package checks', () => {
-    expect(checkImport(tree, config, ...wrong).ok).toBe(false);
-  });
-
-  it('passes a file the package ignores', () => {
-    expect(
-      checkImport(
-        tree,
-        config,
-        'apps/web/src/tests/start.test.ts',
-        'apps/web/src/feature/part.ts',
-      ),
-    ).toEqual({ ok: true });
-  });
-
-  it('passes everything when the package turns the rule off', () => {
-    const off = read({ sourceRoots: ['src'], rules: {} });
-    expect(checkImport(tree, off, ...wrong)).toEqual({ ok: true });
   });
 });
 

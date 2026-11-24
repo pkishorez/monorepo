@@ -47,7 +47,7 @@ few named folders, the **doors**. A file may import:
 
 A door is open to everything inside the folder that holds it:
 `actor-tree/logic/shared/` is open to all of `actor-tree/`, its `view/`
-and its Children alike. `monoverse/imports` from
+and its Children alike. `monoverse lint` from
 [@kestack/monoverse](../../../devtools/monoverse/README.md) checks all of
 this in every package whose `monoverse.json` sets `"preset": "kabuki"`;
 the files its `ignore` names, such as tests, are skipped.
@@ -237,8 +237,9 @@ Anything that branches on data or computes belongs in `logic/`.
 
 ## Rules
 
-`monoverse/imports` and `monoverse/contracts` check rules 2 and 3; the rest are
-for review.
+`monoverse lint` checks rules 2 and 3, and the first half of 4 where the
+package's `monoverse.json` restricts `logic/` from `react`, as DevTools'
+does; the rest are for review.
 
 1. **Closed folders.** Each folder holds only its listed names. Only the
    inside of `view/` and the implementations beside a `contract/` are

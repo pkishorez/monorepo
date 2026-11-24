@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { request } from 'node:http';
 import { createServer } from 'node:net';
 import path from 'node:path';
@@ -147,6 +147,43 @@ try {
     dialing.headers.get('access-control-allow-private-network'),
     'true',
   );
+  // Monoverse checks a Package in its engine's worker, shipped beside the CLI.
+  const project = path.join(testRoot, 'project');
+  for (const [file, text] of Object.entries({
+    'package.json': '{"name":"smoke"}',
+    'monoverse.json': '{"sourceRoots":["src"],"preset":"default"}',
+    'src/a/b.ts': 'export const b = 1;',
+    'src/a/index.ts': "export * from './b.ts';",
+    'src/main.ts': "import { b } from './a/b.ts';",
+  })) {
+    await mkdir(path.dirname(path.join(project, file)), { recursive: true });
+    await writeFile(path.join(project, file), text);
+  }
+  const read = await fetch(`${origin}/rpc/monoverse`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/ndjson' },
+    body: `${JSON.stringify({
+      _tag: 'Request',
+      id: '1',
+      tag: 'ReadPackage',
+      payload: { root: project, branch: null, path: '.' },
+      headers: [],
+    })}\n`,
+  });
+  const [answer] = (await read.text())
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as { exit?: unknown });
+  assert.deepEqual(
+    (
+      answer?.exit as {
+        value?: { check?: { violations?: Array<{ reason: string }> } };
+      }
+    )?.value?.check?.violations?.map(({ reason }) => reason),
+    ['inside'],
+    'the packaged engine worker checks a Package',
+  );
+
   console.log('packaged DevTools server smoke test passed');
 } finally {
   server.kill('SIGTERM');

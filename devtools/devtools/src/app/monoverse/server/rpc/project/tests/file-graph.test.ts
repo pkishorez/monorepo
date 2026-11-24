@@ -2,12 +2,13 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
+import { openProject } from '@kestack/monoverse';
 import { Effect } from 'effect';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 
 import { withFixture } from '../../../tests/git-fixture.js';
 import { openSnapshot } from '../../../tests/services.js';
-import { buildFileGraph } from '../real/file-graph/file-graph.js';
+import { fileGraph } from '../real/file-graph.js';
 
 let root: string;
 const files: Record<string, string> = {
@@ -21,7 +22,7 @@ const files: Record<string, string> = {
   'pkg/src/app/tests/run.test.ts': "import { run } from '../run.js';\n",
   'pkg/scripts/x.ts': "import '../src/index.js';\nexport const x = 1;\n",
   'pkg/package.json':
-    '{"name":"pkg","imports":{"#app/*":"./src/app/*.ts","#types":{"types":"./src/types.ts"}}}',
+    '{"name":"pkg","imports":{"#app/*":"./src/app/*.ts","#types":{"import":"./src/types.ts"}}}',
   'pkg/tsconfig.json':
     '{\n  // Comments and trailing commas, as tsconfig allows.\n  "extends": "./tsconfig.base.json",\n}\n',
   'pkg/tsconfig.base.json':
@@ -40,11 +41,10 @@ beforeEach(async () => {
 afterEach(() => rm(root, { recursive: true, force: true }));
 
 describe('the file import graph', () => {
+  // Resolved by @kestack/monoverse, as a Check resolves them.
   test('links every source file to what it imports, tests and scripts too', async () => {
-    const snapshot = await Effect.runPromise(openSnapshot(root, null));
-    const graph = await Effect.runPromise(
-      buildFileGraph(snapshot, Object.keys(files)),
-    );
+    const project = openProject({ root, files: Object.keys(files) });
+    const graph = fileGraph(Object.keys(files), project.importsOf);
     expect(graph).toEqual([
       ['pkg/scripts/x.ts', 'pkg/src/index.ts'],
       ['pkg/src/aliased.ts', 'pkg/src/app/run.ts'],
@@ -64,8 +64,14 @@ describe('the file import graph at a branch read from git', () => {
   test("resolves against the commit's own files, not the disk's", () =>
     withFixture(async ({ repo }) => {
       const snapshot = await Effect.runPromise(openSnapshot(repo, 'feature'));
-      const files = await snapshot.list('packages/core');
-      const graph = await Effect.runPromise(buildFileGraph(snapshot, files));
+      const project = openProject({
+        root: await snapshot.onDisk(),
+        files: await snapshot.list(''),
+      });
+      const graph = fileGraph(
+        await snapshot.list('packages/core'),
+        project.importsOf,
+      );
       expect(graph).toEqual([
         ['packages/core/src/feature.ts', 'packages/core/src/util.ts'],
         ['packages/core/src/index.ts', 'packages/core/src/feature.ts'],

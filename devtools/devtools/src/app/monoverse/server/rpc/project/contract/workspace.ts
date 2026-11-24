@@ -26,22 +26,38 @@ export const ImportSchema = Schema.Tuple([Schema.String, Schema.String]);
 export type Import = typeof ImportSchema.Type;
 
 export const ViolationSchema = Schema.Struct({
-  /** The file `vp lint` reports it on. */
+  /**
+   * The file `monoverse lint` tells it on: the importer, the contract, or
+   * the Package's monoverse.json for what is wrong with that file itself.
+   */
   from: Schema.String,
-  /** The file an import names; absent for a contract. */
+  /** Where in `from`, both 1-based. */
+  line: Schema.Number,
+  column: Schema.Number,
+  /** The file an import names, when it names one. */
   to: Schema.optional(Schema.String),
   /**
    * `inside`: an import reaches inside a module; `door`: it reaches
    * beside or above, not through a door; `contract`: a contract folder
-   * is missing, or exports what it may not.
+   * is missing, or exports what it may not; `restriction`: an import a
+   * restriction refuses, its reason in the message; `unused-exception`:
+   * an exception that lets no import through; `stale-restriction`: a
+   * restriction that covers no checked file.
    */
-  reason: Schema.Literals(['inside', 'door', 'contract']),
-  /** What `vp lint` says of it, word for word. */
+  reason: Schema.Literals([
+    'inside',
+    'door',
+    'contract',
+    'restriction',
+    'unused-exception',
+    'stale-restriction',
+  ]),
+  /** What `monoverse lint` says of it, word for word. */
   message: Schema.String,
 }).annotate({
   title: 'Violation',
   description:
-    "One thing that breaks its Package's monoverse.json rules, at a file relative to the root, as @kestack/monoverse judges it: an import statement, or a contract.",
+    "One thing that breaks its Package's monoverse.json rules, at a file relative to the root, as @kestack/monoverse judges it for `monoverse lint`: an import statement, a contract, or an exception or restriction of the monoverse.json itself.",
 });
 
 export type Violation = typeof ViolationSchema.Type;
@@ -49,9 +65,9 @@ export type Violation = typeof ViolationSchema.Type;
 export const CheckSchema = Schema.TaggedUnion({
   /** No monoverse.json: the Package is not checked. */
   Unchecked: {},
-  /** A monoverse.json that cannot be read, and why. */
-  Invalid: { message: Schema.String },
-  /** Checked: every import that breaks the rules. */
+  /** A monoverse.json that cannot be read: that file, relative to the root, and why. */
+  Invalid: { file: Schema.String, message: Schema.String },
+  /** Checked: everything that breaks the rules. */
   Checked: { violations: Schema.Array(ViolationSchema) },
 }).annotate({
   title: 'Check',
@@ -137,7 +153,7 @@ export const PackageContentsSchema = Schema.Struct({
 }).annotate({
   title: 'Package Contents',
   description:
-    "One Package's files, its Source roots, its file import graph (every import from a source file to another source file of the same Package, as OXC resolves it), and its Check.",
+    "One Package's files, its Source roots, its file import graph (every import from a source file to another source file of the same Package, resolved as its Check resolves it), and its Check.",
 });
 
 export type PackageContents = typeof PackageContentsSchema.Type;

@@ -1,1 +1,1 @@
-export const loose = 1; // ✗ contracts
+export const loose = 1; // ✗ contract

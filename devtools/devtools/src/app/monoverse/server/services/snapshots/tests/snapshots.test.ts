@@ -1,11 +1,26 @@
+import {
+  lstat,
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  readlink,
+  rm,
+  stat,
+  symlink,
+  utimes,
+  writeFile,
+} from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { Effect } from 'effect';
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 
 import { readText } from '../../../rpc/project/real/read-text.js';
+import { commitFolder } from '../real/commit-copy.js';
 import { mainFiles, withFixture } from '../../../tests/git-fixture.js';
-import { openSnapshot } from '../../../tests/services.js';
+import { copies as testCopies, openSnapshot } from '../../../tests/services.js';
 
 const open = (root: string, branch: string | null) =>
   Effect.runPromise(openSnapshot(root, branch));
@@ -51,6 +66,38 @@ describe('a Project at a branch', () => {
       expect(
         new TextDecoder().decode(many.get('packages/core/src/util.ts')),
       ).toBe(mainFiles['packages/core/src/util.ts']);
+    }));
+
+  test('a branch read from git is on disk as a copy of its commit; on disk, as its folder', () =>
+    withFixture(async ({ repo, git, write }) => {
+      // A symbolic link in the commit is one in the copy.
+      git(repo, 'checkout', '-q', 'feature');
+      await symlink('util.ts', join(repo, 'packages/core/src/alias.ts'));
+      git(repo, 'add', '--all');
+      git(repo, 'commit', '-q', '-m', 'link');
+      git(repo, 'checkout', '-q', 'main');
+      await write(join(repo, 'loose.txt'), 'loose\n');
+
+      const fromGit = await open(repo, 'feature');
+      const copy = await fromGit.onDisk();
+      expect(copy.startsWith(testCopies)).toBe(true);
+      expect(
+        await readFile(join(copy, 'packages/core/src/feature.ts'), 'utf8'),
+      ).toContain('feature');
+      expect(await readlink(join(copy, 'packages/core/src/alias.ts'))).toBe(
+        'util.ts',
+      );
+      expect(await readdir(copy)).not.toContain('loose.txt');
+      expect(await (await open(repo, null)).onDisk()).toBe(repo);
+
+      // A Project inside the repository is its folder in a copy of the
+      // whole commit, with what sits above it.
+      const inner = await open(join(repo, 'packages/core'), 'feature');
+      const innerCopy = await inner.onDisk();
+      expect(innerCopy).toBe(join(copy, 'packages/core'));
+      expect(await readdir(join(innerCopy, '../..'))).toContain(
+        'pnpm-workspace.yaml',
+      );
     }));
 
   test('a branch checked out in a worktree is read from it, uncommitted work included', () =>
@@ -108,4 +155,147 @@ describe('a Project at a branch', () => {
         ),
       ).toMatchObject({ _tag: 'InvalidRootError', reason: 'not-found' });
     }));
+});
+
+describe("a commit's copy on disk", () => {
+  const files: Record<string, string> = {
+    'package.json': '{}',
+    'packages/a/package.json': '{}',
+    'packages/a/src/index.ts': 'export {};',
+    'packages/a/src/link.ts': 'index.ts',
+  };
+  const copyOf = (
+    copies: string,
+    checkout: string,
+    commit: string,
+    folderOf = commitFolder,
+  ) =>
+    folderOf({
+      copies,
+      commit,
+      checkout,
+      list: async () =>
+        Object.keys(files).map((path) => ({
+          path,
+          link: path.endsWith('link.ts'),
+        })),
+      readMany: async (paths) =>
+        new Map(
+          paths.map((path) => [path, new TextEncoder().encode(files[path])]),
+        ),
+    });
+
+  test('is written whole once, reused while whole, and only the last few are kept', async () => {
+    const at = await mkdtemp(join(tmpdir(), 'monoverse-copies-'));
+    const copies = join(at, 'copies');
+    const checkout = join(at, 'checkout');
+    try {
+      await mkdir(join(checkout, 'packages/a/node_modules/x'), {
+        recursive: true,
+      });
+      const folder = await copyOf(copies, checkout, 'c0');
+      expect(folder).toBe(join(copies, 'c0'));
+      expect(
+        await readFile(join(folder, 'packages/a/src/index.ts'), 'utf8'),
+      ).toBe('export {};');
+      // A symbolic link stays one.
+      expect(await readlink(join(folder, 'packages/a/src/link.ts'))).toBe(
+        'index.ts',
+      );
+      // Each node_modules the checkout has is linked, not copied.
+      const link = join(folder, 'packages/a/node_modules');
+      expect((await lstat(link)).isSymbolicLink()).toBe(true);
+      expect(await readlink(link)).toBe(
+        join(checkout, 'packages/a/node_modules'),
+      );
+
+      // Opened again, the copy is the same one, not written anew.
+      await writeFile(join(folder, 'extra'), '');
+      const old = new Date(Date.now() - 60_000);
+      await utimes(folder, old, old);
+      expect(await copyOf(copies, checkout, 'c0')).toBe(folder);
+      expect(await readdir(folder)).toContain('extra');
+      expect((await stat(folder)).mtimeMs).toBeGreaterThan(old.getTime());
+
+      // Each file is looked for once per process; after that, the marker
+      // is trusted.
+      await rm(join(folder, 'packages/a/src/index.ts'));
+      await copyOf(copies, checkout, 'c0');
+      expect(await readdir(folder)).toContain('extra');
+      // In a new process, a copy the OS has half cleared away is written
+      // again.
+      vi.resetModules();
+      const fresh = (await import('../real/commit-copy.js')).commitFolder;
+      expect(await copyOf(copies, checkout, 'c0', fresh)).toBe(folder);
+      expect(await readdir(folder)).not.toContain('extra');
+      expect(
+        await readFile(join(folder, 'packages/a/src/index.ts'), 'utf8'),
+      ).toBe('export {};');
+      // So is one without its marker, which a write that died leaves.
+      await rm(join(folder, '.kestack-devtools-copy.json'));
+      await writeFile(join(folder, 'extra'), '');
+      await copyOf(copies, checkout, 'c0');
+      expect(await readdir(folder)).not.toContain('extra');
+
+      // Two opens at once write one copy, and no half-written one stays.
+      const [left, right] = await Promise.all([
+        copyOf(copies, checkout, 'c1'),
+        copyOf(copies, checkout, 'c1'),
+      ]);
+      expect(left).toBe(right);
+      expect(
+        (await readdir(copies)).filter((name) => name.startsWith('.')),
+      ).toEqual([]);
+
+      // Only the six used last stay, and removing one leaves what its
+      // links point to.
+      for (const commit of ['c2', 'c3', 'c4', 'c5', 'c6', 'c7'])
+        await copyOf(copies, checkout, commit);
+      expect((await readdir(copies)).sort()).toEqual([
+        'c2',
+        'c3',
+        'c4',
+        'c5',
+        'c6',
+        'c7',
+      ]);
+      expect(
+        (await stat(join(checkout, 'packages/a/node_modules/x'))).isDirectory(),
+      ).toBe(true);
+
+      // Many writes at once each prune, past what the others removed.
+      const many = Array.from({ length: 12 }, (_, i) => `d${i}`);
+      await Promise.all(many.map((commit) => copyOf(copies, checkout, commit)));
+      expect((await readdir(copies)).length).toBeLessThanOrEqual(12);
+    } finally {
+      await rm(at, { recursive: true, force: true });
+    }
+  });
+
+  test("links the checkout's node_modules again where one is missing or points at nothing", async () => {
+    const at = await mkdtemp(join(tmpdir(), 'monoverse-copies-'));
+    const copies = join(at, 'copies');
+    const before = join(at, 'before');
+    const after = join(at, 'after');
+    const link = (folder: string) => join(folder, 'packages/a/node_modules');
+    try {
+      // Written before the install: nothing to link.
+      await mkdir(before, { recursive: true });
+      const folder = await copyOf(copies, before, 'c0');
+      expect(await readdir(join(folder, 'packages/a'))).not.toContain(
+        'node_modules',
+      );
+      await mkdir(join(before, 'packages/a/node_modules'), { recursive: true });
+      await copyOf(copies, before, 'c0');
+      expect(await readlink(link(folder))).toBe(link(before));
+
+      // The worktree it was linked to is gone; another has node_modules.
+      await rm(before, { recursive: true, force: true });
+      await mkdir(join(after, 'packages/a/node_modules'), { recursive: true });
+      await copyOf(copies, after, 'c0');
+      expect(await readlink(link(folder))).toBe(link(after));
+    } finally {
+      await rm(at, { recursive: true, force: true });
+    }
+  });
 });

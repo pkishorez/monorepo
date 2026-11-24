@@ -1,17 +1,25 @@
 import { spawn } from 'node:child_process';
+import { join } from 'node:path';
 
 import type { GitShape } from '../../git/contract/index.js';
 import type { Snapshot } from '../contract/index.js';
+import { commitFolder } from './commit-copy.js';
 
 /*
  * A Project read from git at one commit, nothing checked out: the file list
  * from `git ls-tree`, the contents from `git cat-file --batch`, many files
  * in one process. A commit never changes, so its file list and the blobs
- * read are kept, a few commits and a bounded number of bytes.
+ * read are kept, a few commits and a bounded number of bytes, and so is
+ * its copy on disk, once something asks for one: the whole commit, so
+ * what sits above the Project folder (a root tsconfig, package.json or
+ * node_modules) is there as it is on disk.
  */
 
-/** Each file of a commit under the Project folder, by path, and its blob. */
-type Tree = ReadonlyMap<string, string>;
+/** One file of a commit: its blob, and whether it is a symbolic link. */
+type Entry = { readonly blob: string; readonly link: boolean };
+
+/** Each file of a commit under a folder, by path. */
+type Tree = ReadonlyMap<string, Entry>;
 
 const keptTrees = 8;
 const trees = new Map<string, Promise<Tree>>();
@@ -22,7 +30,7 @@ let blobBytes = 0;
 
 /**
  * The Project at `root`, `prefix` inside the repository at `toplevel`, as
- * `commit` has it.
+ * `commit` has it; its copy on disk goes in `copies`.
  */
 export function gitSnapshot(
   git: GitShape,
@@ -31,37 +39,58 @@ export function gitSnapshot(
     readonly toplevel: string;
     readonly prefix: string;
     readonly commit: string;
+    readonly copies: string;
   },
 ): Snapshot {
-  const { root, toplevel, prefix, commit } = options;
+  const { root, toplevel, prefix, commit, copies } = options;
   const tree = () => treeOf(git, toplevel, prefix, commit);
-  const readMany = async (paths: ReadonlyArray<string>) => {
-    const files = await tree();
-    const wanted = new Map<string, string>();
-    for (const path of paths) {
-      const blob = files.get(path);
-      if (blob !== undefined) wanted.set(path, blob);
-    }
-    const contents = await readBlobs(toplevel, [...new Set(wanted.values())]);
-    const found = new Map<string, Uint8Array>();
-    for (const [path, blob] of wanted) {
-      const bytes = contents.get(blob);
-      if (bytes !== undefined) found.set(path, bytes);
-    }
-    return found;
+  const list = async (folder: string) => {
+    const files = [...(await tree()).keys()];
+    return folder === ''
+      ? files
+      : files.filter((path) => path.startsWith(`${folder}/`));
   };
+  const readMany = async (paths: ReadonlyArray<string>) =>
+    readFrom(toplevel, await tree(), paths);
+  const whole = () => treeOf(git, toplevel, '', commit);
   return {
     root,
     source: { kind: 'git', commit },
-    list: async (folder) => {
-      const files = [...(await tree()).keys()];
-      return folder === ''
-        ? files
-        : files.filter((path) => path.startsWith(`${folder}/`));
-    },
+    list,
     read: async (path) => (await readMany([path])).get(path),
     readMany,
+    onDisk: async () => {
+      const folder = await commitFolder({
+        copies,
+        commit,
+        checkout: toplevel,
+        list: async () =>
+          [...(await whole())].map(([path, { link }]) => ({ path, link })),
+        readMany: async (paths) => readFrom(toplevel, await whole(), paths),
+      });
+      return prefix === '' ? folder : join(folder, prefix);
+    },
   };
+}
+
+/** The bytes of each of `paths` in `files`; one it lacks is left out. */
+async function readFrom(
+  toplevel: string,
+  files: Tree,
+  paths: ReadonlyArray<string>,
+): Promise<ReadonlyMap<string, Uint8Array>> {
+  const wanted = new Map<string, string>();
+  for (const path of paths) {
+    const entry = files.get(path);
+    if (entry !== undefined) wanted.set(path, entry.blob);
+  }
+  const contents = await readBlobs(toplevel, [...new Set(wanted.values())]);
+  const found = new Map<string, Uint8Array>();
+  for (const [path, blob] of wanted) {
+    const bytes = contents.get(blob);
+    if (bytes !== undefined) found.set(path, bytes);
+  }
+  return found;
 }
 
 function treeOf(
@@ -106,12 +135,16 @@ async function listTree(
     'command-failed',
   );
   const strip = prefix === '' ? 0 : prefix.length + 1;
-  const entries: Array<readonly [string, string]> = [];
+  const entries: Array<readonly [string, Entry]> = [];
   for (const record of git.splitNul(output)) {
     const tab = record.indexOf('\t');
-    const [, type, object] = record.slice(0, tab).split(' ');
+    const [mode, type, object] = record.slice(0, tab).split(' ');
     if (type !== 'blob' || object === undefined) continue;
-    entries.push([record.slice(tab + 1).slice(strip), object]);
+    entries.push([
+      record.slice(tab + 1).slice(strip),
+      // A symbolic link's blob is where it points.
+      { blob: object, link: mode === '120000' },
+    ]);
   }
   entries.sort(([left], [right]) => left.localeCompare(right));
   return new Map(entries);

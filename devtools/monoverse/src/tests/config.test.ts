@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { isChecked, parseConfig, presets } from '../index.ts';
+import { isChecked, matches, parseConfig, presets } from '../index.ts';
 
 const parse = (json: unknown) => parseConfig(JSON.stringify(json));
 
@@ -16,6 +16,8 @@ describe('parseConfig', () => {
       sourceRoots: ['src'],
       ignore: [],
       rules: presets.kabuki,
+      exceptions: [],
+      restrictions: [],
     });
   });
 
@@ -31,6 +33,8 @@ describe('parseConfig', () => {
       sourceRoots: [''],
       ignore: ['**/fixtures/**'],
       rules: { imports: { doors: ['ports/*'] } },
+      exceptions: [],
+      restrictions: [],
     });
   });
 
@@ -47,8 +51,8 @@ describe('parseConfig', () => {
     ],
     [
       'a key it does not know',
-      { sourceRoots: ['src'], preset: 'default', exceptions: [] },
-      'monoverse.json has "exceptions", which it does not know. It knows "$schema", "sourceRoots", "ignore", "preset", "rules".',
+      { sourceRoots: ['src'], preset: 'default', cycles: [] },
+      'monoverse.json has "cycles", which it does not know. It knows "$schema", "sourceRoots", "ignore", "preset", "rules", "exceptions", "restrictions".',
     ],
     [
       'a rule it does not know',
@@ -142,6 +146,8 @@ describe('what parseConfig cleans and refuses', () => {
         imports: { doors: ['shared', 'ports/*'] },
         contracts: { folders: ['ports/*'], required: ['ports/*'] },
       },
+      exceptions: [],
+      restrictions: [],
     });
   });
 
@@ -205,5 +211,167 @@ describe('what parseConfig cleans and refuses', () => {
     });
     expect(isChecked(roots, 'index.ts')).toBe(true);
     expect(isChecked(roots, 'src/vendor/lib.min.js')).toBe(false);
+  });
+});
+
+describe('exceptions and restrictions', () => {
+  const pass = { from: './src/cli/', to: 'src/app/*/server', reason: 'why' };
+
+  it('reads both beside a preset, their globs written the way they are matched', () => {
+    expect(
+      config({
+        sourceRoots: ['src'],
+        preset: 'kabuki',
+        exceptions: [pass],
+        restrictions: [
+          { from: 'src/**/logic/**', to: 'react', reason: 'pure' },
+        ],
+      }),
+    ).toEqual({
+      sourceRoots: ['src'],
+      ignore: [],
+      rules: presets.kabuki,
+      exceptions: [
+        { from: 'src/cli/**', to: 'src/app/*/server', reason: 'why' },
+      ],
+      restrictions: [{ from: 'src/**/logic/**', to: 'react', reason: 'pure' }],
+    });
+  });
+
+  it('reads both beside rules', () => {
+    const read = config({
+      sourceRoots: ['src'],
+      rules: { imports: { doors: ['shared'] } },
+      exceptions: [pass],
+      restrictions: [pass],
+    });
+    expect(read.exceptions).toHaveLength(1);
+    expect(read.restrictions).toHaveLength(1);
+  });
+
+  it.each([
+    [
+      'a list that is not one',
+      { exceptions: {} },
+      'monoverse.json "exceptions" must be a list.',
+    ],
+    [
+      'an entry that is not an object',
+      { restrictions: ['react'] },
+      'monoverse.json "restrictions[0]" must be an object.',
+    ],
+    [
+      'a key it does not know',
+      { exceptions: [{ ...pass, why: 'x' }] },
+      'monoverse.json has "exceptions[0].why", which it does not know. It knows "exceptions[0].from", "exceptions[0].to", "exceptions[0].reason".',
+    ],
+    [
+      'no reason',
+      { exceptions: [{ from: 'src/a', to: 'src/b' }] },
+      'monoverse.json "exceptions[0].reason" must say why.',
+    ],
+    [
+      'an empty reason',
+      { restrictions: [{ ...pass, reason: '  ' }] },
+      'monoverse.json "restrictions[0].reason" must say why.',
+    ],
+    [
+      'no "to"',
+      { restrictions: [{ from: 'src', reason: 'r' }] },
+      'monoverse.json "restrictions[0].to" must be a glob.',
+    ],
+    [
+      'a "from" outside the package',
+      { exceptions: [{ ...pass, from: '../other' }] },
+      'monoverse.json "exceptions[0].from" is "../other", which is not inside the package.',
+    ],
+    [
+      'an absolute "to"',
+      { restrictions: [{ ...pass, to: '/etc' }] },
+      'monoverse.json "restrictions[0].to" is "/etc", which is not inside the package.',
+    ],
+  ])('refuses %s', (_, extra, error) => {
+    expect(
+      parse({ sourceRoots: ['src'], preset: 'default', ...extra }),
+    ).toEqual({ ok: false, error });
+  });
+
+  it('refuses the paths the schema refuses, and takes the ones it takes', () => {
+    const schema = JSON.parse(
+      readFileSync(new URL('../../schema.json', import.meta.url), 'utf8'),
+    ) as {
+      properties: Record<
+        'exceptions' | 'restrictions',
+        {
+          items: {
+            properties: Record<'from' | 'to' | 'reason', { pattern: string }>;
+          };
+        }
+      >;
+    };
+    const refused = ['', '  ', '/abs', '../x', 'src/../..', 'a/../b'];
+    const taken = ['src', './src/', 'react', '@effect/*', 'src/**/logic/**'];
+    for (const list of ['exceptions', 'restrictions'] as const) {
+      for (const key of ['from', 'to'] as const) {
+        const pattern = new RegExp(
+          schema.properties[list].items.properties[key].pattern,
+        );
+        for (const path of refused) {
+          expect(pattern.test(path)).toBe(false);
+          expect(
+            parse({
+              sourceRoots: ['src'],
+              preset: 'default',
+              [list]: [{ ...pass, [key]: path }],
+            }).ok,
+          ).toBe(false);
+        }
+        for (const path of taken) {
+          expect(pattern.test(path)).toBe(true);
+          expect(
+            parse({
+              sourceRoots: ['src'],
+              preset: 'default',
+              [list]: [{ ...pass, [key]: path }],
+            }).ok,
+          ).toBe(true);
+        }
+      }
+      const reason = new RegExp(
+        schema.properties[list].items.properties.reason.pattern,
+      );
+      expect(reason.test(' ')).toBe(false);
+      expect(reason.test('why')).toBe(true);
+    }
+  });
+});
+
+describe('matches', () => {
+  it('matches a glob, and a folder covers everything inside it', () => {
+    expect(matches('src/cli/main.ts', 'src/cli')).toBe(true);
+    expect(matches('src/cli/main.ts', 'src/**/*.ts')).toBe(true);
+    expect(matches('src/client/main.ts', 'src/cli')).toBe(false);
+  });
+
+  it('matches a package name and its subpaths, and nothing else', () => {
+    expect(matches('react', 'react')).toBe(true);
+    expect(matches('react/jsx-runtime', 'react')).toBe(true);
+    expect(matches('react-dom', 'react')).toBe(false);
+    expect(matches('@effect/platform/Http', '@effect/*')).toBe(true);
+    expect(matches('effect', '@effect/*')).toBe(false);
+  });
+
+  it('matches the folder or package itself for a glob written with a trailing slash', () => {
+    const read = config({
+      sourceRoots: ['src'],
+      preset: 'default',
+      restrictions: [{ from: 'src', to: 'react/', reason: 'r' }],
+    });
+    const to = read.restrictions[0]?.to ?? '';
+    expect(to).toBe('react/**');
+    expect(matches('react', to)).toBe(true);
+    expect(matches('react/jsx-runtime', to)).toBe(true);
+    expect(matches('react-dom', to)).toBe(false);
+    expect(matches('src/cli', 'src/cli/**')).toBe(true);
   });
 });

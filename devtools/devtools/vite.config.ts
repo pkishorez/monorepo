@@ -27,6 +27,23 @@ const backendProxy = ({ anyOrigin = false } = {}): ProxyOptions => ({
   },
 });
 
+/** How one of the CLI's files is packed, alone, from `entry`. */
+const packed = (entry: Record<string, string>) => ({
+  entry,
+  format: 'esm' as const,
+  platform: 'node' as const,
+  minify: true,
+  shims: true,
+  dts: false,
+  publint: false,
+  outputOptions: { inlineDynamicImports: true },
+  deps: {
+    alwaysBundle: [/./],
+    neverBundle: [/^@kestack\/monoverse/, /^tsx/],
+    onlyBundle: false as const,
+  },
+});
+
 export default defineConfig({
   build: {
     outDir: 'dist/ui',
@@ -83,25 +100,22 @@ export default defineConfig({
   },
   plugins: [tailwindcss(), viteReact()],
   // The CLI and its server, one minified file with every JavaScript
-  // dependency inlined. oxc-parser and oxc-resolver are native, and tsx
-  // loads files through Node's hooks, so they stay dependencies.
-  pack: {
-    entry: {
-      'cli/main': 'src/cli/main.ts',
+  // dependency inlined, but two: @kestack/monoverse, whose oxc-parser and
+  // oxc-resolver are native and installed with it, and tsx, which loads
+  // files through Node's hooks. Beside it, built alone, the worker thread
+  // Monoverse runs @kestack/monoverse in, so a check never blocks the
+  // server.
+  pack: [
+    packed({ 'cli/main': 'src/cli/main.ts' }),
+    {
+      ...packed({
+        'cli/monoverse-engine':
+          'src/app/monoverse/server/rpc/project/real/engine-worker.ts',
+      }),
+      // The first build has cleaned the folder; this one only adds to it.
+      clean: false,
     },
-    format: 'esm',
-    platform: 'node',
-    minify: true,
-    shims: true,
-    dts: false,
-    publint: false,
-    outputOptions: { inlineDynamicImports: true },
-    deps: {
-      alwaysBundle: [/./],
-      neverBundle: [/^oxc-parser/, /^oxc-resolver/, /^tsx/],
-      onlyBundle: false,
-    },
-  },
+  ],
   test: {
     environment: 'node',
   },

@@ -1,0 +1,4 @@
+{
+  // A comment, as tsconfig.json allows.
+  "compilerOptions": { "paths": { "@/*": ["./src/*"] } }
+}

@@ -1,4 +1,3 @@
-import { existsSync, statSync } from 'node:fs';
 import { posix } from 'node:path';
 
 /*
@@ -6,17 +5,16 @@ import { posix } from 'node:path';
  * index file. A package is a folder with a `package.json`; every path
  * belongs to the nearest one above it.
  *
- * Paths are posix, `/` between folders, either absolute (as oxlint gives
- * them) or relative to some root (as a git snapshot lists them), where
- * `''` is the root itself. The rules never touch the disk: they ask a
- * Tree.
+ * Paths are posix and relative to the project root, `/` between folders,
+ * where `''` is the root itself. The rules never touch the disk: they
+ * ask a Tree.
  */
 
 /** What the rules need to know about the folders around a file. */
 export interface Tree {
   /** Whether the folder holds an index file. */
   readonly isModule: (dir: string) => boolean;
-  /** The nearest folder at or above `dir` holding a `package.json`. */
+  /** The nearest folder at or above `dir` holding a `package.json`, or `''`. */
   readonly packageOf: (dir: string) => string;
 }
 
@@ -60,6 +58,29 @@ export const isInside = (path: string, dir: string): boolean => {
 const isAtOrInside = (path: string, dir: string): boolean =>
   path === dir || isInside(path, dir);
 
+/**
+ * A Tree over a list of files relative to one root, such as the ones git
+ * knows. A folder is a module when the list holds its index file, and a
+ * package when it holds its `package.json`.
+ */
+export const listTree = (files: Iterable<string>): Tree => {
+  const modules = new Set<string>();
+  const packages = new Set<string>();
+  for (const file of files) {
+    const dir = parentOf(file);
+    const name = posix.basename(file);
+    if (name === 'package.json') packages.add(dir);
+    else if (isIndexFile(name)) modules.add(dir);
+  }
+  return {
+    isModule: (dir) => modules.has(dir),
+    packageOf: (dir) => {
+      for (let at = dir; ; at = parentOf(at))
+        if (packages.has(at) || at === '') return at;
+    },
+  };
+};
+
 /** The module a folder belongs to: the nearest module at or above it, or its package. */
 export const moduleOf = (tree: Tree, dir: string, root: string): string => {
   for (let at = dir; isInside(at, root); at = parentOf(at))
@@ -98,64 +119,4 @@ export const enclosing = (
       return { folder: at, owner };
   }
   return undefined;
-};
-
-/**
- * A Tree read from the disk, for absolute paths. What it reads of a
- * folder it keeps until the folder changes: adding or removing an index
- * file or a `package.json` changes the folder's mtime, so a lint that
- * runs for hours in an editor still sees the folders as they are.
- */
-export const diskTree = (): Tree => {
-  const folders = new Map<
-    string,
-    {
-      readonly changed: number;
-      readonly module: boolean;
-      readonly package: boolean;
-    }
-  >();
-  const read = (dir: string) => {
-    const stat = statSync(dir === '' ? '/' : dir, { throwIfNoEntry: false });
-    if (!stat) return { module: false, package: false };
-    const known = folders.get(dir);
-    if (known !== undefined && known.changed === stat.mtimeMs) return known;
-    const entry = {
-      changed: stat.mtimeMs,
-      module: indexFiles.some((file) => existsSync(joinPath(dir, file))),
-      package: existsSync(joinPath(dir, 'package.json')),
-    };
-    folders.set(dir, entry);
-    return entry;
-  };
-  return {
-    isModule: (dir) => read(dir).module,
-    packageOf: (dir) => {
-      for (let at = dir; ; at = parentOf(at)) {
-        if (read(at).package || parentOf(at) === at) return at;
-      }
-    },
-  };
-};
-
-/**
- * A Tree over a list of files, such as the ones git knows at a branch,
- * relative to one root. A folder is a module when the list holds its
- * index file, and a package when it holds its `package.json`.
- */
-export const listTree = (files: Iterable<string>): Tree => {
-  const modules = new Set<string>();
-  const packages = new Set<string>();
-  for (const file of files) {
-    const dir = parentOf(file);
-    const name = posix.basename(file);
-    if (name === 'package.json') packages.add(dir);
-    else if (isIndexFile(name)) modules.add(dir);
-  }
-  const packageOf = (dir: string): string => {
-    for (let at = dir; ; at = parentOf(at)) {
-      if (packages.has(at) || at === '' || at === '/') return at;
-    }
-  };
-  return { isModule: (dir) => modules.has(dir), packageOf };
 };

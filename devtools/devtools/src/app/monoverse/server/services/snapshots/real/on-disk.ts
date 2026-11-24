@@ -35,6 +35,7 @@ export function diskSnapshot(
       return inside === '' ? files : files.map((file) => `${inside}/${file}`);
     },
     read,
+    onDisk: async () => folder,
     readMany: async (paths) => {
       const found = new Map<string, Uint8Array>();
       let next = 0;

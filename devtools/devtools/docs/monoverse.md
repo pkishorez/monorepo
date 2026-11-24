@@ -76,9 +76,10 @@ _Avoid_: package switcher, package picker
 
 **monoverse.json**:
 The file beside a Package's `package.json` that turns its rules on, the
-same for `vp lint` and for Monoverse: its Source roots, the files it
-ignores, and a preset or its own rules. A Package without one is drawn
-but never checked.
+same for `monoverse lint` and for Monoverse: its Source roots, the files
+it ignores, a preset or its own rules, and the exceptions and
+restrictions it adds, each with its reason. A Package without one is
+drawn but never checked.
 _Avoid_: laymos.config.json, lint config
 
 **Source root**:
@@ -106,16 +107,20 @@ and what imports it. Drawn in two colours.
 
 **Check**:
 What a Package's monoverse.json makes of its imports at a branch, worked
-out on the server by @kestack/monoverse as `vp lint` works it out: none
-without the file, a sentence saying why when the file cannot be read, or
-its Violations.
+out on the server by @kestack/monoverse, the engine `monoverse lint`
+runs, on the branch's files on disk: its worktree, or for a branch none
+has checked out, a copy of its commit. None without the file, a sentence
+saying why when the file cannot be read, or its Violations.
 _Avoid_: lint run, analysis
 
 **Violation**:
-One import, from a file its monoverse.json checks, that its rules forbid,
-with the lint's own sentence saying why and what to do: drawn red, and
-counted on the file, every folder above it, and the Package. A Package
-cycle is drawn red too, but is never a Violation.
+One import, from a file its monoverse.json checks, that its rules or a
+restriction forbid, or a contract that breaks them, with `monoverse
+lint`'s own sentence saying why and what to do, at its line and column:
+drawn red, and counted on the file, every folder above it, and the
+Package. An exception that lets nothing through, or a restriction that
+covers no file, is one on the monoverse.json itself. A Package cycle is
+drawn red too, but is never a Violation.
 _Avoid_: error, lint failure
 
 **Project picker**:

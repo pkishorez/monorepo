@@ -45,11 +45,15 @@ export type TreePackage = typeof TreePackageSchema.Type;
 /**
  * A finding, and what is wrong with it, in one sentence: a broken link
  * from one file to another, or, without `to`, something wrong in `from`
- * itself, such as a contract.
+ * itself, such as a contract, or a monoverse.json's exception that lets
+ * nothing through. A Violation says where in `from`, as `monoverse lint`
+ * does.
  */
 const BrokenLinkSchema = Schema.Struct({
   from: Schema.String,
   to: Schema.optional(Schema.String),
+  line: Schema.optional(Schema.Number),
+  column: Schema.optional(Schema.Number),
   message: Schema.String,
 });
 
@@ -84,8 +88,8 @@ const TreePropsSchema = Schema.Struct({
   links: Schema.Array(ImportSchema),
   /**
    * The links that are findings: in a Package, its Violations, each
-   * counted where its importer is; in the repo, the links of a Package
-   * cycle.
+   * counted at the file `monoverse lint` tells it on, the monoverse.json
+   * for its own; in the repo, the links of a Package cycle.
    */
   broken: Schema.Array(BrokenLinkSchema),
   /** The Source roots; anything outside them is ignored, drawn dimmed. Null: none ignored. */
