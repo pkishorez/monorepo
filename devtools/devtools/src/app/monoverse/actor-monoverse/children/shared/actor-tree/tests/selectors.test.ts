@@ -4,8 +4,8 @@ import type { Check } from '../../../../../server/rpc/project/contract/index.js'
 import { findingsOf, findingsWithin } from '../logic/shared/index.js';
 
 /*
- * What the tree marks as wrong: in a Package, each Violation once, where
- * its importer is and every folder above; in the repo, each Package's
+ * What the tree marks as wrong: in a Package, each Violation once, at the
+ * file it is reported on and every folder above; in the repo, each Package's
  * Violations from its Check, and the Packages in a cycle apart, never
  * counted as Violations.
  */
@@ -36,9 +36,27 @@ describe('in a Package', () => {
     expect(checks.size).toBe(0);
   });
 
-  test("a selection's findings are the Violations of the files it holds", () => {
-    expect(findingsWithin('pkg/src/a', broken, [])).toEqual(broken.slice(0, 2));
-    expect(findingsWithin('pkg/src/b', broken, [])).toEqual([]);
+  test('a finding without a link counts at its file, like any other', () => {
+    const contract = { from: 'pkg/src/c.ts', message: 'No contract/.' };
+    const { violations } = findingsOf([...broken, contract], []);
+    expect(violations.get('pkg/src/c.ts')).toBe(1);
+    expect(violations.get('pkg/src')).toBe(4);
+  });
+
+  test("a selection's findings are the Violations of the files it holds, named from the Package", () => {
+    expect(findingsWithin('pkg/src/a', 'pkg', broken, [])).toEqual([
+      { message: broken[0]?.message, where: 'src/a/x.ts → src/b/y.ts' },
+      { message: broken[1]?.message, where: 'src/a/x.ts → src/c/z.ts' },
+    ]);
+    expect(findingsWithin('pkg/src/b', 'pkg', broken, [])).toEqual([]);
+    expect(
+      findingsWithin(
+        'pkg',
+        'pkg',
+        [{ from: 'pkg/src/c.ts', message: 'm' }],
+        [],
+      ),
+    ).toEqual([{ message: 'm', where: 'src/c.ts' }]);
   });
 });
 
@@ -57,12 +75,17 @@ describe('in the repo', () => {
     ],
   };
   const packages = [
-    { path: 'devtools/app', check: checked },
+    { path: 'devtools/app', name: 'app', check: checked },
     {
       path: 'devtools/clean',
+      name: 'clean',
       check: { _tag: 'Checked', violations: [] } as Check,
     },
-    { path: 'packages/plain', check: { _tag: 'Unchecked' } as Check },
+    {
+      path: 'packages/plain',
+      name: 'plain',
+      check: { _tag: 'Unchecked' } as Check,
+    },
   ];
   const cycle = [
     {
@@ -94,11 +117,30 @@ describe('in the repo', () => {
   });
 
   test("a selection's findings are its cycle links and the Violations of the Packages it holds", () => {
-    expect(findingsWithin('devtools/app', cycle, packages)).toHaveLength(2);
-    expect(findingsWithin('devtools', cycle, packages)).toEqual([
-      ...cycle,
-      ...(checked._tag === 'Checked' ? checked.violations : []),
+    const cycleFindings = [
+      {
+        message: 'In a Package cycle.',
+        where: 'packages/plain → devtools/clean',
+      },
+      {
+        message: 'In a Package cycle.',
+        where: 'devtools/clean → packages/plain',
+      },
+    ];
+    expect(findingsWithin('devtools/app', '', cycle, packages)).toHaveLength(2);
+    expect(findingsWithin('devtools', '', cycle, packages)).toEqual([
+      ...cycleFindings,
+      {
+        message: "'devtools/app/src/b.ts' is not a door.",
+        where: 'app: src/a.ts → src/b.ts',
+      },
+      {
+        message: "'devtools/app/src/b.ts' is not a door.",
+        where: 'app: src/c.ts → src/b.ts',
+      },
     ]);
-    expect(findingsWithin('packages/plain', cycle, packages)).toEqual(cycle);
+    expect(findingsWithin('packages/plain', '', cycle, packages)).toEqual(
+      cycleFindings,
+    );
   });
 });

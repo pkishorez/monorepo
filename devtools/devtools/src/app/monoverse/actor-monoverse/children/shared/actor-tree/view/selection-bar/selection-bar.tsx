@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 
 import type { TreeNode } from '../../../../../logic/shared/index.js';
-import type { BrokenLink, Connection } from '../../logic/shared/index.js';
+import type { Connection, Finding } from '../../logic/shared/index.js';
 
 /*
  * What is selected, and what to do with it, in a bar docked
@@ -73,7 +73,7 @@ export function SelectionBar({
   changesOn: boolean;
   connections: ReadonlyMap<string, Connection>;
   /** What is wrong with the selection: Violations, or in the repo, cycle links too. */
-  findings: ReadonlyArray<BrokenLink>;
+  findings: ReadonlyArray<Finding>;
   colours: SelectionColours;
   /** Views it: a file in the viewer, a Package in its view, a folder in the folder viewer. */
   onActivate: () => void;
@@ -269,14 +269,14 @@ export function SelectionBar({
 
 /**
  * How many things are wrong with the selection, as a button that lists
- * each: what `vp lint` says of it, and the two files it joins.
+ * each: what `vp lint` says of it, and where, named from its Package.
  */
 function FindingList({
   findings,
   scope,
   colour,
 }: {
-  findings: ReadonlyArray<BrokenLink>;
+  findings: ReadonlyArray<Finding>;
   scope: 'repo' | 'package';
   colour: string;
 }) {
@@ -299,14 +299,15 @@ function FindingList({
         className="max-h-80 w-[min(28rem,calc(100vw-2rem))] gap-0 overflow-y-auto p-1"
       >
         <ul className="flex flex-col">
-          {findings.map(({ from, to, message }) => (
+          {findings.map(({ message, where }, index) => (
             <li
-              key={`${from}\0${to}`}
+              // Two imports of one file are two findings, alike but for their place.
+              key={`${index}\0${where}`}
               className="flex flex-col gap-1 rounded-md px-2.5 py-2 text-xs"
             >
               <span className="leading-snug text-foreground">{message}</span>
               <span className="font-mono text-[11px] [overflow-wrap:anywhere] text-muted-foreground">
-                {from} → {to}
+                {where}
               </span>
             </li>
           ))}

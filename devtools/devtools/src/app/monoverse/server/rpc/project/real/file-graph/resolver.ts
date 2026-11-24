@@ -25,7 +25,7 @@ export const sourceExtensions = [
 ];
 
 const extensionAlias: Readonly<Record<string, ReadonlyArray<string>>> = {
-  '.js': ['.ts', '.tsx', '.js'],
+  '.js': ['.ts', '.tsx', '.js', '.jsx'],
   '.jsx': ['.tsx', '.jsx'],
   '.mjs': ['.mts', '.mjs'],
   '.cjs': ['.cts', '.cjs'],

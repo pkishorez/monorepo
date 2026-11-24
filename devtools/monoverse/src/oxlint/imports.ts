@@ -1,6 +1,10 @@
 import { defineRule } from '@oxlint/plugins';
 import type { ESTree } from '@oxlint/plugins';
-import { importMessage, judgeImport } from '../shared/imports/index.ts';
+import {
+  importMessage,
+  importOf,
+  judgeImport,
+} from '../shared/imports/index.ts';
 import { settingsOf } from './package.ts';
 import { resolveImport } from './resolve.ts';
 
@@ -26,26 +30,25 @@ export const imports = defineRule({
     const rule = config.rules.imports;
     if (!rule) return {};
 
-    const check = (source: ESTree.StringLiteral | null | undefined) => {
-      if (!source || typeof source.value !== 'string') return;
-      const target = resolveImport(file, source.value);
+    // The statements the core reads, so the DevTools count what this reports.
+    const check = (node: ESTree.Node) => {
+      const statement = importOf(node);
+      if (!statement) return;
+      const target = resolveImport(file, statement.specifier);
       if (!target) return;
       const verdict = judgeImport(tree, rule, file, target);
       if (!verdict.ok)
         context.report({
-          node: source,
-          message: importMessage(verdict, source.value, root),
+          node: statement.source as ESTree.Node,
+          message: importMessage(verdict, statement.specifier, root),
         });
     };
 
     return {
-      ImportDeclaration: (node) => check(node.source),
-      ExportNamedDeclaration: (node) => check(node.source),
-      ExportAllDeclaration: (node) => check(node.source),
-      ImportExpression: (node) => {
-        if (node.source.type === 'Literal')
-          check(node.source as ESTree.StringLiteral);
-      },
+      ImportDeclaration: check,
+      ExportNamedDeclaration: check,
+      ExportAllDeclaration: check,
+      ImportExpression: check,
     };
   },
 });

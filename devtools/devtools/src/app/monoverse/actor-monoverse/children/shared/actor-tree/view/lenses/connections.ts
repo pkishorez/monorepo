@@ -11,9 +11,10 @@ import {
   findingsWithin,
   linkKey,
   type BrokenLink,
-  type CheckedPackage,
   type Connection,
+  type Finding,
   type Findings,
+  type TreePackage,
 } from '../../logic/shared/index.js';
 
 /*
@@ -31,7 +32,12 @@ export function useConnections(
   broken: ReadonlyArray<BrokenLink>,
 ): ReadonlyMap<string, Connection> {
   const brokenKeys = useMemo(
-    () => new Set(broken.map(({ from, to }) => linkKey([from, to]))),
+    () =>
+      new Set(
+        broken.flatMap(({ from, to }) =>
+          to === undefined ? [] : [linkKey([from, to])],
+        ),
+      ),
     [broken],
   );
   return useMemo(() => {
@@ -48,7 +54,7 @@ export function useConnections(
 /** What the tree marks on each node: Violations, Packages in a cycle, each Package's Check. */
 export function useFindings(
   broken: ReadonlyArray<BrokenLink>,
-  packages: ReadonlyArray<CheckedPackage>,
+  packages: ReadonlyArray<TreePackage>,
 ): Findings {
   return useMemo(() => findingsOf(broken, packages), [broken, packages]);
 }
@@ -56,11 +62,13 @@ export function useFindings(
 /** What is wrong with the selection, each with what to do about it. */
 export function useSelectionFindings(
   selected: string | null,
+  base: string,
   broken: ReadonlyArray<BrokenLink>,
-  packages: ReadonlyArray<CheckedPackage>,
-): ReadonlyArray<BrokenLink> {
+  packages: ReadonlyArray<TreePackage>,
+): ReadonlyArray<Finding> {
   return useMemo(
-    () => (selected === null ? [] : findingsWithin(selected, broken, packages)),
-    [selected, broken, packages],
+    () =>
+      selected === null ? [] : findingsWithin(selected, base, broken, packages),
+    [selected, base, broken, packages],
   );
 }

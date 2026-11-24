@@ -1,24 +1,30 @@
 import {
-  checkImport,
   configFile,
+  contractFindings,
   importMessage,
+  importsIn,
+  isChecked,
+  judgeImport,
   listTree,
   parseConfig,
   relativeTo,
+  resolveRelative,
   type Config,
 } from '@kestack/monoverse';
 
 import { parentOf } from '../../../contract/index.js';
 import type { Snapshot } from '../../../../services/snapshots/contract/index.js';
-import type { Check, Import, Violation } from '../../contract/index.js';
+import type { Check, Violation } from '../../contract/index.js';
+import type { Reader } from '../file-graph/file-graph.js';
 import { joinPath, readText } from '../read-text.js';
 
 /*
  * A Package checked the way `vp lint` checks it, by @kestack/monoverse:
  * only with a monoverse.json beside its package.json, only the files its
- * Source roots hold and its ignore globs leave, and only the imports
- * between files of the Package itself. A Package nested inside it has its
- * own monoverse.json, or none.
+ * Source roots hold and its ignore globs leave, each import statement
+ * resolved and judged as the lint judges it, and each contract read as
+ * the lint reads it. A Package nested inside it has its own
+ * monoverse.json, or none.
  */
 
 /** A Package's monoverse.json at a branch: none, one that cannot be read, or its settings. */
@@ -60,28 +66,73 @@ export function sourceRootsOf(
   );
 }
 
-/** What the settings make of the Package's imports, `[from, to]` relative to the root. */
-export function checkOf(
+/** A Package's check under way: what it reads of each parsed file, and what it found. */
+export interface PackageCheck {
+  /** Hands the check the files it reads; none when nothing is checked. */
+  readonly reader: Reader | undefined;
+  readonly check: () => Check;
+}
+
+/**
+ * Starts checking the Package at `base`, relative to the root, whose
+ * files git knows are `files`: the check reads each file it wants as the
+ * graph parses it, and tells what it found once all are read.
+ */
+export function startCheck(
   settings: Settings,
   base: string,
   files: ReadonlyArray<string>,
-  imports: ReadonlyArray<Import>,
-): Check {
-  if (settings._tag === 'None') return { _tag: 'Unchecked' };
-  if (settings._tag === 'Invalid')
-    return { _tag: 'Invalid', message: settings.message };
-  const tree = listTree(files);
-  const violations: Array<Violation> = [];
-  for (const [from, to] of imports) {
-    if (tree.packageOf(parentOf(from)) !== base) continue;
-    const verdict = checkImport(tree, settings.config, from, to);
-    if (verdict.ok) continue;
-    violations.push({
-      from,
-      to,
-      reason: verdict.reason,
-      message: importMessage(verdict, relativeTo(base, to), base),
-    });
+): PackageCheck {
+  if (settings._tag === 'None')
+    return { reader: undefined, check: () => ({ _tag: 'Unchecked' }) };
+  if (settings._tag === 'Invalid') {
+    const { message } = settings;
+    return { reader: undefined, check: () => ({ _tag: 'Invalid', message }) };
   }
-  return { _tag: 'Checked', violations };
+  const { config } = settings;
+  const tree = listTree(files);
+  const known = new Set(files);
+  const exists = (path: string) => known.has(path);
+  const violations: Array<Violation> = [];
+  const reader: Reader = {
+    wants: (path) =>
+      tree.packageOf(parentOf(path)) === base &&
+      isChecked(config, relativeTo(base, path)),
+    read: (from, program) => {
+      const resolve = (specifier: string) =>
+        resolveRelative(from, specifier, exists);
+      const imports = config.rules.imports;
+      if (imports)
+        for (const { specifier } of importsIn(program)) {
+          const to = resolve(specifier);
+          if (to === undefined) continue;
+          const verdict = judgeImport(tree, imports, from, to);
+          if (verdict.ok) continue;
+          violations.push({
+            from,
+            to,
+            reason: verdict.reason,
+            message: importMessage(verdict, specifier, base),
+          });
+        }
+      const contracts = config.rules.contracts;
+      if (contracts)
+        for (const { message } of contractFindings(
+          tree,
+          contracts,
+          from,
+          base,
+          program,
+          resolve,
+        ))
+          violations.push({ from, reason: 'contract', message });
+    },
+  };
+  return {
+    reader,
+    check: () => ({
+      _tag: 'Checked',
+      violations: [...violations].sort((a, b) => a.from.localeCompare(b.from)),
+    }),
+  };
 }

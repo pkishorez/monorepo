@@ -2,12 +2,12 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import { SearchIcon } from 'lucide-react';
 
-import { CheckMark } from './check-mark.js';
 import {
   orderPackages,
   type PackageChanges,
   type PackageChoice,
 } from './package-menu.js';
+import { CheckMark } from './shared/index.js';
 
 /*
  * The Packages held open in the left panel, one quiet line each: the name,

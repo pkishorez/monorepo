@@ -15,19 +15,30 @@ export {
   presets,
 } from './shared/config/index.ts';
 export {
+  type ContractFinding,
   type ContractsRule,
   contractClass,
+  contractFindings,
   contractMessages,
   contractOf,
   missingContract,
 } from './shared/contracts/index.ts';
+export { type EsNode } from './shared/estree/index.ts';
 export {
+  type ImportStatement,
   type ImportVerdict,
   type ImportsRule,
   checkImport,
   importMessage,
+  importOf,
+  importsIn,
   judgeImport,
 } from './shared/imports/index.ts';
+export {
+  isRelative,
+  resolveRelative,
+  sourceExtensions,
+} from './shared/resolve/index.ts';
 export {
   type Tree,
   diskTree,

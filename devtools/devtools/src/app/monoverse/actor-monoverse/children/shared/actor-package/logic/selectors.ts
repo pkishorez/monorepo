@@ -32,11 +32,9 @@ export const treeProps = ({
   links: state.contents.imports,
   broken:
     state.contents.check._tag === 'Checked'
-      ? state.contents.check.violations.map(({ from, to, message }) => ({
-          from,
-          to,
-          message,
-        }))
+      ? state.contents.check.violations.map(({ from, to, message }) =>
+          to === undefined ? { from, message } : { from, to, message },
+        )
       : [],
   sourceRoots: state.contents.sourceRoots,
   changes: props.changes,

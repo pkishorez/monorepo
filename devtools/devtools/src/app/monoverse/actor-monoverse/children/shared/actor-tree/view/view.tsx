@@ -125,7 +125,12 @@ export function Body({
   );
   const connections = useConnections(tree, isOpen, selected, links, broken);
   const findings = useFindings(broken, packages);
-  const selectionFindings = useSelectionFindings(selected, broken, packages);
+  const selectionFindings = useSelectionFindings(
+    selected,
+    base,
+    broken,
+    packages,
+  );
   // A selection keeps in front itself, what is inside it, what it connects
   // to, and the folders holding those; the rest steps back.
   const dimmed = useMemo(() => {

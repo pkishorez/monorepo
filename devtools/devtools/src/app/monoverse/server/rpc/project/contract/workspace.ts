@@ -26,16 +26,22 @@ export const ImportSchema = Schema.Tuple([Schema.String, Schema.String]);
 export type Import = typeof ImportSchema.Type;
 
 export const ViolationSchema = Schema.Struct({
+  /** The file `vp lint` reports it on. */
   from: Schema.String,
-  to: Schema.String,
-  /** `inside`: it reaches inside a module; `door`: it reaches beside or above, not through a door. */
-  reason: Schema.Literals(['inside', 'door']),
-  /** What `vp lint` says of it, word for word but naming the file by its path. */
+  /** The file an import names; absent for a contract. */
+  to: Schema.optional(Schema.String),
+  /**
+   * `inside`: an import reaches inside a module; `door`: it reaches
+   * beside or above, not through a door; `contract`: a contract folder
+   * is missing, or exports what it may not.
+   */
+  reason: Schema.Literals(['inside', 'door', 'contract']),
+  /** What `vp lint` says of it, word for word. */
   message: Schema.String,
 }).annotate({
   title: 'Violation',
   description:
-    "One import that breaks its Package's monoverse.json rules, both files relative to the root, as @kestack/monoverse judges it.",
+    "One thing that breaks its Package's monoverse.json rules, at a file relative to the root, as @kestack/monoverse judges it: an import statement, or a contract.",
 });
 
 export type Violation = typeof ViolationSchema.Type;

@@ -113,6 +113,56 @@ describe('checkImport', () => {
   });
 });
 
+describe('what judgeImport never judges', () => {
+  const nested = listTree([
+    'pkg/package.json',
+    'pkg/src/a/index.ts',
+    'pkg/src/a/f.ts',
+    'pkg/src/inner/package.json',
+    'pkg/src/inner/src/deep.ts',
+  ]);
+  const shared = { doors: ['shared'] };
+
+  it('lets a file import a package nested inside its own', () => {
+    expect(
+      judgeImport(
+        nested,
+        shared,
+        'pkg/src/a/f.ts',
+        'pkg/src/inner/src/deep.ts',
+      ),
+    ).toEqual({ ok: true });
+  });
+
+  it('never takes a door owned by a folder above the package', () => {
+    // The repository itself sits in a folder named `shared`.
+    const outside = listTree([
+      'shared/package.json',
+      'shared/x/index.ts',
+      'shared/y/index.ts',
+      'shared/y/f.ts',
+    ]);
+    expect(
+      judgeImport(outside, shared, 'shared/y/f.ts', 'shared/x/index.ts'),
+    ).toEqual({ ok: false, reason: 'door', doors: ['shared'] });
+    // A package named `shared` has no door at its root either.
+    const named = listTree([
+      'packages/shared/package.json',
+      'packages/shared/x/index.ts',
+      'packages/shared/y/index.ts',
+      'packages/shared/y/f.ts',
+    ]);
+    expect(
+      judgeImport(
+        named,
+        shared,
+        'packages/shared/y/f.ts',
+        'packages/shared/x/index.ts',
+      ),
+    ).toEqual({ ok: false, reason: 'door', doors: ['shared'] });
+  });
+});
+
 describe('importMessage', () => {
   it('names the module to import from the package', () => {
     expect(

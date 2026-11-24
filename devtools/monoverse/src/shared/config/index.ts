@@ -79,7 +79,8 @@ export type ConfigResult =
 export const parseConfig = (text: string): ConfigResult => {
   let json: unknown;
   try {
-    json = JSON.parse(text);
+    // An editor may save the file with a byte order mark; JSON has none.
+    json = JSON.parse(text.replace(/^\uFEFF/, ''));
   } catch (cause) {
     return fail(`is not JSON: ${(cause as Error).message}`);
   }
@@ -93,10 +94,12 @@ export const parseConfig = (text: string): ConfigResult => {
 
 /**
  * Whether the rules check `path`, a file relative to its package: it
- * sits in a source root, and no `ignore` glob matches it.
+ * sits in a source root, is not a declaration file, and no `ignore` glob
+ * matches it.
  */
 export const isChecked = (config: Config, path: string): boolean =>
   config.sourceRoots.some((root) => isInside(path, root)) &&
+  !/\.d\.[cm]?ts$/.test(path) &&
   !config.ignore.some((glob) => posix.matchesGlob(path, glob));
 
 class Invalid extends Error {}
@@ -117,7 +120,12 @@ const readConfig = (json: unknown): Config => {
     invalid('needs exactly one of "preset" and "rules".');
   return {
     sourceRoots: strings(top.sourceRoots, 'sourceRoots', true).map(folder),
-    ignore: top.ignore === undefined ? [] : strings(top.ignore, 'ignore'),
+    ignore:
+      top.ignore === undefined
+        ? []
+        : strings(top.ignore, 'ignore').map((glob) =>
+            glob.replace(/^(\.\/)+/, ''),
+          ),
     rules: Object.hasOwn(top, 'preset') ? preset(top.preset) : rules(top.rules),
   };
 };
@@ -139,30 +147,44 @@ const rules = (value: unknown): Rules => {
   if (given.imports !== undefined) {
     const imports = object(given.imports, '"rules.imports"');
     keys(imports, ['doors'], 'rules.imports.');
-    result.imports = { doors: strings(imports.doors, 'rules.imports.doors') };
+    result.imports = {
+      doors: strings(imports.doors, 'rules.imports.doors').map(pattern),
+    };
   }
   if (given.contracts !== undefined) {
     const contracts = object(given.contracts, '"rules.contracts"');
     keys(contracts, ['folders', 'required'], 'rules.contracts.');
     result.contracts = {
-      folders: strings(contracts.folders, 'rules.contracts.folders'),
+      folders: strings(contracts.folders, 'rules.contracts.folders').map(
+        pattern,
+      ),
       ...(contracts.required === undefined
         ? {}
         : {
-            required: strings(contracts.required, 'rules.contracts.required'),
+            required: strings(
+              contracts.required,
+              'rules.contracts.required',
+            ).map(pattern),
           }),
     };
   }
   return result;
 };
 
-/** A source root as written, `src/` or `.`, made a clean relative folder. */
+/**
+ * A source root as written, `src/` or `.`, made a clean relative folder.
+ * An absolute path or a `..` anywhere is refused, as the schema refuses it.
+ */
 const folder = (entry: string): string => {
-  const clean = posix.normalize(entry).replace(/\/$/, '');
-  if (clean.startsWith('/') || clean === '..' || clean.startsWith('../'))
+  if (entry.startsWith('/') || entry.split('/').includes('..'))
     invalid(`"sourceRoots" has "${entry}", which is not inside the package.`);
+  const clean = posix.normalize(entry).replace(/\/$/, '');
   return clean === '.' ? '' : clean;
 };
+
+/** A door or contract folder as written, `./shared/`, as the rules match it: `shared`. */
+const pattern = (entry: string): string =>
+  entry.replace(/^(\.\/)+/, '').replace(/\/+$/, '');
 
 const object = (value: unknown, what: string): Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
