@@ -8,8 +8,7 @@ import { sessionsLayer } from './kabuki/services/sessions/real/index.js';
 import { preferencesLayer } from './lotel/services/preferences/real/index.js';
 import { telemetryLayer } from './lotel/services/telemetry/real/index.js';
 import { toastsLayer } from './lotel/services/toasts/real/index.js';
-import { monorepoLayer } from './monoverse/services/monorepo/real/index.js';
-import { monoverseClientLayer } from './monoverse/services/monoverse-client/real/index.js';
+import { projectsLayer } from './monoverse/services/projects/real/index.js';
 import { applyTheme, readTheme, DevToolsView } from './view.js';
 import './styles.css';
 
@@ -28,7 +27,7 @@ const DevToolsApp = View.app(Routed, {
     telemetryLayer(origin),
     preferencesLayer,
     toastsLayer,
-    monorepoLayer.pipe(Layer.provideMerge(monoverseClientLayer(origin))),
+    projectsLayer(origin),
     sessionsLayer(origin),
     browser(),
   ),

@@ -10,7 +10,7 @@ import {
   ProjectEntrySchema,
   type ProjectEntry,
 } from '../../../../../server/rpc/project-registry/contract/index.js';
-import { MonoverseClient } from '../../../../../services/monoverse-client/contract/index.js';
+import { Projects } from '../../../../../services/projects/contract/index.js';
 
 /*
  * The Project Picker: which Project Monoverse shows, as the code app's
@@ -101,7 +101,7 @@ export type Model = typeof ModelSchema.Type;
 export const OPEN_FOLDER = 'open-folder';
 
 export const ProjectPickerShape = Actor.define('ProjectPicker', {
-  requires: [MonoverseClient],
+  requires: [Projects],
   input: Schema.Struct({ current: Schema.NullOr(Schema.String) }),
   props: Schema.UndefinedOr(
     Schema.Struct({
