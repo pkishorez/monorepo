@@ -152,9 +152,18 @@ const tell = (
   }
 };
 
+/**
+ * Git hooks set GIT_DIR without GIT_WORK_TREE, and git then takes the
+ * current folder as the top of the work tree. Drop it so git finds both
+ * from the folder, as it does outside a hook.
+ */
+const env = (({ GIT_DIR, ...rest }) =>
+  rest.GIT_WORK_TREE === undefined ? rest : { GIT_DIR, ...rest })(process.env);
+
 const run = (cwd: string, args: readonly string[]): string =>
   execFileSync('git', args, {
     cwd,
+    env,
     encoding: 'utf8',
     maxBuffer: 256 * 1024 * 1024,
     stdio: ['ignore', 'pipe', 'ignore'],
@@ -167,6 +176,7 @@ const stagedTexts = (
 ): ReadonlyMap<string, string> => {
   const output = execFileSync('git', ['cat-file', '--batch'], {
     cwd: root,
+    env,
     input: files.map((file) => `:${file}\n`).join(''),
     maxBuffer: 256 * 1024 * 1024,
     stdio: ['pipe', 'pipe', 'ignore'],
