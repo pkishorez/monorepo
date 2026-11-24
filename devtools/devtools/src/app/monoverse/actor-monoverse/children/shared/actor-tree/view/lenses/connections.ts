@@ -2,19 +2,24 @@ import { useMemo } from 'react';
 
 import type { Link } from '../../../../../../services/monorepo/contract/index.js';
 import {
-  countsWithin,
   visibleOf,
   type FolderTree,
 } from '../../../../../logic/shared/index.js';
 import {
   connectionsOf,
+  findingsOf,
+  findingsWithin,
   linkKey,
+  type BrokenLink,
+  type CheckedPackage,
   type Connection,
+  type Findings,
 } from '../../logic/shared/index.js';
 
 /*
  * The Connections and Violations lenses: what the selection uses and is
- * used by, as the tree is drawn now, and where the broken links are.
+ * used by, as the tree is drawn now, where the broken links are, and
+ * what is wrong with the selection.
  */
 
 /** What the selection connects to, keyed by the node on screen. */
@@ -23,9 +28,12 @@ export function useConnections(
   isOpen: (path: string) => boolean,
   selected: string | null,
   links: ReadonlyArray<Link>,
-  broken: ReadonlyArray<Link>,
+  broken: ReadonlyArray<BrokenLink>,
 ): ReadonlyMap<string, Connection> {
-  const brokenKeys = useMemo(() => new Set(broken.map(linkKey)), [broken]);
+  const brokenKeys = useMemo(
+    () => new Set(broken.map(({ from, to }) => linkKey([from, to]))),
+    [broken],
+  );
   return useMemo(() => {
     if (selected === null || !tree.nodes.has(selected)) return new Map();
     return connectionsOf(
@@ -37,9 +45,22 @@ export function useConnections(
   }, [tree, isOpen, selected, links, brokenKeys]);
 }
 
-/** How many importers of a broken link each node holds. */
-export function useBrokenCounts(
-  broken: ReadonlyArray<Link>,
-): ReadonlyMap<string, number> {
-  return useMemo(() => countsWithin(broken.map(([from]) => from)), [broken]);
+/** What the tree marks on each node: Violations, Packages in a cycle, each Package's Check. */
+export function useFindings(
+  broken: ReadonlyArray<BrokenLink>,
+  packages: ReadonlyArray<CheckedPackage>,
+): Findings {
+  return useMemo(() => findingsOf(broken, packages), [broken, packages]);
+}
+
+/** What is wrong with the selection, each with what to do about it. */
+export function useSelectionFindings(
+  selected: string | null,
+  broken: ReadonlyArray<BrokenLink>,
+  packages: ReadonlyArray<CheckedPackage>,
+): ReadonlyArray<BrokenLink> {
+  return useMemo(
+    () => (selected === null ? [] : findingsWithin(selected, broken, packages)),
+    [selected, broken, packages],
+  );
 }

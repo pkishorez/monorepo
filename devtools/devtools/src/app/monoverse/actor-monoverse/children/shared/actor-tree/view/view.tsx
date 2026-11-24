@@ -12,7 +12,11 @@ import {
   type TreeNode,
 } from '../../../../logic/shared/index.js';
 import { foldersToReveal, type TreeShape } from '../logic/shared/index.js';
-import { useBrokenCounts, useConnections } from './lenses/connections.js';
+import {
+  useConnections,
+  useFindings,
+  useSelectionFindings,
+} from './lenses/connections.js';
 import { useChanges } from './lenses/git.js';
 import { Outline, type TreeActions } from './outline/outline.js';
 
@@ -64,7 +68,7 @@ export function Body({
   const isOpen = useCallback((path: string) => openSet.has(path), [openSet]);
 
   // Ignored files show dimmed, unless they are left out; connections and
-  // Violations are always drawn. While Changes is on, what the branch left
+  // what is wrong are always drawn. While Changes is on, what the branch left
   // unchanged is drawn as it is, faded, or not at all.
   const changeOf = useChanges(changes);
   const hiding = changes !== null && unchanged === 'hide';
@@ -120,7 +124,8 @@ export function Body({
     [selected, model.home, openSet],
   );
   const connections = useConnections(tree, isOpen, selected, links, broken);
-  const brokenCounts = useBrokenCounts(broken);
+  const findings = useFindings(broken, packages);
+  const selectionFindings = useSelectionFindings(selected, broken, packages);
   // A selection keeps in front itself, what is inside it, what it connects
   // to, and the folders holding those; the rest steps back.
   const dimmed = useMemo(() => {
@@ -226,7 +231,8 @@ export function Body({
           rows={rows}
           selected={selected}
           connections={connections}
-          broken={brokenCounts}
+          findings={findings}
+          selectionFindings={selectionFindings}
           changes={changeOf}
           changesOn={changes !== null}
           dimmed={dimmed}

@@ -8,9 +8,9 @@ export const init: InitOf<typeof PackageShape> = ({ root, path, name }) => ({
 });
 
 export const updates: UpdatesOf<typeof PackageShape> = {
-  Read: ({ at, contents, violations }, { model, props }) =>
+  Read: ({ at, contents }, { model, props }) =>
     at === readAt(props.branch, model.tries)
-      ? { state: { _tag: 'Contents', at, contents, violations } }
+      ? { state: { _tag: 'Contents', at, contents } }
       : {},
   Refused: ({ at, problem }, { model, props }) =>
     at === readAt(props.branch, model.tries)

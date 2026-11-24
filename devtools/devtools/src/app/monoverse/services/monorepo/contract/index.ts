@@ -16,7 +16,7 @@ import type {
 /*
  * What Monoverse's Actors ask of a project, in their own words: the
  * project list, a project analysed at a branch with its Package links and
- * cycles worked out, one Package read and checked, its branches, what a
+ * cycles worked out, one Package read with its Check, its branches, what a
  * branch changed, and one file or its diff. Every failure is one plain
  * sentence.
  */
@@ -40,13 +40,6 @@ export interface Analysis {
   readonly cycles: ReadonlyArray<Link>;
 }
 
-/** One Package read, and checked against the folder rule. */
-export interface PackageReading {
-  readonly contents: PackageContents;
-  /** Every import of a file sitting directly in an ancestor folder. */
-  readonly violations: ReadonlyArray<Link>;
-}
-
 /**
  * Why something could not be read, as one sentence. `missing`: the folder
  * is gone or holds no project; `not-git`: the project is not in a git
@@ -66,7 +59,7 @@ export interface MonorepoService {
   readonly analyse: (at: At) => Effect.Effect<Analysis, MonorepoProblem>;
   readonly readPackage: (
     at: At & { readonly path: string },
-  ) => Effect.Effect<PackageReading, MonorepoProblem>;
+  ) => Effect.Effect<PackageContents, MonorepoProblem>;
   readonly branches: (at: {
     readonly root: string;
   }) => Effect.Effect<Branches, MonorepoProblem>;

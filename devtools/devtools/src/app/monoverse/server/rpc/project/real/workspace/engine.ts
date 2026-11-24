@@ -5,11 +5,16 @@ import type { Workspace } from '../../contract/index.js';
 import type { MonorepoReadError } from './monorepo/errors.js';
 import { loadMonorepo } from './monorepo/monorepo.js';
 import type { ManifestError } from './package/errors.js';
-import { buildPackageGraph } from './package-graph/package-graph.js';
+import {
+  buildPackageGraph,
+  type GraphPackage,
+} from './package-graph/package-graph.js';
 import { detectPackageManager } from './package-manager/package-manager.js';
 
-/** A Workspace before its files are listed. */
-export type WorkspaceAnalysis = Omit<Workspace, 'files'>;
+/** A Workspace before its files are listed and its Packages checked. */
+export type WorkspaceAnalysis = Omit<Workspace, 'files' | 'packages'> & {
+  readonly packages: ReadonlyArray<GraphPackage>;
+};
 
 export type AnalyzeMonorepoError = MonorepoReadError | ManifestError;
 

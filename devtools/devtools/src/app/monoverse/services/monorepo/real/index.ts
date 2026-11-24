@@ -8,12 +8,11 @@ import type { Workspace } from '../../../server/rpc/project/contract/index.js';
 import { MonoverseClient } from '../../monoverse-client/contract/index.js';
 import { Monorepo, MonorepoProblem, type Link } from '../contract/index.js';
 import { cycleLinks } from './package-cycles.js';
-import { violationsOf } from './rules.js';
 
 /*
  * The Monorepo service on the server's typed client: the analysis gets its
- * Package links and cycles worked out, a Package read its Violations, and
- * every failure becomes one plain sentence.
+ * Package links and cycles worked out, and every failure becomes one plain
+ * sentence. A Package's Violations come checked from the server.
  */
 
 /** Each Package's dependencies, as links between their folders. */
@@ -119,12 +118,7 @@ export const monorepoLayer = Layer.effect(
           })),
         ),
       readPackage: ({ root, branch, path }) =>
-        plainly(client.ReadPackage({ root, branch, path })).pipe(
-          Effect.map((contents) => ({
-            contents,
-            violations: violationsOf(contents.imports),
-          })),
-        ),
+        plainly(client.ReadPackage({ root, branch, path })),
       branches: ({ root }) => plainly(client.GetBranches({ root })),
       changes: ({ root, branch, base }) =>
         plainly(client.GetChanges({ root, branch, base })),

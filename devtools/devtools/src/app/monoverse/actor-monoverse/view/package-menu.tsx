@@ -22,6 +22,8 @@ import {
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import { BoxIcon, LayersIcon } from 'lucide-react';
 
+import type { Check } from '../logic/shared/index.js';
+import { CheckMark } from './check-mark.js';
 import { CrumbLabel, crumbTrigger } from './crumb.js';
 import { usePhone } from './shared/index.js';
 
@@ -29,7 +31,8 @@ import { usePhone } from './shared/index.js';
  * Which Package of a Monorepo is shown, top left beside the project: a
  * button naming it, or All packages for the Monorepo's own tree, opening a
  * list of both to go straight to another, searchable by name or folder. On
- * a phone the list is a sheet from the bottom.
+ * a phone the list is a sheet from the bottom. Each Package its
+ * monoverse.json checks shows what that found.
  */
 
 export interface PackageChoice {
@@ -37,6 +40,8 @@ export interface PackageChoice {
   /** Its folder, relative to the root. */
   readonly path: string;
   readonly version?: string | undefined;
+  /** What its monoverse.json makes of it. */
+  readonly check?: Check | undefined;
 }
 
 /** What the branch changed in a Package: how many files, and the colour they roll up to. */
@@ -207,6 +212,7 @@ function PackageList({
             {one.path}
           </span>
         </span>
+        <CheckMark check={one.check} />
         {change === undefined ? null : (
           <span
             title={`${change.count} ${change.count === 1 ? 'file' : 'files'} changed`}

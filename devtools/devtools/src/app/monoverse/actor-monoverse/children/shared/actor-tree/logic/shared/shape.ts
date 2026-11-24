@@ -2,7 +2,10 @@ import { Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
 
 import { ChangedPathSchema } from '../../../../../../server/rpc/git/contract/index.js';
-import { ImportSchema } from '../../../../../../server/rpc/project/contract/index.js';
+import {
+  CheckSchema,
+  ImportSchema,
+} from '../../../../../../server/rpc/project/contract/index.js';
 import { UnchangedSchema } from '../../../../../logic/shared/index.js';
 
 /*
@@ -17,8 +20,10 @@ import { UnchangedSchema } from '../../../../../logic/shared/index.js';
  *            folder closed over it instead, so what is selected is always
  *            on screen.
  * 2. Select  a click selects a node, and a click on it again, or on
- *            nothing, lets it go. What it connects to is drawn, and the
- *            Violations always are.
+ *            nothing, lets it go. What it connects to is drawn, each
+ *            broken link with what is wrong with it. How many Violations
+ *            each node holds is always drawn, and so is each Package's
+ *            Check.
  * 3. Reveal  a closed folder that lights up opens down to what it holds
  *            that is connected.
  * 4. Act     a double click opens a folder, and Emits `Opened` for a file
@@ -31,7 +36,18 @@ const TreePackageSchema = Schema.Struct({
   path: Schema.String,
   name: Schema.String,
   version: Schema.optional(Schema.String),
+  /** What its monoverse.json makes of it. */
+  check: CheckSchema,
 });
+
+/** A link that is a finding, and what is wrong with it, in one sentence. */
+const BrokenLinkSchema = Schema.Struct({
+  from: Schema.String,
+  to: Schema.String,
+  message: Schema.String,
+});
+
+export type BrokenLink = typeof BrokenLinkSchema.Type;
 
 const TreePropsSchema = Schema.Struct({
   /** The folder the tree is rooted at, relative to the root; `''` for the root. */
@@ -44,8 +60,12 @@ const TreePropsSchema = Schema.Struct({
   packages: Schema.Array(TreePackageSchema),
   /** What uses what, between files or between Packages. */
   links: Schema.Array(ImportSchema),
-  /** The links that are findings: Violations, or the links of a Package cycle. */
-  broken: Schema.Array(ImportSchema),
+  /**
+   * The links that are findings: in a Package, its Violations, each
+   * counted where its importer is; in the repo, the links of a Package
+   * cycle.
+   */
+  broken: Schema.Array(BrokenLinkSchema),
   /** The Source roots; anything outside them is ignored, drawn dimmed. Null: none ignored. */
   sourceRoots: Schema.NullOr(Schema.Array(Schema.String)),
   /** What the branch changed since Compare-to; null while Changes is off. */

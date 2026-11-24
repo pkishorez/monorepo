@@ -15,8 +15,11 @@ export type PackageManifest = {
   readonly declared: Readonly<Record<DependencyKind, readonly string[]>>;
 };
 
+/** A Package as its manifests say, before its monoverse.json is read. */
+export type GraphPackage = Omit<Package, 'check'>;
+
 export type PackageGraph = {
-  readonly packages: readonly Package[];
+  readonly packages: readonly GraphPackage[];
   readonly cycles: readonly PackageCycle[];
 };
 
@@ -37,7 +40,7 @@ export function buildPackageGraph(
   const names = new Set(manifests.map((manifest) => manifest.name));
   const packages = [...manifests]
     .sort((left, right) => left.name.localeCompare(right.name))
-    .map((manifest): Package => ({
+    .map((manifest): GraphPackage => ({
       name: manifest.name,
       path: manifest.path,
       ...(manifest.version === undefined ? {} : { version: manifest.version }),
@@ -66,7 +69,7 @@ function internalDependencies(
 }
 
 /** Every elementary cycle over the union of kinds, each reported once. */
-export function findCycles(packages: readonly Package[]): PackageCycle[] {
+export function findCycles(packages: readonly GraphPackage[]): PackageCycle[] {
   const edges = new Map<string, readonly string[]>(
     packages.map((pkg) => [
       pkg.name,

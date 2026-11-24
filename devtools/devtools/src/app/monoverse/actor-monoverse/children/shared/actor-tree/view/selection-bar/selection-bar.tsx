@@ -1,4 +1,9 @@
 import { Button } from '@kestack/web-platform/ui/components/button';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@kestack/web-platform/ui/components/popover';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import {
   FileIcon,
@@ -10,7 +15,7 @@ import {
 } from 'lucide-react';
 
 import type { TreeNode } from '../../../../../logic/shared/index.js';
-import type { Connection } from '../../logic/shared/index.js';
+import type { BrokenLink, Connection } from '../../logic/shared/index.js';
 
 /*
  * What is selected, and what to do with it, in a bar docked
@@ -22,6 +27,8 @@ import type { Connection } from '../../logic/shared/index.js';
  * changes, what the branch changed in it, without going in. Its
  * counts are what the selection connects to, coloured as the tree draws
  * them, so it is the key to those colours too; the whole tree has none.
+ * What is wrong with the selection is one more count, in the broken
+ * colour, that opens a list of each finding and what to do about it.
  * On a wide screen it is a card in the side panel instead, its buttons
  * one under the other.
  */
@@ -50,6 +57,7 @@ export function SelectionBar({
   root,
   changesOn,
   connections,
+  findings,
   colours,
   onActivate,
   onChanges,
@@ -64,6 +72,8 @@ export function SelectionBar({
   /** Whether Changes is on: a folder is viewed for what changed in it. */
   changesOn: boolean;
   connections: ReadonlyMap<string, Connection>;
+  /** What is wrong with the selection: Violations, or in the repo, cycle links too. */
+  findings: ReadonlyArray<BrokenLink>;
   colours: SelectionColours;
   /** Views it: a file in the viewer, a Package in its view, a folder in the folder viewer. */
   onActivate: () => void;
@@ -75,11 +85,9 @@ export function SelectionBar({
 }) {
   let uses = 0;
   let usedBy = 0;
-  let broken = 0;
   for (const connection of connections.values()) {
     uses += connection.uses;
     usedBy += connection.usedBy;
-    broken += connection.broken;
   }
   const words =
     scope === 'repo'
@@ -108,14 +116,12 @@ export function SelectionBar({
         value={usedBy}
         compact={compact}
       />
-      {broken > 0 ? (
-        <span
-          className="flex items-center gap-1"
-          style={{ color: colours.broken }}
-        >
-          <TriangleAlertIcon aria-hidden className="size-3.5" />
-          {broken} broken
-        </span>
+      {findings.length > 0 ? (
+        <FindingList
+          findings={findings}
+          scope={scope}
+          colour={colours.broken}
+        />
       ) : null}
     </>
   );
@@ -258,6 +264,55 @@ export function SelectionBar({
         </Button>
       )}
     </div>
+  );
+}
+
+/**
+ * How many things are wrong with the selection, as a button that lists
+ * each: what `vp lint` says of it, and the two files it joins.
+ */
+function FindingList({
+  findings,
+  scope,
+  colour,
+}: {
+  findings: ReadonlyArray<BrokenLink>;
+  scope: 'repo' | 'package';
+  colour: string;
+}) {
+  const count = findings.length;
+  const word =
+    scope === 'package' ? (count === 1 ? 'violation' : 'violations') : 'broken';
+  return (
+    <Popover>
+      <PopoverTrigger
+        className="-mx-1 flex h-5 items-center gap-1 rounded-md px-1 transition-colors duration-150 outline-none hover:bg-foreground/[0.06] focus-visible:ring-2 focus-visible:ring-ring/50"
+        style={{ color: colour }}
+        aria-label={`${count} ${word}: show what is wrong`}
+      >
+        <TriangleAlertIcon aria-hidden className="size-3.5" />
+        {count} {word}
+      </PopoverTrigger>
+      <PopoverContent
+        side="top"
+        align="start"
+        className="max-h-80 w-[min(28rem,calc(100vw-2rem))] gap-0 overflow-y-auto p-1"
+      >
+        <ul className="flex flex-col">
+          {findings.map(({ from, to, message }) => (
+            <li
+              key={`${from}\0${to}`}
+              className="flex flex-col gap-1 rounded-md px-2.5 py-2 text-xs"
+            >
+              <span className="leading-snug text-foreground">{message}</span>
+              <span className="font-mono text-[11px] [overflow-wrap:anywhere] text-muted-foreground">
+                {from} → {to}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </PopoverContent>
+    </Popover>
   );
 }
 

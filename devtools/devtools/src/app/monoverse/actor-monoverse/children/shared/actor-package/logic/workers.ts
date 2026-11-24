@@ -22,11 +22,10 @@ export const workers: WorkersOf<typeof PackageShape> = {
             path: model.path,
           })
           .pipe(
-            Effect.map(({ contents, violations }) => ({
+            Effect.map((contents) => ({
               _tag: 'Read' as const,
               at,
               contents,
-              violations,
             })),
             Effect.catch(({ message: problem }) =>
               Effect.succeed({ _tag: 'Refused' as const, at, problem }),

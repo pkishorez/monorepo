@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import { SearchIcon } from 'lucide-react';
 
+import { CheckMark } from './check-mark.js';
 import {
   orderPackages,
   type PackageChanges,
@@ -10,10 +11,11 @@ import {
 
 /*
  * The Packages held open in the left panel, one quiet line each: the name,
- * without the scope most of them share, and while Changes is on how many
- * files changed, in the colour they roll up to. The one shown is the only
- * row highlighted; All packages leads, the way back to the repo view. A
- * search field narrows the list once it is long.
+ * without the scope most of them share, what its monoverse.json found,
+ * and while Changes is on how many files changed, in the colour they roll
+ * up to. The one shown is the only row highlighted; All packages leads,
+ * the way back to the repo view. A search field narrows the list once it
+ * is long.
  */
 
 /** Past this many Packages, the list gets a search field. */
@@ -164,16 +166,19 @@ export function PanelPackageList({
                     one.path,
                     short(one.name),
                     `${one.name} · ${one.path}`,
-                    change === undefined ? null : (
-                      <span
-                        className={cn(
-                          'shrink-0 text-xs tabular-nums',
-                          tone[change.status],
-                        )}
-                      >
-                        {change.count}
-                      </span>
-                    ),
+                    <>
+                      <CheckMark check={one.check} />
+                      {change === undefined ? null : (
+                        <span
+                          className={cn(
+                            'shrink-0 text-xs tabular-nums',
+                            tone[change.status],
+                          )}
+                        >
+                          {change.count}
+                        </span>
+                      )}
+                    </>,
                     quiet,
                   );
                 })}

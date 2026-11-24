@@ -1,6 +1,5 @@
 import { Data, Effect } from 'effect';
 
-import { isWithin } from '../../../contract/index.js';
 import type { Snapshot } from '../../../../services/snapshots/contract/index.js';
 import type { Import } from '../../contract/index.js';
 import { createResolver, sourceExtensions } from './resolver.js';
@@ -13,24 +12,18 @@ export class FileGraphError extends Data.TaggedError('FileGraphError')<{
 
 /**
  * Which source file imports which, at a branch, as OXC parses them and
- * the snapshot's own files resolve them: from `files`, the root-relative
- * files git knows, only the source files inside the Source roots take
- * part. Declaration files, tests and minified files are left out, so a
- * test reaching into the folder it tests is never an edge. Imports are
+ * the snapshot's own files resolve them: of `files`, the root-relative
+ * files git knows, every source file takes part, tests included.
+ * Declaration files and minified files are left out. Imports are
  * root-relative and sorted.
  */
 export function buildFileGraph(
   snapshot: Snapshot,
   files: ReadonlyArray<string>,
-  sourceRoots: ReadonlyArray<string>,
 ): Effect.Effect<ReadonlyArray<Import>, FileGraphError> {
   return Effect.tryPromise({
     try: async () => {
-      const sources = files.filter(
-        (path) =>
-          isSourceFile(path) &&
-          sourceRoots.some((sourceRoot) => isWithin(path, sourceRoot)),
-      );
+      const sources = files.filter(isSourceFile);
       const eligible = new Set(sources);
       const resolver = createResolver(snapshot, new Set(files));
       const contents = await snapshot.readMany(sources);
@@ -67,7 +60,6 @@ function isSourceFile(path: string): boolean {
   return (
     sourceExtensions.some((extension) => path.endsWith(extension)) &&
     !/\.d\.[cm]?ts$/.test(path) &&
-    !/\.(?:test|spec)\.[cm]?[jt]sx?$/.test(path) &&
     !/\.min\.(?:[cm]?js|jsx)$/.test(path)
   );
 }
