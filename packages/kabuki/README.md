@@ -239,12 +239,17 @@ pnpm add @kestack/kabuki effect react
 Each Part's types are at its own `/types` path, in types only, for code that
 has to name one; the paths above give values alone.
 
-| Path                            | Types                                                                                                                                                                                                                                     |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@kestack/kabuki/types`         | `Self`, `Single`, `ActorType`, `AnyActor`, `DefinedOf`, `BlueprintLevel`, `Entry`, `From`, `Instance`, `SavedSnapshot`, `WantedWorker`, `LiveInstance`, `Needs`, `RuntimeOptions`, `Sent`, `WorkerStatus`, `HistoryEntry`, `SavedHistory` |
-| `@kestack/kabuki/react/types`   | `ViewProps`, `ViewOf`, `Handle`, `ChildData`, `Root`, `AppRuntime`, `Attachment`, `Step`, `KabukiProps`                                                                                                                                   |
-| `@kestack/kabuki/routing/types` | `Metadata`, `Status`, `Preload`, `MoveOptions`, `ReloadOptions`, `RouterOptions`                                                                                                                                                          |
-| `@kestack/kabuki/start/types`   | `DocumentProps`, `Drawn`, `StartApp`, `Pages`, `PageInfo`, `Platform`, `Handler`, `Host`, `PageCache`, `StartOptions`, `NitroOptions`                                                                                                     |
+The ones ending in `Of` take an Actor's Shape, `typeof FolderViewerShape`,
+and type a part written outside its `build`: `InitOf`, `UpdatesOf`,
+`WorkersOf`, `SelfOf` and `DataOf` (its data, in one State when named), and
+`ViewPropsOf`, what its View draws from, without its Children.
+
+| Path                            | Types                                                                                                                                                                                                                                                                                             |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@kestack/kabuki/types`         | `InitOf`, `UpdatesOf`, `WorkersOf`, `SelfOf`, `DataOf`, `Self`, `Single`, `ActorType`, `AnyActor`, `DefinedOf`, `BlueprintLevel`, `Entry`, `From`, `Instance`, `SavedSnapshot`, `WantedWorker`, `LiveInstance`, `Needs`, `RuntimeOptions`, `Sent`, `WorkerStatus`, `HistoryEntry`, `SavedHistory` |
+| `@kestack/kabuki/react/types`   | `ViewPropsOf`, `ViewProps`, `ViewOf`, `Handle`, `ChildData`, `Root`, `AppRuntime`, `Attachment`, `Step`, `KabukiProps`                                                                                                                                                                            |
+| `@kestack/kabuki/routing/types` | `Metadata`, `Status`, `Preload`, `MoveOptions`, `ReloadOptions`, `RouterOptions`                                                                                                                                                                                                                  |
+| `@kestack/kabuki/start/types`   | `DocumentProps`, `Drawn`, `StartApp`, `Pages`, `PageInfo`, `Platform`, `Handler`, `Host`, `PageCache`, `StartOptions`, `NitroOptions`                                                                                                                                                             |
 
 `@kestack/kabuki/start/client` is there only for the browser entry the
 plugin writes; an app never imports it.
