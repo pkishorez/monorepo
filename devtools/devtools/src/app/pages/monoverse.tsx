@@ -3,11 +3,11 @@ import { Actor } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
 import { Page, Router } from '@kestack/kabuki/routing';
 import {
-  MonoverseLive,
+  Monoverse,
   MonoverseView,
   PlaceSchema,
   type Place,
-} from '../monoverse/index.js';
+} from '../monoverse/actor-monoverse/index.js';
 
 /*
  * `/monoverse`: the Monoverse Tool, with its Place in the address, so a
@@ -69,7 +69,7 @@ const routeOf = (place: Place) => ({
 
 export const MonoversePageLive = MonoversePage.build({
   children: {
-    tool: Actor.child(MonoverseLive, {
+    tool: Actor.child(Monoverse, {
       // 1. Start
       input: ({ props }) => placeOf(props.query),
       // 3. Follow

@@ -4,9 +4,12 @@ import { Layer } from 'effect';
 import { View } from '@kestack/kabuki/react';
 import { Router, browser } from '@kestack/kabuki/routing';
 import { DevTools } from './actor.js';
-import { kabukiLayer } from './kabuki/index.js';
-import { lotelLayer } from './lotel/index.js';
-import { monoverseLayer } from './monoverse/index.js';
+import { sessionsLayer } from './kabuki/services/sessions/real/index.js';
+import { preferencesLayer } from './lotel/services/preferences/real/index.js';
+import { telemetryLayer } from './lotel/services/telemetry/real/index.js';
+import { toastsLayer } from './lotel/services/toasts/real/index.js';
+import { monorepoLayer } from './monoverse/services/monorepo/real/index.js';
+import { monoverseClientLayer } from './monoverse/services/monoverse-client/real/index.js';
 import { applyTheme, readTheme, DevToolsView } from './view.js';
 import './styles.css';
 
@@ -22,9 +25,11 @@ const origin = location.origin;
 
 const DevToolsApp = View.app(Routed, {
   layer: Layer.mergeAll(
-    lotelLayer(origin),
-    monoverseLayer(origin),
-    kabukiLayer(origin),
+    telemetryLayer(origin),
+    preferencesLayer,
+    toastsLayer,
+    monorepoLayer.pipe(Layer.provideMerge(monoverseClientLayer(origin))),
+    sessionsLayer(origin),
     browser(),
   ),
   // Drawn at the page the URL names from the first frame.

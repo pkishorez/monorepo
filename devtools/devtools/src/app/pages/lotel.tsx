@@ -1,7 +1,7 @@
 import { Actor } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
 import { Page } from '@kestack/kabuki/routing';
-import { LotelLive, LotelView } from '../lotel/index.js';
+import { Lotel, LotelView } from '../lotel/actor-lotel/index.js';
 
 /*
  * `/lotel`: the Lotel Tool, as it is. Its Traces and Logs keep nothing in
@@ -11,7 +11,7 @@ import { LotelLive, LotelView } from '../lotel/index.js';
 export const LotelPage = Page.define({ path: '/lotel' });
 
 export const LotelPageLive = LotelPage.build({
-  children: { tool: Actor.child(LotelLive, { input: () => ({}) }) },
+  children: { tool: Actor.child(Lotel, { input: () => ({}) }) },
 });
 
 export const LotelPageView = View.make(LotelPageLive, ({ children }) => (

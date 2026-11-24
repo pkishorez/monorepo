@@ -19,112 +19,104 @@
       "src/app/pages/lotel.tsx",
       "src/app/pages/monoverse.tsx"
     ],
-    "src/app/kabuki/actor-inspector": ["src/app/kabuki/sessions"],
-    "src/app/lotel/feed": [
-      "src/app/lotel/preferences",
-      "src/app/lotel/telemetry",
-      "src/app/lotel/trace-model"
+    "src/app/kabuki/actor-kabuki": [
+      "src/app/kabuki/services/sessions/contract"
     ],
-    "src/app/lotel/server": ["src/app/lotel/contract"],
-    "src/app/lotel/server/ingest": ["src/app/lotel/server/telemetry-store"],
-    "src/app/lotel/server/rpc": ["src/app/lotel/server/telemetry-store"],
-    "src/app/lotel/telemetry": [
-      "src/app/lotel/contract",
-      "src/app/lotel/trace-model"
+    "src/app/kabuki/actor-kabuki/children/actor-remote-inspector/capabilities/kabuki-session/real": [
+      "src/app/kabuki/actor-kabuki/children/actor-remote-inspector/logic"
     ],
-    "src/app/lotel/trace": [
-      "src/app/lotel/telemetry",
-      "src/app/lotel/trace-model"
+    "src/app/kabuki/actor-kabuki/view": ["src/app/kabuki/actor-kabuki/logic"],
+    "src/app/kabuki/services/sessions/fake": [
+      "src/app/kabuki/services/sessions/contract"
     ],
-    "src/app/lotel/trace-model": ["src/app/lotel/contract"],
-    "src/app/lotel/trace/ui/span-inspection": ["src/app/lotel/trace/ui/status"],
-    "src/app/monoverse/client": ["src/app/monoverse/contract"],
-    "src/app/monoverse/file-viewer": [
-      "src/app/monoverse/contract",
-      "src/app/monoverse/services/monorepo",
-      "src/app/monoverse/ui"
+    "src/app/kabuki/services/sessions/real": [
+      "src/app/kabuki/services/sessions/contract"
     ],
-    "src/app/monoverse/folder-viewer": [
-      "src/app/monoverse/contract",
-      "src/app/monoverse/file-viewer",
-      "src/app/monoverse/model",
-      "src/app/monoverse/tree",
-      "src/app/monoverse/ui"
+    "src/app/lotel/actor-lotel": [
+      "src/app/lotel/services/preferences/contract",
+      "src/app/lotel/services/telemetry/contract",
+      "src/app/lotel/services/toasts/contract"
     ],
-    "src/app/monoverse/git-controls": [
-      "src/app/monoverse/contract",
-      "src/app/monoverse/model",
-      "src/app/monoverse/tree",
-      "src/app/monoverse/ui"
+    "src/app/lotel/actor-lotel/children/actor-feed": [
+      "src/app/lotel/actor-lotel/logic/shared"
     ],
-    "src/app/monoverse/monorepo": [
-      "src/app/monoverse/contract",
-      "src/app/monoverse/model",
-      "src/app/monoverse/package",
-      "src/app/monoverse/tree"
+    "src/app/lotel/actor-lotel/children/actor-feed/view": [
+      "src/app/lotel/actor-lotel/children/actor-feed/logic"
     ],
-    "src/app/monoverse/package": [
-      "src/app/monoverse/contract",
-      "src/app/monoverse/model",
-      "src/app/monoverse/services/monorepo",
-      "src/app/monoverse/tree",
-      "src/app/monoverse/ui"
+    "src/app/lotel/actor-lotel/children/actor-trace": [
+      "src/app/lotel/actor-lotel/logic/shared"
     ],
-    "src/app/monoverse/panels": [
-      "src/app/monoverse/git-controls",
-      "src/app/monoverse/model",
-      "src/app/monoverse/ui"
+    "src/app/lotel/actor-lotel/children/actor-trace/view": [
+      "src/app/lotel/actor-lotel/children/actor-trace/logic"
     ],
-    "src/app/monoverse/picker": [
-      "src/app/monoverse/client",
-      "src/app/monoverse/contract"
+    "src/app/lotel/actor-lotel/view": ["src/app/lotel/actor-lotel/logic"],
+    "src/app/lotel/services/preferences/fake": [
+      "src/app/lotel/services/preferences/contract"
     ],
-    "src/app/monoverse/picker/ui": ["src/app/monoverse/picker/steps"],
-    "src/app/monoverse/server": [
-      "src/app/monoverse/contract",
-      "src/app/monoverse/model"
+    "src/app/lotel/services/preferences/real": [
+      "src/app/lotel/services/preferences/contract"
     ],
-    "src/app/monoverse/server/changes": [
-      "src/app/monoverse/server/git",
-      "src/app/monoverse/server/snapshot"
+    "src/app/lotel/services/telemetry/real": [
+      "src/app/lotel/server/rpc/telemetry/contract",
+      "src/app/lotel/services/telemetry/contract"
     ],
-    "src/app/monoverse/server/config": ["src/app/monoverse/server/snapshot"],
-    "src/app/monoverse/server/file-graph": [
-      "src/app/monoverse/server/snapshot"
+    "src/app/lotel/services/toasts/fake": [
+      "src/app/lotel/services/toasts/contract"
     ],
-    "src/app/monoverse/server/files": ["src/app/monoverse/server/snapshot"],
-    "src/app/monoverse/server/snapshot": ["src/app/monoverse/server/git"],
-    "src/app/monoverse/server/workspace": ["src/app/monoverse/server/snapshot"],
-    "src/app/monoverse/server/workspace/monorepo": [
-      "src/app/monoverse/server/workspace/package",
-      "src/app/monoverse/server/workspace/package-graph"
+    "src/app/lotel/services/toasts/real": [
+      "src/app/lotel/services/toasts/contract"
     ],
-    "src/app/monoverse/server/workspace/package": [
-      "src/app/monoverse/server/workspace/package-graph"
+    "src/app/monoverse/actor-monoverse": [
+      "src/app/monoverse/services/monorepo/contract",
+      "src/app/monoverse/services/monoverse-client/contract"
     ],
-    "src/app/monoverse/services/monorepo": [
-      "src/app/monoverse/client",
-      "src/app/monoverse/contract",
-      "src/app/monoverse/model"
+    "src/app/monoverse/actor-monoverse/children/actor-folder-viewer/logic": [
+      "src/app/monoverse/actor-monoverse/logic/shared",
+      "src/app/monoverse/server/rpc/contract"
     ],
-    "src/app/monoverse/tree": [
-      "src/app/monoverse/contract",
-      "src/app/monoverse/model",
-      "src/app/monoverse/ui"
+    "src/app/monoverse/actor-monoverse/children/actor-folder-viewer/view": [
+      "src/app/monoverse/actor-monoverse/children/actor-folder-viewer/logic",
+      "src/app/monoverse/actor-monoverse/logic/shared",
+      "src/app/monoverse/actor-monoverse/view/shared",
+      "src/app/monoverse/server/rpc/contract",
+      "src/app/monoverse/server/rpc/git/contract"
     ],
-    "src/app/monoverse/tree/outline": [
-      "src/app/monoverse/tree/lenses",
-      "src/app/monoverse/tree/selection-bar"
+    "src/app/monoverse/actor-monoverse/children/actor-monorepo/logic": [
+      "src/app/monoverse/actor-monoverse/logic/shared",
+      "src/app/monoverse/server/rpc/contract"
     ],
-    "src/app/monoverse/ui": ["src/app/monoverse/model"],
-    "src/app/pages/kabuki.tsx": ["src/app/kabuki"],
-    "src/app/pages/lotel.tsx": ["src/app/lotel"],
-    "src/app/pages/monoverse.tsx": ["src/app/monoverse"],
+    "src/app/monoverse/actor-monoverse/children/actor-monorepo/view": [
+      "src/app/monoverse/actor-monoverse/children/actor-monorepo/logic"
+    ],
+    "src/app/monoverse/actor-monoverse/children/actor-project-picker/view": [
+      "src/app/monoverse/actor-monoverse/children/actor-project-picker/logic"
+    ],
+    "src/app/monoverse/actor-monoverse/view": [
+      "src/app/monoverse/actor-monoverse/logic",
+      "src/app/monoverse/server/rpc/contract",
+      "src/app/monoverse/server/rpc/git/contract"
+    ],
+    "src/app/monoverse/services/monorepo/real": [
+      "src/app/monoverse/server/rpc/contract",
+      "src/app/monoverse/server/rpc/project/contract",
+      "src/app/monoverse/services/monorepo/contract",
+      "src/app/monoverse/services/monoverse-client/contract"
+    ],
+    "src/app/monoverse/services/monoverse-client/real": [
+      "src/app/monoverse/server/rpc/contract",
+      "src/app/monoverse/services/monoverse-client/contract"
+    ],
+    "src/app/pages/kabuki.tsx": ["src/app/kabuki/actor-kabuki"],
+    "src/app/pages/lotel.tsx": ["src/app/lotel/actor-lotel"],
+    "src/app/pages/monoverse.tsx": ["src/app/monoverse/actor-monoverse"],
     "src/app/start.tsx": [
       "src/app/actor.ts",
-      "src/app/kabuki",
-      "src/app/lotel",
-      "src/app/monoverse",
+      "src/app/lotel/services/preferences/real",
+      "src/app/lotel/services/telemetry/real",
+      "src/app/lotel/services/toasts/real",
+      "src/app/monoverse/services/monorepo/real",
+      "src/app/monoverse/services/monoverse-client/real",
+      "src/app/kabuki/services/sessions/real",
       "src/app/view.tsx"
     ],
     "src/app/view.tsx": [
@@ -138,6 +130,165 @@
       "src/app/kabuki/server",
       "src/app/lotel/server",
       "src/app/monoverse/server"
+    ],
+    "src/app/monoverse/actor-monoverse/children/actor-folder-viewer": [
+      "src/app/monoverse/actor-monoverse/children/shared/actor-file-viewer"
+    ],
+    "src/app/monoverse/actor-monoverse/children/actor-monorepo": [
+      "src/app/monoverse/actor-monoverse/children/shared/actor-package",
+      "src/app/monoverse/actor-monoverse/children/shared/actor-tree"
+    ],
+    "src/app/monoverse/actor-monoverse/children/actor-project-picker/logic": [
+      "src/app/monoverse/server/rpc/folders/contract"
+    ],
+    "src/app/monoverse/actor-monoverse/children/shared/actor-file-viewer/logic/shared": [
+      "src/app/monoverse/server/rpc/git/contract"
+    ],
+    "src/app/monoverse/actor-monoverse/children/shared/actor-file-viewer/logic": [
+      "src/app/monoverse/server/rpc/git/contract"
+    ],
+    "src/app/monoverse/actor-monoverse/children/shared/actor-file-viewer/view": [
+      "src/app/monoverse/actor-monoverse/children/shared/actor-file-viewer/logic/shared",
+      "src/app/monoverse/actor-monoverse/view/shared",
+      "src/app/monoverse/server/rpc/git/contract"
+    ],
+    "src/app/monoverse/actor-monoverse/children/shared/actor-package": [
+      "src/app/monoverse/actor-monoverse/children/shared/actor-tree"
+    ],
+    "src/app/monoverse/actor-monoverse/children/shared/actor-package/logic": [
+      "src/app/monoverse/actor-monoverse/logic/shared"
+    ],
+    "src/app/monoverse/actor-monoverse/children/shared/actor-package/logic/shared": [
+      "src/app/monoverse/server/rpc/git/contract",
+      "src/app/monoverse/server/rpc/project/contract"
+    ],
+    "src/app/monoverse/actor-monoverse/children/shared/actor-package/view": [
+      "src/app/monoverse/actor-monoverse/children/shared/actor-package/logic/shared",
+      "src/app/monoverse/actor-monoverse/view/shared"
+    ],
+    "src/app/monoverse/actor-monoverse/children/shared/actor-tree/logic/shared": [
+      "src/app/monoverse/actor-monoverse/logic/shared",
+      "src/app/monoverse/server/rpc/contract",
+      "src/app/monoverse/server/rpc/git/contract",
+      "src/app/monoverse/server/rpc/project/contract"
+    ],
+    "src/app/monoverse/actor-monoverse/children/shared/actor-tree/logic": [
+      "src/app/monoverse/actor-monoverse/logic/shared",
+      "src/app/monoverse/server/rpc/contract"
+    ],
+    "src/app/monoverse/actor-monoverse/children/shared/actor-tree/view": [
+      "src/app/monoverse/actor-monoverse/children/shared/actor-tree/logic/shared",
+      "src/app/monoverse/actor-monoverse/logic/shared",
+      "src/app/monoverse/actor-monoverse/view/shared",
+      "src/app/monoverse/server/rpc/contract"
+    ],
+    "src/app/monoverse/actor-monoverse/logic": [
+      "src/app/monoverse/server/rpc/contract",
+      "src/app/monoverse/server/rpc/project-registry/contract"
+    ],
+    "src/app/monoverse/services/monorepo/contract": [
+      "src/app/monoverse/server/rpc/files/contract",
+      "src/app/monoverse/server/rpc/git/contract",
+      "src/app/monoverse/server/rpc/project-registry/contract",
+      "src/app/monoverse/server/rpc/project/contract"
+    ],
+    "src/app/monoverse/services/monoverse-client/contract": [
+      "src/app/monoverse/server/rpc/contract"
+    ],
+    "src/app/lotel/server/http/otlp/real": [
+      "src/app/lotel/server/http/otlp/contract",
+      "src/app/lotel/server/rpc/telemetry/contract",
+      "src/app/lotel/server/services/telemetry-store/contract"
+    ],
+    "src/app/lotel/server/rpc/telemetry/contract": [
+      "src/app/lotel/server/http/otlp/contract"
+    ],
+    "src/app/lotel/server/rpc/telemetry/real": [
+      "src/app/lotel/server/rpc/telemetry/contract",
+      "src/app/lotel/server/services/telemetry-store/contract"
+    ],
+    "src/app/lotel/server/services/telemetry-store/contract": [
+      "src/app/lotel/server/rpc/telemetry/contract"
+    ],
+    "src/app/lotel/server/services/telemetry-store/real": [
+      "src/app/lotel/server/rpc/telemetry/contract",
+      "src/app/lotel/server/services/telemetry-store/contract"
+    ],
+    "src/app/lotel/services/telemetry/contract": [
+      "src/app/lotel/server/rpc/telemetry/contract"
+    ],
+    "src/app/monoverse/actor-monoverse/children/actor-folder-viewer/logic/shared": [
+      "src/app/monoverse/server/rpc/git/contract"
+    ],
+    "src/app/monoverse/actor-monoverse/children/actor-monorepo/logic/shared": [
+      "src/app/monoverse/server/rpc/git/contract",
+      "src/app/monoverse/server/rpc/project/contract"
+    ],
+    "src/app/monoverse/actor-monoverse/children/actor-project-picker/logic/shared": [
+      "src/app/monoverse/server/rpc/project-registry/contract"
+    ],
+    "src/app/monoverse/actor-monoverse/logic/shared": [
+      "src/app/monoverse/server/rpc/git/contract",
+      "src/app/monoverse/server/rpc/project/contract"
+    ],
+    "src/app/monoverse/server/rpc/contract": [
+      "src/app/monoverse/server/rpc/files/contract",
+      "src/app/monoverse/server/rpc/folders/contract",
+      "src/app/monoverse/server/rpc/git/contract",
+      "src/app/monoverse/server/rpc/project-registry/contract",
+      "src/app/monoverse/server/rpc/project/contract"
+    ],
+    "src/app/monoverse/server/rpc/files/contract": [
+      "src/app/monoverse/server/rpc/project/contract"
+    ],
+    "src/app/monoverse/server/rpc/files/real": [
+      "src/app/monoverse/server/rpc/files/contract",
+      "src/app/monoverse/server/services/snapshots/contract"
+    ],
+    "src/app/monoverse/server/rpc/folders/real": [
+      "src/app/monoverse/server/rpc/folders/contract"
+    ],
+    "src/app/monoverse/server/rpc/git/contract": [
+      "src/app/monoverse/server/rpc/project/contract"
+    ],
+    "src/app/monoverse/server/rpc/git/real": [
+      "src/app/monoverse/server/rpc/git/contract",
+      "src/app/monoverse/server/rpc/project/contract",
+      "src/app/monoverse/server/services/git/contract",
+      "src/app/monoverse/server/services/snapshots/contract"
+    ],
+    "src/app/monoverse/server/rpc/project-registry/real": [
+      "src/app/monoverse/server/rpc/project-registry/contract",
+      "src/app/monoverse/server/services/project-store/contract"
+    ],
+    "src/app/monoverse/server/rpc/project/real": [
+      "src/app/monoverse/server/rpc/contract",
+      "src/app/monoverse/server/rpc/project/contract",
+      "src/app/monoverse/server/services/snapshots/contract"
+    ],
+    "src/app/monoverse/server/services/git/contract": [
+      "src/app/monoverse/server/rpc/git/contract",
+      "src/app/monoverse/server/rpc/project/contract"
+    ],
+    "src/app/monoverse/server/services/git/real": [
+      "src/app/monoverse/server/rpc/git/contract",
+      "src/app/monoverse/server/rpc/project/contract",
+      "src/app/monoverse/server/services/git/contract"
+    ],
+    "src/app/monoverse/server/services/project-store/contract": [
+      "src/app/monoverse/server/rpc/project-registry/contract"
+    ],
+    "src/app/monoverse/server/services/project-store/real": [
+      "src/app/monoverse/server/rpc/project-registry/contract",
+      "src/app/monoverse/server/services/project-store/contract"
+    ],
+    "src/app/monoverse/server/services/snapshots/contract": [
+      "src/app/monoverse/server/rpc/project/contract"
+    ],
+    "src/app/monoverse/server/services/snapshots/real": [
+      "src/app/monoverse/server/rpc/project/contract",
+      "src/app/monoverse/server/services/git/contract",
+      "src/app/monoverse/server/services/snapshots/contract"
     ]
   }
 }
