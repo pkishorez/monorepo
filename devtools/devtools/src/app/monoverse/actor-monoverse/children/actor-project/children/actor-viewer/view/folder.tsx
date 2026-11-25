@@ -39,6 +39,7 @@ import {
   fileTreeRows,
   foldersOf,
   shownOf,
+  sinceOf,
   stepFrom,
   stepsOf,
   type ViewerShape,
@@ -162,7 +163,7 @@ export function Folder({ root, state, props, send, file }: FolderProps) {
         </span>
         <span className="truncate text-[11px] text-muted-foreground tabular-nums">
           {changesOn
-            ? `${plural(changedCount, 'file')} changed since ${state.base}`
+            ? `${plural(changedCount, 'file')} changed since ${sinceOf(state.base)}`
             : plural(entries.length, 'file')}
           {changesOn && !settings.deleted && deletedCount > 0
             ? ` · ${deletedCount} deleted hidden`
@@ -221,8 +222,8 @@ export function Folder({ root, state, props, send, file }: FolderProps) {
           {!changesOn
             ? `No files in ${state.title}.`
             : deletedCount > 0 && !settings.deleted
-              ? `Only deleted files changed in ${state.title} since ${state.base}.`
-              : `Nothing changed in ${state.title} since ${state.base}.`}
+              ? `Only deleted files changed in ${state.title} since ${sinceOf(state.base)}.`
+              : `Nothing changed in ${state.title} since ${sinceOf(state.base)}.`}
         </p>
       ) : (
         <GestureProvider>

@@ -7,6 +7,7 @@ import { SourceViewer } from '@kestack/web-platform/ui/viewers/source-viewer';
 import { ArrowLeftIcon, XIcon } from 'lucide-react';
 
 import type { FileDiff } from '../../../../../../../../server/rpc/git/contract/index.js';
+import { sinceOf } from '../../../logic/shared/index.js';
 import type { FileViewerShape } from '../logic/shared/index.js';
 import { setDiffOptions, useDiffOptions } from './diff-options.js';
 import { DiffToggles } from './diff-toggles.js';
@@ -67,7 +68,7 @@ export function Body({
           <span className="truncate text-[11px] text-muted-foreground">
             {folderOf(model.path)}
             {model.status !== null && model.base !== null
-              ? ` · ${model.status} since ${model.base}`
+              ? ` · ${model.status} since ${sinceOf(model.base)}`
               : ''}
           </span>
         </div>

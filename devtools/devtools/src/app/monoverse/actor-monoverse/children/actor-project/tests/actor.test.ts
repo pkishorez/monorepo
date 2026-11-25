@@ -4,9 +4,10 @@ import { describe, expect, it } from 'vitest';
 import { Actor, Runtime } from '@kestack/kabuki';
 import type { Instance } from '@kestack/kabuki/types';
 
-import type {
-  Branches,
-  ChangeSet,
+import {
+  uncommittedBase,
+  type Branches,
+  type ChangeSet,
 } from '../../../../server/rpc/git/contract/index.js';
 import type {
   PackageContents,
@@ -426,6 +427,25 @@ describe('Project', () => {
         const app = yield* start({ base: 'feature', changes: true }, asked);
         yield* settle;
         expect(named(asked, 'changes')).toEqual([]);
+        expect(find(app, 'Tree')!.props).toMatchObject({ changes: null });
+      }),
+    ));
+
+  it('reads only uncommitted work of a checked-out branch, and none of one that is not', () =>
+    run(
+      Effect.gen(function* () {
+        const asked: Asked = [];
+        const app = yield* start(
+          { branch: 'next', base: uncommittedBase, changes: true },
+          asked,
+        );
+        yield* settle;
+        expect(named(asked, 'changes')).toEqual([
+          { root: '/repo', branch: 'next', base: uncommittedBase },
+        ]);
+        send(app, 'Project', { _tag: 'BranchChosen', branch: 'main' });
+        yield* settle;
+        expect(named(asked, 'changes')).toHaveLength(1);
         expect(find(app, 'Tree')!.props).toMatchObject({ changes: null });
       }),
     ));
