@@ -13,8 +13,14 @@ import {
   useReducedMotion,
   useTransform,
 } from 'motion/react';
+import { useDefaultLayout } from 'react-resizable-panels';
 import type { ViewPropsOf } from '@kestack/kabuki/react/types';
 import { Button } from '@kestack/web-platform/ui/components/button';
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from '@kestack/web-platform/ui/components/resizable';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import { GestureProvider, GestureZone } from '@kestack/web-platform/ui/input';
 import {
@@ -114,6 +120,10 @@ export function Folder({ root, state, props, send, file }: FolderProps) {
   };
 
   const phone = usePhone();
+  const split = useDefaultLayout({
+    id: 'monoverse:folder-split',
+    onlySaveAfterUserInteractions: true,
+  });
   const selected = shown;
   const [width, setWidth] = useState(0);
   const observer = useRef<ResizeObserver | null>(null);
@@ -144,18 +154,23 @@ export function Folder({ root, state, props, send, file }: FolderProps) {
   const header = (
     <header
       className={cn(
-        'flex h-11 shrink-0 items-center gap-3 border-b border-border/60 pr-1.5 pl-3',
-        'max-sm:h-auto max-sm:min-h-14 max-sm:gap-1 max-sm:pt-[env(safe-area-inset-top)] max-sm:pl-1.5',
+        'flex h-11 shrink-0 items-center gap-1 border-b border-border/60 px-1.5',
+        'max-sm:h-auto max-sm:min-h-14 max-sm:pt-[env(safe-area-inset-top)]',
       )}
     >
       <Button
         variant="ghost"
         size="icon"
         aria-label="Close the folder"
-        className="size-11 sm:hidden"
+        title="Close"
+        className="max-sm:size-11"
         onClick={() => send({ _tag: 'Closed' })}
       >
-        <ArrowLeftIcon className="size-4" />
+        {phone ? (
+          <ArrowLeftIcon className="size-4" />
+        ) : (
+          <XIcon className="size-4" />
+        )}
       </Button>
       <div className="flex min-w-0 flex-1 flex-col" title={state.title}>
         <span className="truncate font-mono text-xs font-medium">
@@ -196,19 +211,84 @@ export function Folder({ root, state, props, send, file }: FolderProps) {
         onDeleted={() => send({ _tag: 'DeletedToggled' })}
         onIgnored={() => send({ _tag: 'IgnoredToggled' })}
       />
-      <Button
-        variant="ghost"
-        size="icon"
-        aria-label="Close the folder"
-        title="Close"
-        className="max-sm:hidden"
-        onClick={() => send({ _tag: 'Closed' })}
-      >
-        <XIcon className="size-4" />
-      </Button>
     </header>
   );
 
+  const listPane = (
+    <div
+      inert={phone && state.showing}
+      className="flex h-full min-h-0 flex-col max-sm:w-1/2 max-sm:shrink-0"
+    >
+      {header}
+      <FileList
+        rows={rows}
+        shown={shown}
+        holders={holders}
+        faded={(row) =>
+          changesOn && settings.unchanged === 'dim' && row.status === null
+        }
+        ignored={(path) => isIgnored(path, state.sourceRoots)}
+        allOpenInside={allOpenInside}
+        onToggle={(path) => send({ _tag: 'FolderToggled', path })}
+        onShow={(path) => send({ _tag: 'Selected', path })}
+        onToggleInside={(path) => send({ _tag: 'InsideToggled', path })}
+      />
+    </div>
+  );
+
+  const filePane = (
+    <div
+      inert={phone && !state.showing}
+      className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background max-sm:w-1/2 max-sm:flex-none max-sm:shadow-[-12px_0_24px_-16px_rgb(0_0_0/0.6)]"
+    >
+      <motion.div
+        className="min-h-0 flex-1"
+        style={{ x: fileX, opacity: fileOpacity }}
+      >
+        {file}
+      </motion.div>
+      {order.length > 1 || (order.length === 1 && at === -1) ? (
+        <GestureZone
+          role="group"
+          aria-label="Step between files"
+          className="flex h-10 shrink-0 items-center gap-1 border-t border-border/60 px-1.5 select-none max-sm:h-auto max-sm:min-h-12 max-sm:pb-[env(safe-area-inset-bottom)]"
+        >
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Previous file"
+            title="Previous file (←)"
+            disabled={!hasPrevious}
+            className="max-sm:size-11"
+            onClick={() => step(-1)}
+          >
+            <ChevronLeftIcon className="size-4" />
+          </Button>
+          <Swipes
+            x={fileX}
+            follow={0.6}
+            {...(hasNext ? { onLeft: () => step(1) } : {})}
+            {...(hasPrevious ? { onRight: () => step(-1) } : {})}
+          />
+          <span className="min-w-0 flex-1 text-center text-[11px] text-muted-foreground tabular-nums">
+            {at === -1 ? '–' : at + 1} of {order.length}
+            {changesOn ? ' changed' : ''}
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Next file"
+            title="Next file (→)"
+            disabled={!hasNext}
+            className="max-sm:size-11"
+            onClick={() => step(1)}
+          >
+            <ChevronRightIcon className="size-4" />
+          </Button>
+        </GestureZone>
+      ) : null}
+    </div>
+  );
   return (
     <section
       {...root}
@@ -216,7 +296,7 @@ export function Folder({ root, state, props, send, file }: FolderProps) {
       className="flex h-full min-h-0 flex-col bg-background"
       onKeyDown={onStepKey}
     >
-      {phone && entries.length > 0 ? null : header}
+      {entries.length > 0 ? null : header}
       {entries.length === 0 ? (
         <p className="flex flex-1 items-center justify-center p-8 text-center text-sm text-balance text-muted-foreground">
           {!changesOn
@@ -244,85 +324,35 @@ export function Folder({ root, state, props, send, file }: FolderProps) {
                   }
                 : {})}
             />
-            <motion.div
-              className="flex min-h-0 min-w-0 flex-1 max-sm:w-[200%] max-sm:flex-none"
-              style={phone ? { x: trackX } : undefined}
-            >
-              <div
-                inert={phone && state.showing}
-                className="flex min-h-0 w-72 shrink-0 flex-col border-r border-border/60 max-sm:w-1/2 max-sm:border-r-0"
+            {phone ? (
+              <motion.div
+                className="flex min-h-0 w-[200%] flex-none"
+                style={{ x: trackX }}
               >
-                {phone ? header : null}
-                <FileList
-                  rows={rows}
-                  shown={shown}
-                  holders={holders}
-                  faded={(row) =>
-                    changesOn &&
-                    settings.unchanged === 'dim' &&
-                    row.status === null
-                  }
-                  ignored={(path) => isIgnored(path, state.sourceRoots)}
-                  allOpenInside={allOpenInside}
-                  onToggle={(path) => send({ _tag: 'FolderToggled', path })}
-                  onShow={(path) => send({ _tag: 'Selected', path })}
-                  onToggleInside={(path) =>
-                    send({ _tag: 'InsideToggled', path })
-                  }
-                />
-              </div>
-              <div
-                inert={phone && !state.showing}
-                className="flex min-h-0 min-w-0 flex-1 flex-col bg-background max-sm:w-1/2 max-sm:flex-none max-sm:shadow-[-12px_0_24px_-16px_rgb(0_0_0/0.6)]"
+                {listPane}
+                {filePane}
+              </motion.div>
+            ) : (
+              <ResizablePanelGroup
+                orientation="horizontal"
+                defaultLayout={split.defaultLayout}
+                onLayoutChanged={split.onLayoutChanged}
+                className="min-h-0 flex-1"
               >
-                <motion.div
-                  className="min-h-0 flex-1"
-                  style={{ x: fileX, opacity: fileOpacity }}
+                <ResizablePanel
+                  id="list"
+                  defaultSize={288}
+                  minSize={200}
+                  maxSize="60%"
                 >
-                  {file}
-                </motion.div>
-                {order.length > 1 || (order.length === 1 && at === -1) ? (
-                  <GestureZone
-                    role="group"
-                    aria-label="Step between files"
-                    className="flex h-10 shrink-0 items-center gap-1 border-t border-border/60 px-1.5 select-none max-sm:h-auto max-sm:min-h-12 max-sm:pb-[env(safe-area-inset-bottom)]"
-                  >
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Previous file"
-                      title="Previous file (←)"
-                      disabled={!hasPrevious}
-                      className="max-sm:size-11"
-                      onClick={() => step(-1)}
-                    >
-                      <ChevronLeftIcon className="size-4" />
-                    </Button>
-                    <Swipes
-                      x={fileX}
-                      follow={0.6}
-                      {...(hasNext ? { onLeft: () => step(1) } : {})}
-                      {...(hasPrevious ? { onRight: () => step(-1) } : {})}
-                    />
-                    <span className="min-w-0 flex-1 text-center text-[11px] text-muted-foreground tabular-nums">
-                      {at === -1 ? '–' : at + 1} of {order.length}
-                      {changesOn ? ' changed' : ''}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Next file"
-                      title="Next file (→)"
-                      disabled={!hasNext}
-                      className="max-sm:size-11"
-                      onClick={() => step(1)}
-                    >
-                      <ChevronRightIcon className="size-4" />
-                    </Button>
-                  </GestureZone>
-                ) : null}
-              </div>
-            </motion.div>
+                  {listPane}
+                </ResizablePanel>
+                <ResizableHandle className="bg-border/60" />
+                <ResizablePanel id="file" minSize={320}>
+                  {filePane}
+                </ResizablePanel>
+              </ResizablePanelGroup>
+            )}
           </GestureZone>
         </GestureProvider>
       )}

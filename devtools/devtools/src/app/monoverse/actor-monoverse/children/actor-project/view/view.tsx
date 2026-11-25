@@ -172,7 +172,7 @@ export function Body(self: BodyProps) {
       >
         <DialogContent
           showCloseButton={false}
-          className="flex h-[min(56rem,86vh)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(72rem,calc(100%-4rem))] max-sm:inset-0 max-sm:h-dvh max-sm:max-w-full max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:ring-0"
+          className="flex h-[calc(100dvh-2.5rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(120rem,calc(100%-2.5rem))] max-sm:inset-0 max-sm:h-dvh max-sm:max-w-full max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:ring-0"
         >
           <DialogTitle className="sr-only">
             {model.open?._tag === 'Folder' ? 'Folder' : 'File'}
