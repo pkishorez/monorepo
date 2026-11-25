@@ -4,8 +4,8 @@ import type { Chunk } from '../pcm.ts';
  * What the Microphone fake hears, made up: chunks as the browser's
  * AudioWorklet posts them (`../browser/worklet.ts`), one channel at
  * 16 kHz, 16-bit signed, `CHUNK` samples each, with how loud each was by
- * the same measure. Loud is a voice's worth: two tones rising and falling
- * a few times a second, as syllables do, never quite still; silent is nothing at all.
+ * the same measure: a voice's worth, two tones rising and falling a few
+ * times a second, as syllables do, never quite still.
  */
 
 /** Samples per chunk, as the AudioWorklet posts them: about an eighth of a second. */
@@ -17,10 +17,9 @@ const RATE = 16_000;
 /** How long one chunk lasts, in ms. */
 export const CHUNK_MS = (CHUNK / RATE) * 1000;
 
-/** The `index`th chunk of a recording, loud or silent. */
-export const chunkOf = (index: number, loud: boolean): Chunk => {
+/** The `index`th chunk of a recording. */
+export const chunkOf = (index: number): Chunk => {
   const samples = new Int16Array(CHUNK);
-  if (!loud) return { samples, level: 0 };
   let squares = 0;
   for (let at = 0; at < CHUNK; at++) {
     const t = (index * CHUNK + at) / RATE;

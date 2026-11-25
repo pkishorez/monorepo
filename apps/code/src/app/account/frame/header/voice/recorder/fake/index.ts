@@ -5,15 +5,13 @@ import { microphoneOver } from './serve.ts';
 /*
  * The Microphone fake: the microphones of the computer the browser runs
  * on, as a Fake the Fake World runs, for Code's fake mode (`src/fake.ts`).
- * Its Actor starts with the Built-in Microphone, the site yet to be
- * allowed; its Controls plug microphones in and out, answer the browser's
- * ask, make opening slow, broken or blocked, and the sound loud or silent.
- * `serve` gives `Recorder`, the real one over it, its audio made-up PCM
- * the Speech fake hears as any other.
+ * Its Actor starts with the Built-in Microphone, the site allowed at
+ * once; its Control plugs one more microphone in. `serve` gives
+ * `Recorder`, the real one over it, its audio made-up PCM the Speech fake
+ * hears as any other.
  *
- * `kept` is the Snapshot a reload keeps: no ask waiting and nothing
- * recording, as the page that asked is gone, and no longer blocked, as a
- * reload is what ends it.
+ * `kept` is the Snapshot a reload keeps: nothing recording, as the page
+ * that recorded is gone.
  */
 
 const kept = (
@@ -22,12 +20,7 @@ const kept = (
   ...snapshot,
   root: {
     ...snapshot.root,
-    model: {
-      ...snapshot.root.model,
-      asking: false,
-      recording: null,
-      untilReload: { blocked: false },
-    },
+    model: { ...snapshot.root.model, recording: null },
   },
 });
 
