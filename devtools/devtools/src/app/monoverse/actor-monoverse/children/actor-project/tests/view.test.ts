@@ -30,7 +30,6 @@ describe('rowsToDraw', () => {
 
 describe('placesAmongSiblings', () => {
   it('counts each row among the rows beside it, inside the same folder', () => {
-    // a, a/x, a/x/1, a/y, b, b/z
     expect(placesAmongSiblings([0, 1, 2, 1, 0, 1])).toEqual([
       { position: 1, of: 2 },
       { position: 1, of: 2 },

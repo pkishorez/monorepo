@@ -7,11 +7,8 @@ import { Snapshots } from '../../../services/snapshots/contract/index.js';
 import { GitUnavailableError } from '../../project/contract/index.js';
 import { readChangeSet, readFileDiff } from './change-set.js';
 
-/*
- * Git's answers about a Project: its local branches and where each is
- * read, what a branch changed since it left another, and how one file
- * changed.
- */
+const leavesFolder = (path: string) => path === '..' || path.startsWith('../');
+const isGitPathspecMagic = (path: string) => path.startsWith(':');
 
 export function getBranches(root: string) {
   return Effect.gen(function* () {
@@ -22,7 +19,6 @@ export function getBranches(root: string) {
   });
 }
 
-/** What `branch` (null: the folder as it is) changed since it left `base`. */
 export function getChanges(root: string, branch: string | null, base: string) {
   return Effect.gen(function* () {
     const snapshots = yield* Snapshots;
@@ -45,12 +41,10 @@ export function getFileDiff(
     const git = yield* Git;
     const folder = yield* snapshots.existingRoot(root);
     const normalized = posix.normalize(path);
-    // A path git would read outside the Project folder, or as a pathspec.
     if (
       isAbsolute(path) ||
-      normalized === '..' ||
-      normalized.startsWith('../') ||
-      normalized.startsWith(':')
+      leavesFolder(normalized) ||
+      isGitPathspecMagic(normalized)
     ) {
       return yield* new GitUnavailableError({ reason: 'command-failed' });
     }

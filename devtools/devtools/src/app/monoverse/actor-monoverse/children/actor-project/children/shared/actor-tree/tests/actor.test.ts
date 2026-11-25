@@ -6,11 +6,6 @@ import type { Instance } from '@kestack/kabuki/types';
 import { Tree } from '../index.js';
 import type { TreeProps } from '../logic/index.js';
 
-/*
- * The tree's own state, played purely: which folders are open and what is
- * selected, and what it tells its parent.
- */
-
 const props: TreeProps = {
   base: '',
   name: 'repo',
@@ -24,7 +19,6 @@ const props: TreeProps = {
   ignored: true,
 };
 
-/** A parent handing the tree its Props, and hearing all it Emits. */
 const Host = Actor.define('Host', {
   message: {
     Opened: { path: Schema.String },

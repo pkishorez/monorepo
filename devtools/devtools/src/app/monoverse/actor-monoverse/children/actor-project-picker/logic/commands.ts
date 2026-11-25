@@ -3,7 +3,6 @@ import { Command } from '@kestack/kabuki';
 
 import { Projects } from '../../../../services/projects/contract/index.js';
 
-// 3. Choose
 export const add = Command.make('ProjectPicker.AddProject', {
   args: Schema.Struct({ path: Schema.String }),
   run: ({ path }) =>
@@ -15,7 +14,6 @@ export const add = Command.make('ProjectPicker.AddProject', {
     ),
 });
 
-// 1. Recent
 export const remove = Command.make('ProjectPicker.RemoveProject', {
   args: Schema.Struct({ id: Schema.String }),
   run: ({ id }) =>

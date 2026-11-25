@@ -9,12 +9,6 @@ import {
 } from './shape.js';
 import type { FeedShape, Filters } from './shape.js';
 
-/*
- * The Trace list as the Feed shows it: every Trace the Spans make, newest
- * first, narrowed by the Filters and the search, and grouped by a Span
- * attribute when asked.
- */
-
 const NO_ROOT_LABEL = '(no root)';
 
 function effectiveService(trace: TraceGroup): string | null {
@@ -50,10 +44,6 @@ export function discoverAttributeValues(
 
 const tracesBySpans = new WeakMap<readonly OtelSpan[], TraceGroup[]>();
 
-/**
- * Every Trace the Spans make, newest first. Kept per list of Spans, so the
- * Feed's Update and every View drawing the same list group it once.
- */
 export function tracesOf(spans: readonly OtelSpan[]): readonly TraceGroup[] {
   let traces = tracesBySpans.get(spans);
   if (traces === undefined) {
@@ -63,7 +53,6 @@ export function tracesOf(spans: readonly OtelSpan[]): readonly TraceGroup[] {
   return traces;
 }
 
-/** The services the Traces' roots name, for picking one. */
 export function servicesOf(traces: readonly TraceGroup[]): string[] {
   return Array.from(
     new Set(
@@ -74,7 +63,6 @@ export function servicesOf(traces: readonly TraceGroup[]): string[] {
   ).sort();
 }
 
-/** The service the Filters narrow to, if any. */
 export function selectedServiceOf(filters: Filters): string | null {
   return (
     filters.attributeFilters.find((filter) => filter.key === SERVICE_ATTR_KEY)
@@ -82,7 +70,6 @@ export function selectedServiceOf(filters: Filters): string | null {
   );
 }
 
-/** The Traces the Filters keep whose name, service or trace ID holds the search. */
 function listTraces(
   spans: readonly OtelSpan[],
   filters: Filters,
@@ -99,9 +86,6 @@ function listTraces(
   );
 }
 
-/**
- * AND across keys, OR within the same key.
- */
 function applyFilters(
   traces: readonly TraceGroup[],
   spans: readonly OtelSpan[],
@@ -273,26 +257,17 @@ function percentile(sorted: number[], p: number): number | null {
   return sorted[idx]!;
 }
 
-// 2. Narrow
-/** The Traces the Filters and the search keep, newest first. */
 export const tracesListed = ({
   model,
 }: DataOf<typeof FeedShape>): ReadonlyArray<TraceGroup> =>
   listTraces(model.spans, model.filters, model.search);
 
-/** How many Traces it lists: what its parent shows over it. */
 export const listedCount = (data: DataOf<typeof FeedShape>) =>
   tracesListed(data).length;
 
 export const idsOf = (traces: ReadonlyArray<TraceGroup>) =>
   traces.map((trace) => trace.traceId);
 
-// 3. Hold
-/**
- * Whether the list is holding Traces back: a Trace is open, the first page
- * is in, and some Trace shown before is still listed. With none of them
- * left there is nothing to hold the reader's place, so all are shown.
- */
 export const holding = (
   listed: ReadonlyArray<string>,
   shown: ReadonlySet<string>,
@@ -300,7 +275,6 @@ export const holding = (
   opened: string | null,
 ) => ready && opened !== null && listed.some((id) => shown.has(id));
 
-/** What the list draws: the Traces shown, those held back, and whether more wait below. */
 export const listingOf = (data: DataOf<typeof FeedShape>) => {
   const { model, props } = data;
   const listed = tracesListed(data);

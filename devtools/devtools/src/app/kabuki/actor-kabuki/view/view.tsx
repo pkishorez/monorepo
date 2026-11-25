@@ -5,15 +5,7 @@ import type { KabukiShape } from '../logic/shared/index.js';
 import { Away, Connecting, Unpicked, Waiting } from './blank.js';
 import { SessionColumn, SessionPath, SessionSelect } from './session-list.js';
 
-/*
- * The Kabuki Tool drawn: the live Kabuki Sessions down the left, by app
- * and Environment, or in a selector on a narrow screen, and the one picked
- * beside them under where it runs. With none connected and none picked,
- * the whole Tool says how to connect one.
- */
-
 type BodyProps = ViewPropsOf<typeof KabukiShape> & {
-  /** The Inspector on the Kabuki Session picked, while it is open. */
   readonly inspector: ReactNode;
 };
 

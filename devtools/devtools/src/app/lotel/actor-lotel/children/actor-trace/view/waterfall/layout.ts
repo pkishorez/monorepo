@@ -10,7 +10,6 @@ export const MIN_NAME_COL_WIDTH = 140;
 export const MAX_NAME_COL_WIDTH = 640;
 export const ROW_HEIGHT_PX = 36;
 export const BAR_HEIGHT_PX = 18;
-/** Minimum rendered width of a span bar so short spans stay visible/clickable. */
 export const BAR_MIN_WIDTH_PX = 6;
 export const INDENT_PX = 16;
 export const BAR_COL_INSET = 10;
@@ -23,13 +22,11 @@ export type GanttSpanRow = {
   widthPct: number;
   hasChildren: boolean;
   collapsed: boolean;
-  /** Number of descendant spans hidden while this row is collapsed. */
   hiddenCount: number;
 };
 
 export type GanttLogEntry = {
   kind: 'log';
-  /** The span the log belongs to. */
   span: OtelSpan;
   event: OtelEvent;
   depth: number;
@@ -43,7 +40,6 @@ function countDescendants(node: SpanNode): number {
   return total;
 }
 
-/** Collapse every branch below a root so the first child level stays visible. */
 export function defaultCollapsedSpanIds(roots: readonly SpanNode[]) {
   const spanIds = new Set<string>();
 
@@ -95,8 +91,6 @@ export function buildGanttRows(
           .sort((left, right) => left.timestamp - right.timestamp)
       : [];
 
-    // A span's rows tell its story in time order: children and its own logs
-    // interleaved where they actually happened, not logs-first.
     const entries = [
       ...children.map((child) => ({ at: child.span.startTime, child })),
       ...logs.map((event) => ({ at: event.timestamp, event })),

@@ -3,16 +3,8 @@ import { relative, sep } from 'node:path';
 
 import type { GitShape } from '../../git/contract/index.js';
 
-/** Folders never walked when the root is outside git. */
 const skipped = new Set(['node_modules', 'dist', 'build', 'coverage']);
 
-/**
- * Every file under `root` that git knows, relative to it and sorted:
- * tracked, or new and not ignored; a tracked file deleted from the working
- * tree is left out, and nothing git ignores is ever listed. A root outside
- * git lists what is on disk instead, less installed packages, build output
- * and hidden folders.
- */
 export async function listKnownFiles(
   git: GitShape,
   root: string,

@@ -16,11 +16,6 @@ import {
 import type { TraceShape } from '../logic/shared/index.js';
 import { TraceDock, type TraceDockSettings } from './trace-dock.js';
 
-/*
- * The opened Trace drawn: a header with its name, size and the view to
- * draw it in, then the Trace itself, with the Span inspector beside it.
- */
-
 export function Body({
   root,
   model,
@@ -120,7 +115,6 @@ export function Body({
   );
 }
 
-/** The Trace is not in what the DevTools Server keeps, or not yet. */
 function Missing({ ready, onClose }: { ready: boolean; onClose: () => void }) {
   return (
     <>

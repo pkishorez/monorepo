@@ -41,11 +41,6 @@ function pickBody(attrs: Record<string, unknown>): {
   return { key: null, value: null };
 }
 
-/**
- * Convert flat dotted-key attributes (`auth.role_guard.user_id`) into a
- * nested object so the JSON viewer can render them as a tree. Falls back to
- * a `__leaf` slot when a prefix collision would clobber an existing scalar.
- */
 function nestDottedKeys(
   attrs: Record<string, unknown>,
 ): Record<string, unknown> {

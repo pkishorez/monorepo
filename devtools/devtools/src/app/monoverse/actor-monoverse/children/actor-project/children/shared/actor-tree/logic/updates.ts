@@ -9,7 +9,6 @@ export const init: InitOf<typeof TreeShape> = ({ open }) => ({
 });
 
 export const updates: UpdatesOf<typeof TreeShape> = {
-  // 1. Open
   Toggled: ({ path }, { model }) => {
     if (!model.open.includes(path))
       return { model: { open: [...model.open, path] } };
@@ -26,7 +25,6 @@ export const updates: UpdatesOf<typeof TreeShape> = {
   },
   OpenChosen: ({ open }, { model, props }) => {
     const shut = new Set(open);
-    // The outermost folder closed over the selection takes it.
     const over =
       model.selected === null
         ? undefined
@@ -48,18 +46,15 @@ export const updates: UpdatesOf<typeof TreeShape> = {
   Reset: (_, { model }) => ({
     model: { open: [...model.home], selected: null },
   }),
-  // 2. Select
   Selected: ({ path }, { model }) => ({
     model: { selected: path === model.selected ? null : path },
   }),
-  // 3. Reveal
   Revealed: ({ folders }, { model }) => {
     const adding = folders.filter((folder) => !model.open.includes(folder));
     return adding.length === 0
       ? {}
       : { model: { open: [...model.open, ...adding] } };
   },
-  // 4. Act
   Opened: ({ path }) => ({ emit: { _tag: 'Opened', path } }),
   Entered: ({ path }) => ({ emit: { _tag: 'Entered', path } }),
   Viewed: ({ path, files }, { props }) => ({

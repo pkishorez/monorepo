@@ -3,12 +3,6 @@ import type { Effect, Stream } from 'effect';
 import type { RpcClientError } from 'effect/rpc';
 import type { LotelRpcError } from '../../../server/rpc/telemetry/contract/index.js';
 
-/*
- * The telemetry the Lotel Tool shows, from the DevTools Server it talks to:
- * every Span the server keeps, each with the Log Records that name it, live;
- * and clearing all of it.
- */
-
 export type OtelStatus =
   | 'success'
   | 'error'
@@ -22,11 +16,6 @@ export interface OtelEvent {
   readonly attributes: Readonly<Record<string, unknown>>;
 }
 
-/**
- * Structurally compatible with `CapturedSpan` from
- * `@kestack/effect-tracer/recorder`, so spans recorded from a live Effect
- * program render without translation.
- */
 export interface OtelSpan {
   readonly traceId: string;
   readonly spanId: string;
@@ -39,7 +28,6 @@ export interface OtelSpan {
   readonly events: readonly OtelEvent[];
 }
 
-/** The Spans known now, and whether the first page has arrived yet. */
 export interface Live {
   readonly ready: boolean;
   readonly spans: ReadonlyArray<OtelSpan>;
@@ -48,9 +36,7 @@ export interface Live {
 export type TelemetryError = LotelRpcError | RpcClientError.RpcClientError;
 
 export interface TelemetryService {
-  /** Every known Span, joined with its Log Records: now, then after every change. */
   readonly live: Stream.Stream<Live>;
-  /** Deletes all telemetry on the server, and answers how many records went. */
   readonly clear: Effect.Effect<number, TelemetryError>;
 }
 

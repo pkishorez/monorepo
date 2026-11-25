@@ -20,26 +20,18 @@ import {
 
 type StoredEntry = Entity<typeof ProjectEntryEntitySchema.Type>;
 
-// Every entry is written, and listed, under this partition of the store.
 const tool = 'monoverse';
 
-/**
- * What a Project is called: its `package.json` name, else its folder's.
- * A worktree's folder is often named after nothing a person would know.
- */
 const nameOf = (path: string): string => {
   try {
     const { name } = JSON.parse(
       readFileSync(join(path, 'package.json'), 'utf8'),
     ) as { name?: unknown };
     if (typeof name === 'string' && name.trim() !== '') return name;
-  } catch {
-    // No readable manifest: the folder's name.
-  }
+  } catch {}
   return basename(path);
 };
 
-// A stored label, from before Projects were only folders, is never read.
 const entryOf = ({
   id,
   path,
@@ -54,7 +46,6 @@ const entryOf = ({
 const storeError = (operation: string, cause: unknown) =>
   new ProjectStoreError({ operation, cause: String(cause) });
 
-/** Opens the Project store on one SQLite database; other stores may share the file. */
 export const makeSqliteProjectStore = (options: {
   readonly path: string;
   readonly driver?: SQLiteDriver | undefined;

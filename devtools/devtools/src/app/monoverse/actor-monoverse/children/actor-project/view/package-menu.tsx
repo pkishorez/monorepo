@@ -26,30 +26,18 @@ import type { Check } from '../logic/shared/index.js';
 import { CrumbLabel, crumbTrigger } from './crumb.js';
 import { CheckMark, usePhone } from './shared/index.js';
 
-/*
- * Which Package of a Monorepo is shown, top left beside the project: a
- * button naming it, or All packages for the Monorepo's own tree, opening a
- * list of both to go straight to another, searchable by name or folder. On
- * a phone the list is a sheet from the bottom. Each Package its
- * monoverse.json checks shows what that found.
- */
-
 export interface PackageChoice {
   readonly name: string;
-  /** Its folder, relative to the root. */
   readonly path: string;
   readonly version?: string | undefined;
-  /** What its monoverse.json makes of it. */
   readonly check?: Check | undefined;
 }
 
-/** What the branch changed in a Package: how many files, and the colour they roll up to. */
 export interface PackageChange {
   readonly count: number;
   readonly status: 'added' | 'modified' | 'deleted';
 }
 
-/** While Changes is on: what changed in each Package, and how the unchanged ones are listed. */
 export interface PackageChanges {
   readonly of: ReadonlyMap<string, PackageChange>;
   readonly unchanged: 'show' | 'dim' | 'hide';
@@ -61,7 +49,6 @@ const tone: Record<PackageChange['status'], string> = {
   deleted: 'text-removed',
 };
 
-/** The value All packages is listed under, which no folder can be. */
 const all = '\u0000all';
 
 export function PackageMenu({
@@ -71,11 +58,8 @@ export function PackageMenu({
   onChoose,
 }: {
   packages: ReadonlyArray<PackageChoice>;
-  /** While Changes is on, the changed ones lead; null while it is off. */
   changes: PackageChanges | null;
-  /** The Package shown, by its folder; null: the Monorepo's tree. */
   current: string | null;
-  /** Another Package, by its folder; null: the Monorepo's tree. */
   onChoose: (path: string | null) => void;
 }) {
   const phone = usePhone();
@@ -112,7 +96,6 @@ export function PackageMenu({
     return (
       <Drawer open={open} onOpenChange={setOpen}>
         <DrawerTrigger {...trigger} />
-        {/* A tap opens it without the keyboard over the list. */}
         <DrawerContent initialFocus={(how) => how !== 'touch'}>
           <DrawerHeader className="pb-1">
             <DrawerTitle>Packages</DrawerTitle>
@@ -133,11 +116,6 @@ export function PackageMenu({
   );
 }
 
-/**
- * The Packages in the order every list shows them: by name; while Changes
- * is on, those the branch changed first, and the rest after as the tree
- * draws the unchanged, but for the one shown, which is never hidden.
- */
 export function orderPackages(
   packages: ReadonlyArray<PackageChoice>,
   current: string | null,
@@ -158,12 +136,6 @@ export function orderPackages(
   };
 }
 
-/**
- * The list: All packages held at the top, then the Packages by name. While
- * Changes is on, those the branch changed come first, each with how many
- * files, in the colour they roll up to; the rest follow as the tree draws
- * the unchanged: as they are, dimmed, or not at all, but for the one shown.
- */
 function PackageList({
   packages,
   current,
@@ -229,17 +201,10 @@ function PackageList({
     <Command
       loop
       className="rounded-md! bg-transparent"
-      // The Package shown starts highlighted, so Enter keeps it.
       defaultValue={current ?? all}
     >
       <CommandInput placeholder="Find a package…" aria-label="Find a package" />
-      <CommandList
-        // Keys never scroll a Package under the row held at the top.
-        className="max-h-80 scroll-pt-12 p-1 max-sm:max-h-[60dvh] max-sm:scroll-pt-14"
-      >
-        {/* Held at the top as the list scrolls; a search for a Package
-            leaves it out, so Enter takes the first match. A group, not a
-            plain box: the list reorders what it holds by group. */}
+      <CommandList className="max-h-80 scroll-pt-12 p-1 max-sm:max-h-[60dvh] max-sm:scroll-pt-14">
         <CommandGroup
           value="all"
           className="sticky -top-1 z-10 -mx-1 -mt-1 overflow-visible border-b border-border/60 bg-popover p-1"

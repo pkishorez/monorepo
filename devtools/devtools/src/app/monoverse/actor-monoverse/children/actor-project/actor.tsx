@@ -22,22 +22,15 @@ import {
 } from './logic/index.js';
 import { Body } from './view/index.js';
 
-/*
- * The Tree is placed here, for the Monorepo, and by the Package for its
- * own files, so it sits in `children/shared/`.
- */
-
 export const Project = ProjectShape.build({
   init,
   on: updates,
   workers,
   children: {
-    // 4. View
     viewer: Actor.child(Viewer, {
       while: opensViewer,
       key: viewerKey,
       input: viewerInput,
-      // Its list is drawn by the tree's settings, and changes them.
       props: ({ props }) => ({
         unchanged: props.unchanged,
         deleted: props.deleted,
@@ -55,7 +48,6 @@ export const Project = ProjectShape.build({
     }),
   },
   states: {
-    // 1. Analyse, 3. Enter
     Monorepo: {
       children: {
         tree: Actor.child(Tree, {

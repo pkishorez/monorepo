@@ -1,12 +1,6 @@
 import type { ReactNode } from 'react';
 import type { Link } from '../logic/shared/index.js';
 
-/*
- * What the Tool shows where no Inspector is: DevTools not reached yet, no
- * Kabuki Session connected, none picked, or the one picked gone.
- */
-
-/** How an app connects to the DevTools Server at `server`, as it would write it. */
 const snippet = (
   server: string,
 ) => `import { connect } from '@kestack/devtools-kabuki/session';
@@ -59,7 +53,6 @@ export function Connecting() {
   );
 }
 
-/** No Kabuki Session connected: how to connect one to this DevTools Server, the page's own origin, while it waits for one. */
 export function Waiting({ link }: { readonly link: Link }) {
   return (
     <Blank title="No Kabuki apps connected" wide>
@@ -93,7 +86,6 @@ export function Waiting({ link }: { readonly link: Link }) {
   );
 }
 
-/** Kabuki Sessions listed, none picked. */
 export function Unpicked({ count }: { readonly count: number }) {
   return (
     <Blank
@@ -110,7 +102,6 @@ export function Unpicked({ count }: { readonly count: number }) {
   );
 }
 
-/** The Kabuki Session picked is not connected: it opens again once it is. */
 export function Away({
   name,
   reconnecting,

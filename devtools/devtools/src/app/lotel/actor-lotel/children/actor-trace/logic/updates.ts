@@ -6,11 +6,8 @@ export const init: InitOf<typeof TraceShape> = ({ traceId }) => ({
 });
 
 export const updates: UpdatesOf<typeof TraceShape> = {
-  // 1. Watch
   Received: ({ spans, ready }) => ({ model: { spans, ready } }),
-  // 2. Inspect
   Inspected: ({ spanId }) => ({ model: { selectedSpanId: spanId } }),
-  // 3. Lay out
   LaidOut: ({ layout }) => ({ emit: { _tag: 'LaidOut', layout } }),
   Closed: () => ({ emit: { _tag: 'Closed' } }),
 };

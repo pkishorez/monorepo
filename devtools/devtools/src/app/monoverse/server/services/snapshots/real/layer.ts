@@ -6,10 +6,6 @@ import { copiesFolder } from './commit-copy.js';
 import { openSnapshot } from './open.js';
 import { existingRoot } from './root.js';
 
-/**
- * Snapshots of a Project folder, from its worktrees on disk or from git, on
- * the Git it is given, copying a commit to disk into `copies` when asked.
- */
 export const snapshotsLayerAt = (copies: string) =>
   Layer.effect(
     Snapshots,
@@ -22,5 +18,4 @@ export const snapshotsLayerAt = (copies: string) =>
     }),
   );
 
-/** Snapshots, their copies on disk under the OS temp folder. */
 export const snapshotsLayer = snapshotsLayerAt(copiesFolder);

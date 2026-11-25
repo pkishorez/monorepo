@@ -1,10 +1,5 @@
 import type { Link } from '../contract/index.js';
 
-/**
- * The links that close each cycle, from one member to the next and the
- * last back to the first, by whatever `place` names each member: a
- * Package's name to its folder, in the repo view.
- */
 export function cycleLinks(
   cycles: ReadonlyArray<ReadonlyArray<string>>,
   place: (name: string) => string | undefined,

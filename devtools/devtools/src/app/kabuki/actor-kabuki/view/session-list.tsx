@@ -10,23 +10,13 @@ import { grouped } from '@kestack/devtools-kabuki/server';
 import type { KabukiSessionSummary } from '@kestack/devtools-kabuki/server';
 import type { Link } from '../logic/shared/index.js';
 
-/*
- * The live Kabuki Sessions, to pick one from, grouped by app, then by
- * Environment: a column of headings and rows on a wide screen, a selector
- * over the Inspector on a narrow one. A Kabuki Session picked that is not
- * live stays in both, marked gone, until it is back: in the column, under
- * the app and Environment it was last seen in.
- */
-
 interface ListProps {
   readonly sessions: ReadonlyArray<KabukiSessionSummary>;
-  /** The name picked, live or not. */
   readonly picked: string | null;
   readonly link: Link;
   readonly onPick: (name: string) => void;
 }
 
-/** The page a Kabuki Session runs on, under its Environment: the path alone where the Environment is the page's host. */
 export const pageOf = (url: string, environment: string) => {
   try {
     const { host, pathname } = new URL(url);
@@ -36,7 +26,6 @@ export const pageOf = (url: string, environment: string) => {
   }
 };
 
-/** How long ago `since` was, short: `12s`, `4m`, `2h`, `3d`. */
 const ago = (since: number, now: number) => {
   const seconds = Math.max(0, Math.floor((now - since) / 1000));
   if (seconds < 60) return `${seconds}s`;
@@ -47,7 +36,6 @@ const ago = (since: number, now: number) => {
   return `${Math.floor(hours / 24)}d`;
 };
 
-/** The wall clock, read again every few seconds: only how long ago things were reads it. */
 const useNow = (every: number) => {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -70,14 +58,11 @@ export function LinkStatus({ link }: { readonly link: Link }) {
   );
 }
 
-/** A Kabuki Session as the column lists it: live, or the one picked, gone. */
 type Listed = KabukiSessionSummary & { readonly gone?: true };
 
-/** The column of Kabuki Sessions, for a wide screen: a heading per app and Environment. Arrow keys move between rows. */
 export function SessionColumn({ sessions, picked, link, onPick }: ListProps) {
   const now = useNow(5000);
   const list = useRef<HTMLDivElement>(null);
-  // Where each Kabuki Session was last seen, so one gone stays in its group.
   const seen = useRef(new Map<string, KabukiSessionSummary>());
   for (const session of sessions) seen.current.set(session.name, session);
   const live = picked !== null && sessions.some((one) => one.name === picked);
@@ -276,7 +261,6 @@ function GoneRow({ name }: { readonly name: string }) {
   );
 }
 
-/** The selector over the Inspector, for a narrow screen: an option group per app. */
 export function SessionSelect({ sessions, picked, link, onPick }: ListProps) {
   const live = picked !== null && sessions.some((one) => one.name === picked);
   return (
@@ -315,7 +299,6 @@ export function SessionSelect({ sessions, picked, link, onPick }: ListProps) {
   );
 }
 
-/** Where the Kabuki Session picked runs, over the Inspector on a wide screen: app › Environment › name. */
 export function SessionPath({
   sessions,
   picked,

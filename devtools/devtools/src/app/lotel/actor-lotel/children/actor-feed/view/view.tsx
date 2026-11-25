@@ -15,11 +15,6 @@ import type { FeedShape } from '../logic/shared/index.js';
 import { ListFilters } from './list-filters.js';
 import { TraceFeed } from './trace-feed.js';
 
-/*
- * The Feed drawn: the search and Filters on top, the Traces below, with a
- * row to show those held back while a Trace is open and one to show more.
- */
-
 export function Body({
   root,
   model,

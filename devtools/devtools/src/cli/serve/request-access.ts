@@ -2,13 +2,11 @@ import { Effect } from 'effect';
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { CONNECT_PATH } from '@kestack/devtools-kabuki/api';
 
-/** Restricts local application access while allowing browser OTLP ingestion and Kabuki Sessions dialing in. */
 export function makeRequestAccessLive({
   port,
   ownOrigins,
 }: {
   readonly port: number;
-  /** DevTools' own page, at each host it may be opened at. */
   readonly ownOrigins: ReadonlyArray<string>;
 }) {
   const allowedHosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`]);
@@ -49,9 +47,6 @@ export function makeRequestAccessLive({
           );
         }
 
-        // A Kabuki Session dials from whatever page its app runs in. Only
-        // `/kabuki/connect` takes any origin: the Kabuki routes that read
-        // and move tabs stay behind the origin check below.
         if (pathname === CONNECT_PATH) {
           if (request.method === 'OPTIONS') {
             return Effect.succeed(

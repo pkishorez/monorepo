@@ -242,7 +242,8 @@ Anything that branches on data or computes belongs in `logic/`.
 
 `monoverse lint` checks rules 2 and 3, and the first half of 4 where the
 package's `monoverse.json` restricts `logic/` from `react`, as DevTools'
-does; the rest are for review.
+does. `vp lint` checks rule 8 with `monoverse/no-comments`. The rest are for
+review.
 
 1. **Closed folders.** Each folder holds only its listed names. Only the
    inside of `view/` and the implementations beside a `contract/` are
@@ -271,6 +272,14 @@ does; the rest are for review.
    by its `actor.tsx`; a Service's only by the app's Layer, or a server
    Service's by `server/index.ts`; a group's `real/` only by
    `server/index.ts`. Other implementations are imported only by tests.
+8. **No comments.** If code needs a comment to be understood, change the
+   code: a name, a type, a function, a test. A limit the code cannot show,
+   one set by a browser, a library or a protocol, goes in the package's
+   `docs/`. The only comments are the ones tools read:
+   `// oxlint-disable-next-line <rule> -- <reason>`,
+   `// @ts-expect-error <reason>`, `/// <reference … />` and bundler hints
+   such as `/* @vite-ignore */`. Why, and every other lint rule, is in
+   [docs/lint-rules.md](../../../devtools/monoverse/docs/lint-rules.md).
 
 ## The loop
 

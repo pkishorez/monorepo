@@ -10,16 +10,6 @@ import { withFixture } from '../../../tests/git-fixture.js';
 import { servicesLayer } from '../../../tests/services.js';
 import { openProject, readPackage } from '../real/project.js';
 
-/*
- * Each Package checked by its own monoverse.json, as `monoverse lint`
- * checks it: `app` has one, `plain` none, `broken` one that cannot be
- * read; `app` and `plain` depend on each other, a Package cycle, which is
- * never a Violation. `app` holds one file for each way a check could go
- * wrong, and one test asks @kestack/monoverse's own `checkProject` over
- * the same files for the very same report. The last checks a branch read
- * from git as the same commit on disk.
- */
-
 const files: Record<string, string> = {
   'package.json': '{"name":"mono","private":true}\n',
   'pnpm-workspace.yaml': 'packages:\n  - packages/*\n',
@@ -58,50 +48,36 @@ const files: Record<string, string> = {
     2,
   ),
   'packages/app/src/index.ts': "export * from './feature/index.js';\n",
-  // Reaches inside `other`, a module below it, past its index file.
   'packages/app/src/main.ts': "import { thing } from './other/thing.js';\n",
   'packages/app/src/feature/index.ts': "export * from './inner/deep.js';\n",
   'packages/app/src/feature/inner/deep.ts': 'export const deep = 1;\n',
-  // `other` is beside `feature`, and not a door.
   'packages/app/src/feature/view.ts': "import '../other/index.js';\n",
-  // `shared` is a door: fine.
   'packages/app/src/feature/door.ts': "import '../shared/index.js';\n",
-  // An import() of a string literal is judged; of anything else, not.
   'packages/app/src/feature/lazy.ts':
     "export const a = () => import('../other/thing.js');\nexport const b = (name: string) => import(name);\n",
-  // An alias is judged as the file it names: package.json `imports`, and
-  // tsconfig `paths`.
   'packages/app/src/feature/alias.ts':
     "import '#other/thing.ts';\nimport '@/other/thing.ts';\nimport '@/shared/index.ts';\n",
-  // An exception lets this through.
   'packages/app/src/host/main.ts': "import '../other/thing.js';\n",
-  // A restriction refuses React, by name, whatever the imports rule says.
   'packages/app/src/pure/calc.ts':
     "import { useState } from 'react';\nexport const calc = useState;\n",
-  // Two statements naming one file are two Violations.
   'packages/app/src/feature/twice.ts':
     "import type { thing } from '../other/thing.js';\nexport { thing as again } from '../other/thing.js';\n",
-  // `.cjs` names the `.cts` beside it, `.js` the `.jsx`.
   'packages/app/src/feature/legacy.ts':
     "import '../legacy/old.cjs';\nimport '../widget/button.js';\n",
   'packages/app/src/legacy/index.ts': 'export {};\n',
   'packages/app/src/legacy/old.cts': 'export const old = 1;\n',
   'packages/app/src/widget/index.ts': 'export {};\n',
   'packages/app/src/widget/button.jsx': 'export const button = 1;\n',
-  // A declaration file is never checked.
   'packages/app/src/feature/types.d.ts': "import '../other/thing.js';\n",
-  // A package nested inside is its own: never judged from outside.
   'packages/app/src/feature/nest.ts': "import '../nested/src/deep.js';\n",
   'packages/app/src/nested/package.json': '{"name":"nested"}\n',
   'packages/app/src/nested/src/deep.ts': 'export const deep = 1;\n',
-  // Contracts: `store` has none, and `cache`'s exports a value.
   'packages/app/src/services/store/real/index.ts': 'export const store = 1;\n',
   'packages/app/src/services/cache/contract/index.ts':
     'export const cache = 1;\nexport type Cache = number;\n',
   'packages/app/src/shared/index.ts': 'export const shared = 1;\n',
   'packages/app/src/other/index.ts': "export * from './thing.js';\n",
   'packages/app/src/other/thing.ts': 'export const thing = 1;\n',
-  // Ignored, and outside the Source roots: drawn, never checked.
   'packages/app/src/tests/main.test.ts': "import '../other/thing.js';\n",
   'packages/app/scripts/seed.ts': "import '../src/other/thing.js';\n",
   'packages/plain/package.json':
@@ -133,7 +109,6 @@ const read = (path: string) =>
     readPackage(root, null, path).pipe(Effect.provide(servicesLayer)),
   );
 
-/** How many Violations each file holds, by its path from the root. */
 const countsOf = (
   violations: ReadonlyArray<{ readonly from: string }>,
 ): Record<string, number> => {
@@ -173,14 +148,12 @@ describe("a Package's Check", () => {
       file: 'packages/broken/monoverse.json',
       message: expect.stringMatching(/^monoverse\.json /),
     });
-    // The cycle is there, and it is no Violation.
     expect(workspace.cycles).toEqual([{ packages: ['app', 'plain'] }]);
   });
 
   test("on reading a Package: its Source roots, every file's imports, and only the checked files' Violations", async () => {
     const contents = await read('packages/app');
     expect(contents.sourceRoots).toEqual(['packages/app/src']);
-    // The ignored test and the script outside the Source roots are drawn…
     expect(contents.imports).toContainEqual([
       'packages/app/src/tests/main.test.ts',
       'packages/app/src/other/thing.ts',
@@ -189,7 +162,6 @@ describe("a Package's Check", () => {
       'packages/app/scripts/seed.ts',
       'packages/app/src/other/thing.ts',
     ]);
-    // …and so are an import() and an alias, which the graph follows.
     expect(contents.imports).toContainEqual([
       app('feature/lazy.ts'),
       app('other/thing.ts'),
@@ -198,13 +170,10 @@ describe("a Package's Check", () => {
       app('feature/alias.ts'),
       app('other/thing.ts'),
     ]);
-    // …and only the checked files' statements are counted.
     expect(contents.check._tag).toBe('Checked');
     const violations =
       contents.check._tag === 'Checked' ? contents.check.violations : [];
     expect(countsOf(violations)).toEqual(expected);
-    // Each says what `monoverse lint` says, and where, naming the import
-    // as it is written.
     expect(violations).toContainEqual({
       from: app('main.ts'),
       line: 1,
@@ -231,7 +200,6 @@ describe("a Package's Check", () => {
       message:
         'src/services/store has no contract/. Put its Context.Service in src/services/store/contract/index.ts.',
     });
-    // A restriction says its reason.
     expect(violations).toContainEqual({
       from: app('pure/calc.ts'),
       line: 1,
@@ -239,7 +207,6 @@ describe("a Package's Check", () => {
       reason: 'restriction',
       message: "'react' may not be imported here: pure code has no React.",
     });
-    // What is wrong with the monoverse.json itself is told on it.
     expect(
       violations
         .filter(({ from }) => from === 'packages/app/monoverse.json')
@@ -269,7 +236,6 @@ describe("a Package's Check", () => {
   test("finds exactly what @kestack/monoverse's own checkProject finds", async () => {
     const workspace = await open();
     const engine = checkProject({ root, files: Object.keys(files) });
-    // The engine checks only the Packages with a monoverse.json.
     const checked = workspace.packages.filter(
       ({ check }) => check._tag !== 'Unchecked',
     );
@@ -294,7 +260,6 @@ describe("a Package's Check", () => {
           result._tag === 'Checked'
             ? {
                 _tag: 'Checked',
-                // DevTools does not carry the import as written.
                 violations: result.violations.map(
                   ({ kind, file, line, column, to, message }) => ({
                     kind,
@@ -325,9 +290,6 @@ describe('a branch no worktree has', () => {
   test('is checked as the same commit on disk, aliases and installed tsconfigs too', () =>
     withFixture(async ({ repo, worktree, git, write }) => {
       const core = (path: string) => `packages/core/${path}`;
-      // The Package's tsconfig, which holds the alias, extends one from
-      // node_modules, which git never has: the copy links the checkout's
-      // in, or the tsconfig could not be read.
       const installed = async (folder: string) =>
         write(
           join(folder, core('node_modules/@fixture/base/tsconfig.json')),
@@ -388,7 +350,6 @@ describe('a branch no worktree has', () => {
         core('src/lib/deep.ts'),
       ]);
 
-      // The same commit checked out in a worktree is read from the disk.
       const checkout = `${worktree}-checked`;
       git(repo, 'worktree', 'add', '-q', checkout, 'checked');
       await installed(checkout);
@@ -401,7 +362,6 @@ describe('a branch no worktree has', () => {
       const core = (path: string) => `packages/core/${path}`;
       git(repo, 'checkout', '-q', '-b', 'nested');
       const commit: Record<string, string> = {
-        // The alias is in a tsconfig above the Project folder.
         'tsconfig.base.json':
           '{"compilerOptions":{"paths":{"@core/*":["./packages/core/src/*"]}}}\n',
         [core('tsconfig.json')]: '{"extends":"../../tsconfig.base.json"}\n',

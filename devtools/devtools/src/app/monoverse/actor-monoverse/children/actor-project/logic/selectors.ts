@@ -15,7 +15,6 @@ import {
 
 type Data = DataOf<typeof ProjectShape>;
 
-/** The project's name: as it was saved, else its workspace's. */
 const nameIn = ({
   props,
   state,
@@ -24,15 +23,11 @@ const nameIn = ({
   | DataOf<typeof ProjectShape, 'Package'>) =>
   props.name ?? state.workspace.name;
 
-/** Whether what is open waits on the change set, still being read. */
 const awaitingChanges = (data: Data) =>
   changesAt(data) !== null &&
   changesOf(data) === null &&
   data.model.changesProblem === null;
 
-// 1. Analyse
-
-/** The Monorepo tree's Input: the folders holding Packages open, so every Package shows. */
 export const treeInput = ({
   state,
 }: DataOf<typeof ProjectShape, 'Monorepo'>) => ({
@@ -42,7 +37,6 @@ export const treeInput = ({
   ),
 });
 
-/** The Monorepo tree's Props: its files, each Package one leaf with its Check, their links, the cycles broken. */
 export const treeProps = (data: DataOf<typeof ProjectShape, 'Monorepo'>) => {
   const { props, state } = data;
   return {
@@ -70,14 +64,12 @@ export const treeProps = (data: DataOf<typeof ProjectShape, 'Monorepo'>) => {
   };
 };
 
-/** A Single Package's Input: the project's folder itself. */
 export const singleInput = (data: DataOf<typeof ProjectShape, 'Package'>) => ({
   root: data.model.root,
   path: '.',
   name: nameIn(data),
 });
 
-/** A Package's Props: the branch, and how its tree is drawn. */
 export const packageProps = (data: Data) => ({
   branch: data.props.branch,
   changes: shownChangesOf(data),
@@ -85,15 +77,10 @@ export const packageProps = (data: Data) => ({
   ignored: data.props.ignored,
 });
 
-// 3. Enter
-
-/** Whether a Package of the Monorepo is entered. */
 export const isEntered = ({ props }: Data) => props.package !== null;
 
-/** The Package entered, keying its view. */
 export const enteredKey = ({ props }: Data) => props.package ?? '';
 
-/** The Package entered's Input: its folder and name. */
 export const enteredInput = ({
   model,
   props,
@@ -107,12 +94,6 @@ export const enteredInput = ({
     '',
 });
 
-// 4. View
-
-/**
- * Whether what is open shows over the tree: in the Package it was opened
- * in, and for a folder, once what changed in it is read.
- */
 export const opensViewer = (data: Data) => {
   const { model, props, state } = data;
   const open = model.open;
@@ -122,7 +103,6 @@ export const opensViewer = (data: Data) => {
   return !awaitingChanges(data);
 };
 
-/** What is open, as it is read: a Viewer of its own for each. */
 export const viewerKey = (data: Data) => {
   const { model, props } = data;
   const changes = changesOf(data);
@@ -137,7 +117,6 @@ export const viewerKey = (data: Data) => {
   ]);
 };
 
-/** The Viewer's Input: the file or folder open, as the branch has it, and what changed in it. */
 export const viewerInput = (data: Data) => {
   const { model, props } = data;
   const changes = changesOf(data);

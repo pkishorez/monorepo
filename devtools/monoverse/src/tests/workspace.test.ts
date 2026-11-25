@@ -4,8 +4,6 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { workspaceOf } from '../cli/workspace.ts';
 
-/* Which packages `monoverse lint` checks at a repository's root. */
-
 const repo = (files: Readonly<Record<string, string>>) => {
   const root = mkdtempSync(join(tmpdir(), 'monoverse-workspace-'));
   for (const [name, text] of Object.entries(files))

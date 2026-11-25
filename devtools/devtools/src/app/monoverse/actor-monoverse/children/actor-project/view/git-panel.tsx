@@ -11,15 +11,6 @@ import { TreeSettingsRows } from './shared/index.js';
 import { BranchMenu } from './branch-menu.js';
 import { ChangesToggle, type GitControlsProps } from './git-controls.js';
 
-/*
- * The git controls held open in a wide screen's side panel, nothing behind
- * a button: Branch and Compare to, one under the other, then Changes; and
- * what the tree draws, the same rows the settings menu holds, those for
- * Changes greyed while it is off. While the changes are read a spinner
- * sits at the end of the Changes row, and a warning when they cannot be,
- * so nothing moves as they come and go.
- */
-
 const wideMenu =
   'w-full max-w-none [&>span.truncate]:flex-1 [&>span.truncate]:text-left';
 

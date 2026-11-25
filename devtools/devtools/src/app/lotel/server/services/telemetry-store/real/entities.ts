@@ -26,7 +26,6 @@ const logs = table
   .index('trace', 'byTrace', { pk: ['traceId'] })
   .build();
 
-/** @internal */
 export const makeSqliteEntities = (database: SQLiteDriver) => {
   const configured = SQLite.make(table, { database, tableName: 'lotel_data' });
   return {
@@ -34,7 +33,6 @@ export const makeSqliteEntities = (database: SQLiteDriver) => {
     spans,
     logs,
     layer: configured.layer,
-    // Local telemetry: a schema change may drop it.
     setup: SQLite.setup(table, {
       database,
       tableName: 'lotel_data',

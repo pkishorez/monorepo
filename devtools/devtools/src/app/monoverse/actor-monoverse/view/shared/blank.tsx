@@ -3,12 +3,6 @@ import type { ReactNode } from 'react';
 
 import { shortenHome } from '../../../server/rpc/contract/index.js';
 
-/*
- * What Monoverse shows where there is no tree to draw yet: something
- * being read, such as the project's folder being opened.
- */
-
-/** Something being read, centred where its tree will be. */
 export function Waiting({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-full items-center justify-center p-8">
@@ -20,7 +14,6 @@ export function Waiting({ children }: { children: ReactNode }) {
   );
 }
 
-/** A project's folder being opened. */
 export function Opening({ root }: { root: string | null }) {
   return (
     <Waiting>

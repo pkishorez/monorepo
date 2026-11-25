@@ -25,24 +25,13 @@ import {
 } from '../../../view/shared/index.js';
 import type { FileTreeRow } from '../logic/shared/index.js';
 
-/*
- * The folder's files, one row each, as a tree of their folders: drawn
- * only where the list shows, so a Package of a thousand files opens as
- * fast as a folder of ten. A folder opens and closes; a file shows, and
- * the file shown stays in sight however it was reached. The arrows move
- * through the rows, → and ← open and close a folder, and Tab lands on the
- * file shown, or the first row.
- */
-
 const colour: Record<ChangeStatus, string> = {
   added: 'text-added',
   modified: 'text-changed',
   deleted: 'text-removed',
 };
 
-/** A row's height: a thumb's on a phone. */
 const rowHeight = { wide: 26, phone: 30 };
-/** Room above the first row and below the last. */
 const inset = 6;
 
 export function FileList({
@@ -57,15 +46,10 @@ export function FileList({
   onToggleInside,
 }: {
   rows: ReadonlyArray<FileTreeRow>;
-  /** The file shown, by its path. */
   shown: string | null;
-  /** The folders holding folders: each has a button opening or closing everything inside it. */
   holders: ReadonlySet<string>;
-  /** Left unchanged by the branch, while the unchanged are dimmed. */
   faded: (row: FileTreeRow) => boolean;
-  /** Outside the Package's Source roots. */
   ignored: (path: string) => boolean;
-  /** Everything inside a folder is open. */
   allOpenInside: (path: string) => boolean;
   onToggle: (path: string) => void;
   onShow: (path: string) => void;
@@ -83,11 +67,9 @@ export function FileList({
     [rows],
   );
 
-  // One row takes Tab: the file shown, else the first.
   const tabStop = indexOf(shown) ?? (rows.length === 0 ? undefined : 0);
   const [focused, setFocused] = useState<string | null>(null);
   const keyOf = useCallback(
-    // A new height reads every row again.
     (index: number) => `${height}:${rows[index]?.path ?? index}`,
     [rows, height],
   );
@@ -103,7 +85,6 @@ export function FileList({
   const rowAt = (index: number) =>
     list.current?.querySelector<HTMLElement>(`[data-index="${index}"]`) ?? null;
 
-  // The file shown stays in sight in the list, however it was reached.
   const { reach } = drawn;
   const shownAt = useRef(indexOf(shown));
   shownAt.current = indexOf(shown);
@@ -151,7 +132,6 @@ export function FileList({
           onToggle(row.path);
           break;
         }
-        // To the folder holding it.
         const parent = rows
           .slice(0, at)
           .findLastIndex(
@@ -228,16 +208,9 @@ export function FileList({
   );
 }
 
-/** Where a row's chevron starts, and how far in each level goes: the tree's. */
 const gutter = 8;
 const levelWidth = 16;
 
-/**
- * One row of the list, drawn as the tree draws its own: a chevron, an
- * icon and a name in the colour of what changed, a hairline down the left
- * of each open folder's contents, and the file shown a band with a bar.
- * A folder opens and closes; a file shows.
- */
 function Row({
   row,
   index,
@@ -250,15 +223,11 @@ function Row({
   onPress,
 }: {
   row: FileTreeRow;
-  /** Its place among the rows beside it, for those who cannot see the rows not drawn. */
   among: { readonly position: number; readonly of: number };
-  /** Room on the right for the button that opens or closes what is inside. */
   trailing: boolean;
   index: number;
   selected: boolean;
-  /** Left unchanged by the branch, while the unchanged are dimmed. */
   faded: boolean;
-  /** Outside the Package's Source roots. */
   ignored: boolean;
   focusable: boolean;
   onPress: () => void;
@@ -347,19 +316,12 @@ function Row({
   );
 }
 
-/**
- * Beside a folder holding folders, on the right: one press opens
- * everything inside it, or, when all of it is open, closes every folder
- * inside it, the folder itself staying open. Shown on hover, or always on
- * a phone, where there is none.
- */
 function InsideToggle({
   name,
   open,
   onToggle,
 }: {
   name: string;
-  /** Everything inside it is open. */
   open: boolean;
   onToggle: () => void;
 }) {

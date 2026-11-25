@@ -26,7 +26,6 @@ export const SpanEntitySchema = EntityESchema.make('Span', 'spanId', {
       participantName: null,
     }),
   )
-  // v3 drops the Flow fields again: Flow was removed from DevTools.
   .evolve(
     'v3',
     { flowId: null, participantName: null },
@@ -52,7 +51,6 @@ export const LogEntitySchema = EntityESchema.make('LogRecord', 'id', {
       participantName: null,
     }),
   )
-  // v3 drops the Flow fields again: Flow was removed from DevTools.
   .evolve(
     'v3',
     { flowId: null, participantName: null },

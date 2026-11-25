@@ -1,11 +1,6 @@
 import type { Entity } from '@kestack/std-toolkit/core';
 import type { LogRecord, SpanRecord, TraceSummary } from '../contract/index.js';
 
-/*
- * Traces as the RPC reads them back: a Trace is not stored, it is the
- * Span Records that share a trace ID, ordered here by when each started.
- */
-
 const toNanoseconds = (value: string | number | undefined): bigint | null => {
   if (value === undefined) return null;
   try {
@@ -29,7 +24,6 @@ const compareTime = (
   return 0;
 };
 
-/** One Trace with its Span Records and Log Records, each in time order. */
 export const makeTraceDetails = (
   traceId: string,
   spans: Entity<SpanRecord>[],
@@ -62,7 +56,6 @@ const serviceNameOf = (record: SpanRecord) =>
 const timeText = (value: string | number | undefined) =>
   value === undefined ? null : String(value);
 
-/** Summarises the stored Spans of one Trace into a Trace Summary. */
 export const makeTraceSummary = (
   traceId: string,
   spans: Entity<SpanRecord>[],

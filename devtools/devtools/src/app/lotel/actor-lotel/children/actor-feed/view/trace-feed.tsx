@@ -185,7 +185,6 @@ function formatDuration(milliseconds: number | null) {
   return `${(milliseconds / 1_000).toFixed(2)}s`;
 }
 
-/** Human-readable "time since" a wall-clock timestamp (ms). */
 function formatRelativeTime(ts: number): string {
   if (!Number.isFinite(ts)) return '—';
   const diff = Date.now() - ts;

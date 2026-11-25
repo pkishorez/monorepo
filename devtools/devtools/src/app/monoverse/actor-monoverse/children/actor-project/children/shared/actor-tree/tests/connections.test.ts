@@ -8,14 +8,6 @@ import {
   linkKey,
 } from '../logic/shared/index.js';
 
-/*
- * src/
- *   app/
- *     feed/   actor.ts  rows/row.ts
- *     list/   actor.ts
- *     index.ts
- *   cli/      main.ts   serve/serve.ts
- */
 const tree = buildTree(
   '',
   [

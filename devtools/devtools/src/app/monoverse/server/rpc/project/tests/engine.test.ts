@@ -9,7 +9,6 @@ import { describe, expect, test } from 'vitest';
 import { openSnapshot } from '../../../tests/services.js';
 import { analyzeMonorepo } from '../real/workspace/engine.js';
 
-// The folder `root` as it is on disk, read as a Workspace.
 const analyze = (root: string) =>
   Effect.flatMap(openSnapshot(root, null), (snapshot) =>
     Effect.flatMap(
@@ -22,8 +21,6 @@ function fixture(name: string): string {
   return fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url));
 }
 
-// Writes `files` (root-relative path to content) into a fresh folder, hands
-// it to `use`, and removes it afterwards.
 async function withMonorepo<T>(
   files: Record<string, string>,
   use: (root: string) => Promise<T>,

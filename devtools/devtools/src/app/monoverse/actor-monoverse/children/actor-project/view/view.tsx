@@ -26,16 +26,6 @@ import { GitControls, type GitControlsProps } from './git-controls.js';
 import { ViewPanel, WherePanel, type WherePanelProps } from './panels.js';
 import { PanelSlotsContext, Rereading, useWide } from './shared/index.js';
 
-/*
- * A project drawn: a slim bar, where you are on the left and the three
- * git controls on the right, over the tree, as big as it can be; the
- * project's crumb asks for the picker. On a wide screen no bar:
- * the tree sits in the middle, a panel either side holding every
- * control, so none is far from another. What is open over the tree is a
- * dialog centred on it.
- */
-
-/** What changed in each Package: how many files, and the colour they roll up to. */
 const changesByPackage = (
   packages: ReadonlyArray<{ readonly path: string }>,
   changes: ReadonlyArray<Change>,
@@ -57,11 +47,8 @@ const changesByPackage = (
 };
 
 type BodyProps = ViewPropsOf<typeof ProjectShape> & {
-  /** The Monorepo's tree, in its State. */
   readonly tree: ReactNode;
-  /** The Package entered, or the Single Package. */
   readonly package: ReactNode;
-  /** What is open over the tree, while something is. */
   readonly viewer: ReactNode;
 };
 
@@ -77,16 +64,13 @@ export function Body(self: BodyProps) {
     viewer,
   } = self;
   const wide = useWide();
-  // Where the tree draws its own controls, in the side panels.
   const [selection, setSelection] = useState<HTMLDivElement | null>(null);
   const [folders, setFolders] = useState<HTMLDivElement | null>(null);
 
   const project = props.name ?? nameOf(model.root);
-  // A Package entered, or a Single Package, says so itself.
   const rereading =
     state._tag === 'Monorepo' && props.package === null && isRereading(self);
   const changes = changesOf(self);
-  // What changed in each Package, for the Package menu.
   const shown = shownChangesOf(self);
   const packageChanges =
     state._tag !== 'Monorepo' || shown === null
@@ -139,7 +123,6 @@ export function Body(self: BodyProps) {
             packages={packages}
             onSwitch={() => send({ _tag: 'SwitchAsked' })}
           />
-          {/* Phones: one settings button at the end of the line. */}
           <div className="ml-auto shrink-0">
             <GitControls {...git} />
           </div>
@@ -181,8 +164,6 @@ export function Body(self: BodyProps) {
           {rereading ? <Rereading>Reading the branch…</Rereading> : null}
         </main>
       </div>
-      {/* The open file or folder: a dialog centred over the tree; on a
-            phone, the whole screen. */}
       <Dialog
         open={viewer !== null}
         onOpenChange={(open) => {

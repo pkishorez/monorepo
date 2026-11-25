@@ -17,12 +17,10 @@ export const Lotel = LotelShape.build({
   on: updates,
   workers,
   children: {
-    // 1. Feed
     feed: Actor.child(Feed, {
       props: ({ model }) => ({ opened: model.opened }),
       emits: { Opened: ({ traceId }) => ({ _tag: 'Opened', traceId }) },
     }),
-    // 2. Open
     trace: Actor.child(Trace, {
       while: isOpen,
       key: openedOf,

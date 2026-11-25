@@ -27,10 +27,6 @@ export type NarrativeItem =
       readonly node: SpanNode;
     };
 
-/**
- * A span's story: its own events and its children, interleaved in the order
- * they actually happened.
- */
 export function buildNarrativeItems(node: SpanNode): NarrativeItem[] {
   const items: NarrativeItem[] = node.span.events.map((event) => ({
     kind: 'event',
@@ -56,10 +52,6 @@ function errorPath(nodes: readonly SpanNode[]): readonly string[] | null {
   return null;
 }
 
-/**
- * Initially open spans: the path down to the deepest erroring span so the
- * failure story is immediately readable, otherwise just the first root.
- */
 export function defaultOpenSpanIds(
   roots: readonly SpanNode[],
 ): ReadonlySet<string> {

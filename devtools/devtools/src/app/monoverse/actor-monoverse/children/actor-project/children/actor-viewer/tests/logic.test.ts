@@ -2,12 +2,6 @@ import { describe, expect, it } from 'vitest';
 
 import { fileTreeRows } from '../logic/shared/index.js';
 
-/*
- * A folder's files as rows of a tree: folders before files, each by name;
- * a folder holding only one folder shares its row with it; a closed one
- * hides what is in it; and a folder takes the colour its changes roll up to.
- */
-
 const entries = [
   { path: 'src/z.ts', status: 'added' as const },
   { path: 'src/app/one/deep/a.ts', status: 'added' as const },

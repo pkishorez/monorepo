@@ -41,7 +41,6 @@ beforeEach(async () => {
 afterEach(() => rm(root, { recursive: true, force: true }));
 
 describe('the file import graph', () => {
-  // Resolved by @kestack/monoverse, as a Check resolves them.
   test('links every source file to what it imports, tests and scripts too', async () => {
     const project = openProject({ root, files: Object.keys(files) });
     const graph = fileGraph(Object.keys(files), project.importsOf);

@@ -12,12 +12,6 @@ import { projectsLayer } from './monoverse/services/projects/real/index.js';
 import { applyTheme, readTheme, DevToolsView } from './view.js';
 import './styles.css';
 
-/*
- * DevTools in the browser: one Kabuki app, drawn in the page the DevTools
- * Server serves. It owns the URL, and each Tool talks to the DevTools
- * Server the page came from.
- */
-
 const router = Router.define(DevTools);
 const Routed = Router.view(router, DevToolsView);
 const origin = location.origin;
@@ -31,7 +25,6 @@ const DevToolsApp = View.app(Routed, {
     sessionsLayer(origin),
     browser(),
   ),
-  // Drawn at the page the URL names from the first frame.
   input: () => Routed.startAt(),
   name: '@kestack/devtools',
 });

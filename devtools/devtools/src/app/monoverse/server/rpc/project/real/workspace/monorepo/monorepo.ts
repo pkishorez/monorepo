@@ -16,17 +16,6 @@ export type LoadedMonorepo = {
   readonly manifests: readonly PackageManifest[];
 };
 
-/**
- * Reads one Monorepo at a branch: its workspace globs, from
- * `pnpm-workspace.yaml` or the root `package.json` `workspaces` field,
- * negations included, and the manifest of every folder they match that
- * holds a `package.json` among `files`, never inside `node_modules`. The
- * root's own manifest is not a Package; its name, or the folder name, names
- * the Monorepo. A root
- * `package.json` that lists no workspace globs is a Single Package: its own
- * manifest is its one Package, at path `.`, named by the folder when it
- * names nothing.
- */
 export function loadMonorepo(
   snapshot: Snapshot,
   files: ReadonlyArray<string>,
@@ -62,7 +51,6 @@ export function loadMonorepo(
   });
 }
 
-/** The folders holding a `package.json` that the workspace globs match, sorted. */
 function matchFolders(
   files: ReadonlyArray<string>,
   patterns: ReadonlyArray<string>,
@@ -77,7 +65,6 @@ function matchFolders(
     globs.some(
       (pattern) =>
         matchesGlob(folder, pattern) ||
-        // `packages/**` holds `packages` itself, as a glob walk finds it.
         (pattern.endsWith('/**') && folder === pattern.slice(0, -3)),
     );
   const folders = new Set<string>();
@@ -91,7 +78,6 @@ function matchFolders(
   return [...folders].sort((left, right) => left.localeCompare(right));
 }
 
-// `./packages/*/` and `packages/*` are one glob.
 function normalizePattern(pattern: string): string {
   return pattern.replace(/^\.\//, '').replace(/\/+$/, '');
 }

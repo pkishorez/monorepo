@@ -46,25 +46,6 @@ import {
 import { FileList } from './file-list.js';
 import { settle, Swipes, useRestAt } from './swipes.js';
 
-/*
- * A folder looked into: its files on the left, as a tree of their
- * folders, the one chosen on the right. On a phone the two take the whole
- * screen in turn. The list is drawn as the tree is drawn, by the
- * tree's settings, behind the same sliders: a changed file's name takes
- * the colour of how it changed, a folder the colour its changes roll up
- * to, what the branch left unchanged is dimmed or left out, and so is an
- * ignored file.
- *
- * The file before or after the one shown is a step away: the bar under
- * it, a swipe across that bar, or ← and →; the file slides with the
- * finger, and the next one slides in from the side it came. On a phone
- * the list and the file sit side by side on one track, a screen each,
- * that slides under the finger from one to the other, and a back arrow
- * top left, or a swipe right, leaves the file for the list, and the list
- * for the tree.
- */
-
-/** Keys typed into a field are its own. */
 const typing = (target: EventTarget) =>
   target instanceof HTMLElement &&
   (target.isContentEditable ||
@@ -78,7 +59,6 @@ type FolderProps = Extract<
   ViewPropsOf<typeof ViewerShape>,
   { readonly _tag: 'Folder' }
 > & {
-  /** The FileViewer on the file shown, while one is. */
   readonly file: ReactNode;
 };
 
@@ -101,8 +81,6 @@ export function Folder({ root, state, props, send, file }: FolderProps) {
   const hasPrevious = stepFrom(state, settings, -1) !== null;
   const reduced = useReducedMotion() ?? false;
 
-  // The folders holding folders: each has a button opening or closing
-  // everything inside it.
   const holders = useMemo(() => {
     const folders = foldersOf(state, settings);
     const known = new Set(folders);
@@ -124,8 +102,6 @@ export function Folder({ root, state, props, send, file }: FolderProps) {
     !state.closed.some((one) => one !== path && isWithin(one, path));
   const anyClosed = state.closed.length > 0;
 
-  // The file shown slides with a swipe on the bar, and the next one in
-  // from the side it came, fading as it goes.
   const fileX = useMotionValue(0);
   const fileOpacity = useTransform(fileX, [-200, 0, 200], [0.3, 1, 0.3]);
   const step = (by: number) => {
@@ -136,7 +112,6 @@ export function Folder({ root, state, props, send, file }: FolderProps) {
     animate(fileX, 0, settle);
   };
 
-  // On a phone, the list and the file are a screen each on one track.
   const phone = usePhone();
   const selected = shown;
   const [width, setWidth] = useState(0);
@@ -152,7 +127,6 @@ export function Folder({ root, state, props, send, file }: FolderProps) {
   const trackX = useMotionValue(0);
   const rest = phone && state.showing ? -width : 0;
   useRestAt(trackX, rest);
-  // ← and → step anywhere but the list, whose arrows open and close folders.
   const onStepKey = (event: KeyboardEvent) => {
     if (event.defaultPrevented || event.altKey || event.metaKey) return;
     if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
@@ -173,7 +147,6 @@ export function Folder({ root, state, props, send, file }: FolderProps) {
         'max-sm:h-auto max-sm:min-h-14 max-sm:gap-1 max-sm:pt-[env(safe-area-inset-top)] max-sm:pl-1.5',
       )}
     >
-      {/* On a phone, back sits top left: out of the folder, to the tree. */}
       <Button
         variant="ghost"
         size="icon"
@@ -242,7 +215,6 @@ export function Folder({ root, state, props, send, file }: FolderProps) {
       className="flex h-full min-h-0 flex-col bg-background"
       onKeyDown={onStepKey}
     >
-      {/* On a phone the list's screen carries it, so it slides with the list. */}
       {phone && entries.length > 0 ? null : header}
       {entries.length === 0 ? (
         <p className="flex flex-1 items-center justify-center p-8 text-center text-sm text-balance text-muted-foreground">
@@ -266,8 +238,6 @@ export function Folder({ root, state, props, send, file }: FolderProps) {
                 : {})}
               {...(phone
                 ? {
-                    // Right: from the file to the list, and from the
-                    // list out of the folder.
                     onRight: () =>
                       send({ _tag: state.showing ? 'WentBack' : 'Closed' }),
                   }

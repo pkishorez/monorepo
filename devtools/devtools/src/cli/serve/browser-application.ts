@@ -7,11 +7,6 @@ import {
   HttpStaticServer,
 } from 'effect/http';
 
-/**
- * Serves the bundled app, at every Tool's page and any other address a
- * browser asks for, and `/health`: what this server is, and every endpoint
- * it answers, the app's own and each Tool's.
- */
 export function makeBrowserApplicationLive({
   uiRoot,
   version,
@@ -19,7 +14,6 @@ export function makeBrowserApplicationLive({
 }: {
   readonly uiRoot: string;
   readonly version: string;
-  /** Each Tool's endpoints, by path, as its server door lists them. */
   readonly endpoints: Readonly<Record<string, string>>;
 }) {
   const indexPath = path.join(uiRoot, 'index.html');

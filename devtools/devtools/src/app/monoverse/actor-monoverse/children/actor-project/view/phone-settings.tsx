@@ -15,15 +15,6 @@ import {
 import { BranchMenu } from './branch-menu.js';
 import type { GitControlsProps } from './git-controls.js';
 
-/*
- * The git controls on a phone: one settings button beside the name, so
- * the header keeps one row, and a sheet with a row for each: Branch,
- * Compare to, Changes, and while Changes is on, its two options; and
- * whether a Package's ignored files are drawn. The
- * button turns a spinner while the changes are read, and a warning when
- * they cannot be.
- */
-
 export function PhoneGitSettings(props: GitControlsProps) {
   const { branches, problem, branch, base, changes } = props;
   const list = branches?.branches ?? [];

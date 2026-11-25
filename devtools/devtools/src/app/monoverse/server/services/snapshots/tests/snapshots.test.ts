@@ -36,7 +36,6 @@ describe('a Project at a branch', () => {
 
   test('a branch no worktree has is read from git at its last commit', () =>
     withFixture(async ({ repo, write }) => {
-      // Untracked work in the folder is not the branch's.
       await write(join(repo, 'loose.txt'), 'loose\n');
       const snapshot = await open(repo, 'feature');
       expect(snapshot.source.kind).toBe('git');
@@ -70,7 +69,6 @@ describe('a Project at a branch', () => {
 
   test('a branch read from git is on disk as a copy of its commit; on disk, as its folder', () =>
     withFixture(async ({ repo, git, write }) => {
-      // A symbolic link in the commit is one in the copy.
       git(repo, 'checkout', '-q', 'feature');
       await symlink('util.ts', join(repo, 'packages/core/src/alias.ts'));
       git(repo, 'add', '--all');
@@ -90,8 +88,6 @@ describe('a Project at a branch', () => {
       expect(await readdir(copy)).not.toContain('loose.txt');
       expect(await (await open(repo, null)).onDisk()).toBe(repo);
 
-      // A Project inside the repository is its folder in a copy of the
-      // whole commit, with what sits above it.
       const inner = await open(join(repo, 'packages/core'), 'feature');
       const innerCopy = await inner.onDisk();
       expect(innerCopy).toBe(join(copy, 'packages/core'));
@@ -198,18 +194,15 @@ describe("a commit's copy on disk", () => {
       expect(
         await readFile(join(folder, 'packages/a/src/index.ts'), 'utf8'),
       ).toBe('export {};');
-      // A symbolic link stays one.
       expect(await readlink(join(folder, 'packages/a/src/link.ts'))).toBe(
         'index.ts',
       );
-      // Each node_modules the checkout has is linked, not copied.
       const link = join(folder, 'packages/a/node_modules');
       expect((await lstat(link)).isSymbolicLink()).toBe(true);
       expect(await readlink(link)).toBe(
         join(checkout, 'packages/a/node_modules'),
       );
 
-      // Opened again, the copy is the same one, not written anew.
       await writeFile(join(folder, 'extra'), '');
       const old = new Date(Date.now() - 60_000);
       await utimes(folder, old, old);
@@ -217,13 +210,9 @@ describe("a commit's copy on disk", () => {
       expect(await readdir(folder)).toContain('extra');
       expect((await stat(folder)).mtimeMs).toBeGreaterThan(old.getTime());
 
-      // Each file is looked for once per process; after that, the marker
-      // is trusted.
       await rm(join(folder, 'packages/a/src/index.ts'));
       await copyOf(copies, checkout, 'c0');
       expect(await readdir(folder)).toContain('extra');
-      // In a new process, a copy the OS has half cleared away is written
-      // again.
       vi.resetModules();
       const fresh = (await import('../real/commit-copy.js')).commitFolder;
       expect(await copyOf(copies, checkout, 'c0', fresh)).toBe(folder);
@@ -231,13 +220,11 @@ describe("a commit's copy on disk", () => {
       expect(
         await readFile(join(folder, 'packages/a/src/index.ts'), 'utf8'),
       ).toBe('export {};');
-      // So is one without its marker, which a write that died leaves.
       await rm(join(folder, '.kestack-devtools-copy.json'));
       await writeFile(join(folder, 'extra'), '');
       await copyOf(copies, checkout, 'c0');
       expect(await readdir(folder)).not.toContain('extra');
 
-      // Two opens at once write one copy, and no half-written one stays.
       const [left, right] = await Promise.all([
         copyOf(copies, checkout, 'c1'),
         copyOf(copies, checkout, 'c1'),
@@ -247,8 +234,6 @@ describe("a commit's copy on disk", () => {
         (await readdir(copies)).filter((name) => name.startsWith('.')),
       ).toEqual([]);
 
-      // Only the six used last stay, and removing one leaves what its
-      // links point to.
       for (const commit of ['c2', 'c3', 'c4', 'c5', 'c6', 'c7'])
         await copyOf(copies, checkout, commit);
       expect((await readdir(copies)).sort()).toEqual([
@@ -263,7 +248,6 @@ describe("a commit's copy on disk", () => {
         (await stat(join(checkout, 'packages/a/node_modules/x'))).isDirectory(),
       ).toBe(true);
 
-      // Many writes at once each prune, past what the others removed.
       const many = Array.from({ length: 12 }, (_, i) => `d${i}`);
       await Promise.all(many.map((commit) => copyOf(copies, checkout, commit)));
       expect((await readdir(copies)).length).toBeLessThanOrEqual(12);
@@ -279,7 +263,6 @@ describe("a commit's copy on disk", () => {
     const after = join(at, 'after');
     const link = (folder: string) => join(folder, 'packages/a/node_modules');
     try {
-      // Written before the install: nothing to link.
       await mkdir(before, { recursive: true });
       const folder = await copyOf(copies, before, 'c0');
       expect(await readdir(join(folder, 'packages/a'))).not.toContain(
@@ -289,7 +272,6 @@ describe("a commit's copy on disk", () => {
       await copyOf(copies, before, 'c0');
       expect(await readlink(link(folder))).toBe(link(before));
 
-      // The worktree it was linked to is gone; another has node_modules.
       await rm(before, { recursive: true, force: true });
       await mkdir(join(after, 'packages/a/node_modules'), { recursive: true });
       await copyOf(copies, after, 'c0');

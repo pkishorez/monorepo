@@ -14,9 +14,7 @@ import {
 import { makeSqliteEntities } from './entities.js';
 import { identifyLogs } from './writes.js';
 
-/** Spans read per page while walking the timeline for recent Traces. */
 const RECENT_TRACE_PAGE_SIZE = 200;
-/** Upper bound of Spans inspected for one recent-Trace listing. */
 const RECENT_TRACE_SCAN_CAP = 10_000;
 
 const storeError = (operation: string, cause: unknown) =>

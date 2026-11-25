@@ -12,12 +12,6 @@ import { telemetryLayer } from '../../services/telemetry/real/index.js';
 import { Toasts } from '../../services/toasts/contract/index.js';
 import { fakeToasts } from '../../services/toasts/fake/index.js';
 
-/*
- * The Lotel Tool end to end, in memory: an exporter posts OTLP to the
- * server door, and the browser door's Telemetry, talking to the same
- * server over its Telemetry RPC, sees it live; clearing empties both.
- */
-
 const ORIGIN = 'http://devtools.test';
 
 const handlers: Array<{ dispose: () => Promise<void> }> = [];
@@ -25,7 +19,6 @@ afterEach(async () => {
   await Promise.all(handlers.splice(0).map((each) => each.dispose()));
 });
 
-/** The Lotel server door on a fresh in-memory store, as a `fetch`. */
 const serve = () => {
   const web = HttpRouter.toWebHandler(
     lotelServer({ db: ':memory:' }).pipe(
@@ -88,7 +81,6 @@ const post = (fetch: typeof globalThis.fetch, path: string, body: object) =>
     body: JSON.stringify(body),
   });
 
-/** The browser door's Telemetry, over `fetch` rather than the network. */
 const telemetryOver = (fetch: typeof globalThis.fetch) =>
   telemetryLayer(ORIGIN).pipe(
     Layer.provide(Layer.succeed(FetchHttpClient.Fetch)(fetch)),
@@ -102,7 +94,6 @@ const run = <A, E>(
     Effect.scoped(effect).pipe(Effect.provide(telemetryOver(fetch))),
   );
 
-/** The first Live value that passes `test`. */
 const liveUntil = (test: (spans: number, ready: boolean) => boolean) =>
   Effect.flatMap(Telemetry, (telemetry) =>
     telemetry.live.pipe(
@@ -146,7 +137,6 @@ describe('the Lotel Tool', () => {
       status: 'unset',
     });
     expect(span!.attributes['resource.service.name']).toBe('api');
-    // The Log Record that names the Span sits under it.
     expect(span!.events).toEqual([
       expect.objectContaining({
         timestamp: 1100,
@@ -200,7 +190,6 @@ describe('the Lotel Tool', () => {
             ({ children }) => children.trace !== undefined,
           );
           expect(opened.model.opened).toBe('trace-1');
-          // The Trace opened watches its own Spans.
           const trace = yield* opened.children.trace!.until(
             ({ model }) => model.spans.length > 0,
           );

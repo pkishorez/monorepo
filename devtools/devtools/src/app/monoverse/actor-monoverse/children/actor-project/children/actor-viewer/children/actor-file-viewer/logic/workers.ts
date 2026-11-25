@@ -21,7 +21,6 @@ type Loaded =
     }
   | { readonly _tag: 'Refused'; readonly problem: string };
 
-/** The file's text, or with Compare-to and a change, its diff beside it. */
 const read = (
   projects: ProjectsService,
   { root, branch, path, base, status }: Model,

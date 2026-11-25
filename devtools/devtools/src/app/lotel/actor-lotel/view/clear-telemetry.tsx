@@ -13,10 +13,6 @@ import {
 import { Trash2Icon } from 'lucide-react';
 import type { Clearing } from '../logic/shared/index.js';
 
-/**
- * Clearing all telemetry, behind a confirmation: `clearing` says whether
- * it is being asked, `confirming`, or under way, `clearing`.
- */
 export function ClearTelemetry({
   clearing,
   onAsk,

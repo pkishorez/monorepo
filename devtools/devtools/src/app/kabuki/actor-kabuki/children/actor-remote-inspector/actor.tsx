@@ -13,7 +13,6 @@ export const RemoteInspector = RemoteInspectorShape.build({
   init: ({ name }) => ({ model: { name } }),
   provides: { capabilities: [KabukiSession], layer: kabukiSessionLayer },
   children: {
-    // It travels the real tab, laid out at the bottom.
     inspector: Actor.child(InspectorLive, {
       input: () => ({
         travel: true,

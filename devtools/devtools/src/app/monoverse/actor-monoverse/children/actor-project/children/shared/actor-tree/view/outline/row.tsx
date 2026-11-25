@@ -1,4 +1,3 @@
-// One row of Outline.
 import { memo, type MouseEvent } from 'react';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import {
@@ -25,21 +24,14 @@ import { gutter, indent } from './layout.js';
 type Check = TreePackage['check'];
 
 export interface OutlineRowActions {
-  /** A single click on the row: it selects, whatever the row. */
   readonly press: (node: TreeNode) => void;
   readonly toggle: (path: string) => void;
   readonly activate: (node: TreeNode) => void;
   readonly reveal: (path: string) => void;
-  /** Opens everything inside a folder, or closes every folder in it. */
   readonly toggleInside: (path: string) => void;
-  /** The row's open button: what changed in it, or the file or folder itself. */
   readonly open: (node: TreeNode) => void;
 }
 
-/**
- * What a row's open button opens: `diff`, what changed in it; `view`, a
- * file or a folder's files, while Changes is off.
- */
 export type RowOpens = 'diff' | 'view';
 
 const changeTone: Record<ChangeStatus, string> = {
@@ -48,8 +40,6 @@ const changeTone: Record<ChangeStatus, string> = {
   deleted: 'text-removed',
 };
 
-// How many files a folder or Package holds, at any depth; kept per node,
-// since a tree's nodes never change.
 const filesIn = new WeakMap<TreeNode, number>();
 function fileCount(node: TreeNode): number {
   if (node.kind === 'file') return 1;
@@ -61,7 +51,6 @@ function fileCount(node: TreeNode): number {
   return count;
 }
 
-/** Whether everything in it is deleted: only then is a name struck through. */
 const gone = (
   node: TreeNode,
   change: { readonly status: ChangeStatus; readonly count: number },
@@ -76,16 +65,9 @@ const changeWord: Record<ChangeStatus, string> = {
   deleted: 'deleted',
 };
 
-/**
- * The one colour a row's icon and name take: what changed in it (a folder
- * or Package by everything inside), else quiet grey when outside the
- * Source roots. Only git changes colour a name; a connection shows in the
- * gutter, the bar and the band. No dots, no counts.
- */
 interface Tone {
   readonly className: string;
   readonly struck: boolean;
-  /** Not changed: the plain foreground. */
   readonly plain: boolean;
 }
 
@@ -107,18 +89,11 @@ function toneOf(
   };
 }
 
-// A tint of one of the connection colours, for the band behind a row.
 const tint = (colour: string, amount: number) =>
   `color-mix(in oklch, var(${colour}) ${amount}%, transparent)`;
 
 const stop = (event: MouseEvent) => event.stopPropagation();
 
-/**
- * How a row the selection connects to is marked: an accent bar on its
- * left edge where the arc lands and a light tint, in the link's colour;
- * split when it both uses and is used by the selection. Its name keeps
- * the colour of what changed in it.
- */
 function linkOf(connection: Connection | null) {
   if (connection === null) return null;
   const { uses, usedBy, broken } = connection;
@@ -139,15 +114,6 @@ function linkOf(connection: Connection | null) {
   };
 }
 
-/**
- * One node of the tree: a band the full width of the column, indented
- * inside by its depth. A click selects it, whatever it is; its chevron
- * opens and closes a folder, and on a closed folder the selection reaches
- * into, the chip of counts opens it to what is connected. A double click
- * opens a folder, a file in the Viewer, or a Package in its own view; a
- * right click on a folder opens or closes everything inside it. On hover,
- * a button at its end opens what changed in it, or the file or folder.
- */
 export const OutlineRow = memo(function OutlineRow({
   node,
   depth,
@@ -173,32 +139,22 @@ export const OutlineRow = memo(function OutlineRow({
 }: {
   node: TreeNode;
   depth: number;
-  /** Its place among the rows beside it, for those who cannot see the rows not drawn. */
   among: { readonly position: number; readonly of: number };
-  /** Where it sits, and how tall it is: a Package's row takes two lines. */
   top: number;
   height: number;
-  /** Where the band starts: right of the link gutter. */
   lead: number;
   width: number;
   open: boolean;
   selected: boolean;
-  /** The one row Tab lands on. */
   tabbable: boolean;
   ignored: boolean;
-  /** Not the selection, inside it or connected to it: it steps back. */
   dimmed: boolean;
-  /** Left unchanged by the branch, while the unchanged are dimmed. */
   faded: boolean;
   connection: Connection | null;
-  /** How many Violations it holds. */
   violations: number;
-  /** A Package in a cycle, or a folder holding one. */
   cycle: boolean;
-  /** A Package's Check; null for any other row. */
   check: Check | null;
   change: { readonly status: ChangeStatus; readonly count: number } | null;
-  /** A folder holding folders: whether everything inside it is open; null for any other row. */
   inside: boolean | null;
   opens: RowOpens;
   actions: OutlineRowActions;
@@ -240,13 +196,11 @@ export const OutlineRow = memo(function OutlineRow({
         ...(link === null ? {} : { background: link.band }),
       }}
       onClick={(event) => {
-        // The second click of a double click is the double click's.
-        if (event.detail > 1) return;
+        const secondClickOfDoubleClick = event.detail > 1;
+        if (secondClickOfDoubleClick) return;
         actions.press(node);
       }}
       onDoubleClick={() => actions.activate(node)}
-      // A right click on a folder is its fold button's press: everything
-      // inside it opened, or closed; one holding no folders just toggles.
       onContextMenu={
         isFolder
           ? (event) => {
@@ -317,8 +271,6 @@ export const OutlineRow = memo(function OutlineRow({
               actions={actions}
             />
           )}
-          {/* Held on every row a pointer can hover, so the marks beside
-              it line up whether or not it shows. */}
           <span className="flex size-5 shrink-0 items-center justify-center [@media(hover:none)]:hidden">
             <OpenButton
               node={node}
@@ -333,14 +285,8 @@ export const OutlineRow = memo(function OutlineRow({
   );
 });
 
-// A pointer that can hover: only there do rows hold the open button.
 const hover = globalThis.matchMedia?.('(hover: hover)').matches ?? true;
 
-/**
- * At the end of a row, on hover: one press opens what changed in it, or
- * the file or the folder's files, with no need to select it first. Phones
- * have the Selection Bar instead.
- */
 function OpenButton({
   node,
   opens,
@@ -401,7 +347,6 @@ function Glyph({
           ? FolderOpenIcon
           : FolderIcon
         : FileIcon;
-  // In the name's colour, a step softer, so the name leads.
   return (
     <Icon
       aria-hidden
@@ -419,8 +364,6 @@ function Glyph({
 function Name({ node, tone }: { node: TreeNode; tone: Tone }) {
   const strike =
     tone.struck && 'line-through decoration-1 decoration-current/50';
-  // A Package: its folder's name, in the row's colour like any folder's,
-  // and its own name and version below, quiet.
   if (node.kind === 'package') {
     const label = node.label ?? node.name;
     return (
@@ -435,7 +378,6 @@ function Name({ node, tone }: { node: TreeNode; tone: Tone }) {
           {node.name}
         </span>
         <span className="flex min-w-0 items-baseline gap-1.5 text-[11.5px] leading-none text-muted-foreground">
-          {/* Its name only where it is not its folder's, unless that leaves the line empty. */}
           {label !== node.name || node.version === undefined ? (
             <span className="min-w-0 truncate">{label}</span>
           ) : null}
@@ -455,12 +397,6 @@ function Name({ node, tone }: { node: TreeNode; tone: Tone }) {
   );
 }
 
-/**
- * Beside a folder holding folders: one press opens everything inside it,
- * or, when all of it is open, closes every folder inside it, the folder
- * itself staying open. Shown on hover and on the selection, and always,
- * faintly, on a phone, where there is no hover.
- */
 function InsideToggle({
   node,
   open,
@@ -499,19 +435,12 @@ function InsideToggle({
   );
 }
 
-/** Whether a row has anything wrong, or a Check, to mark. */
 const marked = (violations: number, cycle: boolean, check: Check | null) =>
   violations > 0 || cycle || (check !== null && check._tag !== 'Unchecked');
 
 const plural = (count: number, one: string, many: string) =>
   `${count} ${count === 1 ? one : many}`;
 
-/**
- * What is wrong in a row, in the broken colour. A Package shows its
- * Check, as every list of Packages does, and a warning when it is in a
- * cycle. A folder or a file shows how many Violations it holds, beside
- * a warning, and a warning when it holds a Package cycle.
- */
 function Findings({
   node,
   violations,
@@ -583,7 +512,6 @@ function RevealChip({
 }) {
   if (connection === null) return null;
   const { uses, usedBy, broken } = connection;
-  // A broken link is already the row's colour; the counts stay in theirs.
   const parts = [
     uses > 0 ? `uses ${uses}` : null,
     usedBy > 0 ? `used by ${usedBy}` : null,

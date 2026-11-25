@@ -6,12 +6,6 @@ import { describe, expect, test } from 'vitest';
 
 import { runEngine, runningEngines } from '../real/engine.js';
 
-/*
- * The engine's worker threads, on this repository, whose whole import
- * graph takes the engine over a second: a few run at once, and a request
- * given up stops its worker.
- */
-
 const root = execFileSync('git', ['rev-parse', '--show-toplevel'], {
   encoding: 'utf8',
 }).trim();
@@ -51,7 +45,6 @@ describe('the engine in a worker thread', () => {
     await Effect.runPromise(Fiber.interruptAll(fibers));
     await until(() => runningEngines() === 0);
     expect(runningEngines()).toBe(0);
-    // Stopped, not left to finish their second and more of work.
     expect(performance.now() - given).toBeLessThan(600);
   }, 20_000);
 });

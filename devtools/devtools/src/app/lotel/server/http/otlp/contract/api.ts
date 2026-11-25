@@ -6,12 +6,6 @@ import type {
   ExportTraceServiceRequest,
 } from './otlp.js';
 
-/*
- * The OTLP/HTTP API any OpenTelemetry exporter posts JSON to:
- * `POST /v1/traces` and `POST /v1/logs`, each answered with OTLP's partial
- * success.
- */
-
 export const ExportTraceServiceRequestSchema =
   ESchema.fromType<ExportTraceServiceRequest>();
 

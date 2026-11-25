@@ -10,13 +10,6 @@ import {
 import { settingsTrigger } from '../../../../../view/shared/index.js';
 import { setDiffOptions, useDiffOptions } from './diff-options.js';
 
-/*
- * How a diff reads, three buttons in its own header, each a press to turn
- * on and a press to turn off: every folded region open or folded again,
- * long lines wrapped, and one column or two (a phone always reads one).
- * The browser keeps them for every diff.
- */
-
 export function DiffToggles() {
   const options = useDiffOptions();
   return (
@@ -47,7 +40,6 @@ export function DiffToggles() {
   );
 }
 
-/** One press turns it on, the next off; on, it reads as pressed. */
 function Toggle({
   icon: Icon,
   label,
@@ -57,7 +49,6 @@ function Toggle({
 }: {
   icon: ComponentType<{ className?: string }>;
   label: string;
-  /** On or off; none for a button that names what it does next. */
   pressed?: boolean;
   className?: string;
   onPress: () => void;

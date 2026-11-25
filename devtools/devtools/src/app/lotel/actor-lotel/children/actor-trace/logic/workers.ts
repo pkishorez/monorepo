@@ -4,8 +4,6 @@ import { Telemetry } from '../../../../services/telemetry/contract/index.js';
 import type { Live } from '../../../../services/telemetry/contract/index.js';
 import type { TraceShape } from './shared/index.js';
 
-// 1. Watch
-/** The same Spans as before, each the very same, so nothing new is Sent. */
 const sameLive = (left: Live, right: Live) =>
   left.ready === right.ready &&
   left.spans.length === right.spans.length &&

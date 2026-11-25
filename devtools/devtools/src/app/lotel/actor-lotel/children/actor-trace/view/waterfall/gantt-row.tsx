@@ -26,7 +26,6 @@ interface GanttRowProps {
   minWidthPct?: number;
   onClick: () => void;
   onToggleChildren: () => void;
-  /** Whether log rows are currently rendered in the tree (global toggle). */
   logsVisible?: boolean;
   nameColWidth?: number;
   selectedLog?: OtelEvent | null;
@@ -47,11 +46,7 @@ export function GanttRow({
 }: GanttRowProps) {
   const { span, depth, startPct, widthPct, collapsed, hiddenCount } = row;
   const logs = span.events.filter(isLog);
-  // The bar is only as wide as its pixel minimum — dim it so a clamped sliver
-  // reads as "too short to scale" rather than a real duration.
   const atMinWidth = minWidthPct > 0 && widthPct < minWidthPct;
-  // Keep that minimum-width bar fully inside the column instead of letting it
-  // overflow the right edge (which clips it back down to a sliver).
   const effWidthPct = Math.max(widthPct, minWidthPct);
   const leftPct =
     minWidthPct > 0
@@ -74,7 +69,6 @@ export function GanttRow({
       )}
       style={{ minHeight: `${ROW_HEIGHT_PX}px` }}
     >
-      {/* Name column — indented by depth, comfortable left/right padding */}
       <div
         className="flex shrink-0 items-center gap-1.5 overflow-hidden border-r border-border/30"
         style={{
@@ -135,13 +129,7 @@ export function GanttRow({
         </span>
       </div>
 
-      {/* Bar column outer — flex-1, clips overflow */}
       <div className="flex-1 overflow-hidden">
-        {/*
-         * Inner positioned container with the same horizontal inset as the header ticks.
-         * Using margin (not padding) so absolute children use this element's
-         * narrower width as their percentage reference — aligning with the tick marks.
-         */}
         <div
           style={{
             position: 'relative',

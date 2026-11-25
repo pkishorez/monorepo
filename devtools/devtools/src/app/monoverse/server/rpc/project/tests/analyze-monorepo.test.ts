@@ -8,7 +8,6 @@ import { describe, expect, test } from 'vitest';
 import { openSnapshot } from '../../../tests/services.js';
 import { analyzeMonorepo } from '../real/workspace/analyze-monorepo.js';
 
-// The folder `root` as it is on disk, read as a Workspace.
 const analyze = (root: string) =>
   Effect.flatMap(openSnapshot(root, null), (snapshot) =>
     Effect.flatMap(

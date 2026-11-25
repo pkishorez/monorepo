@@ -5,21 +5,12 @@ import type { GitShape } from '../../git/contract/index.js';
 import type { Snapshot } from '../contract/index.js';
 import { commitFolder } from './commit-copy.js';
 
-/*
- * A Project read from git at one commit, nothing checked out: the file list
- * from `git ls-tree`, the contents from `git cat-file --batch`, many files
- * in one process. A commit never changes, so its file list and the blobs
- * read are kept, a few commits and a bounded number of bytes, and so is
- * its copy on disk, once something asks for one: the whole commit, so
- * what sits above the Project folder (a root tsconfig, package.json or
- * node_modules) is there as it is on disk.
- */
-
-/** One file of a commit: its blob, and whether it is a symbolic link. */
 type Entry = { readonly blob: string; readonly link: boolean };
 
-/** Each file of a commit under a folder, by path. */
 type Tree = ReadonlyMap<string, Entry>;
+
+const gitSymlinkMode = '120000';
+const detachedCopy = (view: Uint8Array): Uint8Array => new Uint8Array(view);
 
 const keptTrees = 8;
 const trees = new Map<string, Promise<Tree>>();
@@ -28,10 +19,6 @@ const keptBytes = 64 * 1024 * 1024;
 const blobs = new Map<string, Uint8Array>();
 let blobBytes = 0;
 
-/**
- * The Project at `root`, `prefix` inside the repository at `toplevel`, as
- * `commit` has it; its copy on disk goes in `copies`.
- */
 export function gitSnapshot(
   git: GitShape,
   options: {
@@ -73,7 +60,6 @@ export function gitSnapshot(
   };
 }
 
-/** The bytes of each of `paths` in `files`; one it lacks is left out. */
 async function readFrom(
   toplevel: string,
   files: Tree,
@@ -102,7 +88,6 @@ function treeOf(
   const key = `${toplevel}\0${commit}\0${prefix}`;
   const kept = trees.get(key);
   if (kept !== undefined) {
-    // Most recently used last.
     trees.delete(key);
     trees.set(key, kept);
     return kept;
@@ -114,8 +99,6 @@ function treeOf(
   return loading;
 }
 
-// `<mode> SP <type> SP <object> TAB <path>`, NUL-terminated; only blobs are
-// files (a submodule is a commit).
 async function listTree(
   git: GitShape,
   toplevel: string,
@@ -142,15 +125,13 @@ async function listTree(
     if (type !== 'blob' || object === undefined) continue;
     entries.push([
       record.slice(tab + 1).slice(strip),
-      // A symbolic link's blob is where it points.
-      { blob: object, link: mode === '120000' },
+      { blob: object, link: mode === gitSymlinkMode },
     ]);
   }
   entries.sort(([left], [right]) => left.localeCompare(right));
   return new Map(entries);
 }
 
-/** The contents of `objects`, kept ones from memory, the rest in one batch. */
 async function readBlobs(
   toplevel: string,
   objects: ReadonlyArray<string>,
@@ -181,10 +162,6 @@ function keep(object: string, bytes: Uint8Array) {
   }
 }
 
-/**
- * Runs one `git cat-file --batch` for every object: each answer is
- * `<object> <type> <size>\n<bytes>\n`, or `<object> missing\n`.
- */
 export function catFileBatch(
   cwd: string,
   objects: ReadonlyArray<string>,
@@ -224,8 +201,7 @@ function parseBatch(output: Buffer): ReadonlyMap<string, Uint8Array> {
     at = end + 1;
     if (type === 'missing' || size === undefined) continue;
     const length = Number(size);
-    // A copy, so a kept blob does not hold the whole batch's output.
-    found.set(object, new Uint8Array(output.subarray(at, at + length)));
+    found.set(object, detachedCopy(output.subarray(at, at + length)));
     at += length + 1;
   }
   return found;

@@ -3,7 +3,6 @@ import type { OtelSpan } from '../../../../services/telemetry/contract/index.js'
 import { TraceDock, type TraceDockSettings } from './trace-dock';
 
 const spans: OtelSpan[] = [
-  // Trace 1: successful POST request with nested spans
   {
     traceId: 'abc123',
     spanId: 's1',
@@ -75,7 +74,6 @@ const spans: OtelSpan[] = [
     ],
   },
 
-  // Trace 2: failed GET with nested error
   {
     traceId: 'def456',
     spanId: 's5',
@@ -133,7 +131,6 @@ const spans: OtelSpan[] = [
     ],
   },
 
-  // Trace 3: in-progress background job
   {
     traceId: 'ghi789',
     spanId: 's8',
@@ -175,7 +172,6 @@ const spans: OtelSpan[] = [
     events: [],
   },
 
-  // Trace 4: unset status, no attributes/events
   {
     traceId: 'jkl000',
     spanId: 's11',

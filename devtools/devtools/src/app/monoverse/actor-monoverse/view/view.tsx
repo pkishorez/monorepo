@@ -10,16 +10,8 @@ import {
 import type { MonoverseShape } from '../logic/shared/index.js';
 import { Opening } from './shared/index.js';
 
-/*
- * Monoverse drawn: with no project, the picker alone in the middle of the
- * page. With one, the project, the picker opening over it from the
- * project's crumb.
- */
-
 type BodyProps = ViewPropsOf<typeof MonoverseShape> & {
-  /** The picker, while it is open: the page, or a dialog over the project. */
   readonly picker: ReactNode;
-  /** The project open, in its State. */
   readonly project: ReactNode;
 };
 

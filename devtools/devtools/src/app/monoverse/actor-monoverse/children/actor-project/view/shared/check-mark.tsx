@@ -6,14 +6,6 @@ import {
 
 import type { Check } from '../../logic/shared/index.js';
 
-/*
- * A Package's Check at the end of its row, wherever a Package is listed:
- * how many Violations its monoverse.json finds, in red beside a warning;
- * a warning when that file cannot be read; a quiet shield when it finds
- * none. Nothing for a Package without one.
- */
-
-/** The red of something broken, darker in light mode so it reads as text. */
 const broken = 'text-[oklch(0.56_0.21_27)] dark:text-[oklch(0.7_0.18_24)]';
 
 export function CheckMark({ check }: { check: Check | undefined }) {

@@ -23,7 +23,6 @@ export const Monoverse = MonoverseShape.build({
   on: updates,
   workers,
   children: {
-    // 2. Pick
     picker: Actor.child(ProjectPicker, {
       while: isPicking,
       key: pickerKey,
@@ -36,7 +35,6 @@ export const Monoverse = MonoverseShape.build({
     }),
   },
   states: {
-    // 3. Show: a Project of its own for each project open.
     Showing: {
       children: {
         project: Actor.child(Project, {

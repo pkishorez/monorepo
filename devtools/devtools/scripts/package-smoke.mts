@@ -33,7 +33,6 @@ try {
     endpoints: Record<string, string>;
   };
   assert.deepEqual(about, { name: 'devtools', version });
-  // The app's own endpoints, exactly; each Tool's, as its server door says.
   assert.deepEqual(
     {
       '/': endpoints['/'],
@@ -94,7 +93,6 @@ try {
     403,
   );
   assert.equal(await statusWithHost(`${origin}/health`, 'example.test'), 403);
-  // DevTools opened at `localhost`: its page's own origin, trusted as 127.0.0.1's.
   assert.equal(
     (
       await fetch(`${origin}/health`, {
@@ -147,7 +145,6 @@ try {
     dialing.headers.get('access-control-allow-private-network'),
     'true',
   );
-  // Monoverse checks a Package in its engine's worker, shipped beside the CLI.
   const project = path.join(testRoot, 'project');
   for (const [file, text] of Object.entries({
     'package.json': '{"name":"smoke"}',

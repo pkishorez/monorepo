@@ -4,37 +4,19 @@ import { type Directive, type Statement, parseSync } from 'oxc-parser';
 import { ResolverFactory } from 'oxc-resolver';
 import { type Export, exportsOf } from '../shared/contracts/index.ts';
 
-/*
- * One project's files as the rules read them: each parsed once, and each
- * import resolved once, as TypeScript and Node resolve it on the disk:
- * relative paths, `.js` written for `.ts`, folder index files, tsconfig
- * `paths` (with `extends` and `references`), package.json `imports`
- * (`#name`), and a package naming itself. Only a file the project lists
- * is a target.
- */
-
-/** A folder on disk, and the files in it to read. */
 export interface Project {
-  /** The folder, absolute. */
   readonly root: string;
-  /** Its files, relative to `root`, `/` between folders. */
   readonly files: readonly string[];
-  /** A file's text, when the disk is not where it is read from. */
   readonly read?: (file: string) => string | undefined;
 }
 
-/** One import a file makes. */
 export interface Import {
-  /** As written: `./part.ts`, `#lib/x`, `react`. */
   readonly specifier: string;
-  /** The project file it names, relative to the root; absent when none does. */
   readonly target?: string;
-  /** Where the specifier starts, both 1-based. */
   readonly line: number;
   readonly column: number;
 }
 
-/** The extensions of the files the rules read. */
 export const sourceExtensions = [
   '.ts',
   '.tsx',
@@ -46,32 +28,24 @@ export const sourceExtensions = [
   '.cjs',
 ] as const;
 
-/** Whether `file` is one the rules read: by its extension. */
 export const isSource = (file: string): boolean =>
   sourceExtensions.some((extension) => file.endsWith(extension));
 
-/** A file read and parsed. */
 export interface Parsed {
-  /** What it exports, as the contracts rule reads it. */
   readonly exports: readonly Export[];
   readonly imports: readonly Import[];
-  /** The 1-based line and column of an offset in the file's text. */
   readonly at: (offset: number) => {
     readonly line: number;
     readonly column: number;
   };
 }
 
-/** A project's files, each read and parsed once, on first ask. */
 export interface Sources {
   readonly files: ReadonlySet<string>;
-  /** A file's text; undefined when it cannot be read. */
   readonly read: (file: string) => string | undefined;
-  /** A source file read and parsed; undefined when it cannot be read. */
   readonly parse: (file: string) => Parsed | undefined;
 }
 
-/** The Sources of `project`, with one resolver for all of them. */
 export const sourcesOf = (project: Project): Sources => {
   const files = new Set(project.files);
   const root = project.root;
@@ -95,10 +69,7 @@ export const sourcesOf = (project: Project): Sources => {
     conditionNames: ['node', 'import'],
   };
   const resolver = new ResolverFactory({ ...options, tsconfig: 'auto' });
-  // A tsconfig that cannot be read, such as one extending a package not
-  // installed, fails every import below it; those are followed without it.
   const plain = new ResolverFactory(options);
-  // The resolver answers with real paths, so the root is read as one too.
   const real = realRoot(root);
   const target = (file: string, specifier: string): string | undefined => {
     const from = join(real, file);
@@ -152,9 +123,6 @@ const parse = (
     return { line: low + 1, column: offset - (starts[low] ?? 0) + 1 };
   };
 
-  // Each statement counts once, however many names it brings, and
-  // `export {} from './x'`, which brings none, counts too, as do those
-  // inside `declare module '…' {}`, `declare global {}` and namespaces.
   const requests: Array<{
     readonly specifier: string;
     readonly start: number;
@@ -199,10 +167,6 @@ const parse = (
   return { imports, exports: exportsOf(program), at };
 };
 
-/**
- * The text an `import()` argument holds when it is one string literal,
- * or a template literal with no `${}`: `'./a.ts'`, not `'./a/' + n`.
- */
 const literalOf = (argument: string): string | undefined => {
   if (!/^['"`]/.test(argument)) return undefined;
   const [statement] = parseSync('argument.js', `(${argument});`, {

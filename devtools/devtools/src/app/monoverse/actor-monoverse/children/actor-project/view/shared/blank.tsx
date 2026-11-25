@@ -4,12 +4,6 @@ import type { ReactNode } from 'react';
 
 import { shortenHome } from '../../../../../server/rpc/contract/index.js';
 
-/*
- * What a project shows where its tree cannot be drawn, and while a tree
- * already drawn is read again.
- */
-
-/** Why something could not be read, and what to do next. */
 export function Problem({
   title,
   problem,
@@ -49,7 +43,6 @@ export function Problem({
   );
 }
 
-/** A tree on screen being read again, at another branch: a quiet note over its corner. */
 export function Rereading({ children }: { children: ReactNode }) {
   return (
     <div className="pointer-events-none absolute top-3 left-3 z-10 flex items-center gap-2 rounded-full bg-popover/90 px-2.5 py-1 text-xs text-muted-foreground shadow-sm ring-1 ring-border/60 backdrop-blur-sm">

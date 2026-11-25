@@ -15,10 +15,7 @@ export const init: InitOf<typeof ViewerShape> = ({
       : { ...open, selected: null, showing: false, closed: [] },
 });
 
-// The list's rules hold only while a folder is open; a file alone has none.
-
 export const updates: UpdatesOf<typeof ViewerShape> = {
-  // 3. Show
   Selected: ({ path }, { state }) =>
     state._tag === 'Folder'
       ? { state: { ...state, selected: path, showing: true } }
@@ -31,12 +28,10 @@ export const updates: UpdatesOf<typeof ViewerShape> = {
       state: {
         ...state,
         selected: next,
-        // The folders holding it open, so the list shows it.
         closed: state.closed.filter((folder) => !isWithin(next, folder)),
       },
     };
   },
-  // 2. List
   FolderToggled: ({ path }, { state }) =>
     state._tag === 'Folder'
       ? {
@@ -70,7 +65,6 @@ export const updates: UpdatesOf<typeof ViewerShape> = {
     } else for (const one of inside) closed.add(one);
     return { state: { ...state, closed: [...closed] } };
   },
-  // 2. List: the settings are the holder's to change.
   UnchangedChosen: ({ unchanged }) => ({
     emit: { _tag: 'UnchangedChosen', unchanged },
   }),
@@ -78,6 +72,5 @@ export const updates: UpdatesOf<typeof ViewerShape> = {
   IgnoredToggled: () => ({ emit: { _tag: 'IgnoredToggled' } }),
   WentBack: (_, { state }) =>
     state._tag === 'Folder' ? { state: { ...state, showing: false } } : {},
-  // 1. File, 4. Close
   Closed: () => ({ emit: { _tag: 'Closed' } }),
 };

@@ -24,18 +24,12 @@ const ReadFileError = Schema.Union([
   GitUnavailableError,
 ]);
 
-/**
- * Git's answers about a Project: its branches, what a branch changed
- * since it left another, and one file as a branch has it. Every path is
- * relative to the root.
- */
 export const GitRpc = RpcGroup.make(
   Rpc.make('GetBranches', {
     payload: { root: Schema.String },
     success: BranchesSchema,
     error: GitError,
   }),
-  /** What `branch` changed since it left `base`. */
   Rpc.make('GetChanges', {
     payload: { ...At, base: Schema.String },
     success: ChangeSetSchema,
@@ -46,7 +40,6 @@ export const GitRpc = RpcGroup.make(
     success: FileDiffSchema,
     error: GitError,
   }),
-  /** One file of the Project at a branch, by its root-relative path. */
   Rpc.make('ReadFile', {
     payload: { ...At, path: Schema.String },
     success: FileContentSchema,

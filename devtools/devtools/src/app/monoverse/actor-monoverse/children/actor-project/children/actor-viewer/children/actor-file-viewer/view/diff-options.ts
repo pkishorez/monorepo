@@ -4,12 +4,6 @@ import {
   type DiffOptions,
 } from '@kestack/web-platform/ui/viewers/diff-viewer';
 
-/*
- * How a diff is read, kept by the browser for every file alike: one file
- * opens as the last was left, and the next time Monoverse opens too. A
- * view's preference, so no Actor holds it.
- */
-
 const key = 'monoverse:diff-options';
 const initial: DiffOptions = {
   ...defaultDiffOptions,
@@ -28,17 +22,18 @@ const stored = (): DiffOptions => {
   }
 };
 
+const keepIfTheBrowserAllows = (options: DiffOptions) => {
+  try {
+    globalThis.localStorage?.setItem(key, JSON.stringify(options));
+  } catch {}
+};
+
 let current = stored();
 const listeners = new Set<() => void>();
 
-/** Sets some of the options, keeping the rest. */
 export function setDiffOptions(next: Partial<DiffOptions>): void {
   current = { ...current, ...next };
-  try {
-    globalThis.localStorage?.setItem(key, JSON.stringify(current));
-  } catch {
-    // A browser that keeps nothing still reads this session's options.
-  }
+  keepIfTheBrowserAllows(current);
   for (const listener of listeners) listener();
 }
 

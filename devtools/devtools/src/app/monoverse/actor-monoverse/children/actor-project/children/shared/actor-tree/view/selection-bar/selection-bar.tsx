@@ -17,22 +17,6 @@ import {
 import type { TreeNode } from '../../logic/shared/index.js';
 import type { Connection, Finding } from '../../logic/shared/index.js';
 
-/*
- * What is selected, and what to do with it, in a bar docked
- * along the bottom of the tree: the only way in on a touch screen, where
- * a double tap is no double click, and the way that shows itself
- * everywhere else. With nothing selected it stands for the whole tree,
- * the repository or the Package, and can be viewed the same way. A
- * Package of the repository has a second button beside Open package: View
- * changes, what the branch changed in it, without going in. Its
- * counts are what the selection connects to, coloured as the tree draws
- * them, so it is the key to those colours too; the whole tree has none.
- * What is wrong with the selection is one more count, in the broken
- * colour, that opens a list of each finding and what to do about it.
- * On a wide screen it is a card in the side panel instead, its buttons
- * one under the other.
- */
-
 export interface SelectionColours {
   readonly uses: string;
   readonly usedBy: string;
@@ -41,7 +25,6 @@ export interface SelectionColours {
 
 const iconOf = { folder: FolderIcon, file: FileIcon, package: PackageIcon };
 
-/** The bar's one button, by what it stands for. */
 export function selectionAction(
   node: Pick<TreeNode, 'kind'>,
   changesOn: boolean,
@@ -65,22 +48,15 @@ export function SelectionBar({
   panel = false,
 }: {
   scope: 'repo' | 'package';
-  /** What is selected, or the tree's root with nothing selected. */
   node: TreeNode;
-  /** Nothing is selected: `node` is the whole tree. */
   root: boolean;
-  /** Whether Changes is on: a folder is viewed for what changed in it. */
   changesOn: boolean;
   connections: ReadonlyMap<string, Connection>;
-  /** What is wrong with the selection: Violations, or in the repo, cycle links too. */
   findings: ReadonlyArray<Finding>;
   colours: SelectionColours;
-  /** Views it: a file or a folder in the Viewer, a Package in its view. */
   onActivate: () => void;
-  /** Views what the branch changed in a Package, from the repository's tree. */
   onChanges?: (() => void) | undefined;
   onClear: () => void;
-  /** Drawn in a wide screen's side panel, not docked over the tree. */
   panel?: boolean;
 }) {
   let uses = 0;
@@ -100,7 +76,6 @@ export function SelectionBar({
       : PackageIcon
     : iconOf[node.kind];
   const label = node.label ?? node.name;
-  // Two buttons leave a phone room for the counts' colours, not their words.
   const compact = onChanges !== undefined && !panel;
   const counts = (
     <>
@@ -126,8 +101,6 @@ export function SelectionBar({
     </>
   );
 
-  // One height whatever is selected, nothing or a Package with two
-  // buttons, so the panel around it never moves.
   if (panel)
     return (
       <div
@@ -175,8 +148,6 @@ export function SelectionBar({
             onChanges === undefined ? 'grid-cols-1' : 'grid-cols-2',
           )}
         >
-          {/* With nothing selected, a quiet way into the whole tree; a
-              selection's own action is the one filled button in view. */}
           <Button
             size="sm"
             variant={root ? 'outline' : 'default'}
@@ -205,10 +176,8 @@ export function SelectionBar({
       role="region"
       aria-label="Selection"
       className={cn(
-        // Phones: docked along the bottom of the tree.
         'absolute inset-x-0 bottom-0 z-10 flex items-center gap-3 border-t border-border/70 bg-background/95 py-2 pr-2 pl-4 backdrop-blur-md',
         'pb-[max(0.5rem,env(safe-area-inset-bottom))]',
-        // Wider screens: one pill, centred at the bottom.
         'sm:right-auto sm:bottom-4 sm:left-1/2 sm:w-max sm:max-w-[min(48rem,calc(100%-2rem))] sm:-translate-x-1/2 sm:gap-4 sm:rounded-xl sm:border-t-0 sm:py-1.5 sm:pr-1.5 sm:pl-4',
         'sm:shadow-[0_0_0_1px_var(--color-border),0_8px_24px_-8px_rgb(0_0_0/0.3),0_2px_6px_-2px_rgb(0_0_0/0.15)]',
       )}
@@ -267,11 +236,6 @@ export function SelectionBar({
   );
 }
 
-/**
- * How many things are wrong with the selection, as a button that lists
- * each: what `monoverse lint` says of it, and where, named from its
- * Package, at its line and column.
- */
 function FindingList({
   findings,
   scope,
@@ -302,7 +266,6 @@ function FindingList({
         <ul className="flex flex-col">
           {findings.map(({ message, where }, index) => (
             <li
-              // Two imports of one file are two findings, alike but for their place.
               key={`${index}\0${where}`}
               className="flex flex-col gap-1 rounded-md px-2.5 py-2 text-xs"
             >
@@ -318,7 +281,6 @@ function FindingList({
   );
 }
 
-/** A button's words, shorter on a phone, where two buttons share the bar. */
 function Short({ wide, narrow }: { wide: string; narrow: string }) {
   return (
     <>
@@ -337,7 +299,6 @@ function Count({
   colour: string;
   label: string;
   value: number;
-  /** Its words for assistive technology only, on a phone. */
   compact: boolean;
 }) {
   return (

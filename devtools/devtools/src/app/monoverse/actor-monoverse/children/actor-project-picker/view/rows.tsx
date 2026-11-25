@@ -9,19 +9,8 @@ import {
 import { memo, type MouseEvent } from 'react';
 import type { Kind, Ranked, Row } from '../logic/shared/index.js';
 
-/*
- * One row of the list, as an option of its listbox: the search field keeps
- * the keys, and the row highlighted is lit. A Project shows its name over
- * its folder, `~`-shortened, with a quiet mark on the one open now and a
- * button that removes it from the list, shown on the row highlighted or
- * hovered, and always to a finger. "Open a folder…" is the action that
- * adds one. A folder shows what it would open as, and a chevron saying
- * Enter goes into it.
- */
-
 const keepFocus = (event: MouseEvent) => event.preventDefault();
 
-/** What a folder would open as, quietly; nothing for a plain folder. */
 export function KindTag({ kind }: { readonly kind: Kind }) {
   if (kind === null) return null;
   return (
@@ -152,7 +141,6 @@ export const Option = memo(function Option({
   );
 });
 
-/** The label, its matching letters lit and the rest quieter, while searching. */
 function Lit({
   text,
   matched,

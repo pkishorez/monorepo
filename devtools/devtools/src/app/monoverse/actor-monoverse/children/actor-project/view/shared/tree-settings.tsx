@@ -18,16 +18,7 @@ import {
 import { usePhone } from './screen.js';
 import type { Unchanged } from '../../../../logic/shared/index.js';
 
-/*
- * What a file tree draws, the same wherever one is drawn, the tree or a
- * folder looked into: a Package's ignored files, and while Changes is on,
- * what the branch left unchanged (shown, dimmed or hidden) and what it
- * deleted. Compact rows in a popover on a wide screen; a thumb's height
- * each in a phone's sheet.
- */
-
 export interface TreeSettingsProps {
-  /** Changes is on: what it left unchanged and deleted can be chosen. */
   readonly changesOn: boolean;
   readonly unchanged: Unchanged;
   readonly deleted: boolean;
@@ -37,7 +28,6 @@ export interface TreeSettingsProps {
   readonly onIgnored: () => void;
 }
 
-/** The three ways what the branch left unchanged is drawn, as offered. */
 const unchangedChoices: ReadonlyArray<{
   value: Unchanged;
   label: string;
@@ -47,20 +37,14 @@ const unchangedChoices: ReadonlyArray<{
   { value: 'hide', label: 'Hide' },
 ];
 
-/** What an ignored file is, in a few words. */
 const ignoredHint = "A Package's files outside its source roots";
 
-/** The settings as rows: compact for a popover, a thumb's height each for a sheet. */
 export function TreeSettingsRows({
   sheet,
   keep = false,
   ...props
 }: TreeSettingsProps & {
   sheet: boolean;
-  /**
-   * Always drawn, as in a side panel: while Changes is off its own rows
-   * stay, greyed and out of reach, so nothing below them moves.
-   */
   keep?: boolean;
 }) {
   const divider = (
@@ -135,13 +119,11 @@ export function TreeSettingsRows({
   );
 }
 
-/** The settings behind the sliders: a popover on a wide screen, a sheet on a phone. */
 export function TreeSettings({
   icon,
   label = 'View settings',
   ...props
 }: TreeSettingsProps & {
-  /** What the button shows in place of the sliders: a spinner, say. */
   icon?: ReactNode;
   label?: string;
 }) {
@@ -168,7 +150,6 @@ export function TreeSettings({
   );
 }
 
-/** One switch, its label the whole row. */
 function SwitchRow({
   label,
   title,

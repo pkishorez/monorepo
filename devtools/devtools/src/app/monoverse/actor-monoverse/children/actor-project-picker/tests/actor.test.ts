@@ -22,13 +22,6 @@ import {
   type Model,
 } from '../logic/shared/index.js';
 
-/*
- * The Project Picker in memory, on a Projects service that answers what
- * the test says, mounted by a host that keeps what it Emits: a recent
- * Project picked opens, the folders are walked from home and back, a typed
- * path goes there, a chosen folder is added and opens, a Project is removed.
- */
-
 const Host = Actor.define('Host', {
   model: Schema.Struct({
     picked: Schema.Array(ProjectEntrySchema),
@@ -77,7 +70,6 @@ const folder = (
   kind: Folder['kind'] = null,
 ): Folder => ({ name, path: `${parent}/${name}`, link: false, kind });
 
-/** The folders under home, by folder. */
 const disk: Record<string, ReadonlyArray<Folder>> = {
   [HOME]: [
     folder(HOME, 'code'),
@@ -125,7 +117,6 @@ const listFolders = ({
   return Effect.succeed(listing);
 };
 
-/** The service as the test says: anything it does not say never answers. */
 const server = (asked: Asked, projects: Array<ProjectEntry>) => {
   const answers: Record<
     string,
@@ -173,9 +164,7 @@ const picker = (app: App) =>
 const send = (
   app: App,
   message: { readonly _tag: string; readonly [field: string]: unknown },
-) =>
-  // oxlint-disable-next-line typescript/no-explicit-any -- the Picker's Messages
-  app.at(picker(app).address)!.send(message as any);
+) => app.at(picker(app).address)!.send(message as any);
 const shown = (app: App) => shownOf(picker(app).model, 'k');
 const labels = (app: App) => shown(app).rows.map(({ label }) => label);
 const host = (app: App) => app.snapshot.root.model;
@@ -217,7 +206,6 @@ describe('ProjectPicker', () => {
         const app = yield* start(asked);
         yield* wait();
         send(app, { _tag: 'Picked', value: OPEN_FOLDER });
-        // Home was read ahead: no waiting for it.
         expect(labels(app)).toEqual(['code', 'notes']);
         send(app, { _tag: 'Picked', value: `${HOME}/code` });
         yield* wait();
@@ -243,7 +231,6 @@ describe('ProjectPicker', () => {
         const app = yield* start();
         yield* wait();
         send(app, { _tag: 'Typed', query: '~/code/fo' });
-        // A path goes to a folder first, before the Project it names.
         expect(picker(app).model.highlighted).toBe(OPEN_FOLDER);
         send(app, { _tag: 'Picked', value: OPEN_FOLDER });
         yield* wait(250);
@@ -255,7 +242,6 @@ describe('ProjectPicker', () => {
         expect(model.folders.at(-1)?.query).toBe('fo');
         expect(labels(app)).toEqual(['foo', 'food']);
         expect(model.folders.at(-1)?.highlighted).toBe(`${HOME}/code/foo`);
-        // `..` goes back up.
         send(app, { _tag: 'Typed', query: '../no' });
         expect(
           picker(app).model.folders.map(({ segments }) => segments),
@@ -290,7 +276,6 @@ describe('ProjectPicker', () => {
         send(app, { _tag: 'Typed', query: '~/code/' });
         send(app, { _tag: 'Picked', value: OPEN_FOLDER });
         yield* wait();
-        // Mod+Enter on a row: that folder.
         send(app, { _tag: 'Chose', on: `${HOME}/code/foo` });
         yield* wait();
         expect(asked).toContainEqual({
@@ -300,7 +285,6 @@ describe('ProjectPicker', () => {
         expect(host(app).picked).toMatchObject([
           { id: 'new', path: `${HOME}/code/foo` },
         ]);
-        // "Open this folder": the folder open.
         send(app, { _tag: 'Chose', on: null });
         yield* wait();
         expect(host(app).picked.at(-1)).toMatchObject({
@@ -318,7 +302,6 @@ describe('ProjectPicker', () => {
         send(app, { _tag: 'Picked', value: OPEN_FOLDER });
         yield* wait();
         expect(shown(app).problem).toBe('Not found');
-        // A folder that cannot be read cannot be chosen.
         expect(shown(app).where?.path).toBeNull();
         send(app, { _tag: 'Chose', on: null });
         expect(picker(app).model.adding).toBeNull();

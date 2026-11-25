@@ -3,9 +3,6 @@ import type { DataOf } from '@kestack/kabuki/types';
 import { foldersHolding } from '../../../logic/shared/index.js';
 import type { PackageShape } from './shared/index.js';
 
-// 2. Show
-
-/** The tree's Input: the Source roots open. */
 export const treeInput = ({
   state,
 }: DataOf<typeof PackageShape, 'Contents'>) => ({
@@ -19,7 +16,6 @@ export const treeInput = ({
   ],
 });
 
-/** The tree's Props: the Package's files, its imports as links, its Violations broken. */
 export const treeProps = ({
   model,
   props,

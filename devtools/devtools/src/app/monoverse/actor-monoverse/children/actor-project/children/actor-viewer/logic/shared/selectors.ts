@@ -11,7 +11,6 @@ import {
   type FolderSettings,
 } from './shape.js';
 
-/** What the list shows, by path, by the settings. */
 export function entriesOf(
   state: FolderState,
   settings: FolderSettings = defaultSettings,
@@ -38,9 +37,6 @@ export function entriesOf(
   return entries.sort((a, b) => a.path.localeCompare(b.path));
 }
 
-// The list with every folder open, worked out once for each list and its
-// settings: every step, and the buttons either side of the file shown,
-// read it, and a Monorepo's list holds thousands of files.
 let lastOpen: {
   readonly key: ReadonlyArray<unknown>;
   readonly files: ReadonlyArray<string>;
@@ -72,19 +68,16 @@ function allOpen(
   return lastOpen;
 }
 
-/** Every file the list shows, in its order with every folder open. */
 export const filesInOrder = (
   state: FolderState,
   settings?: FolderSettings,
 ): ReadonlyArray<string> => allOpen(state, settings).files;
 
-/** Every folder the list can show, by the path of its row. */
 export const foldersOf = (
   state: FolderState,
   settings?: FolderSettings,
 ): ReadonlyArray<string> => allOpen(state, settings).folders;
 
-/** The files a step goes between: the changed ones while Changes is on, else all. */
 export function stepsOf(
   state: FolderState,
   settings?: FolderSettings,
@@ -95,7 +88,6 @@ export function stepsOf(
   return order.filter((path) => changed.has(path));
 }
 
-/** The file shown: the one chosen while the list shows it, else the first step. */
 export function shownOf(
   state: FolderState,
   settings?: FolderSettings,
@@ -106,10 +98,6 @@ export function shownOf(
   return stepsOf(state, settings)[0] ?? order[0] ?? null;
 }
 
-/**
- * The step `by` from the file shown: through the steps, from where it
- * sits in the list's order when it is not one; none past either end.
- */
 export function stepFrom(
   state: FolderState,
   settings: FolderSettings | undefined,
@@ -120,7 +108,6 @@ export function stepFrom(
   if (shown === null || steps.length === 0 || by === 0) return null;
   let at = steps.indexOf(shown);
   if (at === -1) {
-    // Between two steps: the first one past it is a step of one.
     const order = filesInOrder(state, settings);
     const place = order.indexOf(shown);
     const after = steps.findIndex((path) => order.indexOf(path) > place);
@@ -130,13 +117,6 @@ export function stepFrom(
   const next = steps[at + by];
   return next === undefined || next === shown ? null : next;
 }
-
-/*
- * A folder's files as a tree, one row each, as the list draws them:
- * folders first, then files, each by name. A folder holding nothing but
- * one other folder shares its row with it, `src/app`, so a long path takes
- * one row, not one each. A folder takes the colour its changes roll up to.
- */
 
 interface Folder {
   readonly path: string;
@@ -155,7 +135,6 @@ const folder = (path: string, name: string): Folder => ({
 const byName = (a: { name: string }, b: { name: string }) =>
   a.name.localeCompare(b.name);
 
-/** The rows of the files in `base`, those in a closed folder left out. */
 export function fileTreeRows(
   base: string,
   entries: ReadonlyArray<FolderEntry>,

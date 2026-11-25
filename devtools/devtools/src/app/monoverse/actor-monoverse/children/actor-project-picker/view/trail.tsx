@@ -5,17 +5,8 @@ import { Fragment, type MouseEvent } from 'react';
 import type { Kind } from '../logic/shared/index.js';
 import { KindTag } from './rows.js';
 
-/*
- * The Steps so far, above the search: "Projects", then the folders gone
- * into from `~`, each a way back to that Step, with a back button before
- * them. On a folder Step, "Open this folder" chooses the folder open, the
- * one primary action when the folder is a Monorepo or a Package itself.
- */
-
-/** A click that leaves the keys in the search field. */
 export const keepFocus = (event: MouseEvent) => event.preventDefault();
 
-/** Folders shown before the trail folds the middle away. */
 const SHOWN = 4;
 
 export function Trail({
@@ -26,18 +17,14 @@ export function Trail({
   onBackTo,
   onOpen,
 }: {
-  /** The folders below Projects, `~` first; none on Recent. */
   readonly crumbs: ReadonlyArray<string>;
   readonly kind: Kind;
-  /** Whether the folder open can be chosen now. */
   readonly canOpen: boolean;
   readonly onBack: () => void;
-  /** Back to `depth` folder Steps, 0 being Recent. */
   readonly onBackTo: (depth: number) => void;
   readonly onOpen: () => void;
 }) {
   const inFolder = crumbs.length > 0;
-  // Projects, then `~` and the last folders, the ones between folded.
   const all = ['Projects', ...crumbs].map((label, depth) => ({ label, depth }));
   const shown =
     all.length <= SHOWN + 1

@@ -11,14 +11,6 @@ import {
 } from '../index.ts';
 import { workspaceOf } from './workspace.ts';
 
-/*
- * `monoverse lint [--staged]`: checks the packages around the folder it
- * runs in. Inside a package, that package; anywhere else in the
- * repository, every workspace package with a monoverse.json. With
- * `--staged`, only those holding a staged file, each checked whole.
- * Exits 1 on any problem.
- */
-
 const usage = `Usage: monoverse lint [--staged]
 
 Checks each package's imports against its monoverse.json.
@@ -50,8 +42,6 @@ const main = (args: readonly string[]): number => {
     return 2;
   }
   const root = git ?? cwd;
-  // With --staged, the files and their text are the index's, what the
-  // commit will hold; without it, the working tree's.
   const files =
     git === undefined
       ? walk(root)
@@ -103,7 +93,6 @@ const main = (args: readonly string[]): number => {
     const chosen = new Set(scope);
     index = stagedTexts(
       root,
-      // Only what the rules read: source files and each monoverse.json.
       files.filter(
         (file) =>
           (isSource(file) || posix.basename(file) === configFile) &&
@@ -135,7 +124,6 @@ const main = (args: readonly string[]): number => {
   return 1;
 };
 
-/** The lines a package's report prints: `path:line:col  message`. */
 const tell = (
   { result }: PackageReport,
   path: (file: string) => string,
@@ -152,31 +140,25 @@ const tell = (
   }
 };
 
-/**
- * Git hooks set GIT_DIR without GIT_WORK_TREE, and git then takes the
- * current folder as the top of the work tree. Drop it so git finds both
- * from the folder, as it does outside a hook.
- */
-const env = (({ GIT_DIR, ...rest }) =>
+const envWithoutHookGitDir = (({ GIT_DIR, ...rest }) =>
   rest.GIT_WORK_TREE === undefined ? rest : { GIT_DIR, ...rest })(process.env);
 
 const run = (cwd: string, args: readonly string[]): string =>
   execFileSync('git', args, {
     cwd,
-    env,
+    env: envWithoutHookGitDir,
     encoding: 'utf8',
     maxBuffer: 256 * 1024 * 1024,
     stdio: ['ignore', 'pipe', 'ignore'],
   });
 
-/** The staged text of `files`, read with one `git cat-file --batch`. */
 const stagedTexts = (
   root: string,
   files: readonly string[],
 ): ReadonlyMap<string, string> => {
   const output = execFileSync('git', ['cat-file', '--batch'], {
     cwd: root,
-    env,
+    env: envWithoutHookGitDir,
     input: files.map((file) => `:${file}\n`).join(''),
     maxBuffer: 256 * 1024 * 1024,
     stdio: ['pipe', 'pipe', 'ignore'],
@@ -188,7 +170,6 @@ const stagedTexts = (
     if (end === -1) break;
     const header = output.subarray(at, end).toString('utf8');
     at = end + 1;
-    // `<object> <type> <size>` then the content, or `<name> missing`.
     const [, type, size] = /^\S+ (\S+) (\d+)$/.exec(header) ?? [];
     if (size === undefined) continue;
     if (type === 'blob')
@@ -215,7 +196,6 @@ const isFile = (path: string): boolean =>
 const posixPath = (path: string): string =>
   sep === '/' ? path : path.split(sep).join(posix.sep);
 
-/** Every file below `root`, outside git: no node_modules, .git or dist. */
 const walk = (root: string, dir = ''): readonly string[] =>
   readdirSync(join(root, dir), { withFileTypes: true }).flatMap((entry) => {
     const path = joinPath(dir, entry.name);

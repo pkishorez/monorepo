@@ -25,14 +25,6 @@ import { Option } from './rows.js';
 import { Search } from './search.js';
 import { Trail } from './trail.js';
 
-/*
- * The Project Picker as a panel, sized to whatever holds it: the Steps so
- * far, the search, the rows, and the keys at its foot. It draws no surface
- * of its own: the page centres it on one, or a Dialog holds it. Everything
- * it shows is the actor's; the View only says what was typed, pressed or
- * clicked, and keeps the row highlighted in view.
- */
-
 export function Body({
   root,
   model,
@@ -56,7 +48,6 @@ export function Body({
   const optionId = (at: number) => `${id}-option-${at}`;
   const activeAt = shown.rows.findIndex(({ value }) => value === active);
 
-  // Kept in view as the keys move it; a row the mouse lit is in view already.
   const byMouse = useRef(false);
   useEffect(() => {
     if (byMouse.current) {
@@ -103,7 +94,6 @@ export function Body({
         onOpen={() => send({ _tag: 'Chose', on: null })}
       />
       <Search
-        // Each Step has its own field, so its caret starts at its end.
         key={model.folders.length}
         query={query}
         placeholder={shown.placeholder}
@@ -212,7 +202,6 @@ export function Body({
   );
 }
 
-/** What the list says instead of, or above, its rows: why, loading, or nothing matched. */
 function State({
   problem,
   loading,

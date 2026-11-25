@@ -14,13 +14,6 @@ import {
 import { makeClient, protocolAt, type Client } from './client.js';
 import { cycleLinks } from './package-cycles.js';
 
-/*
- * The Projects service on the server's typed client: the analysis gets its
- * Package links and cycles worked out, and every failure becomes one plain
- * sentence. A Package's Violations come checked from the server.
- */
-
-/** Each Package's dependencies, as links between their folders. */
 function packageLinks(workspace: Workspace): ReadonlyArray<Link> {
   const pathOf = new Map(
     workspace.packages.map(({ name, path }) => [name, rootRelative(path)]),
@@ -33,7 +26,6 @@ function packageLinks(workspace: Workspace): ReadonlyArray<Link> {
   );
 }
 
-/** The links that close each Package cycle. */
 function cycleLinksOf(workspace: Workspace): ReadonlyArray<Link> {
   const pathOf = new Map(
     workspace.packages.map(({ name, path }) => [name, rootRelative(path)]),
@@ -44,7 +36,6 @@ function cycleLinksOf(workspace: Workspace): ReadonlyArray<Link> {
   );
 }
 
-/** Whatever the server or the wire failed with, as one sentence. */
 export function problemOf(error: unknown): ProjectsProblem {
   const failed = (message: string) =>
     new ProjectsProblem({ message, reason: 'failed' });
@@ -109,7 +100,6 @@ export function problemOf(error: unknown): ProjectsProblem {
 const plainly = <A, E>(effect: Effect.Effect<A, E>) =>
   effect.pipe(Effect.mapError(problemOf));
 
-/** The service, on a client. */
 export const projectsOn = (client: Client): ProjectsService =>
   Projects.of({
     projects: () => plainly(client.ListProjects()),
@@ -136,7 +126,6 @@ export const projectsOn = (client: Client): ProjectsService =>
       plainly(client.GetFileDiff({ root, branch, base, path })),
   });
 
-/** The service, on the client of the DevTools Server at `origin`. */
 export const projectsLayer = (origin: string) =>
   Layer.effect(Projects, Effect.map(makeClient, projectsOn)).pipe(
     Layer.provide(protocolAt(origin)),

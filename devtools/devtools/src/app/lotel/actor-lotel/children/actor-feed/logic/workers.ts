@@ -14,7 +14,6 @@ const preferencesOf = ({ model }: DataOf<typeof FeedShape>) => ({
 });
 
 export const workers: WorkersOf<typeof FeedShape> = {
-  // 1. Watch
   watch: {
     run: (self) =>
       Effect.gen(function* () {
@@ -26,7 +25,6 @@ export const workers: WorkersOf<typeof FeedShape> = {
         );
       }),
   },
-  // 2. Narrow: the Filters as they were left, then each change kept.
   restore: {
     while: ({ model }) => !model.restored,
     run: (self) =>

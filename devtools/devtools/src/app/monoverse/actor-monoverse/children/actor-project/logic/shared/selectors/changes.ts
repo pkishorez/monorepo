@@ -1,12 +1,5 @@
 import { ancestorsOf } from './paths.js';
 
-/*
- * Git mode's roll-up: a changed file is added, modified or deleted, and a
- * folder (or a Package) takes the colour of what changed inside it: added
- * when everything in it that changed was added, deleted when all of it was
- * deleted, and modified for anything else.
- */
-
 export type ChangeStatus = 'added' | 'modified' | 'deleted';
 
 export interface Change {
@@ -20,7 +13,6 @@ export interface Tally {
   readonly deleted: number;
 }
 
-/** What changed in each path: the file itself, and every folder above it. */
 export function changeTallies(
   changes: ReadonlyArray<Change>,
 ): ReadonlyMap<string, Tally> {
@@ -34,7 +26,6 @@ export function changeTallies(
   return tallies;
 }
 
-/** The one colour a tally rolls up to. */
 export function statusOf(tally: Tally): ChangeStatus {
   const total = tally.added + tally.modified + tally.deleted;
   if (tally.added === total) return 'added';

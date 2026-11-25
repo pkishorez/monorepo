@@ -9,40 +9,19 @@ import {
   relativeTo,
 } from '../tree/index.ts';
 
-/*
- * The contracts rule: a contract folder holds only Effect contexts.
- *
- *   1. Every contract the rule requires is there: with
- *      `services/*\/contract` required, each `services/<name>/` has one.
- *   2. A contract exports, as values, only classes: a `Context.Service`
- *      (or `Context.Reference`), and the errors its Service fails with
- *      (`Data.TaggedError`, `Schema.TaggedError`). Everything else it
- *      exports is a type. It may re-export from its own files.
- */
-
-/** The contracts rule's settings. */
 export interface ContractsRule {
-  /** Contract folders, as paths from the folder that owns them: `services/*\/contract`. */
   readonly folders: readonly string[];
-  /** Of those, the ones that must exist. A capability whose contract a package owns has none. */
   readonly required?: readonly string[];
 }
 
-/** One thing wrong with a file under the contracts rule, at an offset in its text. */
 export interface ContractFinding {
   readonly at: number;
   readonly message: string;
 }
 
-/** What a contract may extend to export a class as a value. */
 const contractClass =
   /^(Context\.(Service|Reference)|Data\.TaggedError|Schema\.TaggedError(Class)?)\b/;
 
-/**
- * What a file exports that the contracts rule asks about: each value it
- * exports other than a contract class, and each module it re-exports
- * values from. Read once from the parse, so the parse need not be kept.
- */
 export type Export =
   | { readonly kind: 'value'; readonly at: number; readonly what: string }
   | {
@@ -51,7 +30,6 @@ export type Export =
       readonly specifier: string;
     };
 
-/** The Exports of a parsed file, in source order. */
 export const exportsOf = (program: Program): readonly Export[] => {
   const found: Export[] = [];
   const value = (at: number, what: string) =>
@@ -94,11 +72,6 @@ export const exportsOf = (program: Program): readonly Export[] => {
   return found;
 };
 
-/**
- * What the contracts rule finds in `file`, a file the package at `root`
- * checks, which exports `exports`. `resolve` names the file a specifier
- * points at, so a re-export from the contract's own files passes.
- */
 export const contractFindings = (
   tree: Tree,
   rule: ContractsRule,
@@ -140,12 +113,6 @@ export const contractFindings = (
   return findings;
 };
 
-/**
- * The folder holding `file` that lacks a contract the rule requires, if
- * any: `services/store/` without `services/store/contract/`. Only an
- * index file is asked, so the folder is reported on its index files
- * rather than on every file in it.
- */
 const missingContract = (
   tree: Tree,
   rule: ContractsRule,
@@ -168,7 +135,6 @@ const missingContract = (
     .find((folder) => folder !== undefined);
 };
 
-/** Tells `value` when an exported declaration is a value other than a contract class. */
 const exported = (
   declaration: Declaration,
   value: (at: number, what: string) => void,
@@ -192,10 +158,6 @@ const exported = (
   }
 };
 
-/**
- * The dotted name a class extends, through the calls and type arguments
- * around it: `Context.Service<A, B>()('Key')` is `Context.Service`.
- */
 const calleeName = (node: Expression): string => {
   switch (node.type) {
     case 'CallExpression':

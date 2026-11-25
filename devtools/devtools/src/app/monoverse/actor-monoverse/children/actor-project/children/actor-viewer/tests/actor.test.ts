@@ -11,13 +11,6 @@ import {
 import { Viewer } from '../index.js';
 import { entriesOf, shownOf, stepFrom } from '../logic/shared/index.js';
 
-/*
- * What is open over the tree, on a service that answers what the test
- * says: a file alone; a folder looked into, its files drawn by the tree's
- * settings, the first changed one shown to start with, another when it is
- * chosen, and a step going between the changed ones.
- */
-
 const files = ['src/b.ts', 'src/a/x.ts', 'src/gone.ts'];
 const changed = [
   { path: 'src/gone.ts', status: 'deleted' as const },
@@ -50,7 +43,6 @@ const input = (base: string | null) => ({
   sourceRoots: null,
 });
 
-/** The Viewer's State on `input(base)`: nothing chosen, every folder open. */
 const folderOf = (base: string | null, selected: string | null = null) => ({
   _tag: 'Folder' as const,
   base,
@@ -107,7 +99,7 @@ describe('Viewer', () => {
           path: 'src/b.ts',
           base: null,
           status: null,
-          inside: false,
+          besideFolderList: false,
         });
         expect(fileOf(app.snapshot.root)!.state).toMatchObject({
           _tag: 'Text',
@@ -166,7 +158,7 @@ describe('Viewer', () => {
           path: 'src/a/x.ts',
           base: 'main',
           status: 'modified',
-          inside: true,
+          besideFolderList: true,
         });
         expect(fileOf(app.snapshot.root)!.state).toMatchObject({
           _tag: 'Diff',
@@ -179,10 +171,8 @@ describe('Viewer', () => {
           showing: true,
         });
         expect(asked).toContain('diff src/gone.ts');
-        // A deleted file is only its diff.
         expect(asked).not.toContain('read src/gone.ts');
 
-        // Its back arrow, on a phone, goes back to the list.
         app.at(fileOf(app.snapshot.root)!.address)!.send({
           _tag: 'Closed',
         } as never);
@@ -211,7 +201,6 @@ describe('Viewer', () => {
   it('steps between the changed files, from an unchanged one too', () => {
     const at = (selected: string) => folderOf('main', selected);
     expect(stepFrom(at('src/a/x.ts'), settings(), 1)).toBe('src/gone.ts');
-    // src/b.ts sits between the two changed files.
     expect(stepFrom(at('src/b.ts'), settings(), 1)).toBe('src/gone.ts');
     expect(stepFrom(at('src/b.ts'), settings(), -1)).toBe('src/a/x.ts');
     expect(stepFrom(at('src/gone.ts'), settings(), 1)).toBeNull();
@@ -222,7 +211,6 @@ describe('Viewer', () => {
       Effect.gen(function* () {
         const app = yield* start(null);
         yield* settle;
-        // In the list's order: src/a/x.ts, then src/b.ts, then src/gone.ts.
         expect(fileOf(app.snapshot.root)!.model).toMatchObject({
           path: 'src/a/x.ts',
         });

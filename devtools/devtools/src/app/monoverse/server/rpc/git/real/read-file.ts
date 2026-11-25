@@ -9,14 +9,8 @@ import {
   FileReadError,
 } from '../contract/index.js';
 
-// Git's own test for binary content: a NUL byte near the start.
-const binarySniffLength = 8000;
+const gitBinarySniffLength = 8000;
 
-/**
- * Reads one file of the Project at a branch by its root-relative path. The
- * path may never leave the root; a binary file comes back without its
- * bytes.
- */
 export function readRootFile(
   root: string,
   branch: string | null,
@@ -45,7 +39,7 @@ export function readRootFile(
     if (bytes === undefined) {
       return yield* new FileNotFoundError({ path: normalized });
     }
-    const binary = bytes.subarray(0, binarySniffLength).includes(0);
+    const binary = bytes.subarray(0, gitBinarySniffLength).includes(0);
     return {
       path: normalized,
       content: binary ? '' : new TextDecoder().decode(bytes),

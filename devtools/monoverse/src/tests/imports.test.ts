@@ -2,12 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { listTree, presets } from '../index.ts';
 import { importMessage, judgeImport } from '../shared/imports/index.ts';
 
-/*
- * The imports rule over a list of files relative to a repository root,
- * as the DevTools read a branch: two packages, one of them nested in a
- * folder, and paths that never touch the disk.
- */
-
 const tree = listTree([
   'package.json',
   'apps/web/package.json',
@@ -91,7 +85,6 @@ describe('what judgeImport never judges', () => {
   });
 
   it('never takes a door owned by a folder above the package', () => {
-    // The repository itself sits in a folder named `shared`.
     const outside = listTree([
       'shared/package.json',
       'shared/x/index.ts',
@@ -101,7 +94,6 @@ describe('what judgeImport never judges', () => {
     expect(
       judgeImport(outside, shared, 'shared/y/f.ts', 'shared/x/index.ts'),
     ).toEqual({ ok: false, reason: 'door', doors: ['shared'] });
-    // A package named `shared` has no door at its root either.
     const named = listTree([
       'packages/shared/package.json',
       'packages/shared/x/index.ts',

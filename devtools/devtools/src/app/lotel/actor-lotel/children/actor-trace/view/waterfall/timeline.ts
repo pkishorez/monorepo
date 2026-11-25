@@ -1,6 +1,5 @@
 import type { OtelSpan } from '../../../../../services/telemetry/contract/index.js';
 
-/** Resolves trace bounds from every known span timestamp. */
 export function spanTimelineBounds(
   spans: readonly OtelSpan[],
   fallbackStart: number,

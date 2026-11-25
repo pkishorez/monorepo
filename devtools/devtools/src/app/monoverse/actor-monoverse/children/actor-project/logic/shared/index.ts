@@ -1,5 +1,3 @@
-// Project's pure logic its Children share: the Shape and the Schemas
-// they take from it, what its view reads, git roll-up, folders and paths.
 export { ProjectShape } from './shape.js';
 export type { Check, Where } from './shape.js';
 export {

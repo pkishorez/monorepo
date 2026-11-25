@@ -2,14 +2,6 @@ import { Schema } from 'effect';
 import { EntityESchema } from '@kestack/std-toolkit/eschema';
 import { StdTable } from '@kestack/std-toolkit/db';
 
-/**
- * How the Project store keeps one entry: one absolute folder and when it
- * was added. `label` stays in the shape so rows written when Projects had
- * labels still read, and the table keeps its shape; it is written null and
- * never read. `tool` partitions the store: every entry is
- * written as `monoverse` and only those are listed, so entries kept for the
- * retired Laymos Tool stay in the store unread.
- */
 export const ProjectEntryEntitySchema = EntityESchema.make(
   'ProjectEntry',
   'id',

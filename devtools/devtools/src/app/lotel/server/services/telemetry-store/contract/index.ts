@@ -8,13 +8,6 @@ import type {
   UpdateCursor,
 } from '../../../rpc/telemetry/contract/index.js';
 
-/*
- * Where the server keeps Span Records and Log Records. Both doors write
- * through it, OTLP ingestion and the RPC alike: Span Records are kept by
- * their identity, so a completed Span replaces its Provisional Span Record;
- * each Log Record gets its own Log Record ID, so two identical ones stay two.
- */
-
 export interface BatchWriteResult {
   accepted: number;
   rejected: number;
@@ -28,11 +21,9 @@ export class TelemetryStoreError extends Data.TaggedError(
 }> {}
 
 export interface TelemetryStoreShape {
-  /** Keeps Span Records, replacing any with the same trace ID and span ID. */
   saveSpans(
     records: ReadonlyArray<NewSpanRecord>,
   ): Effect.Effect<BatchWriteResult>;
-  /** Keeps Log Records, each under a Log Record ID of its own. */
   insertLogs(
     records: ReadonlyArray<NewLogRecord>,
   ): Effect.Effect<BatchWriteResult>;
@@ -44,7 +35,6 @@ export interface TelemetryStoreShape {
     _u: UpdateCursor,
     limit?: number,
   ): Effect.Effect<{ items: Entity<LogRecord>[] }, TelemetryStoreError>;
-  /** Trace IDs ordered from most recently updated Span to oldest. */
   listRecentTraceIds(
     limit: number,
   ): Effect.Effect<string[], TelemetryStoreError>;

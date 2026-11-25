@@ -17,13 +17,6 @@ import { ChevronDownIcon } from 'lucide-react';
 import { shortenHome } from '../../../../server/rpc/contract/index.js';
 import type { Branch } from '../../../../server/rpc/git/contract/index.js';
 
-/*
- * One branch control: a quiet button naming the branch chosen, opening a
- * list of the repository's local branches to choose another, searchable
- * once there are more than a handful.
- */
-
-/** Past this many branches, the list gets a search field. */
 const searchFrom = 8;
 
 export function BranchMenu({
@@ -37,14 +30,10 @@ export function BranchMenu({
   onChoose,
   className,
 }: {
-  /** What the control is, for assistive technology and its tooltip. */
   label: string;
   icon: ReactNode;
-  /** A muted word before the branch's name, like `vs`. */
   prefix?: string;
-  /** The branch chosen; null: none yet. */
   chosen: string | null;
-  /** The branch the project's own folder has checked out. */
   current: string | null;
   branches: ReadonlyArray<Branch>;
   disabled?: boolean;
@@ -79,7 +68,6 @@ export function BranchMenu({
         <Command
           loop
           className="rounded-md! bg-transparent"
-          // The chosen branch starts highlighted, so Enter keeps it.
           defaultValue={chosen ?? undefined}
         >
           {branches.length > searchFrom ? (
@@ -119,7 +107,6 @@ export function BranchMenu({
   );
 }
 
-/** What sets a branch apart: the project folder's own, or another worktree's. */
 function BranchMarks({
   branch,
   current,

@@ -18,11 +18,6 @@ export type TraceGroup = {
   duration: number | null;
   startTime: number;
   endTime: number | null;
-  /**
-   * Most recent activity timestamp across every span in the trace, in ms.
-   * Unlike {@link startTime} this advances as new spans arrive — use it for
-   * "last seen" displays and similar recency signals.
-   */
   lastActivity: number;
   roots: SpanNode[];
   missingRoot: boolean;
@@ -97,8 +92,6 @@ export function groupByTrace(spans: readonly OtelSpan[]): TraceGroup[] {
       ? formatSpanName(rootNode.span.name, rootNode.span.attributes)
       : traceId;
 
-    // A parent can finish before its children (for example after cancellation).
-    // Trace duration covers all spans; individual rows keep their own timing.
     const startTime = minStart;
     const endTime = maxEnd;
     const duration = endTime !== null ? endTime - startTime : null;

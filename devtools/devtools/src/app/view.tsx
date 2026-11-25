@@ -10,14 +10,6 @@ import { KabukiPageView } from './kabuki/page.js';
 import { LotelPageView } from './lotel/page.js';
 import { MonoversePageView } from './monoverse/page.js';
 
-/*
- * The frame around every Tool: on a wide screen a header with the Tools as
- * tabs and the theme toggle; on a narrow one no header at all, the Tools
- * and the theme toggle along the bottom, so the Tool has the whole height. Between them the page the URL names: the
- * list of Tools at `/`, a Tool, or that nothing is there. The theme is the
- * browser's to keep, `devtools:theme`, dark unless it says light.
- */
-
 type Theme = 'dark' | 'light';
 type Tool = 'Lotel' | 'Monoverse' | 'Kabuki';
 
@@ -43,11 +35,9 @@ const TOOLS: ReadonlyArray<{
 
 const THEME_KEY = 'devtools:theme';
 
-/** The theme the browser kept, dark unless it says light. */
 export const readTheme = (): Theme =>
   globalThis.localStorage?.getItem(THEME_KEY) === 'light' ? 'light' : 'dark';
 
-/** Puts the theme on the page, and keeps it for next time. */
 export function applyTheme(theme: Theme) {
   document.documentElement.classList.toggle('dark', theme === 'dark');
   globalThis.localStorage?.setItem(THEME_KEY, theme);
@@ -146,7 +136,6 @@ function ThemeButton({
   );
 }
 
-/** Whether a link is to the Tool shown: drawn as the tab that is open. */
 const current = (active: boolean) =>
   active ? ({ 'aria-current': 'page', 'data-status': 'active' } as const) : {};
 

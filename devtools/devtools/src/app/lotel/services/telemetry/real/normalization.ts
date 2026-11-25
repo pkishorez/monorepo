@@ -4,12 +4,7 @@ import type {
 } from '../../../server/rpc/telemetry/contract/index.js';
 import type { OtelEvent, OtelSpan, OtelStatus } from '../contract/index.js';
 
-/*
- * Stored Span Records and Log Records as the Trace views read them: OTLP's
- * key-value lists become plain attributes, the Resource's and the
- * Instrumentation Scope's prefixed `resource.` and `scope.`, and times
- * become milliseconds.
- */
+const otlpClientSpanKind = 3;
 
 type KV = NonNullable<SpanRecord['span']['attributes']>[number];
 type AnyVal = NonNullable<KV['value']>;
@@ -74,12 +69,6 @@ function resolveStatus(
   return 'unset';
 }
 
-/**
- * Upgrade the span status to 'error' when semantic conventions indicate a
- * failure even though the sender did not set status.code = ERROR. Catches HTTP
- * 5xx (and 4xx on client spans), the `error.type` attribute, and exception
- * events.
- */
 function inferErrorFromSemantics(
   baseStatus: OtelStatus,
   attributes: Record<string, unknown>,
@@ -100,10 +89,7 @@ function inferErrorFromSemantics(
         ? Number(httpCodeRaw)
         : NaN;
   if (Number.isFinite(httpCode)) {
-    // SPAN_KIND_CLIENT = 3 in OTel proto. For client spans, 4xx is also an
-    // error from the caller's perspective. For other kinds (server, internal),
-    // treat 5xx as error.
-    const threshold = spanKind === 3 ? 400 : 500;
+    const threshold = spanKind === otlpClientSpanKind ? 400 : 500;
     if (httpCode >= threshold) return 'error';
   }
 

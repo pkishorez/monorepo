@@ -1,8 +1,6 @@
 import { Context } from 'effect';
 import type { Effect } from 'effect';
 
-/* How the Lotel Tool tells the reader how something went: a toast. */
-
 export interface Toast {
   readonly type: 'success' | 'error';
   readonly title: string;
@@ -10,7 +8,6 @@ export interface Toast {
 }
 
 export interface ToastsService {
-  /** Shows `toast` to the reader. */
   readonly show: (toast: Toast) => Effect.Effect<void>;
 }
 

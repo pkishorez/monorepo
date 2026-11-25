@@ -7,7 +7,6 @@ import { withFixture } from '../../../tests/git-fixture.js';
 import { servicesLayer } from '../../../tests/services.js';
 import * as handlers from '../real/read-file.js';
 
-// The handler, on the real services.
 const readRootFile = (root: string, branch: string | null, path: string) =>
   handlers.readRootFile(root, branch, path).pipe(Effect.provide(servicesLayer));
 
