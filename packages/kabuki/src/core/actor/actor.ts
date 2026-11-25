@@ -200,6 +200,8 @@ export interface Shape<
   R extends Requires,
   Emits = never,
 > {
+  /** What the Actor is about, in a sentence, for whoever reads its Blueprint. */
+  readonly description?: string;
   /** The Capabilities its own Workers, Commands and Provides use. Nothing else is in reach. */
   readonly requires?: R;
   /** What a parent hands this Actor when it Invokes it, which init starts from. */
@@ -221,6 +223,8 @@ export interface Shape<
  * is made of: a struct's fields, or a tagged union's cases by tag.
  */
 export interface Written {
+  /** What the Actor is about, in a sentence, for whoever reads its Blueprint. */
+  readonly description?: string;
   readonly requires?: Requires;
   readonly input?: StructWritten;
   readonly props?: StructWritten;
@@ -321,6 +325,7 @@ export const shapeOf = (
   written: Written,
 ): Shape<unknown, unknown, unknown, Tagged, Tagged, Requires, Tagged> => {
   const shape = {
+    description: written.description,
     requires: written.requires,
     input: structOf(written.input),
     props: structOf(written.props),
@@ -520,6 +525,9 @@ const definitionOf = (
 
   return {
     name,
+    ...(shape.description === undefined
+      ? {}
+      : { description: shape.description }),
     states,
     requires: shape.requires ?? [],
     check: {
