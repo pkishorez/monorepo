@@ -3,7 +3,13 @@ import type { ReactNode } from 'react';
 import { MaximizeIcon, MinusIcon, PlusIcon } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '@kestack/web-platform/ui/components/utils';
-import { allOf, pathTo, providerOf } from '../../../logic/shared/index.ts';
+import {
+  allOf,
+  pathTo,
+  usersOf,
+  usesOf,
+  wayOf,
+} from '../../../logic/shared/index.ts';
 import type { Card, Part, Use } from '../../../logic/shared/index.ts';
 import {
   CardNode,
@@ -41,7 +47,6 @@ export function Canvas({
   opened,
   bodies,
   follow = false,
-  dotted = true,
   bring,
   unfold,
   folding = true,
@@ -51,7 +56,6 @@ export function Canvas({
   readonly opened: ReadonlyArray<string>;
   readonly bodies?: ReadonlyMap<string, ReactNode>;
   readonly follow?: boolean;
-  readonly dotted?: boolean;
   readonly bring?: { readonly id: string; readonly key: string } | null;
   readonly unfold?: (card: Card) => boolean;
   readonly folding?: boolean;
@@ -229,46 +233,17 @@ export function Canvas({
     onOpen(id, open);
   };
 
-  const uses = useMemo(
-    () =>
-      new Map(
-        cards.map((card) => [
-          card.id,
-          card.print.requires.map((name): Use => ({
-            name,
-            from: providerOf(root, card.id, name) ?? null,
-          })),
-        ]),
-      ),
-    [root, cards],
-  );
+  const uses = useMemo(() => usesOf(root), [root]);
   const [share, setShare] = useState<{
     readonly name: string;
     readonly provider: string | null;
   } | null>(null);
-  const usersOf = useCallback(
-    (name: string, provider: string | null) =>
-      cards
-        .filter((card) =>
-          (uses.get(card.id) ?? []).some(
-            (use) => use.name === name && use.from === provider,
-          ),
-        )
-        .map(({ id }) => id),
-    [cards, uses],
-  );
   const shared = useMemo(() => {
     if (!share || (share.provider !== null && !byId.has(share.provider)))
       return undefined;
-    const users = usersOf(share.name, share.provider);
-    const way = new Set<string>(share.provider ? [share.provider] : []);
-    for (const user of users) {
-      const path = pathTo(root, user);
-      const start = share.provider ? path.indexOf(share.provider) : 0;
-      path.slice(Math.max(0, start)).forEach((id) => way.add(id));
-    }
-    return { ...share, users, way };
-  }, [share, byId, usersOf, root]);
+    const users = usersOf(uses, share.name, share.provider);
+    return { ...share, users, way: wayOf(root, share.provider, users) };
+  }, [share, byId, uses, root]);
   const lit = shared?.way;
   useEffect(() => {
     if (!shared) return;
@@ -292,7 +267,10 @@ export function Canvas({
     if (shared && shared.name === name && shared.provider === provider)
       return setShare(null);
     setShare({ name, provider });
-    const all = [...(provider ? [provider] : []), ...usersOf(name, provider)];
+    const all = [
+      ...(provider ? [provider] : []),
+      ...usersOf(uses, name, provider),
+    ];
     for (const one of all) if (!isOpen.has(one)) onOpen(one, true);
     hold(
       id,
@@ -349,15 +327,11 @@ export function Canvas({
           fit();
         }}
         className="absolute inset-0 cursor-grab touch-none select-none active:cursor-grabbing"
-        style={
-          dotted
-            ? {
-                backgroundImage:
-                  'var(--inspector-dots, radial-gradient(circle, var(--color-border) 1px, transparent 1px))',
-                backgroundSize: '24px 24px',
-              }
-            : undefined
-        }
+        style={{
+          backgroundImage:
+            'var(--inspector-dots, radial-gradient(circle, var(--color-border) 1px, transparent 1px))',
+          backgroundSize: '24px 24px',
+        }}
       >
         <motion.div
           className="absolute top-0 left-0"

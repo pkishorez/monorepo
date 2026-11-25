@@ -1,6 +1,11 @@
 import type { DataOf } from '@kestack/kabuki/types';
-import { inputOf } from '../../../../../../logic/shared/index.ts';
-import type { BlueprintNode } from '../../../../../../logic/shared/index.ts';
+import { inputOf, valueOf } from '../../../../../../logic/shared/index.ts';
+import type {
+  BlueprintNode,
+  Built,
+  Draft,
+  Input,
+} from '../../../../../../logic/shared/index.ts';
 import type { Action, InstanceShape } from './shape.ts';
 
 export const acceptedOf = (
@@ -25,3 +30,15 @@ export const actionsOf = ({ props }: DataOf<typeof InstanceShape>) =>
 
 export const isPast = ({ props }: DataOf<typeof InstanceShape>) =>
   props.at !== null;
+
+export const messageOf = (tag: string, input: Input, draft: Draft): Built => {
+  const payload = valueOf(input, draft);
+  if (payload._tag === 'Unbuilt') return payload;
+  const { value } = payload;
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? { _tag: 'Built', value: { ...value, _tag: tag } }
+    : {
+        _tag: 'Unbuilt',
+        problems: [{ path: '', problem: 'A Message is an object' }],
+      };
+};

@@ -4,52 +4,32 @@ import { cn } from '@kestack/web-platform/ui/components/utils';
 import { JsonTree } from '@kestack/web-platform/ui/viewers/json';
 import type { Kind } from '../../../logic/shared/index.ts';
 
-export const TINT: Record<Kind, string> = {
-  added:
-    'relative bg-added/10 before:absolute before:inset-y-1.5 before:left-0.5 before:w-0.5 before:rounded-full before:bg-added',
+export const TINT = {
   changed:
     'relative bg-changed/10 before:absolute before:inset-y-1.5 before:left-0.5 before:w-0.5 before:rounded-full before:bg-changed',
-  removed:
-    'relative bg-removed/10 before:absolute before:inset-y-1.5 before:left-0.5 before:w-0.5 before:rounded-full before:bg-removed',
 };
 
 export const CHIP: Record<Kind, string> = {
   added: 'bg-added/10 text-added',
   changed: 'bg-changed/10 text-changed',
-  removed: 'bg-removed/10 text-removed',
 };
 
 export const INK: Record<Kind, string> = {
   added: 'text-added',
   changed: 'text-changed',
-  removed: 'text-removed',
 };
 
 export const FILL: Record<Kind, string> = {
   added: 'bg-added',
   changed: 'bg-changed',
-  removed: 'bg-removed',
 };
 
 export const RUNNING = 'bg-running/[0.07]';
 export const ACTIVE_INK = 'font-medium text-running';
 
-export function Tag({
-  children,
-  kind,
-}: {
-  readonly children: ReactNode;
-  readonly kind?: Kind;
-}) {
+export function Tag({ children }: { readonly children: ReactNode }) {
   return (
-    <span
-      className={cn(
-        'inline-flex h-5 shrink-0 items-center rounded px-1.5 font-mono text-[11px]',
-        kind
-          ? cn('bg-current/12 font-medium', INK[kind])
-          : 'border border-border bg-background/60',
-      )}
-    >
+    <span className="inline-flex h-5 shrink-0 items-center rounded border border-border bg-background/60 px-1.5 font-mono text-[11px]">
       {children}
     </span>
   );

@@ -1,5 +1,16 @@
-export { allOf, pathTo, providerOf, readableKey } from './card.ts';
-export { draftOf, fieldDraft, inputOf, messageOf, valueOf } from './form.ts';
+export {
+  allOf,
+  givesOf,
+  needsOf,
+  pathTo,
+  providerOf,
+  readableKey,
+  shownServicesOf,
+  usersOf,
+  usesOf,
+  wayOf,
+} from './card.ts';
+export { draftOf, fieldDraft, inputOf, valueOf } from './form.ts';
 export {
   activeIn,
   cardKind,
@@ -9,7 +20,6 @@ export {
   keysOf,
   kindsOf,
   levelsOf,
-  rollup,
   sectionOfPart,
   tookChanged,
 } from './levels.ts';

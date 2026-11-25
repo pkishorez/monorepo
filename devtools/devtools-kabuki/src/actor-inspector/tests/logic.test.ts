@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   draftOf,
   inputOf,
-  messageOf,
   providerOf,
   readableKey,
   valueOf,
@@ -183,7 +182,7 @@ describe('a form, from a Shape', () => {
     });
   });
 
-  it('builds the Message from what is filled in, each kind as its value', () => {
+  it('builds the payload from what is filled in, each kind as its value', () => {
     const draft: Draft = {
       text: 'hi',
       count: ' 4.5 ',
@@ -193,10 +192,9 @@ describe('a form, from a Shape', () => {
       tags: '["a", "b"]',
       extra: '{"x": 1}',
     };
-    expect(messageOf('Wrote', inputOf(payload), draft)).toEqual({
+    expect(valueOf(inputOf(payload), draft)).toEqual({
       _tag: 'Built',
       value: {
-        _tag: 'Wrote',
         text: 'hi',
         count: 4.5,
         on: true,
@@ -247,14 +245,6 @@ describe('a form, from a Shape', () => {
     ).toEqual({
       _tag: 'Built',
       value: { seats: 2, owner: 'ada', color: 'red', name: 'x' },
-    });
-  });
-
-  it('carries nothing for a Message with no fields', () => {
-    const input = inputOf(struct());
-    expect(messageOf('Bumped', input, draftOf(input))).toEqual({
-      _tag: 'Built',
-      value: { _tag: 'Bumped' },
     });
   });
 });

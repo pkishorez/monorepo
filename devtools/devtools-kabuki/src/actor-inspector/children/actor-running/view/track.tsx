@@ -7,7 +7,7 @@ import {
 } from 'react';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 
-export interface TrackTick {
+interface TrackTick {
   readonly id: string;
   readonly label: string;
   readonly shade: string;
@@ -21,11 +21,9 @@ export function Track({
   ticks,
   index,
   onPick,
-  gap = GAP,
   className,
 }: {
   readonly ticks: ReadonlyArray<TrackTick>;
-  readonly gap?: number;
   readonly index: number;
   readonly onPick: (index: number) => void;
   readonly className?: string;
@@ -48,7 +46,7 @@ export function Track({
   }, []);
 
   const count = ticks.length;
-  const slot = count > 0 ? Math.min(gap, width / count) : 0;
+  const slot = count > 0 ? Math.min(GAP, width / count) : 0;
 
   const span = slot * count;
   const mark = Math.max(1.5, Math.min(4, slot * 0.5));

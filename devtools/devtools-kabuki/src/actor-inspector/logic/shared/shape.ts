@@ -62,7 +62,7 @@ export interface CardLevel {
   readonly gives: ReadonlyArray<string>;
 }
 
-export type Kind = 'added' | 'changed' | 'removed';
+export type Kind = 'added' | 'changed';
 
 export type Mode = 'blueprint' | 'active' | 'all';
 
@@ -81,7 +81,7 @@ export interface Use {
   readonly from: string | null;
 }
 
-export type Choice = string | number | boolean;
+type Choice = string | number | boolean;
 
 export interface FormField {
   readonly name: string;
