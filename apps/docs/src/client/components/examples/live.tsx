@@ -51,7 +51,7 @@ const IN_VIEW = 0.6;
 const never = () => () => {};
 
 const KabukiInspector = lazy(() =>
-  import('@kestack/devtools-kabuki/inspector').then((module) => ({
+  import('@kestack/devtools-kabuki/app').then((module) => ({
     default: module.KabukiInspector,
   })),
 );

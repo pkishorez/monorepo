@@ -22,7 +22,11 @@ export default defineConfig({
     ],
     overrides: [
       {
-        files: ['devtools/devtools/**', 'devtools/monoverse/**'],
+        files: [
+          'devtools/devtools/**',
+          'devtools/monoverse/**',
+          'devtools/devtools-kabuki/**',
+        ],
         rules: monoverseRules,
       },
       {

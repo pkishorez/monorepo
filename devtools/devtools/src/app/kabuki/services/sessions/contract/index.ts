@@ -1,17 +1,17 @@
 import { Context } from 'effect';
-import type { Effect, Scope, Stream } from 'effect';
+import type { Layer, Stream } from 'effect';
 import type { RpcClientError } from 'effect/rpc';
-import type { KabukiSessionClient } from '@kestack/devtools-kabuki/api';
-import type { KabukiSessionSummary } from '@kestack/devtools-kabuki/server';
+import type {
+  KabukiSession,
+  KabukiSessionSummary,
+} from '@kestack/devtools-kabuki/devtools';
 
 export interface SessionsService {
   readonly watch: Stream.Stream<
     ReadonlyArray<KabukiSessionSummary>,
     RpcClientError.RpcClientError
   >;
-  readonly dial: (
-    name: string,
-  ) => Effect.Effect<KabukiSessionClient, never, Scope.Scope>;
+  readonly session: (name: string) => Layer.Layer<KabukiSession>;
 }
 
 export class Sessions extends Context.Service<Sessions, SessionsService>()(

@@ -319,7 +319,7 @@ _Avoid_: sitemap, route manifest, page list
 ### Seeing the app
 
 **Timeline**:
-The Inspector's bar for picking the Step shown: every Step on the Branch in view, in order. With Travel the app on, as it is at first, picking a Step Time Travels the app too, and a Fork carries on from it on a new Branch; off, only the Inspector looks back while the app runs on. Going to the Head shows it again.
+The Inspector's bar for picking the Step shown: every Step on the Branch in view, in order. Picking a Step Time Travels the app, Now goes back to the Head, and a Fork carries on from the Step shown on a new Branch.
 _Avoid_: history, message list, scrubber
 
 **Branch in view**:
@@ -327,12 +327,8 @@ The one Branch the Timeline and the Inspector walk, from the History's start to 
 _Avoid_: selected branch, active branch
 
 **Inspector**:
-The one way to look inside the app: the Snapshot at the Step shown, every Instance a card on a canvas to pan and zoom, joined to its parent by a line that says its Condition, with the Timeline under it. A card opens to its States, Workers, the Messages it handles, its Children, Model, Props and Capabilities, and as many open at once as the reader likes. The Step is compared with the one before it: what it added, changed or took away is marked where it is and on the card that holds it, and the card its Message was for names the Message. A Capability picked shows who provides it and every card that uses it. Laid out by its own width, the same full screen, in a side panel or on a phone; a Story can be told on it.
+The one way to look inside the app, in DevTools or beside the app in its page. Running: the Snapshot at the Step shown, every Instance a card on a canvas to pan and zoom, joined to its parent by a line that says its Condition, with the Timeline under it. A card opens to its State, Model, Props and Workers, and its Actions, every Message its Actor takes now, to Send to the app; as many open at once as the reader likes. The Step is compared with the one before it: what it started or changed is marked on its card, and the card its Message was for opens. Blueprint: every Actor the root can grow, running or not. World, while the app has a FakeWorld: each Fake's state and its controls, to run. Laid out by its own width, the same full screen, in a side panel or on a phone. Defined in the [DevTools Kabuki context](../../devtools/devtools-kabuki/CONTEXT.md).
 _Avoid_: devtools (the repo's DevTools is another thing), debugger, panel, stage
-
-**Story**:
-An answer told on the Inspector, one Scene at a time, as data an agent writes: each Scene names a moment of the History, the card it is about and one part of it, and says one thing about it, and the Inspector lights that part and dims the rest. It plays on the app's own History, or on a saved one it carries, the same every time.
-_Avoid_: tour, walkthrough, scene list
 
 ### Faking
 

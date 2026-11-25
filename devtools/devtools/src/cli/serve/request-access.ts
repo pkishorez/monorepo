@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
-import { CONNECT_PATH } from '@kestack/devtools-kabuki/api';
+import { CONNECT_PATH } from '@kestack/devtools-kabuki/devtools';
 
 export function makeRequestAccessLive({
   port,

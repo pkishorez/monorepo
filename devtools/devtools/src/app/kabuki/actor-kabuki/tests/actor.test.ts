@@ -3,7 +3,7 @@ import type { Layer, Scope } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { Actor, Runtime } from '@kestack/kabuki';
 import type { Instance } from '@kestack/kabuki/types';
-import type { KabukiSessionSummary } from '@kestack/devtools-kabuki/server';
+import type { KabukiSessionSummary } from '@kestack/devtools-kabuki/devtools';
 import type { Sessions } from '../../services/sessions/contract/index.js';
 import { fakeSessions } from '../../services/sessions/fake/index.js';
 import { Kabuki } from '../index.js';

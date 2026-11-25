@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Effect, Layer } from 'effect';
 import { CloudClient } from '@kestack/connect/cloud';
-import { connect } from '@kestack/devtools-kabuki/session';
+import { connect } from '@kestack/devtools-kabuki/app';
 import { Start } from '@kestack/kabuki/start';
 import { OnOutdated } from '@kestack/std-toolkit/replica';
 import { document } from '@kestack/web-platform/app/document';
@@ -81,6 +81,13 @@ const layer =
       )
     : real;
 
+// In fake mode, the FakeWorld that `fake.ts`'s Layer serves, for DevTools to
+// show and drive: the Inspector's World tab, and DevTools through `connect`.
+const world =
+  import.meta.env.DEV && import.meta.env.VITE_MODE === 'fake'
+    ? () => import('./fake.ts').then((fake) => fake.world)
+    : undefined;
+
 export default Start.app({
   router: App.router,
   view: App.view,
@@ -92,7 +99,7 @@ export default Start.app({
     head: <link rel="icon" type="image/svg+xml" href="/favicon.svg" />,
     ...(import.meta.env.DEV
       ? {
-          around: (app: ReactNode) => <Devtools>{app}</Devtools>,
+          around: (app: ReactNode) => <Devtools world={world}>{app}</Devtools>,
         }
       : {}),
   }),
@@ -100,5 +107,5 @@ export default Start.app({
   // leaves the mark, and what the app draws first.
   loading: <WaitScreen />,
   layer,
-  attach: import.meta.env.DEV ? [connect()] : [],
+  attach: import.meta.env.DEV ? [connect(world ? { world } : {})] : [],
 });

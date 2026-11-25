@@ -1,38 +1,51 @@
 # @kestack/devtools-kabuki
 
-Kabuki apps in DevTools: each running app serves its History, Snapshots and graph as a Kabuki Session over Effect RPC
+Kabuki apps in DevTools: the Inspector, a panel that reads and moves a running app through one Kabuki Session's eight calls, answered in the page or through the DevTools Server
 
 ## Big picture
 
 A [Kabuki](../../packages/kabuki/README.md) app keeps everything it did in
 its History, but only the tab it runs in has the Actors' code to replay it.
-This package lets the tab answer questions about itself. Attached to an
-app, it connects the app to the local [DevTools](../devtools/README.md)
-Server as a Kabuki Session and answers the Kabuki Session Api there: the
-History, the Snapshot at any Step, what one Step changed, the graph the
-Inspector draws, the Blueprint of every Actor the app can grow, one
-Instance's Trail, any Branch of the History, and Seeking a Step in the app
-or Forking it. It reads Kabuki only through its public surface, the
-Blueprint, the app's History and its Branches, the Snapshot after any
-entry and Addresses, never how the engine holds an Actor.
+This package lets the tab answer for itself. Everything a DevTools panel
+asks of a running app is eight calls behind one Service, `KabukiSession`:
+the Blueprint, a stream of the History and where the app is, the Instances
+at any Step, Seeking a Step, Forking, Sending a Message, a stream of the
+app's Fakes, and running a control on one. The tab reads Kabuki only
+through its public surface: the Blueprint, the History and its Branches,
+the Snapshot after any entry, the Runtime's Workers and Addresses.
 
-The connection is reversed. The app dials
-`ws://127.0.0.1:14400/kabuki/connect` and serves the Api over that socket.
-DevTools is the client, so the CLI and the DevTools `/kabuki` page can ask
-any live Kabuki Session the same questions. The in-page dock asks the same
-Api in memory, with nothing serialized. Why the app serves and DevTools
-asks is in [ADR 0001](./docs/adr/0001-the-app-serves-devtools-calls.md).
+The calls are answered two ways. In the page, `KabukiSession` is built
+straight on the app and its FakeWorld, with nothing serialized and no
+server. Through DevTools, the app dials the DevTools Server and serves the
+same calls over that socket, and DevTools passes each call from its own
+page or CLI to the tab over the same RPC group. Why the app serves and
+DevTools asks is in
+[ADR 0001](./docs/adr/0001-the-app-serves-devtools-calls.md).
 
-It also runs an app's Fakes in the tab, in `./fake`. A Fake is one thing
-in the outside world (a computer, a sign-in) faked as a Kabuki Actor, with
-the Messages a person may Send it and the Layer of the edges it serves; the
-package that fakes an edge writes it and never imports this one. The Fake
-World runs each on a Runtime of its own, gives one Layer of every edge, and
-keeps each Snapshot across reloads. Its bubble, over the app, shows every
-Fake's Instances and Models, and a form per Control.
+The Inspector is the panel that shows it, a Kabuki app of its own that
+reads and moves the app only through `KabukiSession`. Its Running tab is
+the app's Instances at the Step shown, each a card on a canvas to pan and
+zoom, over the Timeline of every Step on the Branch in view: picking a
+Step Time Travels the app, Now goes back to the Head, and Fork carries on
+from the Step shown on a new Branch. An open card shows its Instance's
+State, Model, Props and Workers, and its Actions: every Message its Actor
+takes in the State it is in, each a form built from the Message's Shape,
+Sent to the app with what came of it. Its Blueprint tab is every Actor the
+root can grow, running or not. Its World tab, there only while the app has
+Fakes, is each Fake's controls beside its state now: a control's form, built
+from its payload's Shape, runs it on the FakeWorld and says done or why not.
 
-The words used here (Kabuki Session, Kabuki Session Api, Attachment, Fake,
-Fake World) are defined in [CONTEXT.md](./CONTEXT.md).
+The package has two doors. `./app` is for the app: `connect`, an
+Attachment that dials DevTools, and the Inspector beside the app in its
+own page, bare, in the Web Platform's Dock, or in its Dialog over an app
+the Dock cannot lay out. `./devtools` is for the
+DevTools app and Server: the Inspector to place as a Child, the routes,
+`remote` for one live Kabuki Session, the live list, and the Schemas and
+errors of the calls. The Fakes are
+[`@kestack/kabuki/fake`](../../packages/kabuki/README.md)'s: a FakeWorld
+given to `connect` is shown and driven through `fakes` and `control`.
+The words used here (Kabuki Session, Environment, the eight calls, Shape,
+Attachment, Inspector, Actions) are defined in [CONTEXT.md](./CONTEXT.md).
 
 ## Install
 
@@ -42,333 +55,245 @@ pnpm add @kestack/devtools-kabuki
 
 Peer dependencies:
 
-- `@kestack/kabuki`: the app whose History and Snapshots are answered.
-- `@kestack/web-platform`, `react`, `react-dom`: what the Inspector, in
-  `./inspector`, is drawn with; `react` and `react-dom` draw the fake
-  bubble, in `./fake`, too.
-- `effect` (`^4.0.0`): the Api is an Effect RPC group, served with Effect's
-  socket protocol.
+- `@kestack/kabuki`: the app whose History, Snapshots and FakeWorld are answered.
+- `effect` (`^4.0.0`): the calls are Effects and Streams, served as an
+  Effect RPC group with Effect's socket protocol.
+- `@kestack/web-platform`, `react`, `react-dom`: what the Inspector is
+  drawn with, the Dock or Dialog `KabukiDevtools` puts it in, and the Theme whose
+  classes `./inspector/sources.css` hands an app's Tailwind.
 
 ## Exports
 
-### `@kestack/devtools-kabuki/api`
+### `@kestack/devtools-kabuki/app`
 
-The Kabuki Session Api, shared by the app, DevTools and the Inspector.
+The app's side.
 
-| Export                | What it does                                                                                                                                 |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `KabukiSessionApi`    | The RPC group: `info`, `named`, `history`, `watch`, `page`, `snapshot`, `changes`, `graph`, `blueprint`, `node`, `trail`, `seek`, `fork`.    |
-| `CONNECT_PATH`        | The DevTools Server path a Kabuki Session dials, `/kabuki/connect`.                                                                          |
-| `DEFAULT_ENVIRONMENT` | The Environment of a Kabuki Session given none and on no page, `default`.                                                                    |
-| `serialization`       | The RPC serialization both ends of the socket use: one JSON message per frame.                                                               |
-| `StepNotFound`        | The error for a Step no longer kept; says the oldest and newest kept.                                                                        |
-| `PathNotFound`        | The error for a Snapshot path that is not there; lists the keys where it stopped.                                                            |
-| `InstanceNotFound`    | The error for an Address no Instance has at a Step, or the Blueprint has no place for; lists the Instances there are.                        |
-| `Step`                | The Schema of a Step: an entry id, or `'start'`, the History's start.                                                                        |
-| `Entry`               | The Schema of a History entry: the Address it was Sent to, its Message encoded, who Sent it, what came of it.                                |
-| `From`                | The Schema of who Sent a Message.                                                                                                            |
-| `Outcome`             | The Schema of what came of a Message: handled, ignored or dropped.                                                                           |
-| `Info`                | The Schema of who a Kabuki Session is: app, page and name.                                                                                   |
-| `Now`                 | The Schema of where the app is: Head, Branch size, the Step it Seeks, whether it is running or stopped, failure.                             |
-| `History`             | The Schema of a Branch, the Head's unless asked, as `history` answers it: its entries, where it splits, and every Branch's last entry.       |
-| `Split`               | The Schema of a Step a Branch goes on from in more than one way, and every entry that follows it.                                            |
-| `SnapshotView`        | The Schema of a Snapshot, or part of one, at a Step.                                                                                         |
-| `ValueChange`         | The Schema of one Model or Props path that changed, before and after.                                                                        |
-| `DiffRow`             | The Schema of one line of a unified diff.                                                                                                    |
-| `ChangeKind`          | The Schema of whether a Step added, changed or removed an Instance.                                                                          |
-| `InstanceChange`      | The Schema of what a Step did to one Instance: started, changed or stopped it, and the Workers it started and stopped, as the Snapshots say. |
-| `Changes`             | The Schema of what one Step did: its entry, its Commands, each Instance it changed.                                                          |
-| `Condition`           | The Schema of when a Worker or Child exists: always, while or each.                                                                          |
-| `Level`               | The Schema of one Blueprint level: the top, or one State's block.                                                                            |
-| `Blueprint`           | The Schema of what an Actor is, as its Blueprint says, each level's Provides declared.                                                       |
-| `WorkerNow`           | The Schema of a Worker and the keys it runs for, at the Head of a running app.                                                               |
-| `Known`               | The Schema of which Message moved an Actor from which State to which, along the Head's Branch.                                               |
-| `GraphNode`           | The Schema of one card on the canvas, with its Children.                                                                                     |
-| `Graph`               | The Schema of the graph at a Step.                                                                                                           |
-| `Blueprinted`         | The Schema of every Actor the app's root can grow, each by its place, whether it runs or not.                                                |
-| `Shape`               | The Schema of a Schema as a card draws it.                                                                                                   |
-| `Field`               | The Schema of one field of a Shape.                                                                                                          |
-| `Node`                | The Schema of one Instance's card at a Step: data, change, Schemas and Provides.                                                             |
-| `Moment`              | The Schema of one moment of a Trail: its entry, and whether it started, changed, was Sent to or stopped the Instance.                        |
-| `Trail`               | The Schema of one Instance's Trail along a Branch, oldest first.                                                                             |
+| Export            | What it does                                                                                                                                                                      |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `connect`         | An Attachment that connects the app to the DevTools Server as a Kabuki Session and answers its eight calls there, with its FakeWorld when given one, or a function that loads it. |
+| `KabukiInspector` | The Inspector beside a running app in the same page, its Kabuki Session answered in the page by that app and its FakeWorld when given one, or a function that loads it.           |
+| `KabukiDevtools`  | The Inspector beside the app, its code loaded the first time it opens: the app wrapped in the Web Platform's Dock, or with `form="dialog"` left untouched beside its Dialog.      |
 
-### `@kestack/devtools-kabuki/session`
+### `@kestack/devtools-kabuki/devtools`
 
-The app's side: answers the Api from one running app.
+The DevTools side: its Server's routes, and the calls of any live Kabuki
+Session through it. It needs only `effect`, so its clients run in a browser
+too.
 
-| Export          | What it does                                                                                                           |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `connect`       | Connects an app to the DevTools Server as a Kabuki Session; given only options, it is an Attachment.                   |
-| `inMemory`      | An Api client answered by the app in the same page, with nothing serialized.                                           |
-| `ASKED`         | The page URL's query parameter that names a Kabuki Session, `kabuki-session`.                                          |
-| `DEVTOOLS_PATH` | Where `connect` dials by default, `/__devtools` on the page's origin, as the Web Platform proxies it while developing. |
+| Export                  | What it does                                                                                                                      |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `Inspector`             | The Inspector's root Actor, to place as a Child with a `KabukiSession` Provided, as DevTools does with `remote`.                  |
+| `InspectorView`         | The Inspector's View, to draw where its Child is placed.                                                                          |
+| `KabukiSession`         | The Service of one Kabuki Session's eight calls: `blueprint`, `watch`, `look`, `travel`, `fork`, `send`, `fakes`, `control`.      |
+| `remote`                | The `KabukiSession` Layer of one live Kabuki Session, by name, through a DevTools Server's `/kabuki/session/:name`.               |
+| `dialSessions`          | A client of the live Kabuki Sessions, `list` and `watch`, through a DevTools Server's `/kabuki/sessions`.                         |
+| `kabukiRoutes`          | The Layer of routes a DevTools Server mounts on its HttpRouter: `/kabuki/connect`, `/kabuki/sessions`, `/kabuki/session/:name`.   |
+| `CONNECT_PATH`          | The DevTools Server path a Kabuki Session dials, `/kabuki/connect`.                                                               |
+| `KabukiSessionSummary`  | The Schema of a live Kabuki Session as listed: name, app, Environment, page, origin, when it connected.                           |
+| `KabukiSessionNotFound` | The error for a name no live Kabuki Session has; lists those that are.                                                            |
+| `grouped`               | Kabuki Sessions by app, A to Z, then Environment, this computer's first: how DevTools' page and CLI list them.                    |
+| `isLocalEnvironment`    | Whether an Environment is a host on this computer, as `localhost:5173`.                                                           |
+| `StepNotFound`          | The error for a Step no longer kept; says the oldest and newest kept.                                                             |
+| `InstanceNotFound`      | The error for an Address no Instance has; lists the Instances there are.                                                          |
+| `MessageRefused`        | The error for a Message its Instance's Actor does not take, or its Schema refuses; says why.                                      |
+| `Seeking`               | The error for a Message Sent while the app Seeks a past Step: go back to now to send.                                             |
+| `ControlRefused`        | The error for a control the FakeWorld would not run: no FakeWorld, no such Fake or control, a payload refused, or its own reason. |
 
-### `@kestack/devtools-kabuki/server`
+### `@kestack/devtools-kabuki/inspector/sources.css`
 
-The DevTools side: keeps the live Kabuki Sessions and forwards their Api to
-DevTools' own page and CLI. It needs only `effect`, so its clients run in a
-browser too.
-
-| Export                  | What it does                                                                                                                    |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `kabukiRoutes`          | The Layer of routes a DevTools Server mounts on its HttpRouter: `/kabuki/connect`, `/kabuki/sessions`, `/kabuki/session/:name`. |
-| `dialSessions`          | A client of the live Kabuki Sessions, `list` and `watch`, through a DevTools Server's `/kabuki/sessions`.                       |
-| `dialSession`           | One Kabuki Session's Api client through a DevTools Server's `/kabuki/session/:name`: the same client `inMemory` gives the dock. |
-| `KabukiSessionsApi`     | The RPC group of the live Kabuki Sessions: `list`, and `watch` as a stream.                                                     |
-| `KabukiSessionSummary`  | The Schema of a live Kabuki Session as listed: name, app, page, origin, when connected.                                         |
-| `KabukiSessionNotFound` | The error for a name no live Kabuki Session has; lists those that are.                                                          |
-| `SESSIONS_PATH`         | The path of the live list, `/kabuki/sessions`.                                                                                  |
-| `sessionPath`           | The path of one Kabuki Session's Api, `/kabuki/session/<name>`.                                                                 |
-| `grouped`               | Kabuki Sessions by app, A to Z, then Environment, this computer's first: how DevTools' page and CLI list them.                  |
-| `isLocalEnvironment`    | Whether an Environment is a host on this computer, as `localhost:5173`.                                                         |
-
-`/kabuki/connect` takes any origin, and records it. `/kabuki/sessions` and
-`/kabuki/session/:name` read and move tabs, so they answer only a request
-with no `Origin`, as from the CLI, or with one of the `origins` given to
-`kabukiRoutes`.
-
-### `@kestack/devtools-kabuki/inspector`
-
-The Inspector, Kabuki Actors that read and move one Kabuki Session only
-through the Api.
-
-| Export            | What it does                                                                                                                                         |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `KabukiInspector` | The Inspector beside a running app in the same page, from `App.useRuntime()`, its Kabuki Session answered in memory: for an in-page dock.            |
-| `InspectorLive`   | The Inspector Actor, to place as a Child; its Input is `{ travel, look: { presenting, place } }`.                                                    |
-| `InspectorView`   | The Inspector Actor's View.                                                                                                                          |
-| `KabukiSession`   | The one Capability the Inspector Requires: a Kabuki Session Api client, Provided by whoever places it.                                               |
-| `Story`           | The type of a Story, with `Scene`, `Moment` and `Part`: data only, as the Inspector plays none for now.                                              |
-| `sources.css`     | `@kestack/devtools-kabuki/inspector/sources.css`: import it beside the Web Platform's Theme so the app's Tailwind generates the Inspector's classes. |
-
-### `@kestack/devtools-kabuki/fake`
-
-Fake mode: an app's Fakes run in the tab. Browser-safe; `FakeWorld.make` runs anywhere.
-
-| Export                  | What it does                                                                                                                                 |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `FakeWorld.make`        | Runs a list of Fakes, each on a Kabuki Runtime of its own: one Layer of every edge they fake, and the Runtimes running now.                  |
-| `FakeWorld.indexedDb`   | Where each Fake's Snapshot is kept across reloads: the tab's IndexedDB, a Snapshot per Fake.                                                 |
-| `FakeWorld.startFresh`  | Asks the next start to begin with nothing kept, and reloads the tab.                                                                         |
-| `FakeWorld.beforeStart` | When Start fresh was asked, deletes every IndexedDB database of the origin, localStorage and sessionStorage; call it first.                  |
-| `SAVE_AFTER`            | How long a change waits for the next before its Fake's Snapshot is saved, in milliseconds.                                                   |
-| `DATABASE`              | The IndexedDB database `FakeWorld.indexedDb()` keeps Snapshots in.                                                                           |
-| `FRESH`                 | The sessionStorage key that asks the next start to begin fresh.                                                                              |
-| `FakeBubble`            | The bubble over the app: every Fake's Instances, each with its State, Model and a form per Control, a log of Controls sent, and Start fresh. |
-| `FROM_BUBBLE`           | Who a Control sent from the bubble is from, as its History entry says: from outside, named `fake bubble`.                                    |
-| `PLACE`                 | The localStorage key the bubble keeps its place under.                                                                                       |
+| Export        | What it does                                                                                              |
+| ------------- | --------------------------------------------------------------------------------------------------------- |
+| `sources.css` | A Tailwind `@source` for the classes of this package's panel, to `@import` beside the Web Platform Theme. |
 
 ## Usage
 
-### Connect an app to DevTools
+### Inspect an app in its page, and connect it to DevTools
 
-Attach `connect` to the app. Each time Kabuki starts the app in a browser
-it dials DevTools and answers it until the app stops.
+Wrap the app in `KabukiDevtools`: its button in the bottom-right corner,
+or Ctrl+/, opens the Inspector beside the app, answered in the page. Attach
+`connect` to the app as well, and each time Kabuki starts it in a browser
+it dials DevTools and answers its eight calls there until the app stops.
+Given the app's FakeWorld, both show each Fake and run its controls. This
+is how code, this monorepo's app, places them while developing.
 
-```ts
-import { View } from '@kestack/kabuki/react';
-import { connect } from '@kestack/devtools-kabuki/session';
+```tsx
+import type { ReactNode } from 'react';
+import { FakeWorld } from '@kestack/kabuki/fake';
+import { Start } from '@kestack/kabuki/start';
+import { KabukiDevtools, connect } from '@kestack/devtools-kabuki/app';
 
-export const App = View.app(ShopView, {
-  layer: ShopLive,
-  attach: import.meta.env.DEV ? [connect()] : [],
+const world = FakeWorld.make([newBuild, computers]);
+
+export function Devtools({ children }: { readonly children: ReactNode }) {
+  return (
+    <KabukiDevtools
+      runtime={Start.useRuntime()}
+      world={world}
+      storageKey="shop:devtools"
+      onPhones={false}
+    >
+      {children}
+    </KabukiDevtools>
+  );
+}
+
+export default Start.app({
+  router: App.router,
+  view: App.view,
+  name: 'shop',
+  document: document({ around: (app) => <Devtools>{app}</Devtools> }),
+  layer: world.layer,
+  attach: [connect({ world, environment: 'staging' })],
 });
 ```
 
 How it works:
 
-- DevTools lists it under its app, then its Environment: the page's host,
-  or `environment` when given, as a server would give `os.hostname()`;
-  `default` with neither.
-- With no `url` it dials `/__devtools` on the page's own origin, whose
+- The Inspector is its own Kabuki app, one per app inspected, named after
+  it and keeping no History of its own; nothing of it is in the app's.
+  Full screen over the app it is frosted glass. `KabukiInspector` is the
+  bare panel, to place anywhere: `presenting` draws only the canvas, kept
+  whole in view, and `timelineAt: 'top'` puts the Timeline over it.
+- A Step picked Time Travels the app, read only until Now; an open card's
+  Actions then offer only to go back to now, since a Message is Sent at
+  the Head. A Message Sent says `handled`, `ignored`, `queued`, `refused`
+  with its reason, or why it was not sent.
+- With the app's FakeWorld, the Inspector has a World tab: each Fake's
+  controls beside its state now. A control with nothing to fill in is one
+  Run button; the others open a form, and Enter runs it. Done or the
+  reason it was refused shows beside the control, and a Fake's card flashes
+  as its state changes.
+- `world` may be a function that loads the FakeWorld, such as
+  `() => import('./fake.ts').then((fake) => fake.world)` behind a check
+  that the app runs its fakes, so a build that never does carries none of
+  them: code passes its own so.
+- `form="dialog"` leaves the app as it is and puts the Dialog beside it:
+  the same button and keys open the Inspector full screen over the app, and
+  Escape closes it. For an app the Dock cannot lay out, such as one fixed
+  to the screen.
+- With no `url`, `connect` dials `/__devtools` on the page's own origin, whose
   `/kabuki/connect` the Web Platform's `app()` pipes to the DevTools Server
-  under `vite dev`, so a tunnel to the app reaches DevTools too. Elsewhere, give the whole URL:
-  `connect({ url: 'wss://devtools.example.com' })`.
-
+  under `vite dev`, so a tunnel to the app reaches DevTools too. Elsewhere,
+  give the whole URL: `connect({ url: 'wss://devtools.example.com' })`.
+- DevTools lists it under its app, then its Environment: `environment`
+  when given, else the page's host, else `default`.
 - The name asked for is the page's `?kabuki-session`, else `name`, else the
   one this tab used before, else a readable one such as `quiet-otter`.
-- DevTools calls `named` with the final name, `quiet-otter-2` on a clash;
-  the tab keeps it in sessionStorage and dials with it from then on.
+  DevTools answers the final one, `quiet-otter-2` on a clash, and the tab
+  dials with it from then on, while keeping the one it asked for.
 - While DevTools is down or restarting the app dials again, from half a
-  second up to every ten; nothing reaches the app.
+  second up to every ten seconds. Nothing reaches the app: with no
+  WebSocket, as on a server, it does nothing.
 
-### Ask a running app about itself
+### Call a live Kabuki Session through DevTools
 
-`inMemory` gives the same client DevTools has, served by the app in the
-page, given the app as `App.useRuntime()` or an Attachment has it. Every
-answer is plain JSON, values encoded by their Actors' Schemas.
+`remote` gives the `KabukiSession` of one live Kabuki Session by name, the
+same eight calls the page answers. This is lifted from the test that
+connects an app through a real DevTools Server socket.
 
 ```ts
-import { Effect } from 'effect';
-import { inMemory } from '@kestack/devtools-kabuki/session';
+import { Effect, Stream } from 'effect';
+import {
+  KabukiSession,
+  dialSessions,
+  remote,
+} from '@kestack/devtools-kabuki/devtools';
+
+const origin = 'http://127.0.0.1:14400';
 
 const program = Effect.gen(function* () {
-  const client = yield* inMemory(app);
-  const { entries, head } = yield* client.history({ last: 5 });
-  const note = yield* client.snapshot({ path: 'model.notes.1' });
-  const step = yield* client.changes({ step: head! });
-  const graph = yield* client.graph({});
-  const card = yield* client.node({ instance: 'Diary' });
-  const trail = yield* client.trail({ instance: 'Diary/counter#1' });
-  const { tips } = yield* client.history({});
-  const other = yield* client.history({ branch: tips[0]! });
-  yield* client.seek({ step: entries[0]!.id });
-  yield* client.seek({ step: null });
-  yield* client.fork({ from: entries[0]!.id });
-});
+  const session = yield* KabukiSession;
+  const { root } = yield* session.blueprint();
+  const now = yield* session.watch().pipe(Stream.runHead);
+  const look = yield* session.look({ open: ['Diary'] });
+  yield* session.send({
+    to: 'Diary',
+    message: {
+      _tag: 'Wrote',
+      note: { at: '2026-11-25T00:00:00.000Z', text: 'second' },
+    },
+  });
+  yield* session.travel({ to: 'start' });
+  yield* session.travel({ to: null });
+  yield* session.fork({ from: 'start' });
+  yield* session.control({
+    fake: 'lights',
+    control: 'Switched',
+    payload: { on: true },
+  });
+}).pipe(Effect.provide(remote(origin, 'diary')));
 
-await Effect.runPromise(Effect.scoped(program));
+const live = Effect.flatMap(dialSessions(origin), (sessions) =>
+  sessions.list(),
+);
 ```
 
 How it works:
 
-- `at` absent means the Head; `'start'` the History's start, the app right
-  after init until the History is Compacted to its Window, then right
-  before the oldest entry kept; an entry id the Step right after it, else a
-  `StepNotFound` naming those kept.
-- An Instance is named by its Address, `Diary/counter#1`. What a Step
-  changed is read from the Snapshots right before and right after it: an
-  Instance only in the second is started, one whose State, Model or Props
-  is another object is changed, one only in the first is stopped. A Trail
-  is the same, asked of every entry on a Branch for one Instance, and
-  `snapshot` says of each Instance which entry started it and which last
-  changed it, `null` for one as the History's start has it. What came of a
-  Message is its entry played again.
-- `history` and `trail` read the Head's Branch, or with `branch` the one
-  through that entry: the Head's if it passes through it, else the newest
-  that does. `history` says every Branch's last entry, `tips`, and each
-  Step on the Branch it reads that the History goes on from in more than
-  one way, `splits`, with every entry that follows it.
-- `seek` Time Travels the app to any entry on any Branch while its Runtime
-  stays where it is, `'start'` too; `null` draws its Head again. `fork`
-  moves the History's Head to an entry, or to its start with `null`, and
-  the same Runtime follows it there, so the next Message grows a new
-  Branch; it runs no past Command.
-- Which Workers run is known only at the Head of a running app, from the
-  Runtime; a past Step names none. Which Workers a Step started or stopped
-  is known at any Step: the ones `Snapshot.workers` finds the data asks for
-  after it and not before, or before it and not after.
-- A call made before the app has its Runtime waits for it. The app keeps
-  that one Runtime through every Seek and Fork.
-- `snapshot` folds a large value to its first levels and items unless
-  `expand`; a path that is not there fails, listing the keys there are.
-- `watch` streams `Now` at once and after every change the app reports.
-- `page` streams the page the app runs in at once, and again each time it moves to another; DevTools follows it to keep the listed page current.
+- `blueprint()` is every Actor the root can grow, one node per Child slot
+  by its place, running or not: each level's Messages, each with a Shape of
+  its payload, its Workers, Children and their Condition, Queries and
+  Provides; the Actor's Requires, and Shapes of its Model, Props and each
+  State's data.
+- `watch()` streams, at once and after every change, `now` (the Head, the
+  Step the app Seeks or `null`, running or stopped, the last failure, the
+  page's URL) and every entry the History keeps, on every Branch: id,
+  parent, Address, tag, Source, Time and outcome.
+- `look({ at, open })` is the Instances at a Step (absent: the Head; `'start'`:
+  the History's start), each with its Address, place, Actor, State tag,
+  whether that Step started or changed it, and its Children. For each
+  Address in `open`, its State, Model and Props encoded by its Actor's
+  Schemas, large values folded, and its Workers, known only at the Head of
+  a running app.
+- `travel({ to })` Seeks a Step; `null` goes back to the Head. `fork({ from })`
+  moves the History's Head to a Step, so the next Message grows a new Branch.
+- `send({ to, message })` decodes the Message by its Actor's Schema and Sends
+  it from `{ kind: 'outside', name: 'devtools' }`. It answers what Kabuki's
+  send did (`handled`, `ignored`, `queued`, `refused`), or fails with
+  `InstanceNotFound`, `MessageRefused` or `Seeking`.
+- `fakes()` streams each Fake of the FakeWorld: its name, a Shape of its
+  state, its state encoded and its controls with a Shape of each payload;
+  none without a FakeWorld. `control` runs `world.control` and answers
+  `'done'`, or `ControlRefused` with the reason.
+- A call made before the app has its Runtime waits for it. A Step no longer
+  kept fails with `StepNotFound`, naming the oldest and newest kept.
+- Every call can also fail with `RpcClientError` once the socket closes;
+  in the page none does.
 
-### Show the Inspector beside the app
+### Serve the Kabuki routes on a DevTools Server
 
-```tsx
-import { KabukiInspector } from '@kestack/devtools-kabuki/inspector';
-
-function Devtools() {
-  const app = App.useRuntime();
-  return <KabukiInspector runtime={app} overlay />;
-}
-```
-
-```css
-@import '@kestack/web-platform/ui/theme/global.css';
-@import '@kestack/devtools-kabuki/inspector/sources.css';
-```
-
-How it works:
-
-- Every Instance is a card on a canvas to pan and zoom, over a Timeline of
-  every Step on the Branch in view, the Head's until another is picked.
-  With Travel the app on, as `defaultTravel` says at first, a Step picked
-  Time Travels the app and Fork moves the app's Head to it. Go to Head
-  draws the Head again; there the Timeline says whether the app is running
-  or stopped.
-- Where the History goes on from the Step shown in more than one way, the
-  Timeline offers each entry that follows it; one picked is shown and its
-  Branch comes into view. Back and forward walk the Branch in view. A Step
-  the app Seeks off it brings its Branch into view.
-- An open card's footprints switch follows its Instance's Trail: only that
-  card shows, and the Timeline only the moments it started, changed,
-  received a Message or stopped. Back, forward, the track and Play go from
-  moment to moment, Time Travelling the app as Travel the app says. The
-  switch pressed again, or the card closed, shows the whole tree again.
-- Its Blueprint tab draws every Actor the app's root can grow, running or
-  not, each level's Provides as declared: the whole tree, nothing folded or
-  dimmed. A card pressed opens; one right clicked opens and comes to the
-  middle.
-- `presenting` keeps only the canvas; `timelineAt="top"` puts the Timeline
-  over it; `dotted={false}` or `overlay` drops the dots.
-- It is a Kabuki app of its own, never attached to DevTools itself, named
-  after the app it inspects, so it opens again as it was left.
-
-### Place the Inspector in another Kabuki app
-
-Invoke `InspectorLive` as a Child, keyed by the Kabuki Session's name, and
-draw it with `<InspectorView instance={children.inspector} />`. Provide
-`KabukiSession` above it as a Layer of that Kabuki Session's client: a
-Provides is built when its level starts, so give it in a State that lasts
-while that one Kabuki Session is chosen, as DevTools' `/kabuki` page does
-with a client that reaches the tab through DevTools.
+`kabukiRoutes` is every Kabuki route, sharing one registry of the live
+Kabuki Sessions; mount it with the Server's other routes.
 
 ```ts
-inspector: {
-  actor: InspectorLive,
-  input: () => ({
-    travel: true,
-    look: { presenting: false, place: 'bottom' },
-  }),
-},
-```
+import { createServer } from 'node:http';
+import { Layer } from 'effect';
+import { HttpRouter } from 'effect/http';
+import * as NodeHttpServer from '@effect/platform-node/NodeHttpServer';
+import { kabukiRoutes } from '@kestack/devtools-kabuki/devtools';
 
-### Run an app's Fakes in the tab
-
-A Fake is a plain object, `{ name, actor, controls, serve, kept? }`, that
-its own package exports from a `fake` door. The app lists the ones it
-needs, makes one Fake World, and provides its Layer where the real edges
-would be. Before anything opens storage it calls `beforeStart`, so Start
-fresh clears the origin first.
-
-```tsx
-import { computers } from '@kestack/connect/fake';
-import { FakeBubble, FakeWorld } from '@kestack/devtools-kabuki/fake';
-import type { Fake } from '@kestack/devtools-kabuki/fake';
-
-await FakeWorld.beforeStart();
-
-const fakes = [computers] satisfies ReadonlyArray<Fake>;
-export const world = FakeWorld.make(fakes, { saved: FakeWorld.indexedDb() });
-
-// Layer<Computers>
-export const edges = world.layer;
-
-// Anywhere in the app's React tree, once.
-export const Fakes = () => <FakeBubble world={world} />;
+const server = HttpRouter.serve(
+  kabukiRoutes({ origins: ['http://127.0.0.1:14400'] }),
+).pipe(
+  Layer.provide(
+    NodeHttpServer.layer(createServer, {
+      port: 14400,
+      disablePreemptiveShutdown: true,
+    }),
+  ),
+);
 ```
 
 How it works:
 
-- Building `world.layer` runs each Fake's Actor with `Runtime.scoped`, in
-  the Layer's Scope, then its `serve(runtime)`; every Fake's Layer is
-  merged into one. Build it once, in a Scope that lasts as long as the app.
-- `world.runtimes` lists the Fakes running, in the order given, each with
-  its Runtime: empty until the Layer is built. `world.subscribe` tells when
-  it changes.
-- With `saved`, each Fake starts from the Snapshot saved under its `name`;
-  one that no longer fits its Actor's code is set aside with a warning, and
-  the Fake starts blank. Each change is saved `SAVE_AFTER` after the Fake
-  settles, many as one, and one waiting is saved as the page hides and as
-  the Scope closes. A write begun as the page unloads may not land, so
-  whatever leaves the page right after a change awaits `world.saved()`
-  first: it saves every change waiting at once. A Fake's `kept(snapshot)` says what a reload keeps,
-  else the whole Snapshot.
-- `startFresh()` sets `FRESH` in sessionStorage and reloads;
-  `beforeStart()` on the next start deletes what the origin keeps, and says
-  whether it did.
-- `FakeBubble` draws itself on the page's body in a Shadow DOM, its styles
-  in its code: the app's styles never reach it, and its never reach the
-  app. It follows the page's `color-scheme`. It first sits on the right,
-  just over the bottom-right corner, where the Web Platform's Devtools
-  Dock keeps its button. Dragged, or moved with Shift and an arrow, it
-  keeps its place in localStorage; pressed, it opens the panel, which
-  Escape closes.
-- Each Instance offers the Fake's `controls` its Actor has an Update for,
-  each a form read from the Message's Schema: text, a number, a switch, a
-  choice of literals, else JSON, a blank optional field left out. Sent to
-  the Instance's Address, from `FROM_BUBBLE`, it says what became of it:
-  handled, ignored, queued or refused. Start fresh asks first.
+- `/kabuki/connect` takes any origin, and records it. A Kabuki Session is
+  kept while its socket is open, under a name unique among the live ones,
+  and follows the page it moves to.
+- `/kabuki/sessions` and `/kabuki/session/:name` read and move tabs, so
+  they answer only a request with no `Origin`, as from the CLI, or with one
+  of `origins`. A name no live Kabuki Session has answers 404 with
+  `KabukiSessionNotFound`.
+- `/kabuki/session/:name` answers the same RPC group the tab serves, each
+  call passed to the tab; its socket closes once the Kabuki Session is gone.
+- The Server going down leaves the list as it was: its watchers never see
+  the Kabuki Sessions leave one by one.
