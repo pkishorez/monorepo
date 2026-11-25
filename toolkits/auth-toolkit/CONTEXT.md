@@ -85,7 +85,7 @@ auth-toolkit's stand-in for the Auth Worker, where none can be reached or none s
 _Avoid_: Local mode (the former name), mock auth, sandbox, dev login
 
 **Sign-in fake**:
-The Fake (`signIn`, a Kabuki Actor the Fake World runs) that plays the Auth Worker and the identity provider for one browser: who is signed in on it, the sign-in waiting to be told who, and how the Auth Worker answers. Its Controls answer a sign-in (as someone, or nobody), make the next one fail, act from another tab (sign out, switch, add an Account), and take the Auth Worker out of reach, slow, or back. The real Accounts client runs over it.
+The Fake (`signIn`, a Kabuki Actor the Fake World runs) that plays the Auth Worker and the identity provider for one browser: who is signed in on it, and the sign-in waiting to be told who. Its Controls answer a sign-in (as someone, or nobody). The real Accounts client runs over it.
 _Avoid_: fake chooser, sign-in dialog, Test Sign-In (gone)
 
 **Fake Account**:

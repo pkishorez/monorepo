@@ -24,15 +24,14 @@ service, so app code does not care which one it runs on.
 An app whose whole backend runs in the tab, in fake mode, cannot reach an
 Auth Worker, so it uses the `fake` door instead: `signIn`, the Sign-in fake,
 a Fake its Fake World runs (`@kestack/devtools-kabuki/fake`), whose Controls
-answer each sign-in and act from another tab, gives the browser's
-`Accounts` in place of `browser()`; `fakeGuard.rpc()` or `fakeGuard.http()`
-take the place of `auth.rpc()` or `auth.http()`. Tests sign in with
-`fakeAccounts({ choose })`, and handlers' tests put a fixed Principal behind
-every call with `fakeGuard.rpc({ as })`. `server`, `client/browser` and
-`client/device` are always the real ones: an app picks the fake itself, in
-fake mode only, and a production build that carries it fails (the Web
-Platform's check for `FAKE_MARK`). A Fake Account's email must be at
-`kestack.test`.
+answer each sign-in, gives the browser's `Accounts` in place of `browser()`;
+`fakeGuard.rpc()` or `fakeGuard.http()` take the place of `auth.rpc()` or
+`auth.http()`. Tests sign in with `fakeAccounts({ choose })`, and handlers'
+tests put a fixed Principal behind every call with `fakeGuard.rpc({ as })`.
+`server`, `client/browser` and `client/device` are always the real ones: an
+app picks the fake itself, in fake mode only, and a production build that
+carries it fails (the Web Platform's check for `FAKE_MARK`). A Fake
+Account's email must be at `kestack.test`.
 
 The Guard is Middleware from
 [`@kestack/rpc-toolkit`](../rpc-toolkit/README.md), and the clients keep
@@ -153,9 +152,9 @@ Peer dependencies, all optional; install the ones your doors need:
 | Export             | What it does                                                                                                                                                                             |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `signIn`           | The Sign-in fake, a Fake: its Actor, its Controls, `serve` (the browser's `Accounts` over it) and `kept` (no sign-in asking after a reload).                                             |
-| `SignInFake`       | The Sign-in fake's Kabuki Actor: who is signed in on this browser, the sign-in asking who, how the Auth Worker answers.                                                                  |
+| `SignInFake`       | The Sign-in fake's Kabuki Actor: who is signed in on this browser, and the sign-in asking who.                                                                                           |
 | `SIGN_IN_CONTROLS` | The Sign-in fake's Controls, the Message tags the bubble offers.                                                                                                                         |
-| `blank`            | The Sign-in fake's Model as it starts: nobody signed in, the Auth Worker answering.                                                                                                      |
+| `blank`            | The Sign-in fake's Model as it starts: nobody signed in.                                                                                                                                 |
 | `browserOver`      | `Accounts` and the signing of every guarded call over the running Sign-in fake, with `browser`'s `cache`, `returnTo` and `maxAccounts`, and `leave`, how the page leaves for `returnTo`. |
 | `fakeAccounts`     | `Accounts` over a Sign-in fake of its own whose every sign-in `choose` answers, for tests.                                                                                               |
 | `fakeGuard.rpc`    | The Guard's server half for Effect RPC that reads each call's Fake Token, or puts `as` behind every call, and asks no one.                                                               |
