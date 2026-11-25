@@ -831,6 +831,9 @@ importers:
       '@kestack/kabuki':
         specifier: workspace:*
         version: link:../../packages/kabuki
+      '@kestack/monoverse':
+        specifier: workspace:*
+        version: link:../monoverse
       '@kestack/web-platform':
         specifier: workspace:*
         version: link:../../platforms/web-platform

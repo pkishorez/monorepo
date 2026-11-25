@@ -3,7 +3,7 @@ import type { Link } from '../logic/shared/index.js';
 
 const snippet = (
   server: string,
-) => `import { connect } from '@kestack/devtools-kabuki/session';
+) => `import { connect } from '@kestack/devtools-kabuki/app';
 
 View.app(AppView, {
   layer,
@@ -96,7 +96,7 @@ export function Unpicked({ count }: { readonly count: number }) {
       <p className="mt-1.5 text-sm text-pretty text-muted-foreground">
         {count === 0
           ? 'A running Kabuki app shows up here the moment it connects.'
-          : 'Its Actor tree and History open here. Picking a Step on the Timeline travels the app itself.'}
+          : 'Its Instances, Blueprint and Fakes open here. Picking a Step on the Timeline travels the app itself.'}
       </p>
     </Blank>
   );

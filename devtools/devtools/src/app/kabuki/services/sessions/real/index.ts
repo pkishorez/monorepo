@@ -1,5 +1,5 @@
 import { Effect, Layer, Stream } from 'effect';
-import { dialSession, dialSessions } from '@kestack/devtools-kabuki/server';
+import { dialSessions, remote } from '@kestack/devtools-kabuki/devtools';
 import { Sessions } from '../contract/index.js';
 
 export const sessionsLayer = (origin: string) =>
@@ -7,5 +7,5 @@ export const sessionsLayer = (origin: string) =>
     watch: Stream.unwrap(
       Effect.map(dialSessions(origin), (client) => client.watch()),
     ),
-    dial: (name) => dialSession(origin, name),
+    session: (name) => remote(origin, name),
   });

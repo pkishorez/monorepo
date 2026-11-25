@@ -53,12 +53,12 @@ const server: Plugin = {
   }),
 };
 
-/** Where a Kabuki Session dials DevTools by default: `DEVTOOLS_PATH` in `@kestack/devtools-kabuki/session`. */
+/** Where a Kabuki Session dials DevTools by default: where `connect` from `@kestack/devtools-kabuki/app` dials with no `url`. */
 const DEVTOOLS_PATH = '/__devtools';
 
 /**
  * The one DevTools route reachable on the site: where a Kabuki Session
- * dials, `CONNECT_PATH` in `@kestack/devtools-kabuki/api`. DevTools' own
+ * dials, `CONNECT_PATH` in `@kestack/devtools-kabuki/devtools`. DevTools' own
  * API reads files and runs things, and a tunnel is public.
  */
 const CONNECT_PATH = '/kabuki/connect';

@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
-import { KabukiSessionSummary } from '@kestack/devtools-kabuki/server';
+import { KabukiSessionSummary } from '@kestack/devtools-kabuki/devtools';
 import { Sessions } from '../../../services/sessions/contract/index.js';
 
 const Link = Schema.Literals(['connecting', 'live', 'reconnecting']);

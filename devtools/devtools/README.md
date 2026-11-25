@@ -15,7 +15,8 @@ Input and draws everything below it, so any app can mount one on its own:
 Lotel stores and shows OpenTelemetry data; Monoverse shows a Monorepo or a
 Single Package as its folder tree, with the imports between folders and the
 one rule they must keep; Kabuki lists the running Kabuki apps connected as
-Kabuki Sessions and opens the Inspector on one, through
+Kabuki Sessions and opens the Inspector on one, its eight calls answered by
+that app's tab, through
 [@kestack/devtools-kabuki](../devtools-kabuki/README.md). Each Tool's folder
 holds its whole slice: its RPC contract, its server half and its Actors.
 Applications send telemetry with
@@ -94,7 +95,7 @@ How it works:
   Telemetry Store keep separate tables in the one DevTools database.
 - Kabuki apps dial the WebSocket `/kabuki/connect` as Kabuki Sessions, from
   any origin. `/kabuki/sessions` and `/kabuki/session/:name` list them and
-  forward one's Kabuki Session Api, and answer only a request with no
+  pass one's eight calls to its tab, and answer only a request with no
   `Origin` or DevTools' own
   ([@kestack/devtools-kabuki](../devtools-kabuki/README.md)).
 

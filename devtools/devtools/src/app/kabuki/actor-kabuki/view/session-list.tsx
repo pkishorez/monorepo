@@ -6,8 +6,8 @@ import {
   NativeSelectOption,
 } from '@kestack/web-platform/ui/components/native-select';
 import { cn } from '@kestack/web-platform/ui/components/utils';
-import { grouped } from '@kestack/devtools-kabuki/server';
-import type { KabukiSessionSummary } from '@kestack/devtools-kabuki/server';
+import { grouped } from '@kestack/devtools-kabuki/devtools';
+import type { KabukiSessionSummary } from '@kestack/devtools-kabuki/devtools';
 import type { Link } from '../logic/shared/index.js';
 
 interface ListProps {
