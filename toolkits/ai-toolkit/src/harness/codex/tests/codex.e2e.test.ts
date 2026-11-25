@@ -41,7 +41,11 @@ import { openSession } from '../thread/index.js';
 const MODEL = 'gpt-5.6-luna';
 const SETTINGS = { reasoningEffort: 'low' };
 const TIMEOUT = 240_000;
-/** Set to a folder to save every turn's records (fixtures for project.test.ts). */
+/**
+ * Set to a folder to save every turn's records. `../fake/recordings/codex`
+ * was captured this way: the Agent fake replays them, and the projection
+ * tests read them.
+ */
 const CAPTURE = process.env.AI_TOOLKIT_CAPTURE;
 
 const cwd = mkdtempSync(join(tmpdir(), 'ai-toolkit-codex-e2e-'));

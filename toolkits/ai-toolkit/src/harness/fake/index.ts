@@ -8,17 +8,18 @@ import { agentOver } from './serve.js';
  * `@kestack/ai-toolkit/harness/fake`: the Agent fake, Claude Code and
  * Codex as one computer has them, as a Fake the Fake World runs. Both
  * start installed and signed in, in their own config folders, with their
- * models from the real catalog; every reply is an echo, and its one
- * Control picks the Script every reply plays. `serve` gives `Harnesses`,
- * `OneShotPrompt`, `HarnessHost` and `Models`, what connect's code Plugin
- * asks for besides Speech; `agentOver(runtime, { home, paceMs })` names
- * another home, or another pace. Browser-safe: nothing here imports Node.
+ * models from the real catalog. Every reply replays a Turn recorded from
+ * the real harness (recordings/), one at random unless its one Control
+ * pins one. `serve` gives `Harnesses`, `OneShotPrompt`, `HarnessHost` and
+ * `Models`, what connect's code Plugin asks for besides Speech;
+ * `agentOver(runtime, { home, paceMs })` names another home, or another
+ * pace. Browser-safe: nothing here imports Node.
  *
  * `kept` is the Snapshot a reload keeps: the world, without what ran in
- * it. Agents, replies and Background Jobs die with the page, as they die
- * with a computer's restart.
+ * it. Agents and replies die with the page, as they die with a computer's
+ * restart.
  *
- * `makeFakeHarness` is the older fake for tests, scripted Turn by Turn.
+ * `makeFakeHarness` is the older fake for tests, driven Turn by Turn.
  */
 
 const kept = (
@@ -31,7 +32,6 @@ const kept = (
       ...snapshot.root.model,
       agents: [],
       replies: [],
-      jobs: [],
     },
   },
 });
@@ -54,13 +54,11 @@ export {
 } from './actor.js';
 export { agentOver, type AgentEdges, type AgentOptions } from './serve.js';
 export {
-  SCRIPT_NAMES,
-  SCRIPTS,
-  type Ending,
-  type Script,
-  type ScriptName,
-  type Step,
-} from './scripts.js';
+  RECORDING_NAMES,
+  RECORDINGS,
+  type Recording,
+  type RecordingName,
+} from './recordings/index.js';
 export {
   FAKE_SKILLS,
   makeFakeHarness,

@@ -8,7 +8,10 @@ import { project, TOOL_OUTPUT_MAX } from '../index.js';
 /** Turns captured from the real Claude Code by `claude.e2e.test.ts`. */
 const fixture = (name: string): ReadonlyArray<RawOut> =>
   JSON.parse(
-    readFileSync(new URL(`./fixtures/${name}.json`, import.meta.url), 'utf8'),
+    readFileSync(
+      new URL(`../../../fake/recordings/claude/${name}.json`, import.meta.url),
+      'utf8',
+    ),
   ) as ReadonlyArray<RawOut>;
 
 const raw = (out: RawOut): Raw => ({

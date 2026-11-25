@@ -92,9 +92,9 @@ _Avoid_: tool status, plugin status
 How much of an Agent's context window is filled, and the account's remaining rate limits.
 _Avoid_: tokens left, quota
 
-**Script**:
-What the Agent fake replies with: the steps an agent takes (words, reasoning, each kind of tool, a subagent, an Agent Question, a Background Job) and how the Turn ends (done, failed, or cut off), written once and turned into each Coding Harness's own records, so the real projection draws them.
-_Avoid_: fixture, recording, canned reply
+**Recording**:
+Every record a real Coding Harness wrote in one Turn, captured by the e2e tests. The Agent fake replays one as each reply, with its own ids and folders in place of the recorded ones, so the real projection draws exactly what a real run produced; the projection tests read the same files.
+_Avoid_: fixture, script, canned reply
 
 **Speech to Text**:
 Turning spoken audio into text, on the computer itself. It knows nothing of Agents or Coding Harnesses.

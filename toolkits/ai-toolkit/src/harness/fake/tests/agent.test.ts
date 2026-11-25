@@ -1,5 +1,4 @@
 import { Context, Effect, Fiber, Layer, type Scope, Stream } from 'effect';
-import { TestClock } from 'effect/testing';
 import { Runtime } from '@kestack/kabuki';
 import { describe, expect, it } from 'vitest';
 import type { Part } from '../../../contract/projection/index.js';
@@ -23,11 +22,12 @@ import {
   type AgentModel,
   type AgentOptions,
 } from '../index.js';
+import { RECORDINGS, recordingFor } from '../recordings/index.js';
 
 /*
  * The Agent fake as connect's code Plugin sees it: Claude Code and Codex
  * installed and signed in, as `Harnesses`, `HarnessHost`, `Models` and
- * `OneShotPrompt` answer, and each Script plays as records the real
+ * `OneShotPrompt` answer, and each reply replays a recorded Turn the real
  * projections draw.
  */
 
@@ -217,23 +217,22 @@ describe('the Agent fake, its world', () => {
 });
 
 describe('the Agent fake, its replies', () => {
-  it('echoes by default, and shows each running reply in its Model', async () => {
+  it('replays the recording the Model names, and shows the reply running', async () => {
     const found = await run(
       (fake, edges) =>
         Effect.gen(function* () {
           const claude = yield* opened(edges, 'claude');
-          const agents = fake.root.model.agents.map(({ harness }) => harness);
+          yield* control(fake, { _tag: 'ReplyWith', recording: 'read' });
           const fiber = yield* Effect.forkChild(say(claude, 'hello'));
           const running = (yield* until(
             fake,
             (model) => model.replies.length > 0,
-          )).model.replies.map(({ prompt, script }) => [prompt, script]);
+          )).model.replies.map(({ prompt, recording }) => [prompt, recording]);
           const outs = yield* Fiber.join(fiber);
           return {
-            agents,
             running,
             text: partsOf(harnessOf(edges, 'claude'), outs)
-              .flatMap((part) => (part.type === 'textChunk' ? [part.text] : []))
+              .flatMap((part) => (part.type === 'text' ? [part.text] : []))
               .join(''),
             end: lastOf(outs),
             after: fake.root.model.replies.length,
@@ -241,9 +240,8 @@ describe('the Agent fake, its replies', () => {
         }),
       { paceMs: 20 },
     );
-    expect(found.agents).toEqual(['claude']);
-    expect(found.running).toEqual([['hello', 'echo']]);
-    expect(found.text).toBe('echo: hello');
+    expect(found.running).toEqual([['hello', 'read']]);
+    expect(found.text).toContain('PINEAPPLE-42');
     expect(found.end).toMatchObject({
       _tag: 'TurnEnd',
       status: 'done',
@@ -252,182 +250,38 @@ describe('the Agent fake, its replies', () => {
     expect(found.after).toBe(0);
   });
 
-  it.each(['claude', 'codex'] as const)(
-    'plays every tool kind as %s writes it, through its real projection',
-    async (name) => {
-      const parts = await run((fake, edges) =>
-        Effect.gen(function* () {
-          yield* control(fake, { _tag: 'ReplyWith', script: 'every tool' });
-          const outs = yield* say(yield* opened(edges, name), 'go');
-          return partsOf(harnessOf(edges, name), outs);
-        }),
-      );
-      const kinds = new Set(
-        parts.flatMap((part) => (part.type === 'toolCall' ? [part.tool] : [])),
-      );
-      for (const kind of [
-        'read',
-        'write',
-        'edit',
-        'bash',
-        'web',
-        'mcp',
-        'other',
-      ])
-        expect(kinds).toContain(kind);
-      // Codex searches with its shell, and deletes as a file change.
-      expect(kinds.has('search')).toBe(name === 'claude');
-      expect(kinds.has('delete')).toBe(name === 'codex');
-      const results = parts.flatMap((part) =>
-        part.type === 'toolResult' ? [part] : [],
-      );
-      expect(results.some((result) => result.isError)).toBe(true);
-      expect(results.some((result) => result.truncated)).toBe(true);
-      if (name === 'claude')
-        expect(results.some((result) => result.images?.length === 7)).toBe(
-          true,
-        );
-      expect(parts.at(-1)).toMatchObject({ type: 'turnEnded', status: 'done' });
-    },
-  );
-
-  it.each(['claude', 'codex'] as const)(
-    'streams words and reasoning in chunks (%s)',
-    async (name) => {
-      const parts = await run((fake, edges) =>
-        Effect.gen(function* () {
-          yield* control(fake, { _tag: 'ReplyWith', script: 'words' });
-          const outs = yield* say(yield* opened(edges, name), 'go');
-          return partsOf(harnessOf(edges, name), outs);
-        }),
-      );
-      const chunks = parts.flatMap((part) =>
-        part.type === 'textChunk' ? [part] : [],
-      );
-      expect(
-        chunks.filter(({ channel }) => channel === 'text').length,
-      ).toBeGreaterThan(2);
-      expect(chunks.some(({ channel }) => channel === 'reasoning')).toBe(true);
-      expect(
-        chunks
-          .filter(({ channel }) => channel === 'text')
-          .map(({ text }) => text)
-          .join(''),
-      ).toContain('## What changes');
-    },
-  );
-
-  it.each(['claude', 'codex'] as const)(
-    "draws a subagent's subagent under its own call (%s)",
-    async (name) => {
-      const parts = await run((fake, edges) =>
-        Effect.gen(function* () {
-          yield* control(fake, { _tag: 'ReplyWith', script: 'subagent' });
-          const outs = yield* say(yield* opened(edges, name), 'go');
-          return partsOf(harnessOf(edges, name), outs);
-        }),
-      );
-      const spawns = parts.flatMap((part) =>
-        part.type === 'toolCall' && part.tool === 'subagent' ? [part] : [],
-      );
-      expect(spawns).toHaveLength(2);
-      const [outer, inner] = spawns;
-      expect(outer!.agentId).toBeNull();
-      expect(inner!.agentId).toBe(outer!.id);
-      expect(parts.some((part) => part.agentId === inner!.id)).toBe(true);
-      const reports = parts.flatMap((part) =>
-        part.type === 'toolResult' && part.toolCallId === outer!.id
-          ? [part.output]
-          : [],
-      );
-      expect(reports.join('')).toContain('One test fails');
-    },
-  );
-
-  it.each(['claude', 'codex'] as const)(
-    'waits on a question until it is answered (%s)',
-    async (name) => {
+  it.each(RECORDINGS.map(({ harness, name }) => [harness, name] as const))(
+    "replays %s's %s as this Agent's own, through its real projection",
+    async (name, recording) => {
       const found = await run((fake, edges) =>
         Effect.gen(function* () {
-          yield* control(fake, { _tag: 'ReplyWith', script: 'question' });
           const open = yield* opened(edges, name);
-          const fiber = yield* Effect.forkChild(say(open, 'go'));
-          const questions = yield* open.questions.pipe(
-            Stream.filter((asked) => asked.length > 0),
-            Stream.runHead,
-          );
-          const question =
-            questions._tag === 'Some' ? questions.value[0]! : undefined;
-          const waiting = fiber.pollUnsafe() === undefined;
-          const [first, second] = question!.items;
-          yield* open.answer(question!.id, {
-            [first!.id]: ['SQLite'],
-            [second!.id]: ['Tests'],
-          });
-          const outs = yield* Fiber.join(fiber);
-          const late = yield* Effect.flip(open.answer(question!.id, null));
+          yield* control(fake, { _tag: 'ReplyWith', recording });
+          const outs = yield* say(open, 'go');
           return {
-            items: question!.items.length,
-            waiting,
+            nativeId: yield* open.nativeId,
+            records: JSON.stringify(outs.filter(isRecord)),
             parts: partsOf(harnessOf(edges, name), outs),
-            late: late._tag,
             end: lastOf(outs),
           };
         }),
       );
-      expect(found.items).toBe(2);
-      expect(found.waiting).toBe(true);
-      expect(found.parts.some((part) => part.type === 'questionAnswered')).toBe(
-        true,
-      );
-      expect(
-        found.parts
-          .flatMap((part) => (part.type === 'textChunk' ? [part.text] : []))
-          .join(''),
-      ).toContain('Store: SQLite');
-      expect(found.late).toBe('QuestionNotAsked');
-      expect(found.end).toMatchObject({ _tag: 'TurnEnd', status: 'done' });
+      expect(found.records).toContain(found.nativeId);
+      expect(found.records).not.toMatch(/\/var\/folders|\/Users\//);
+      expect(found.parts.at(-1)).toMatchObject({
+        type: 'turnEnded',
+        status: 'done',
+      });
+      expect(found.end).toMatchObject({ status: 'done', shown: true });
     },
   );
 
-  it.each([
-    ['claude', 'Claude Code stopped with exit code 137'],
-    ['codex', 'Codex was stopped by SIGKILL'],
-  ] as const)(
-    'cut off, %s fails its stream as its process exiting does',
-    async (name, why) => {
-      const found = await run((fake, edges) =>
-        Effect.gen(function* () {
-          const open = yield* opened(edges, name);
-          yield* control(fake, { _tag: 'ReplyWith', script: 'cut off' });
-          return yield* Effect.flip(say(open, 'go'));
-        }),
-      );
-      expect(found.message).toBe(why);
-    },
-  );
-
-  it('fails as the script says', async () => {
-    const found = await run((fake, edges) =>
-      Effect.gen(function* () {
-        const open = yield* opened(edges, 'codex');
-        yield* control(fake, { _tag: 'ReplyWith', script: 'fails' });
-        const outs = yield* say(open, 'go');
-        return {
-          end: lastOf(outs),
-          drawn: partsOf(harnessOf(edges, 'codex'), outs).at(-1),
-        };
-      }),
-    );
-    expect(found.end).toMatchObject({
-      status: 'failed',
-      error: 'API Error: 529 Overloaded',
-    });
-    expect(found.drawn).toMatchObject({
-      type: 'turnEnded',
-      status: 'failed',
-      error: 'API Error: 529 Overloaded',
-    });
+  it("replays one of its own harness's recordings when none is named", () => {
+    const codex = RECORDINGS.filter(({ harness }) => harness === 'codex');
+    expect(recordingFor('codex', 'random', () => 0)).toBe(codex[0]);
+    expect(recordingFor('codex', 'random', () => 0.99)).toBe(codex.at(-1));
+    // Claude's only: Codex has no `read`.
+    expect(recordingFor('codex', 'read', () => 0).harness).toBe('codex');
   });
 
   it('ends cancelled once stopped', async () => {
@@ -435,7 +289,7 @@ describe('the Agent fake, its replies', () => {
       (fake, edges) =>
         Effect.gen(function* () {
           const open = yield* opened(edges, 'claude');
-          yield* control(fake, { _tag: 'ReplyWith', script: 'long' });
+          yield* control(fake, { _tag: 'ReplyWith', recording: 'subagent' });
           const fiber = yield* Effect.forkChild(say(open, 'go'));
           yield* until(fake, (model) => model.replies.length > 0);
           yield* open.cancel;
@@ -451,32 +305,31 @@ describe('the Agent fake, its replies', () => {
   });
 
   it("fails every turn with the harness's login error in another config folder", async () => {
-    const found = await run((_, edges) =>
+    const outs = await run((_, edges) =>
       Effect.gen(function* () {
         const open = yield* opened(edges, 'claude', {
           binary: undefined,
           configFolder: '~/.claude-work',
         });
-        const outs = yield* say(open, 'go');
-        return {
-          end: lastOf(outs),
-          drawn: partsOf(harnessOf(edges, 'claude'), outs).at(-1),
-        };
+        return yield* say(open, 'go');
       }),
     );
-    expect(found.end).toMatchObject({
-      status: 'failed',
-      error: 'Not logged in · Please run /login',
-    });
-    expect(found.drawn).toMatchObject({ type: 'turnEnded', status: 'failed' });
+    expect(outs).toEqual([
+      {
+        _tag: 'TurnEnd',
+        status: 'failed',
+        error: 'Not logged in · Please run /login',
+        shown: false,
+      },
+    ]);
   });
 
-  it('takes a steer between two steps', async () => {
+  it('takes a steer between two records', async () => {
     const outs = await run(
       (fake, edges) =>
         Effect.gen(function* () {
           const open = yield* opened(edges, 'claude');
-          yield* control(fake, { _tag: 'ReplyWith', script: 'long' });
+          yield* control(fake, { _tag: 'ReplyWith', recording: 'subagent' });
           const turn = open.turn({ text: 'go', images: [] });
           const fiber = yield* Effect.forkChild(collect(turn));
           yield* until(fake, (model) => model.replies.length > 0);
@@ -518,66 +371,16 @@ describe('the Agent fake, its replies', () => {
       settings: { effort: 'low' },
     });
   });
-});
-
-describe('the Agent fake, Background Jobs', () => {
-  it("lists a reply's jobs, follows their output, and reports each end", async () => {
-    const found = await run((fake, edges) =>
-      Effect.gen(function* () {
-        const open = yield* opened(edges, 'claude');
-        yield* control(fake, { _tag: 'ReplyWith', script: 'background jobs' });
-        yield* say(open, 'go');
-        const jobs = yield* open.backgroundJobs.pipe(
-          Stream.filter((list) => list.length === 2),
-          Stream.runHead,
-        );
-        const [shell, helper] = jobs._tag === 'Some' ? jobs.value : [];
-        const output = yield* Effect.forkChild(
-          Stream.runCollect(open.backgroundJobOutput(shell!.id)),
-        );
-        yield* open.stopBackgroundJob(helper!.id);
-        const refused = yield* Effect.flip(open.stopBackgroundJob('none'));
-        // The shell job's time is up.
-        yield* TestClock.adjust('8 seconds');
-        const ended = yield* open.between.pipe(
-          Stream.take(2),
-          Stream.runCollect,
-        );
-        const report = yield* open.agentTurns.pipe(Stream.runHead);
-        const reportOuts =
-          report._tag === 'Some' ? yield* collect(report.value) : [];
-        return {
-          kinds: jobs._tag === 'Some' ? jobs.value.map(({ kind }) => kind) : [],
-          output: [...(yield* Fiber.join(output))].join(''),
-          refused: refused.message,
-          ended: partsOf(harnessOf(edges, 'claude'), [...ended]),
-          report: partsOf(harnessOf(edges, 'claude'), reportOuts)
-            .flatMap((part) => (part.type === 'textChunk' ? [part.text] : []))
-            .join(''),
-          left: fake.root.model.jobs.length,
-        };
-      }).pipe(Effect.provide(TestClock.layer())),
-    );
-    expect(found.kinds).toEqual(['shell', 'agent']);
-    expect(found.output).toContain('localhost:5173');
-    expect(found.refused).toBe('No Background Job none');
-    expect(found.ended).toEqual([
-      expect.objectContaining({ type: 'jobEnded', status: 'stopped' }),
-      expect.objectContaining({ type: 'jobEnded', status: 'done' }),
-    ]);
-    expect(found.report).toContain('"pnpm dev" finished');
-    expect(found.left).toBe(0);
-  });
 
   it('a reload keeps the world, not what ran in it', async () => {
     const kept = await run((fake, edges) =>
       Effect.gen(function* () {
         yield* opened(edges, 'claude');
-        yield* control(fake, { _tag: 'ReplyWith', script: 'plan' });
+        yield* control(fake, { _tag: 'ReplyWith', recording: 'shell' });
         return agent.kept(fake.snapshot).root.model;
       }),
     );
     expect(kept.agents).toEqual([]);
-    expect(kept.replyWith).toBe('plan');
+    expect(kept.replyWith).toBe('shell');
   });
 });

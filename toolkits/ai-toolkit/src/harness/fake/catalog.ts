@@ -15,8 +15,6 @@ import type { Setting } from '../contract/index.js';
 export interface Played {
   readonly name: HarnessName;
   readonly label: string;
-  /** As failure reasons name it: `Claude Code`, `Codex`. */
-  readonly product: string;
   readonly modelsProvider: 'anthropic' | 'openai';
   readonly acceptsModel: (modelId: string) => boolean;
   readonly defaultModel: string;
@@ -54,7 +52,6 @@ const EFFORT_CHOICES = [
 export const CLAUDE: Played = {
   name: 'claude',
   label: 'Claude',
-  product: 'Claude Code',
   modelsProvider: 'anthropic',
   acceptsModel: (modelId) =>
     modelId.startsWith('claude-') && !DATED.test(modelId),
@@ -91,7 +88,6 @@ export const CLAUDE: Played = {
 export const CODEX: Played = {
   name: 'codex',
   label: 'Codex',
-  product: 'Codex',
   modelsProvider: 'openai',
   acceptsModel: (modelId) => {
     const generation = /^gpt-(\d+)(?:\.\d+)?(?:-|$)/.exec(modelId);
