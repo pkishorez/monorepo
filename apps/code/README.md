@@ -69,7 +69,7 @@ waits for "Reload" before taking a new version.
 the sign-in, Connect Cloud and each computer's code Plugin run for real in
 the tab, over Fakes of the outside world (who signs in, the computers, the
 agents, Speech to Text, the microphone, new builds), and a bubble on the
-page shows each Fake and its Controls ([the plan](docs/fake-mode-plan.md),
+page shows each Fake and its Controls ([Fakes](../../docs/fakes.md),
 `src/fake.ts`). Sign in through the bubble's Sign-in "Sign in as", then
 add a computer with Computers "Add computer", signed in as the same email.
 
