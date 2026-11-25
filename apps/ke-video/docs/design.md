@@ -220,11 +220,16 @@ exists is not heard again).
    - → `cuts.json` and `work/plan.json`; Events: silence total, fillers
      total, each Claude cut (`cut HH:MM:SS–HH:MM:SS  <reason>`) under
      `ads` or `filler talk`, then `plan` with `old → new (NN% shorter), N cuts`.
-6. **render**: `ffmpeg` keeps the planned ranges (select/aselect, in
-   batches if many, joined with the concat demuxer), H.264 (`h264_videotoolbox`
-   when listed by `ffmpeg -encoders`, else libx264) + AAC → `video.mp4`.
-   Progress from `-progress`. Then `ffprobe` checks the length equals the
-   plan within 1 s, else the step fails.
+6. **render**: the picture keeps the planned ranges with ffmpeg `select`
+   (at most 80 ranges per batch, as ffmpeg refuses a `select` of over 100 terms; each batch over an input-seeked window,
+   joined with the concat demuxer), H.264 (`h264_videotoolbox` when
+   `ffmpeg -encoders` lists it, else libx264; if VideoToolbox fails, every
+   batch is redone with libx264). The sound does not use `aselect`, which
+   cuts whole audio frames and drifts over a thousand cuts: ffmpeg decodes
+   it to raw samples, Node keeps exactly the planned samples with a 5 ms fade
+   at each joint, and ffmpeg encodes AAC 160k. One final mux with
+   `+faststart` → `video.mp4`. Progress from `-progress`. Then `ffprobe`
+   checks the length equals the plan within 1 s, else the step fails.
 7. **transcripts**: map every kept word to its time in `video.mp4` →
    `transcript.json`, `transcript.md`, `transcript-full.md`.
 8. **summary**: one Claude One-shot Prompt with `skill/summary-rules.md`,
@@ -232,6 +237,13 @@ exists is not heard again).
    `{ overview, points: [{ text, sentence }], chapters: [{ title, sentence }], learnings }`;
    sentence numbers become times in both videos → `summary.json`,
    `summary.md`. Same retry rule.
+
+Failures: Claude out of reach fails the step (resume retries it); a
+clean-up answer unreadable twice goes on with no Claude cuts; a summary
+unreadable twice fails, as there is nothing to write. `light` keeps filler
+talk even if Claude marks some. A removed range takes one kind, the one
+covering most of it, Claude's kinds first, so per-kind totals are close, not
+exact.
 
 Learnings: any `learnings` Claude returns are appended to
 `skill/learnings.md` as `- <text> (<id>, <date>)`, skipping exact repeats,
@@ -275,6 +287,14 @@ interface Summary {
   `transcribe` is unchanged.
 
 ## Web app
+
+Phones come first, alongside laptops: every page works at 375 px wide with
+touch alone (no horizontal scroll, no hover-only controls, 44 px targets,
+16 px inputs, safe areas, `playsInline` video). On a phone the done page
+keeps the player at the top while the transcript and summary scroll under
+it. `web` listens on localhost only; `web:lan` opts in to the local network
+so a phone on the same Wi-Fi can open it. It has no sign-in, so use it only
+on a network you trust.
 
 Local only: `pnpm --filter ke-video web` runs `vp dev`. It never touches
 files or processes except through two server-side doors: running the CLI

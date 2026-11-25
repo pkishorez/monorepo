@@ -14,6 +14,7 @@
   "scripts": {
     "prepare:deps": "vp run --filter 'ke-video^...' build",
     "web": "vp run --filter 'ke-video^...' build && vp dev",
+    "web:lan": "vp run --filter 'ke-video^...' build && vp dev --host",
     "lint": "tsc --noEmit && pnpm lint:laymos",
     "lint:laymos": "laymos lint",
     "test": "vitest run"

@@ -1,0 +1,18 @@
+@import '@kestack/web-platform/ui/theme/global.css';
+@import '@kestack/web-platform/ui/theme/font-inter.css';
+
+@layer base {
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+  }
+}
+
+/* The page's side padding, wider than the notch in landscape. */
+@utility gutter {
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+  @variant sm {
+    padding-left: max(1.5rem, env(safe-area-inset-left));
+    padding-right: max(1.5rem, env(safe-area-inset-right));
+  }
+}

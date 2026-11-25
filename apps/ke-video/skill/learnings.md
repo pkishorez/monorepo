@@ -1,0 +1,1 @@
+- When the video description or its links do not match the transcript, ignore them and summarise only from the transcript. (jNQXAC9IVRw, 2026-11-25)

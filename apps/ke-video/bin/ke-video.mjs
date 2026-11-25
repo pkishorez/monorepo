@@ -1,2 +1,2 @@
 #!/usr/bin/env node
-import '../src/cli/main.ts';
+import '../src/cli/index.ts';
