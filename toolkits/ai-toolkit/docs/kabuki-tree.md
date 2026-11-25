@@ -6,7 +6,7 @@ it keeps the Speech to Text model on this computer. It downloads the model,
 deletes it, and turns audio into text with it. `front/` is its front door
 and runs the root with `Runtime.scoped` on a `SpeechHost`: `speech.ts`
 gives one over a folder on Node, the Speech fake (`fake/`) one over its
-Model in a browser.
+state in a browser.
 Changed through `/kabukifi`; edit by hand and it drifts.
 
 ## Tree
@@ -23,7 +23,7 @@ Around the tree, `src/speech/contract/` is the SpeechToText contract,
 `src/speech/sherpa/` is sherpa-onnx with Parakeet, and `src/speech/fake/`'s
 `makeFakeSpeech` is the fake for tests. The caller gives one of them as
 `SpeechToText`. `src/speech/fake/` is also the Speech fake, a SpeechHost
-over a Kabuki Actor of its own that the bubble controls.
+over a state of its own that its one control changes.
 
 ## How it connects
 
@@ -66,7 +66,7 @@ times, then Downloaded or DownloadFailed.
 **Requires**: SpeechHost: all three Workers and the transcribe Query.
 **Provides**: none.
 **Services**: none in the tree: speech.ts builds SpeechHost from SpeechToText
-and the folder the caller names; the Speech fake from its Model.
+and the folder the caller names; the Speech fake from its state.
 **Children**: none.
 **View**: none.
 

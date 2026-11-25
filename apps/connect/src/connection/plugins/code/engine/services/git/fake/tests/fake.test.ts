@@ -1,14 +1,18 @@
-import { Effect, Exit, Layer, type Scope } from 'effect';
-import { afterEach, describe, expect, it } from 'vitest';
-import { Runtime } from '@kestack/kabuki';
+import { Effect, Exit, Layer, type Scope, SubscriptionRef } from 'effect';
+import { describe, expect, it } from 'vitest';
 import { FileSystem, Git } from '../../../../capabilities/index.js';
 import { dirname } from '../../../../paths/index.js';
 import {
-  fileSystem,
+  addFile,
+  addFolder,
+  addSampleProject,
+  diskOf,
+  type DiskChange,
+  emptyHome,
+  fileSystemOver,
   HOME,
   originOf,
   shaOf,
-  type FileSystemMessage,
 } from '../../../file-system/fake/index.js';
 import { fakeGit } from '../index.js';
 
@@ -22,11 +26,6 @@ import { fakeGit } from '../index.js';
 const SHOP = `${HOME}/code/shop`;
 const WORKTREES = '/var/kestack/worktrees';
 
-const opened: Array<Runtime<typeof fileSystem.actor>> = [];
-afterEach(async () => {
-  await Promise.all(opened.splice(0).map((runtime) => runtime.dispose()));
-});
-
 type Use<A, E> = (
   git: Git['Service'],
   files: FileSystem['Service'],
@@ -34,12 +33,11 @@ type Use<A, E> = (
 
 /** A fake computer with the sample project at `~/code/shop`, and Git over it. */
 const computer = () => {
-  const runtime = Runtime.make(fileSystem.actor);
-  opened.push(runtime);
-  const control = (message: FileSystemMessage) =>
-    expect(runtime.root.send(message)).toBe('handled');
-  control({ _tag: 'AddSampleProject', folder: '~/code/shop' });
-  const layer = fakeGit.pipe(Layer.provideMerge(fileSystem.serve(runtime)));
+  const disk = Effect.runSync(SubscriptionRef.make(emptyHome));
+  const control = (change: DiskChange) =>
+    Effect.runSync(SubscriptionRef.update(disk, change));
+  control(addSampleProject('~/code/shop'));
+  const layer = fakeGit.pipe(Layer.provideMerge(fileSystemOver(diskOf(disk))));
   const run = <A, E>(use: Use<A, E>) =>
     Effect.runPromise(
       Effect.scoped(
@@ -74,7 +72,7 @@ const computer = () => {
   /** A local branch `branch` made outside Code, on a commit of its own. */
   const addBranch = (branch: string) =>
     write(`${SHOP}/.git/refs/heads/${branch}`, `${shaOf(branch)}\n`);
-  return { runtime, control, run, exit, ask, text, isThere, write, addBranch };
+  return { disk, control, run, exit, ask, text, isThere, write, addBranch };
 };
 
 /** The message a failed Exit's GitError carries. */
@@ -87,7 +85,7 @@ const messageOf = (exit: Exit.Exit<unknown, unknown>) =>
 describe('the Git fake reading the sample project', () => {
   it('reads a folder in no repository, or not there, as not git', async () => {
     const { control, ask } = computer();
-    control({ _tag: 'AddFolder', folder: '~/plain' });
+    control(addFolder('~/plain'));
     for (const path of [`${HOME}/plain`, `${HOME}/plain/gone`]) {
       expect(await ask((git) => git.top(path))).toBeNull();
       expect(await ask((git) => git.branches(path))).toBeNull();
@@ -97,7 +95,7 @@ describe('the Git fake reading the sample project', () => {
 
   it('reads a folder inside the repository as its repository, from its top', async () => {
     const { control, ask } = computer();
-    control({ _tag: 'AddFolder', folder: '~/code/shop/packages/one' });
+    control(addFolder('~/code/shop/packages/one'));
     const inside = `${SHOP}/packages/one`;
     expect(await ask((git) => git.top(inside))).toBe(SHOP);
     expect(await ask((git) => git.top(SHOP))).toBe(SHOP);
@@ -285,7 +283,7 @@ describe('the Git fake changing the sample project', () => {
     expect(await isThere(`${SHOP}/.git/refs/heads/ke-code/one`)).toBe(true);
 
     const two = `${WORKTREES}/p1/two`;
-    control({ _tag: 'AddFile', file: `${two}/keep`, text: '' });
+    control(addFile(`${two}/keep`, ''));
     expect(
       Exit.isFailure(
         await exit((git) =>

@@ -150,21 +150,14 @@ Connect in a browser tab, for an App's fake mode: Connect Cloud's handlers over 
 
 ### `./fake`
 
-The Computers fake, for an App's fake mode: the computers a person has as a Kabuki Actor the App's Fake World runs, its Controls the Messages a person sends it, served as the `Computers` that `./browser` runs against. A computer added comes up online, its tunnel up and reached at once. Each computer is a keyed Child that owns its own File System fake, so its disk has its Controls too: a sample project with its git repository, a folder, a file. Browser-safe.
+The Computers fake, for an App's fake mode: a Fake made with `@kestack/kabuki/fake`, for the App's FakeWorld. Its state is each computer as it is now: what it runs, who it is signed in as, whether it is online, why its `ke-connect` last stopped, and its disk; it starts with none. Its controls add a computer, which comes up online with its tunnel up and reached at once, take one offline (Down at once, if asked) and back, remove it, and put a sample project with its git repository, a folder or a file on its disk. Its Layer gives the `Computers` that `./browser` runs against, each computer's File System and git over its disk. Browser-safe.
 
-| Export              | What it does                                                                                                                                           |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `computers`         | The Fake: its name, its Actor, its Controls (its own, each computer's, each computer's File System's), and `serve` (the running Actor to `Computers`). |
-| `ComputersFake`     | The Actor: no computer at first; a computer added is a Child keyed by its Connection id.                                                               |
-| `ComputerFake`      | The Shape of one computer: what it runs, whether it is online, and why its `ke-connect` last stopped.                                                  |
-| `ComputerFakeLive`  | One computer's Actor, owning its File System fake.                                                                                                     |
-| `serveComputers`    | Layer of `Computers` over a running Computers Fake, each computer's File System and git built once over its own File System Child.                     |
-| `ROOT_CONTROLS`     | The Fake's own Control: add a computer.                                                                                                                |
-| `COMPUTER_CONTROLS` | A computer's Controls: offline, online, and removed.                                                                                                   |
-| `blank`             | The Fake's Model at first.                                                                                                                             |
-| `SIGNED_IN_AS`      | Who a computer's `ke-connect` is signed in as when none is given, `you@kestack.test`.                                                                  |
-| `KE_CONNECT`        | The `ke-connect` version a computer runs when none is given.                                                                                           |
-| `SILENT_AT_ONCE`    | How long a computer taken offline Down at once has been silent: past three Heartbeats.                                                                 |
+| Export           | What it does                                                                           |
+| ---------------- | -------------------------------------------------------------------------------------- |
+| `computers`      | The Fake: its state, its controls, and its Layer of `Computers`.                       |
+| `SIGNED_IN_AS`   | Who a computer's `ke-connect` is signed in as when none is given, `you@kestack.test`.  |
+| `KE_CONNECT`     | The `ke-connect` version a computer runs when none is given.                           |
+| `SILENT_AT_ONCE` | How long a computer taken offline Down at once has been silent: past three Heartbeats. |
 
 ### `./dev`
 

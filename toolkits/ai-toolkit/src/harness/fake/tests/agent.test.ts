@@ -1,5 +1,13 @@
-import { Context, Effect, Fiber, Layer, type Scope, Stream } from 'effect';
-import { Runtime } from '@kestack/kabuki';
+import {
+  Context,
+  Effect,
+  Fiber,
+  Layer,
+  Option,
+  type Scope,
+  Stream,
+} from 'effect';
+import { FakeWorld } from '@kestack/kabuki/fake';
 import { describe, expect, it } from 'vitest';
 import type { Part } from '../../../contract/projection/index.js';
 import type { HarnessName, Raw } from '../../../contract/raw/index.js';
@@ -15,49 +23,53 @@ import {
   type TurnHandle,
   type TurnOut,
 } from '../../contract/index.js';
-import {
-  agent,
-  agentOver,
-  type AgentMessage,
-  type AgentModel,
-  type AgentOptions,
-} from '../index.js';
+import { agent, type AgentOptions, type AgentState } from '../index.js';
 import { RECORDINGS, recordingFor } from '../recordings/index.js';
 
 /*
  * The Agent fake as connect's code Plugin sees it: Claude Code and Codex
  * installed and signed in, as `Harnesses`, `HarnessHost`, `Models` and
  * `OneShotPrompt` answer, and each reply replays a recorded Turn the real
- * projections draw.
+ * projections draw. What a reply replays is its one control.
  */
 
-type Fake = Runtime<typeof agent.actor>;
+const worldOf = (options: AgentOptions = {}) =>
+  FakeWorld.make([agent({ paceMs: 0, ...options })]);
+type World = ReturnType<typeof worldOf>;
 type Edges = Context.Context<Harnesses | HarnessHost | Models | OneShotPrompt>;
 
 const DEFAULT = HarnessAccount.layerDefault;
 
-/** The Agent fake running at no pace unless given, and its edges. */
+/** The Agent fake's world started, at no pace unless given, and its edges. */
 const run = <A, E>(
-  body: (fake: Fake, edges: Edges) => Effect.Effect<A, E, Scope.Scope>,
+  body: (world: World, edges: Edges) => Effect.Effect<A, E, Scope.Scope>,
   options: AgentOptions = {},
 ) =>
   Effect.runPromise(
     Effect.scoped(
       Effect.gen(function* () {
-        const fake = yield* Runtime.scoped(agent.actor);
-        const edges = yield* Layer.build(
-          agentOver(fake, { paceMs: 0, ...options }),
-        );
-        return yield* body(fake, edges);
+        const world = worldOf(options);
+        const edges = yield* Layer.build(world.layer);
+        return yield* body(world, edges);
       }),
     ),
   );
 
-const control = (fake: Fake, message: AgentMessage) =>
-  Effect.sync(() => void fake.root.send(message));
+/** Every reply from now on replays `recording`. */
+const replyWith = (world: World, recording: string) =>
+  world.control('agent', 'ReplyWith', { recording });
 
-const until = (fake: Fake, test: (model: AgentModel) => boolean) =>
-  Effect.orDie(fake.root.until(({ model }) => test(model)));
+/** The fake's state once it passes `test`. */
+const stateOf = (
+  world: World,
+  test: (state: AgentState) => boolean = () => true,
+) =>
+  world.fakes.pipe(
+    Stream.map((fakes) => fakes[0]!.value as AgentState),
+    Stream.filter(test),
+    Stream.runHead,
+    Effect.map(Option.getOrThrow),
+  );
 
 const harnessOf = (edges: Edges, name: HarnessName) =>
   Context.get(edges, Harnesses).get(name);
@@ -217,17 +229,17 @@ describe('the Agent fake, its world', () => {
 });
 
 describe('the Agent fake, its replies', () => {
-  it('replays the recording the Model names, and shows the reply running', async () => {
+  it('replays the recording the state names, and shows the reply running', async () => {
     const found = await run(
-      (fake, edges) =>
+      (world, edges) =>
         Effect.gen(function* () {
           const claude = yield* opened(edges, 'claude');
-          yield* control(fake, { _tag: 'ReplyWith', recording: 'read' });
+          yield* replyWith(world, 'read');
           const fiber = yield* Effect.forkChild(say(claude, 'hello'));
-          const running = (yield* until(
-            fake,
-            (model) => model.replies.length > 0,
-          )).model.replies.map(({ prompt, recording }) => [prompt, recording]);
+          const running = (yield* stateOf(
+            world,
+            (state) => state.replies.length > 0,
+          )).replies.map(({ prompt, recording }) => [prompt, recording]);
           const outs = yield* Fiber.join(fiber);
           return {
             running,
@@ -235,7 +247,7 @@ describe('the Agent fake, its replies', () => {
               .flatMap((part) => (part.type === 'text' ? [part.text] : []))
               .join(''),
             end: lastOf(outs),
-            after: fake.root.model.replies.length,
+            after: (yield* stateOf(world)).replies.length,
           };
         }),
       { paceMs: 20 },
@@ -253,10 +265,10 @@ describe('the Agent fake, its replies', () => {
   it.each(RECORDINGS.map(({ harness, name }) => [harness, name] as const))(
     "replays %s's %s as this Agent's own, through its real projection",
     async (name, recording) => {
-      const found = await run((fake, edges) =>
+      const found = await run((world, edges) =>
         Effect.gen(function* () {
           const open = yield* opened(edges, name);
-          yield* control(fake, { _tag: 'ReplyWith', recording });
+          yield* replyWith(world, recording);
           const outs = yield* say(open, 'go');
           return {
             nativeId: yield* open.nativeId,
@@ -286,12 +298,12 @@ describe('the Agent fake, its replies', () => {
 
   it('ends cancelled once stopped', async () => {
     const found = await run(
-      (fake, edges) =>
+      (world, edges) =>
         Effect.gen(function* () {
           const open = yield* opened(edges, 'claude');
-          yield* control(fake, { _tag: 'ReplyWith', recording: 'subagent' });
+          yield* replyWith(world, 'subagent');
           const fiber = yield* Effect.forkChild(say(open, 'go'));
-          yield* until(fake, (model) => model.replies.length > 0);
+          yield* stateOf(world, (state) => state.replies.length > 0);
           yield* open.cancel;
           return lastOf(yield* Fiber.join(fiber));
         }),
@@ -326,13 +338,13 @@ describe('the Agent fake, its replies', () => {
 
   it('takes a steer between two records', async () => {
     const outs = await run(
-      (fake, edges) =>
+      (world, edges) =>
         Effect.gen(function* () {
           const open = yield* opened(edges, 'claude');
-          yield* control(fake, { _tag: 'ReplyWith', recording: 'subagent' });
+          yield* replyWith(world, 'subagent');
           const turn = open.turn({ text: 'go', images: [] });
           const fiber = yield* Effect.forkChild(collect(turn));
-          yield* until(fake, (model) => model.replies.length > 0);
+          yield* stateOf(world, (state) => state.replies.length > 0);
           yield* turn.steer('steer-1', { text: 'also docs', images: [] });
           return yield* Fiber.join(fiber);
         }),
@@ -343,16 +355,16 @@ describe('the Agent fake, its replies', () => {
   });
 
   it('runs an Agent on the model and settings its latest Turn names', async () => {
-    const found = await run((fake, edges) =>
+    const found = await run((world, edges) =>
       Effect.gen(function* () {
         const open = yield* opened(edges, 'claude');
-        const agentNow = () => {
-          const [one] = fake.root.model.agents;
-          return { model: one?.model, settings: one?.settings };
-        };
-        const opening = agentNow();
+        const agentNow = Effect.map(stateOf(world), ({ agents: [one] }) => ({
+          model: one?.model,
+          settings: one?.settings,
+        }));
+        const opening = yield* agentNow;
         yield* say(open, 'first');
-        const kept = agentNow();
+        const kept = yield* agentNow;
         yield* collect(
           open.turn({
             text: 'second',
@@ -361,7 +373,7 @@ describe('the Agent fake, its replies', () => {
             settings: { effort: 'low' },
           }),
         );
-        return { opening, kept, changed: agentNow() };
+        return { opening, kept, changed: yield* agentNow };
       }),
     );
     expect(found.opening).toEqual({ model: 'm', settings: {} });
@@ -370,17 +382,5 @@ describe('the Agent fake, its replies', () => {
       model: 'claude-sonnet-5',
       settings: { effort: 'low' },
     });
-  });
-
-  it('a reload keeps the world, not what ran in it', async () => {
-    const kept = await run((fake, edges) =>
-      Effect.gen(function* () {
-        yield* opened(edges, 'claude');
-        yield* control(fake, { _tag: 'ReplyWith', recording: 'shell' });
-        return agent.kept(fake.snapshot).root.model;
-      }),
-    );
-    expect(kept.agents).toEqual([]);
-    expect(kept.replyWith).toBe('shell');
   });
 });

@@ -81,11 +81,11 @@ The Auth Worker's page at `/device`, where the User approves a Device Login as a
 _Avoid_: device page, verification page
 
 **Fake**:
-auth-toolkit's stand-in for the Auth Worker, where none can be reached or none should be: fake mode, where the whole backend runs in the tab, and tests. The `fake` door: the Sign-in fake's Accounts (`browserOver`, or `fakeAccounts` in tests) take the place of `browser()`, and `fakeGuard.rpc()` and `fakeGuard.http()` of `auth.rpc()` and `auth.http()`. The real doors are always real: an app picks the Fake itself, in fake mode only. Anyone may be any Fake Account, so it never guards real data.
+auth-toolkit's stand-in for the Auth Worker, where none can be reached or none should be: fake mode, where the whole backend runs in the tab, and tests. The `fake` door: the Sign-in fake's Accounts (its Layer, or `fakeAccounts` in tests) take the place of `browser()`, and `fakeGuard.rpc()` and `fakeGuard.http()` of `auth.rpc()` and `auth.http()`. The real doors are always real: an app picks the Fake itself, in fake mode only. Anyone may be any Fake Account, so it never guards real data.
 _Avoid_: Local mode (the former name), mock auth, sandbox, dev login
 
 **Sign-in fake**:
-The Fake (`signIn`, a Kabuki Actor the Fake World runs) that plays the Auth Worker and the identity provider for one browser: who is signed in on it, and the sign-in waiting to be told who. Its Controls answer a sign-in (as someone, or nobody). The real Accounts client runs over it.
+The Fake (`signIn()`, a Fake as `@kestack/kabuki/fake` makes one, for an app's FakeWorld) that plays the Auth Worker and the identity provider for one browser: its state is who is signed in on it, and the sign-in waiting to be told who. Its controls answer that sign-in, as someone (`SignInAs`) or nobody (`Cancel`), and the sign-in ends on the page that asked: it never leaves for a provider and comes back. The real Accounts client runs over it. Each page load starts with nobody signed in.
 _Avoid_: fake chooser, sign-in dialog, Test Sign-In (gone)
 
 **Fake Account**:

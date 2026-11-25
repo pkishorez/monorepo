@@ -1,38 +1,45 @@
-import { Effect } from 'effect';
-import { afterEach, describe, expect, it } from 'vitest';
-import { Runtime, Snapshot } from '@kestack/kabuki';
+import { Effect, SubscriptionRef } from 'effect';
+import { describe, expect, it } from 'vitest';
 import { FileSystem } from '../../../../capabilities/index.js';
 import {
+  addFile,
+  addFolder,
+  addSampleProject,
   branchOfHead,
-  fileSystem,
+  type Disk,
+  diskOf,
+  type DiskChange,
+  emptyHome,
+  fileSystemOver,
   originOf,
   parseConfig,
-  type FileSystemMessage,
 } from '../index.js';
 
 /*
- * The File System Fake: what its Controls make of a blank computer, and
- * what the File System key answers over it, as node.ts would on a disk
- * like it. Every change the key makes is a Message.
+ * The File System fake: what a person's changes make of an empty home,
+ * and what the File System key answers over it, as node.ts would on a
+ * disk like it. The key changes the disk only when something changes.
  */
 
 const HOME = '/home/you';
 const SHOP = `${HOME}/code/shop`;
 
-const opened: Array<Runtime<typeof fileSystem.actor>> = [];
-afterEach(async () => {
-  await Promise.all(opened.splice(0).map((runtime) => runtime.dispose()));
-});
-
-/** A blank fake computer, the tags of the Messages it was Sent, and its key. */
-const computer = () => {
-  const runtime = Runtime.make(fileSystem.actor);
-  opened.push(runtime);
-  const sent: Array<string> = [];
-  runtime.subscribe((entries) => {
-    for (const entry of entries) sent.push(entry.message._tag);
-  });
-  const layer = fileSystem.serve(runtime);
+/** A new fake computer, how often the key changed its disk, and its key. */
+const computer = (refused?: string) => {
+  const state = Effect.runSync(SubscriptionRef.make(emptyHome));
+  const kept = diskOf(state);
+  const changes = { count: 0 };
+  const disk: Disk = {
+    read: kept.read,
+    update: (change) =>
+      refused === undefined
+        ? Effect.andThen(
+            Effect.sync(() => void changes.count++),
+            kept.update(change),
+          )
+        : Effect.fail(refused),
+  };
+  const layer = fileSystemOver(disk);
   const fs = <A, E>(use: (fs: FileSystem['Service']) => Effect.Effect<A, E>) =>
     Effect.runPromise(
       Effect.flatMap(FileSystem, use).pipe(Effect.provide(layer)),
@@ -43,19 +50,19 @@ const computer = () => {
     Effect.runPromise(
       Effect.flip(Effect.flatMap(FileSystem, use)).pipe(Effect.provide(layer)),
     );
-  const control = (message: FileSystemMessage) =>
-    expect(runtime.root.send(message)).toBe('handled');
+  const control = (change: DiskChange) =>
+    Effect.runSync(SubscriptionRef.update(state, change));
   const text = (path: string) =>
     fs((each) => each.readFile(path)).then((bytes) =>
       new TextDecoder().decode(bytes),
     );
-  return { runtime, sent, fs, failure, control, text };
+  return { changes, fs, failure, control, text };
 };
 
 const names = (entries: ReadonlyArray<{ readonly name: string }>) =>
   entries.map(({ name }) => name);
 
-describe('a blank computer', () => {
+describe('a new computer', () => {
   it('has an empty home at /home/you', async () => {
     const { fs } = computer();
     expect(await fs((each) => Effect.succeed(each.home))).toBe(HOME);
@@ -64,32 +71,12 @@ describe('a blank computer', () => {
       { name: 'you', kind: 'folder', hidden: false },
     ]);
   });
-
-  it('offers its Controls, each a Message of its Actor', () => {
-    expect(fileSystem.name).toBe('File System');
-    expect(fileSystem.controls).toContain('AddSampleProject');
-    expect(fileSystem.controls).not.toContain('FolderMade');
-  });
-
-  it('is the same after a Snapshot saved and loaded', () => {
-    const { runtime, control } = computer();
-    control({ _tag: 'AddSampleProject', folder: 'code/shop' });
-    const saved = Snapshot.save(fileSystem.actor, runtime.snapshot);
-    const again = Runtime.make(fileSystem.actor, {
-      snapshot: Snapshot.load(
-        fileSystem.actor,
-        JSON.parse(JSON.stringify(saved)),
-      ),
-    });
-    opened.push(again);
-    expect(again.root.model).toEqual(runtime.root.model);
-  });
 });
 
-describe('the Controls', () => {
+describe("a person's changes", () => {
   it('add a sample project: files, and a repository as git keeps it', async () => {
     const { fs, text, control } = computer();
-    control({ _tag: 'AddSampleProject', folder: '~/code/shop' });
+    control(addSampleProject('~/code/shop'));
     expect(names(await fs((each) => each.list(SHOP)))).toEqual([
       '.git',
       '.gitignore',
@@ -121,9 +108,9 @@ describe('the Controls', () => {
 
   it('add folders, hidden ones, and files', async () => {
     const { fs, text, control } = computer();
-    control({ _tag: 'AddFolder', folder: 'code/a/b' });
-    control({ _tag: 'AddFolder', folder: '~/.config' });
-    control({ _tag: 'AddFile', file: 'code/notes.txt', text: 'hello' });
+    control(addFolder('code/a/b'));
+    control(addFolder('~/.config'));
+    control(addFile('code/notes.txt', 'hello'));
     expect(await fs((each) => each.list(HOME))).toEqual([
       { name: '.config', kind: 'folder', hidden: true },
       { name: 'code', kind: 'folder', hidden: false },
@@ -136,8 +123,8 @@ describe('the Controls', () => {
 });
 
 describe('the File System key over the fake', () => {
-  it('makes folders, each change a Message', async () => {
-    const { fs, failure, sent } = computer();
+  it('makes folders, changing the disk only for one new', async () => {
+    const { fs, failure, changes } = computer();
     await fs((each) => each.mkdir(`${HOME}/new`));
     expect(await failure((each) => each.mkdir(`${HOME}/new`))).toMatchObject({
       _tag: 'AlreadyExists',
@@ -149,12 +136,12 @@ describe('the File System key over the fake', () => {
     await fs((each) => each.mkdir(`${HOME}/a/b`, { recursive: true }));
     await fs((each) => each.mkdir(`${HOME}/a/b`, { recursive: true }));
     expect(names(await fs((each) => each.list(`${HOME}/a`)))).toEqual(['b']);
-    expect(sent).toEqual(['FolderMade', 'FolderMade']);
+    expect(changes.count).toBe(2);
   });
 
   it('reads and writes files, bytes or text', async () => {
     const { fs, failure, text, control } = computer();
-    control({ _tag: 'AddFolder', folder: 'code' });
+    control(addFolder('code'));
     const path = `${HOME}/code/data.bin`;
     await fs((each) => each.writeFile(path, new Uint8Array([0, 255, 1])));
     expect(await fs((each) => each.readFile(path))).toEqual(
@@ -175,7 +162,7 @@ describe('the File System key over the fake', () => {
 
   it('finds a path made normal, and stops at nothing there or a file on the way', async () => {
     const { fs, failure, control } = computer();
-    control({ _tag: 'AddFile', file: 'code/notes.txt', text: 'hi' });
+    control(addFile('code/notes.txt', 'hi'));
     expect(
       await fs((each) => each.realpath(`${HOME}/code/../code/./notes.txt`)),
     ).toBe(`${HOME}/code/notes.txt`);
@@ -188,10 +175,9 @@ describe('the File System key over the fake', () => {
   });
 
   it('removes a file, and a folder only when recursive', async () => {
-    const { fs, failure, control, sent } = computer();
-    control({ _tag: 'AddFile', file: 'code/notes.txt', text: 'hi' });
-    control({ _tag: 'AddFile', file: 'code/todo.txt', text: '' });
-    sent.length = 0;
+    const { fs, failure, control, changes } = computer();
+    control(addFile('code/notes.txt', 'hi'));
+    control(addFile('code/todo.txt', ''));
     await fs((each) => each.remove(`${HOME}/code/todo.txt`));
     expect(names(await fs((each) => each.list(`${HOME}/code`)))).toEqual([
       'notes.txt',
@@ -205,14 +191,14 @@ describe('the File System key over the fake', () => {
     });
     await fs((each) => each.remove(`${HOME}/code`, { force: true }));
     expect(await fs((each) => each.list(HOME))).toEqual([]);
-    expect(sent).toEqual(['PathRemoved', 'PathRemoved']);
+    expect(changes.count).toBe(2);
   });
 
-  it('fails a change once the fake is stopped', async () => {
-    const { runtime, failure } = computer();
-    await runtime.stop();
+  it('fails a change its keeper refuses, saying why', async () => {
+    const { failure } = computer('The computer is gone');
     expect(await failure((each) => each.mkdir(`${HOME}/new`))).toMatchObject({
       _tag: 'IoError',
+      message: 'The computer is gone',
     });
   });
 });

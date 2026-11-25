@@ -1,6 +1,5 @@
-import { Effect, Layer, type Scope } from 'effect';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Runtime } from '@kestack/kabuki';
+import { Effect, Layer, type Scope, SubscriptionRef } from 'effect';
+import { describe, expect, it, vi } from 'vitest';
 import { harnessHostLayer } from '@kestack/ai-toolkit/harness/node';
 import {
   makeFakeHarness,
@@ -15,11 +14,15 @@ import {
 } from '../index.js';
 import { storeLayer } from '../node.js';
 import {
-  fileSystem,
+  addFolder,
+  addSampleProject,
+  diskOf,
+  type DiskChange,
+  emptyHome,
+  fileSystemOver,
   HOME,
   originOf,
   shaOf,
-  type FileSystemMessage,
 } from '../services/file-system/fake/index.js';
 import { fakeGit } from '../services/git/fake/index.js';
 
@@ -34,19 +37,13 @@ import { fakeGit } from '../services/git/fake/index.js';
 const SHOP = `${HOME}/code/shop`;
 const WORKTREES = '/var/kestack/worktrees';
 
-const opened: Array<Runtime<typeof fileSystem.actor>> = [];
-afterEach(async () => {
-  await Promise.all(opened.splice(0).map((runtime) => runtime.dispose()));
-});
-
 /** A fake computer with the sample project at `~/code/shop`, and the engine over it. */
 const computer = (fake: FakeHarness = makeFakeHarness()) => {
-  const runtime = Runtime.make(fileSystem.actor);
-  opened.push(runtime);
-  const control = (message: FileSystemMessage) =>
-    expect(runtime.root.send(message)).toBe('handled');
-  control({ _tag: 'AddSampleProject', folder: '~/code/shop' });
-  const files = fileSystem.serve(runtime);
+  const disk = Effect.runSync(SubscriptionRef.make(emptyHome));
+  const control = (change: DiskChange) =>
+    Effect.runSync(SubscriptionRef.update(disk, change));
+  control(addSampleProject('~/code/shop'));
+  const files = fileSystemOver(diskOf(disk));
   const edges = Layer.mergeAll(
     files,
     fakeGit.pipe(Layer.provide(files)),
@@ -66,10 +63,10 @@ const computer = (fake: FakeHarness = makeFakeHarness()) => {
   ) => Effect.runPromise(Effect.scoped(effect).pipe(Effect.provide(world)));
   /** The text of the file at `path` in the fake tree. */
   const text = (path: string) => {
-    const entry = runtime.root.model.tree[path];
+    const entry = SubscriptionRef.getUnsafe(disk).tree[path];
     return entry?._tag === 'File' ? entry.data : null;
   };
-  return { runtime, control, run, text };
+  return { disk, control, run, text };
 };
 
 const eventually = (assertion: () => Promise<void> | void) =>
@@ -100,7 +97,7 @@ const start = (projectId: string, more: Partial<StartSession> = {}) =>
 describe('the engine over the File System and Git fakes', () => {
   it("lists home's folders, and makes one", async () => {
     const { control, run } = computer();
-    control({ _tag: 'AddFolder', folder: '~/code/.cache' });
+    control(addFolder('~/code/.cache'));
     await run(
       Effect.gen(function* () {
         const engine = yield* Engine;
@@ -119,7 +116,7 @@ describe('the engine over the File System and Git fakes', () => {
 
   it("lists the sample project's branches, an Origin branch a local one tracks only once", async () => {
     const { control, run } = computer();
-    control({ _tag: 'AddFolder', folder: '~/plain' });
+    control(addFolder('~/plain'));
     await run(
       Effect.gen(function* () {
         const engine = yield* Engine;

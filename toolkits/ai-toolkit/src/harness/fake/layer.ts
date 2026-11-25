@@ -1,5 +1,12 @@
-import { Cause, Deferred, Effect, Layer, Queue, Stream } from 'effect';
-import type { Runtime } from '@kestack/kabuki';
+import {
+  Cause,
+  Deferred,
+  Effect,
+  Layer,
+  Queue,
+  Stream,
+  SubscriptionRef,
+} from 'effect';
 import type { HarnessName } from '../../contract/raw/index.js';
 import type { BinaryInfo, ModelInfo } from '../../contract/wire/index.js';
 import {
@@ -20,16 +27,16 @@ import {
 } from '../contract/index.js';
 import { project as claudeProject } from '../claude/project/index.js';
 import { project as codexProject } from '../codex/project/index.js';
-import type { AgentFake, AgentMessage, AgentModel } from './actor.js';
+import type { AgentState } from './agent.js';
 import { BUILT_IN_SKILLS, MODELS_DEV, PLAYED, type Played } from './catalog.js';
 import { recordingFor, replayed } from './recordings/index.js';
 
 /*
- * The harnesses' edges over the running Agent fake: `Harnesses` (Claude
- * Code and Codex, each replayed from the Model), `OneShotPrompt`,
+ * The harnesses' edges over the Agent fake's state: `Harnesses` (Claude
+ * Code and Codex, each replayed from the state), `OneShotPrompt`,
  * `HarnessHost` and `Models`, what connect's code Plugin asks for besides
- * Speech. Thin: each answer reads the Model, and every change is a Message
- * to it.
+ * Speech. Each answer reads the state; each Agent opened and each reply
+ * running is put in it, and taken out as it ends.
  *
  * 1. Host     both harnesses are installed: a binary runs when it is
  *             PATH's; a config folder is the account's, else the harness's
@@ -38,7 +45,7 @@ import { recordingFor, replayed } from './recordings/index.js';
  *             with no login, the models.dev models the harness accepts, as
  *             the real one falls back.
  * 3. Agents   each reply replays a recording (recordings/) at `paceMs` a
- *             record, the one the Model names or a random one, or fails as
+ *             record, the one the state names or a random one, or fails as
  *             logged out. A steer joins it between two records. Recordings
  *             never pause, so an Agent asks no questions, starts no
  *             Background Jobs and no Turns of its own.
@@ -55,7 +62,7 @@ export interface AgentOptions {
 /** What the fake's edges are. */
 export type AgentEdges = Harnesses | OneShotPrompt | HarnessHost | Models;
 
-/** One reply running, as serve.ts follows it. */
+/** One reply running, as the Layer follows it. */
 interface Running {
   readonly started: Deferred.Deferred<void>;
   readonly cancel: Deferred.Deferred<void>;
@@ -68,15 +75,13 @@ const NOT_SIGNED_IN_MODELS =
   'cannot ask this login which models it runs; listing models.dev';
 
 export const agentOver = (
-  runtime: Runtime<typeof AgentFake>,
+  state: SubscriptionRef.SubscriptionRef<AgentState>,
   { home = '/home/you', paceMs = 300 }: AgentOptions = {},
 ): Layer.Layer<AgentEdges> =>
   Layer.unwrap(
     Effect.sync(() => {
-      const root = runtime.root;
-      const model = (): AgentModel => root.model;
-      const send = (message: AgentMessage) =>
-        Effect.sync(() => void root.send(message));
+      const change = (to: (now: AgentState) => Partial<AgentState>) =>
+        SubscriptionRef.update(state, (now) => ({ ...now, ...to(now) }));
 
       // Ids unique in this tab, and apart from those of an earlier load.
       const stamp = Date.now().toString(36);
@@ -130,16 +135,24 @@ export const agentOver = (
           };
           let running: Running | undefined;
 
-          yield* send({
-            _tag: 'AgentOpened',
-            id: nativeId,
-            harness: played.name,
-            cwd: config.cwd,
-            model: config.model,
-            settings,
-          });
+          yield* change(({ agents }) => ({
+            agents: [
+              ...agents.filter(({ id }) => id !== nativeId),
+              {
+                id: nativeId,
+                harness: played.name,
+                cwd: config.cwd,
+                model: config.model,
+                settings,
+              },
+            ],
+          }));
+          // Its replies go with it.
           yield* Effect.addFinalizer(() =>
-            send({ _tag: 'AgentClosed', id: nativeId }),
+            change(({ agents, replies }) => ({
+              agents: agents.filter(({ id }) => id !== nativeId),
+              replies: replies.filter(({ agent }) => agent !== nativeId),
+            })),
           );
 
           const turnOf = (prompt: string): TurnHandle => {
@@ -157,18 +170,27 @@ export const agentOver = (
                 >();
                 const replyId = id('reply-');
                 const turnId = id('turn-');
-                const recording = recordingFor(played.name, model().replyWith);
+                const { replyWith } = yield* SubscriptionRef.get(state);
+                const recording = recordingFor(played.name, replyWith);
                 running = turn;
-                yield* send({
-                  _tag: 'ReplyStarted',
-                  id: replyId,
-                  agent: nativeId,
-                  harness: played.name,
-                  prompt,
-                  recording: recording.name,
-                  model: current,
-                  settings,
-                });
+                // A Turn's model and settings hold from it on: its Agent runs on them now.
+                yield* change(({ agents, replies }) => ({
+                  agents: agents.map((one) =>
+                    one.id === nativeId
+                      ? { ...one, model: current, settings }
+                      : one,
+                  ),
+                  replies: [
+                    ...replies,
+                    {
+                      id: replyId,
+                      agent: nativeId,
+                      harness: played.name,
+                      prompt,
+                      recording: recording.name,
+                    },
+                  ],
+                }));
                 yield* Deferred.succeed(turn.started, undefined);
 
                 const offer = (each: TurnOut) =>
@@ -231,7 +253,9 @@ export const agentOver = (
                     Effect.suspend(() => {
                       turn.ended = true;
                       if (running === turn) running = undefined;
-                      return send({ _tag: 'ReplyEnded', id: replyId });
+                      return change(({ replies }) => ({
+                        replies: replies.filter(({ id }) => id !== replyId),
+                      }));
                     }),
                   ),
                   Effect.forkScoped,
@@ -277,17 +301,17 @@ export const agentOver = (
             mcpStatus: Effect.succeed([
               { name: 'github', status: 'connected', tools: 12 },
             ]),
-            contextUsage: Effect.sync(() => {
-              const { context } = model();
-              return {
+            contextUsage: Effect.map(
+              SubscriptionRef.get(state),
+              ({ context }) => ({
                 usedTokens: context.usedTokens,
                 maxTokens: context.maxTokens,
                 rateLimits: [
                   { label: '5-hour', usedPercent: context.sessionPercent },
                   { label: 'Weekly', usedPercent: context.weeklyPercent },
                 ],
-              };
-            }),
+              }),
+            ),
           };
           return agent;
         });

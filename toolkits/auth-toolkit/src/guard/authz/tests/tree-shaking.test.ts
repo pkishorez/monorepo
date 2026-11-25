@@ -98,7 +98,7 @@ describe('what the Guard leaves out', () => {
       `import { fakeGuard } from '@kestack/auth-toolkit/fake';
        export const guard = fakeGuard.rpc();`,
       `import { signIn } from '@kestack/auth-toolkit/fake';
-       export const fake = signIn;`,
+       export const fake = signIn();`,
     ]) {
       const bundled = await bundle(code);
       expect(bundled.has(FAKE)).toBe(true);

@@ -1,5 +1,4 @@
-import { Effect, Layer } from 'effect';
-import type { LiveInstance, Sent } from '@kestack/kabuki/types';
+import { Effect, Layer, SubscriptionRef } from 'effect';
 import {
   AlreadyExists,
   FileSystem,
@@ -8,36 +7,41 @@ import {
   type DirEntry,
   type EntryKind,
 } from '../../../capabilities/index.js';
-import type {
-  FileSystemFake,
-  FileSystemMessage,
-  FileSystemModel,
-} from './actor.js';
+import type { DiskChange, FileSystemState } from './fake.js';
 import { join, partsOf } from './paths.js';
-import { childrenOf, resolve, type Entry, type Tree } from './tree.js';
+import {
+  childrenOf,
+  ensureFolders,
+  put,
+  remove,
+  resolve,
+  type Entry,
+  type Tree,
+} from './tree.js';
 
 /*
- * The File System key over a fake File System's Model. It reads the tree
- * as it is at each call, answers as `node.ts` would on a disk like it, and
- * picks the same errors: nothing there, or a file on the way, NotFound; a
- * folder there already, AlreadyExists; a folder read, written or removed
- * as a file, IoError. A change it would make is a Message, Sent only once nothing is in the
- * way, so it lands as asked. The handle is all it holds of the fake: a
- * running Fake's root, or a computer's File System inside another Fake.
+ * The File System key over a fake disk. It reads the tree as it is at each
+ * call, answers as `node.ts` would on a disk like it, and picks the same
+ * errors: nothing there, or a file on the way, NotFound; a folder there
+ * already, AlreadyExists; a folder read, written or removed as a file,
+ * IoError. A change is made only once nothing is in the way, so it lands
+ * as asked; one the keeper refuses, a computer gone, is an IoError. The
+ * `Disk` is all it holds of the fake: a test's own state, or a computer's
+ * disk inside the Computers fake.
  */
 
-/** What the layer holds of a fake File System: its Model now, and a way to change it. */
-export interface FileSystemHandle {
-  readonly read: () => FileSystemModel;
-  readonly send: (message: FileSystemMessage) => Sent;
+/** Where a fake disk is kept: it as it is now, and a way to change it, or why not. */
+export interface Disk {
+  readonly read: Effect.Effect<FileSystemState>;
+  readonly update: (change: DiskChange) => Effect.Effect<void, string>;
 }
 
-/** The handle of a live fake File System. */
-export const handleOf = (
-  instance: LiveInstance<typeof FileSystemFake>,
-): FileSystemHandle => ({
-  read: () => instance.model,
-  send: (message) => instance.send(message),
+/** A disk kept in a state of its own. */
+export const diskOf = (
+  state: SubscriptionRef.SubscriptionRef<FileSystemState>,
+): Disk => ({
+  read: SubscriptionRef.get(state),
+  update: (change) => SubscriptionRef.update(state, change),
 });
 
 const kindOf = (entry: Entry): EntryKind =>
@@ -74,29 +78,31 @@ const found = (tree: Tree, path: string) => {
     : Effect.fail(new NotFound({ path }));
 };
 
-/** The File System of a fake computer, as its handle shows it. */
-export const fileSystemOver = (
-  handle: FileSystemHandle,
-): Layer.Layer<FileSystem> => {
-  const tree = () => handle.read().tree;
+/** The File System of a fake computer, over its disk. */
+export const fileSystemOver = (disk: Disk): Layer.Layer<FileSystem> =>
+  Layer.effect(
+    FileSystem,
+    Effect.map(disk.read, ({ home }) => serviceOf(disk, home)),
+  );
 
-  /** Sends a change; one the fake did not take is an IoError. */
-  const change = (path: string, message: FileSystemMessage) =>
-    Effect.suspend(() =>
-      handle.send(message) === 'refused'
-        ? Effect.fail(
-            new IoError({ path, message: 'The fake File System is stopped' }),
-          )
-        : Effect.void,
+const serviceOf = (disk: Disk, home: string): FileSystem['Service'] => {
+  const read = Effect.map(disk.read, ({ tree }) => tree);
+
+  /** Changes the tree; one the keeper refuses is an IoError. */
+  const change = (path: string, next: (tree: Tree) => Tree) =>
+    Effect.mapError(
+      disk.update((now) => ({ ...now, tree: next(now.tree) })),
+      (message) => new IoError({ path, message }),
     );
 
-  const service: FileSystem['Service'] = {
-    home: handle.read().home,
+  return {
+    home,
     list: (path) =>
       Effect.gen(function* () {
-        const at = yield* found(tree(), path);
+        const tree = yield* read;
+        const at = yield* found(tree, path);
         if (at.entry._tag !== 'Folder') return yield* new NotFound({ path });
-        return childrenOf(tree(), at.path)
+        return childrenOf(tree, at.path)
           .map(({ name, entry: child }): DirEntry => ({
             name,
             kind: kindOf(child),
@@ -106,22 +112,22 @@ export const fileSystemOver = (
       }),
     stat: (path) =>
       Effect.gen(function* () {
-        const { entry } = yield* found(tree(), path);
+        const { entry } = yield* found(yield* read, path);
         return { kind: entry._tag === 'Folder' ? 'folder' : 'file' } as const;
       }),
     realpath: (path) =>
       Effect.map(
-        Effect.suspend(() => found(tree(), path)),
+        Effect.flatMap(read, (tree) => found(tree, path)),
         (at) => at.path,
       ),
     mkdir: (path, options) =>
       Effect.gen(function* () {
-        const now = tree();
+        const now = yield* read;
         if (!options?.recursive) {
           const at = resolve(now, path);
           if (at._tag === 'Found') return yield* new AlreadyExists({ path });
           if (at._tag !== 'Missing') return yield* new NotFound({ path });
-          return yield* change(path, { _tag: 'FolderMade', path: at.path });
+          return yield* change(path, (tree) => ensureFolders(tree, at.path));
         }
         // The deepest folder there on the way; every folder after it is new.
         const parts = partsOf(path);
@@ -134,16 +140,14 @@ export const fileSystemOver = (
               ? new AlreadyExists({ path })
               : new NotFound({ path });
           if (whole) return;
-          return yield* change(path, {
-            _tag: 'FolderMade',
-            path: join(at.path, ...parts.slice(depth)),
-          });
+          const made = join(at.path, ...parts.slice(depth));
+          return yield* change(path, (tree) => ensureFolders(tree, made));
         }
         return yield* new NotFound({ path });
       }),
     readFile: (path) =>
       Effect.gen(function* () {
-        const { entry } = yield* found(tree(), path);
+        const { entry } = yield* found(yield* read, path);
         if (entry._tag !== 'File')
           return yield* new IoError({
             path,
@@ -153,22 +157,19 @@ export const fileSystemOver = (
       }),
     writeFile: (path, data) =>
       Effect.gen(function* () {
-        const at = resolve(tree(), path);
+        const at = resolve(yield* read, path);
         if (at._tag === 'Found' && at.entry._tag === 'Folder')
           return yield* new IoError({
             path,
             message: `EISDIR: illegal operation on a directory, open '${path}'`,
           });
         if (at._tag === 'NotFound') return yield* new NotFound({ path });
-        yield* change(path, {
-          _tag: 'FileWritten',
-          path: at.path,
-          ...keptOf(data),
-        });
+        const file: Entry = { _tag: 'File', ...keptOf(data) };
+        yield* change(path, (tree) => put(tree, at.path, file));
       }),
     remove: (path, options) =>
       Effect.gen(function* () {
-        const at = resolve(tree(), path);
+        const at = resolve(yield* read, path);
         if (at._tag !== 'Found') {
           if (options?.force) return;
           return yield* new NotFound({ path });
@@ -178,8 +179,7 @@ export const fileSystemOver = (
             path,
             message: `Path is a directory: rm returned EISDIR (is a directory) ${path}`,
           });
-        yield* change(path, { _tag: 'PathRemoved', path: at.path });
+        yield* change(path, (tree) => remove(tree, at.path));
       }),
   };
-  return Layer.succeed(FileSystem, service);
 };
