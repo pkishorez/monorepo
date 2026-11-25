@@ -8,8 +8,9 @@ import { type Player, usePlaying } from './player.ts';
  * The trimmed transcript, in the short video's times. The line being
  * played is marked, and kept a third of the way down what can be seen:
  * in its own box from a laptop up, on the page itself on a phone, below
- * the pinned player and tabs. A hand scrolling it stops that, until
- * "Back to now" or a tap on a line, which seeks there.
+ * the pinned player and tabs, while its tab is the one open. A hand
+ * scrolling it stops that, until "Back to now", kept at the bottom of the
+ * screen, or a tap on a line, which seeks there.
  */
 
 const SCROLL_KEYS = new Set([
@@ -53,9 +54,12 @@ const show = (line: HTMLElement) => {
 export function Transcript({
   lines,
   player,
+  active,
 }: {
   readonly lines: ReadonlyArray<Line>;
   readonly player: Player;
+  /** Whether its tab is the one open: only then does it scroll to the line. */
+  readonly active: boolean;
 }) {
   const playing = usePlaying(player, lines);
   const [following, setFollowing] = useState(true);
@@ -70,11 +74,14 @@ export function Transcript({
     },
     [player],
   );
+  const followed = active && following;
 
   // A wheel, a finger or a key moving what holds the lines stops following.
   const watch = useCallback((box: HTMLElement | null) => {
     if (box === null) return;
     const away = (event: Event) => {
+      // A sideways swipe between the tabs holds its touch: it scrolls nothing.
+      if (event.defaultPrevented) return;
       const target = event.target instanceof Element ? event.target : null;
       if (target?.closest('video, input, textarea, [role=tablist]')) return;
       if (scrolls(box) && !(target && box.contains(target))) return;
@@ -108,11 +115,11 @@ export function Transcript({
       data-follow
       className="relative lg:h-full lg:overflow-y-auto lg:overscroll-contain"
     >
-      <ol className="space-y-px pr-1">
+      <ol className="space-y-px pt-2 pr-1 lg:pt-0">
         {lines.map((line, index) => (
           <li
             key={index}
-            ref={index === playing && following ? follow : undefined}
+            ref={index === playing && followed ? follow : undefined}
           >
             <button
               type="button"
@@ -132,11 +139,11 @@ export function Transcript({
         ))}
       </ol>
       {!following && (
-        <div className="pointer-events-none sticky bottom-[calc(1rem+env(safe-area-inset-bottom))] flex justify-center pt-3">
+        <div className="pointer-events-none sticky bottom-[calc(1rem+env(safe-area-inset-bottom))] z-10 flex justify-center pt-3">
           <button
             type="button"
             onClick={resume}
-            className="pointer-events-auto flex h-11 items-center gap-1.5 rounded-full border border-border bg-background px-4 text-sm shadow-sm transition-transform duration-150 ease-out active:scale-[0.96] motion-reduce:transition-none"
+            className="pointer-events-auto flex h-11 items-center gap-1.5 rounded-full border border-border bg-background px-4 text-sm font-medium shadow-md transition-transform duration-150 ease-out active:scale-[0.96] motion-reduce:transition-none"
           >
             <ArrowDownIcon className="size-4" /> Back to now
           </button>

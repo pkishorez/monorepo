@@ -5,6 +5,7 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from '@kestack/web-platform/ui/components/toggle-group';
+import type { RefObject } from 'react';
 import type { ViewProps } from '@kestack/kabuki/react/types';
 import type { Strength } from '../../../../video/library/schema.ts';
 import type { Pages } from '../../../shared/index.ts';
@@ -21,7 +22,13 @@ const STRENGTHS: ReadonlyArray<{
 ];
 
 /** A YouTube link and how hard to cut it, then Make. Refused, the CLI's line shows under it. */
-export function Create({ model, send }: Pick<Self, 'model' | 'send'>) {
+export function Create({
+  model,
+  send,
+  field,
+}: Pick<Self, 'model' | 'send'> & {
+  readonly field: RefObject<HTMLInputElement | null>;
+}) {
   const refused = model.refused?.id === null ? model.refused.error : null;
   const hint = STRENGTHS.find(({ value }) => value === model.strength)?.hint;
   return (
@@ -37,6 +44,7 @@ export function Create({ model, send }: Pick<Self, 'model' | 'send'>) {
       </label>
       <div className="flex flex-col gap-2 sm:flex-row">
         <Input
+          ref={field}
           id="link"
           type="url"
           inputMode="url"

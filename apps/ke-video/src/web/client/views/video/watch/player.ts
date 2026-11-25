@@ -1,5 +1,6 @@
 import { useMemo, useSyncExternalStore } from 'react';
 import { lineAt } from '../../../format/index.ts';
+import { type Side, skipTo } from '../../../touch/index.ts';
 
 /*
  * The short video's player, as what is drawn beside it reads it: where it
@@ -40,6 +41,13 @@ export class Player {
     if (element === null) return;
     element.currentTime = seconds;
     element.play().catch(() => {});
+  };
+
+  /** Skips 10 s back or forward, playing or paused as it was. */
+  readonly skip = (side: Side) => {
+    const element = this.element;
+    if (element === null) return;
+    element.currentTime = skipTo(element.currentTime, side, element.duration);
   };
 
   readonly pause = () => this.element?.pause();

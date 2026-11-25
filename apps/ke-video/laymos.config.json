@@ -21,6 +21,7 @@
     "src/web/client/views": [
       "src/web/shared",
       "src/web/client/format",
+      "src/web/client/touch",
       "src/video/library/schema.ts"
     ],
     "src/web/client/views/list": ["src/web/client/views/parts"],

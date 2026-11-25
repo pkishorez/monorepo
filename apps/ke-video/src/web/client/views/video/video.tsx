@@ -1,13 +1,19 @@
+import { useEffect, useState } from 'react';
 import { View } from '@kestack/kabuki/react';
 import type { ViewProps } from '@kestack/kabuki/react/types';
-import { Router } from '@kestack/kabuki/routing';
+import { Router, useRouter } from '@kestack/kabuki/routing';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
-import { ArrowLeftIcon, PlayIcon, SquareIcon, Trash2Icon } from 'lucide-react';
+import {
+  ChevronLeftIcon,
+  PlayIcon,
+  SquareIcon,
+  Trash2Icon,
+} from 'lucide-react';
 import type { Video } from '../../../../video/library/schema.ts';
-import { Pages, router } from '../../../shared/index.ts';
+import { Pages, router, type Route } from '../../../shared/index.ts';
 import { isWorking, lengthsOf, shorterOf, span } from '../../format/index.ts';
-import { ConfirmDelete, Status } from '../parts/index.ts';
+import { AppBar, ConfirmDelete, Status } from '../parts/index.ts';
 import { Watch } from './watch/index.ts';
 import { Working } from './working.tsx';
 
@@ -27,21 +33,88 @@ const removedOf = ({ removed, cuts }: NonNullable<Video['result']>) => {
   return `Removed ${said.length === 0 ? 'nothing' : said.join(', ')} in ${cuts} ${cuts === 1 ? 'cut' : 'cuts'}.`;
 };
 
+/**
+ * Back to the list. Come from it, this goes back in history, as the
+ * browser's back and the iOS edge swipe do, so the list keeps its scroll;
+ * opened straight from a link, it opens the list.
+ */
+function Back() {
+  const { entries, at, back } = useRouter<Route>();
+  const from = entries[at - 1]?.route;
+  return (
+    <Router.Link
+      to={router.List()}
+      onClick={(event) => {
+        if (from?._tag !== 'List') return;
+        event.preventDefault();
+        back();
+      }}
+      className="-ml-2 flex min-h-11 shrink-0 items-center gap-0.5 rounded-md pr-2 pl-1 text-sm font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+    >
+      <ChevronLeftIcon className="size-5" aria-hidden /> Videos
+    </Router.Link>
+  );
+}
+
+/** Whether the page's title has scrolled up under the app bar. */
+const useTitleGone = (title: HTMLElement | null) => {
+  const [gone, setGone] = useState(false);
+  useEffect(() => {
+    if (title === null) return;
+    const bar =
+      document.querySelector('header')?.getBoundingClientRect().bottom ?? 0;
+    const seen = new IntersectionObserver(
+      ([entry]) => entry && setGone(!entry.isIntersecting),
+      { rootMargin: `-${Math.round(bar)}px 0px 0px 0px` },
+    );
+    seen.observe(title);
+    return () => seen.disconnect();
+  }, [title]);
+  return gone;
+};
+
+/** The way back, and the title once the page's own has scrolled away. */
+function Bar({
+  name,
+  title,
+}: {
+  readonly name: string | null;
+  readonly title: HTMLElement | null;
+}) {
+  const gone = useTitleGone(title);
+  return (
+    <AppBar>
+      <Back />
+      {name !== null && (
+        <span
+          aria-hidden={!gone}
+          className={`min-w-0 truncate text-sm font-medium transition-opacity duration-150 ease-out motion-reduce:transition-none ${gone ? 'opacity-100' : 'opacity-0'}`}
+        >
+          {name}
+        </span>
+      )}
+    </AppBar>
+  );
+}
+
 function Header({
   video,
   model,
   send,
+  title,
 }: {
   readonly video: Video;
   readonly model: Self['model'];
   readonly send: Self['send'];
+  readonly title: (element: HTMLElement | null) => void;
 }) {
   const shorter = shorterOf(video);
   return (
     <header className="space-y-3">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
         <div className="min-w-0 space-y-1">
           <h1
+            ref={title}
             className={`text-xl font-semibold tracking-tight text-balance sm:text-2xl ${video.title === null ? 'font-mono break-all' : ''}`}
           >
             {video.title ?? video.id}
@@ -117,14 +190,13 @@ export const VideoView = View.make(
   ({ root, model, send, props }) => {
     const { video } = model;
     const { id } = props.params;
+    const [title, setTitle] = useState<HTMLElement | null>(null);
     return (
       <div {...root} className="space-y-4 sm:space-y-6">
-        <Router.Link
-          to={router.List()}
-          className="-ml-1 inline-flex min-h-11 items-center gap-1.5 rounded-md px-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeftIcon className="size-4" /> All videos
-        </Router.Link>
+        <Bar
+          name={video === null ? null : (video.title ?? video.id)}
+          title={title}
+        />
         {video === null ? (
           model.unread === null ? (
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -138,7 +210,7 @@ export const VideoView = View.make(
           )
         ) : (
           <>
-            <Header video={video} model={model} send={send} />
+            <Header video={video} model={model} send={send} title={setTitle} />
             {model.unread !== null && (
               <p role="alert" className="text-sm text-destructive">
                 {model.unread}

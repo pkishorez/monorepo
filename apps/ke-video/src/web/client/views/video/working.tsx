@@ -1,4 +1,10 @@
-import { useCallback, useRef, useState } from 'react';
+import {
+  type CSSProperties,
+  useCallback,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import {
   ArrowDownIcon,
@@ -18,9 +24,11 @@ import {
 
 /*
  * A Video while it works, or after it stopped or failed: a mark per step
- * (on a phone, the step under way and its place among them), what stopped
- * it, and the log as `ke-video logs` prints it, long lines wrapped,
- * following the end unless scrolled up.
+ * (on a phone, the step under way and its place among them), kept under
+ * the app bar as the page scrolls; what stopped it; and the log as
+ * `ke-video logs` prints it, long lines wrapped, following the end unless
+ * scrolled up. The log fills what the steps leave of the screen, so its
+ * "Latest" stays in view.
  */
 
 function MarkIcon({ mark }: { readonly mark: Mark }) {
@@ -181,7 +189,7 @@ function Log({ events }: { readonly events: ReadonlyArray<Event> }) {
               24,
           )
         }
-        className="h-[min(60dvh,36rem)] overflow-y-auto overscroll-contain rounded-lg border border-border bg-muted/30 px-3 py-3 font-mono text-xs leading-5 tabular-nums outline-none focus-visible:ring-3 focus-visible:ring-ring/50 sm:px-4 sm:text-[13px] sm:leading-6"
+        className="h-[max(16rem,calc(100dvh-var(--stack-bar)-var(--steps-h,3.5rem)-5rem-env(safe-area-inset-bottom)))] overflow-y-auto overscroll-contain rounded-lg border border-border bg-muted/30 px-3 py-3 font-mono text-xs leading-5 tabular-nums outline-none focus-visible:ring-3 focus-visible:ring-ring/50 sm:px-4 sm:text-[13px] sm:leading-6"
       >
         {lines.length === 0 && (
           <p className="text-muted-foreground">Nothing logged yet.</p>
@@ -204,7 +212,7 @@ function Log({ events }: { readonly events: ReadonlyArray<Event> }) {
             if (scroller) scroller.scrollTop = scroller.scrollHeight;
             setFollowing(true);
           }}
-          className="absolute bottom-3 left-1/2 flex h-11 -translate-x-1/2 items-center gap-1.5 rounded-full border border-border bg-background px-4 text-sm shadow-sm transition-transform duration-150 ease-out active:scale-[0.96] motion-reduce:transition-none"
+          className="absolute bottom-3 left-1/2 flex h-11 -translate-x-1/2 items-center gap-1.5 rounded-full border border-border bg-background px-4 text-sm font-medium shadow-md transition-transform duration-150 ease-out active:scale-[0.96] motion-reduce:transition-none"
         >
           <ArrowDownIcon className="size-4" /> Latest
         </button>
@@ -213,6 +221,22 @@ function Log({ events }: { readonly events: ReadonlyArray<Event> }) {
   );
 }
 
+/** The height of what `ref` is set on, kept as it changes. */
+const useHeight = () => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (element === null) return;
+    const measure = () => setHeight(element.offsetHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  return [ref, height] as const;
+};
+
 export function Working({
   video,
   events,
@@ -220,10 +244,23 @@ export function Working({
   readonly video: Video;
   readonly events: ReadonlyArray<Event>;
 }) {
+  const [steps, height] = useHeight();
   return (
-    <div className="space-y-6">
-      <Compact video={video} />
-      <Steps video={video} />
+    <div
+      className="space-y-4"
+      style={
+        height === null
+          ? undefined
+          : ({ '--steps-h': `${height}px` } as CSSProperties)
+      }
+    >
+      <div
+        ref={steps}
+        className="sticky top-(--stack-bar) z-20 -mx-4 border-b border-border bg-background px-4 py-3 sm:-mx-6 sm:px-6"
+      >
+        <Compact video={video} />
+        <Steps video={video} />
+      </div>
       <Note video={video} />
       <Log events={events} />
     </div>

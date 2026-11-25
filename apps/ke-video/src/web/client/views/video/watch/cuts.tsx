@@ -4,8 +4,8 @@ import {
   ToggleGroupItem,
 } from '@kestack/web-platform/ui/components/toggle-group';
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
-import { PlayIcon, SquareIcon } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { ArrowUpIcon, PlayIcon, SquareIcon } from 'lucide-react';
+import { type RefObject, useEffect, useRef, useState } from 'react';
 import type {
   CutKind,
   Cuts as CutsData,
@@ -97,7 +97,7 @@ function ClipPlayer({
   const at = (seconds: number) =>
     duration === null ? 0 : `${(seconds / duration) * 100}%`;
   return (
-    <div className="mt-2 space-y-1">
+    <div className="mt-2 space-y-1" data-zone-gesture="disabled">
       <div className="relative">
         <video
           ref={video}
@@ -184,6 +184,65 @@ function Playing({
   );
 }
 
+const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/** The first of `items` not yet scrolled up past `top`, in viewport px, by its place from 0; `items` run down the page. */
+const firstBelow = (items: HTMLCollection, top: number) => {
+  let low = 0;
+  let high = items.length - 1;
+  let found = items.length - 1;
+  while (low <= high) {
+    const middle = (low + high) >> 1;
+    if (items[middle]!.getBoundingClientRect().bottom > top + 1) {
+      found = middle;
+      high = middle - 1;
+    } else low = middle + 1;
+  }
+  return found;
+};
+
+/**
+ * Where the reading is in the list on a phone: the first cut below the
+ * kinds' bar, from 1, and whether the list has scrolled up under it.
+ * Read on scroll, once a frame, while the tab is open.
+ */
+const usePlace = (
+  bar: RefObject<HTMLDivElement | null>,
+  list: RefObject<HTMLOListElement | null>,
+  active: boolean,
+  count: number,
+) => {
+  const [place, setPlace] = useState({ at: 1, away: false });
+  useEffect(() => {
+    if (!active) return;
+    let frame = 0;
+    const read = () => {
+      frame = 0;
+      const items = list.current?.children;
+      const edge = bar.current?.getBoundingClientRect().bottom;
+      if (items === undefined || edge === undefined || items.length === 0)
+        return setPlace({ at: 1, away: false });
+      const at = firstBelow(items, edge) + 1;
+      const away = items[0]!.getBoundingClientRect().top < edge - 1;
+      setPlace((was) =>
+        was.at === at && was.away === away ? was : { at, away },
+      );
+    };
+    const changed = () => {
+      if (frame === 0) frame = requestAnimationFrame(read);
+    };
+    read();
+    addEventListener('scroll', changed, { passive: true });
+    addEventListener('resize', changed);
+    return () => {
+      cancelAnimationFrame(frame);
+      removeEventListener('scroll', changed);
+      removeEventListener('resize', changed);
+    };
+  }, [bar, list, active, count]);
+  return place;
+};
+
 /** Every part removed, by kind if picked, each with its reason, where it was in the original, and a way to see and hear it. */
 export function Cuts({
   id,
@@ -193,6 +252,7 @@ export function Cuts({
   clip,
   send,
   onPlay,
+  active,
 }: {
   readonly id: string;
   readonly cuts: CutsData;
@@ -202,55 +262,111 @@ export function Cuts({
   readonly send: Send;
   /** Before a cut plays: the short video pauses. */
   readonly onPlay: () => void;
+  /** Whether its tab is the one open. */
+  readonly active: boolean;
 }) {
+  const root = useRef<HTMLDivElement>(null);
+  const bar = useRef<HTMLDivElement>(null);
+  const list = useRef<HTMLOListElement>(null);
   const count = (kind: CutKind) =>
     cuts.removed.filter((cut) => cut.kind === kind).length;
   const shown = cuts.removed
     .map((cut, index) => ({ cut, index }))
     .filter(({ cut }) => filter === 'all' || cut.kind === filter);
+  const place = usePlace(bar, list, active, shown.length);
+  // Back to the first cut, just under the kinds' bar, on a phone.
+  const toTop = (behavior: ScrollBehavior) => {
+    const element = root.current;
+    const pinned = document.querySelector('[data-pinned]');
+    if (element === null || pinned === null) return;
+    const top =
+      scrollY +
+      element.getBoundingClientRect().top -
+      pinned.getBoundingClientRect().bottom;
+    if (top < scrollY) scrollTo({ top, behavior });
+  };
   return (
-    <div className="flex flex-col gap-3 lg:h-full lg:min-h-0">
-      <ToggleGroup
-        aria-label="Kind of cut"
-        variant="outline"
-        size="sm"
-        spacing={1}
-        className="flex-wrap pt-2 lg:pt-0"
-        value={[filter]}
-        onValueChange={([picked]) => {
-          const filter =
-            picked === 'all'
-              ? 'all'
-              : KINDS.find(({ kind }) => kind === picked)?.kind;
-          if (filter) send({ _tag: 'Pick', filter });
-        }}
+    <div
+      ref={root}
+      className="flex flex-col gap-1 lg:h-full lg:min-h-0 lg:gap-3"
+    >
+      <div
+        ref={bar}
+        data-zone-gesture="disabled"
+        className="sticky top-(--stack-panel) z-10 -mx-4 flex h-(--filters-h) items-center gap-1 border-b border-border bg-background pl-4 sm:mx-0 sm:pl-0 lg:static lg:h-auto lg:border-0"
       >
-        <ToggleGroupItem
-          value="all"
-          className="h-11 px-3 lg:pointer-fine:h-8 lg:pointer-fine:px-2.5"
+        <ToggleGroup
+          aria-label="Kind of cut"
+          variant="outline"
+          size="sm"
+          spacing={1}
+          className="no-scrollbar min-w-0 flex-1 flex-nowrap overflow-x-auto py-1 lg:flex-wrap lg:overflow-visible lg:py-0"
+          value={[filter]}
+          onValueChange={([picked]) => {
+            const filter =
+              picked === 'all'
+                ? 'all'
+                : KINDS.find(({ kind }) => kind === picked)?.kind;
+            if (!filter) return;
+            toTop('instant');
+            send({ _tag: 'Pick', filter });
+          }}
         >
-          All{' '}
-          <span className="text-muted-foreground tabular-nums">
-            {cuts.removed.length}
-          </span>
-        </ToggleGroupItem>
-        {KINDS.filter(({ kind }) => count(kind) > 0).map(({ kind, label }) => (
           <ToggleGroupItem
-            key={kind}
-            value={kind}
-            className="h-11 px-3 lg:pointer-fine:h-8 lg:pointer-fine:px-2.5"
+            value="all"
+            className="h-9 shrink-0 px-3 lg:pointer-fine:h-8 lg:pointer-fine:px-2.5"
           >
-            {label}{' '}
+            All{' '}
             <span className="text-muted-foreground tabular-nums">
-              {count(kind)}
+              {cuts.removed.length}
             </span>
           </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
+          {KINDS.filter(({ kind }) => count(kind) > 0).map(
+            ({ kind, label }) => (
+              <ToggleGroupItem
+                key={kind}
+                value={kind}
+                className="h-9 shrink-0 px-3 lg:pointer-fine:h-8 lg:pointer-fine:px-2.5"
+              >
+                {label}{' '}
+                <span className="text-muted-foreground tabular-nums">
+                  {count(kind)}
+                </span>
+              </ToggleGroupItem>
+            ),
+          )}
+        </ToggleGroup>
+        {shown.length > 0 && (
+          <span className="flex shrink-0 items-center pr-1 lg:hidden">
+            <span
+              data-place
+              className="px-1 text-xs text-muted-foreground tabular-nums"
+            >
+              {place.at} of {shown.length}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Back to the first cut"
+              tabIndex={place.away ? 0 : -1}
+              aria-hidden={!place.away}
+              onClick={() => toTop(reduced() ? 'instant' : 'smooth')}
+              className={`size-11 text-muted-foreground transition-opacity duration-150 ease-out motion-reduce:transition-none ${place.away ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+            >
+              <ArrowUpIcon />
+            </Button>
+          </span>
+        )}
+      </div>
       {shown.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nothing was removed.</p>
+        <p className="py-3 text-sm text-muted-foreground">
+          Nothing was removed.
+        </p>
       ) : (
-        <ol className="divide-y divide-border lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain lg:pr-1">
+        <ol
+          ref={list}
+          className="divide-y divide-border lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain lg:pr-1"
+        >
           {shown.map(({ cut, index }) => (
             <li
               key={index}

@@ -721,6 +721,9 @@ importers:
       '@kestack/kabuki':
         specifier: workspace:*
         version: link:../../packages/kabuki
+      '@kestack/use-gesture':
+        specifier: workspace:*
+        version: link:../../packages/use-gesture
       '@kestack/web-platform':
         specifier: workspace:*
         version: link:../../platforms/web-platform
@@ -730,6 +733,9 @@ importers:
       lucide-react:
         specifier: 'catalog:'
         version: 1.61.0(@types/react@19.3.0)(react@19.3.1)
+      motion:
+        specifier: 'catalog:'
+        version: 14.6.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       react:
         specifier: 'catalog:'
         version: 19.3.1
