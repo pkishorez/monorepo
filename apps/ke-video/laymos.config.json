@@ -22,10 +22,12 @@
       "src/web/shared",
       "src/web/client/format",
       "src/web/client/touch",
+      "src/web/client/keep",
       "src/video/library/schema.ts"
     ],
     "src/web/client/views/list": ["src/web/client/views/parts"],
     "src/web/client/views/video": ["src/web/client/views/parts"],
-    "src/web/client/format": ["src/video/library/schema.ts"]
+    "src/web/client/format": ["src/video/library/schema.ts"],
+    "src/web/client/keep": ["src/video/library/schema.ts"]
   }
 }

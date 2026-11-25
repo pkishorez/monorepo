@@ -1,5 +1,6 @@
 import { type RefObject, useEffect, useRef, useState } from 'react';
 import { View } from '@kestack/kabuki/react';
+import type { ViewProps } from '@kestack/kabuki/react/types';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import {
   Empty,
@@ -10,6 +11,7 @@ import {
 import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
 import { PlusIcon } from 'lucide-react';
 import { Pages } from '../../../shared/index.ts';
+import { Keep } from '../../keep/index.ts';
 import { ConfirmDelete } from '../parts/index.ts';
 import { Create } from './create.tsx';
 import { Rows } from './rows.tsx';
@@ -83,8 +85,49 @@ function Loading() {
   );
 }
 
+type Self = ViewProps<typeof Pages.ListLive>;
+
+/** How long a restore is offered to the page, in ms, before it gives up. */
+const RESTORE_MS = 2000;
+
+/**
+ * The strength last picked and a link typed but not yet made, back as
+ * they were, then kept as they change. The page's first frame is drawn
+ * before it can take a Message, so they are sent each frame until it has
+ * them; nothing is kept before then, so the defaults never overwrite them.
+ */
+const useKeptForm = (model: Self['model'], send: Self['send']) => {
+  const [restored, setRestored] = useState(false);
+  const latest = useRef(model);
+  latest.current = model;
+  useEffect(() => {
+    const strength = Keep.settings.read().strength ?? latest.current.strength;
+    const draft = Keep.draft.read() || latest.current.url;
+    const until = performance.now() + RESTORE_MS;
+    let frame = 0;
+    const offer = () => {
+      const { strength: now, url } = latest.current;
+      if ((now === strength && url === draft) || performance.now() > until)
+        return setRestored(true);
+      if (now !== strength) send({ _tag: 'Picked', strength });
+      if (url !== draft) send({ _tag: 'Typed', url: draft });
+      frame = requestAnimationFrame(offer);
+    };
+    offer();
+    return () => cancelAnimationFrame(frame);
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- once, as the page opens.
+  }, []);
+  useEffect(() => {
+    if (restored) Keep.settings.change({ strength: model.strength });
+  }, [restored, model.strength]);
+  useEffect(() => {
+    if (restored) Keep.draft.write(model.url);
+  }, [restored, model.url]);
+};
+
 export const ListView = View.make(Pages.ListLive, ({ root, model, send }) => {
   const { videos } = model;
+  useKeptForm(model, send);
   const confirming = videos?.find(({ id }) => id === model.confirming);
   const field = useRef<HTMLInputElement>(null);
   return (

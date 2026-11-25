@@ -35,6 +35,9 @@ export class Player {
 
   readonly time = () => this.element?.currentTime ?? 0;
 
+  /** The `<video>` itself, once drawn. */
+  readonly video = () => this.element;
+
   /** Goes to `seconds` and plays from there. */
   readonly seek = (seconds: number) => {
     const element = this.element;

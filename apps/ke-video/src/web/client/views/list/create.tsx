@@ -63,7 +63,8 @@ export function Create({
         <Button
           type="submit"
           size="lg"
-          className="h-11 px-4 sm:pointer-fine:h-10"
+          // Waiting on a link, it recedes into the field's row rather than sitting there faded.
+          className="h-11 px-4 disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 sm:pointer-fine:h-10"
           disabled={model.creating || model.url.trim() === ''}
         >
           {model.creating && <Spinner />}

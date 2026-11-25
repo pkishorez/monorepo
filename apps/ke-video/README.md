@@ -43,6 +43,8 @@ pnpm --filter ke-video web:lan   # also reachable from a phone on the same Wi-Fi
 
 - The list refreshes every two seconds and has a box to paste a link. A video still working shows its steps and its log as it is written; a finished one shows the player, chapters, the summary, the transcript following playback (tap a line to jump there) and the cuts. Playing a cut plays its clip, with a bar that marks what was removed.
 - On a phone the player stays at the top while the transcript and summary scroll under it.
+- On a laptop the video sits beside the transcript, or across the page with the rest under it (Wide video). Immersive (`I`, Esc to leave) shows only the video, the transcript and the cuts, on a laptop or a phone.
+- A reload finds the page as it was left: where the video was, its speed and volume, the open tab and kind of cut (kept in the address), where each list was read, the layout, and on the list the strength and a link not yet made. These are kept in the browser.
 - `web:lan` has no sign-in: anyone on the network can add and delete videos. Use it only on a network you trust.
 
 ### Run the tests

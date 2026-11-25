@@ -5,7 +5,15 @@ import {
 } from '@kestack/web-platform/ui/components/toggle-group';
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import { ArrowUpIcon, PlayIcon, SquareIcon } from 'lucide-react';
-import { type RefObject, useEffect, useRef, useState } from 'react';
+import {
+  type RefObject,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type {
   CutKind,
   Cuts as CutsData,
@@ -13,6 +21,7 @@ import type {
 } from '../../../../../video/library/schema.ts';
 import { clipOf, type Filter, type Pages } from '../../../../shared/index.ts';
 import { clock, span } from '../../../format/index.ts';
+import { useWindowed } from '../../parts/index.ts';
 import type { ViewProps } from '@kestack/kabuki/react/types';
 
 type Self = ViewProps<typeof Pages.VideoLive>;
@@ -54,10 +63,13 @@ function ClipPlayer({
   src,
   cut,
   removed,
+  autoplay,
 }: {
   readonly src: string;
   readonly cut: Removed;
   readonly removed: ReadonlyArray<Range>;
+  /** Whether it starts as it is drawn: the first time only, not when scrolled back to. */
+  readonly autoplay: () => boolean;
 }) {
   const video = useRef<HTMLVideoElement>(null);
   const head = useRef<HTMLDivElement>(null);
@@ -85,12 +97,13 @@ function ClipPlayer({
     const events = ['timeupdate', 'seeked', 'pause', 'ended'] as const;
     for (const name of events) element.addEventListener(name, read);
     element.addEventListener('play', playing);
-    element.play().catch(() => {});
+    if (autoplay()) element.play().catch(() => {});
     return () => {
       cancelAnimationFrame(frame);
       for (const name of events) element.removeEventListener(name, read);
       element.removeEventListener('play', playing);
     };
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- read once, as it is drawn.
   }, [removed]);
   const length = cut.end - cut.start;
   const shortened = removed.length > 1;
@@ -153,11 +166,13 @@ function Playing({
   index,
   cut,
   clip,
+  autoplay,
 }: {
   readonly id: string;
   readonly index: number;
   readonly cut: Removed;
   readonly clip: Clip;
+  readonly autoplay: () => boolean;
 }) {
   if (clip === null || clip.cut !== index)
     return (
@@ -180,50 +195,39 @@ function Playing({
       src={clipOf(id, index)}
       cut={cut}
       removed={clip.removed}
+      autoplay={autoplay}
     />
   );
 }
 
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-/** The first of `items` not yet scrolled up past `top`, in viewport px, by its place from 0; `items` run down the page. */
-const firstBelow = (items: HTMLCollection, top: number) => {
-  let low = 0;
-  let high = items.length - 1;
-  let found = items.length - 1;
-  while (low <= high) {
-    const middle = (low + high) >> 1;
-    if (items[middle]!.getBoundingClientRect().bottom > top + 1) {
-      found = middle;
-      high = middle - 1;
-    } else low = middle + 1;
-  }
-  return found;
-};
-
 /**
- * Where the reading is in the list on a phone: the first cut below the
- * kinds' bar, from 1, and whether the list has scrolled up under it.
- * Read on scroll, once a frame, while the tab is open.
+ * Where the reading is in the list on a phone: the cut at the kinds'
+ * bar's bottom edge, from 1, and whether the list has scrolled up under
+ * it. Read on scroll, once a frame, while the tab is open.
  */
 const usePlace = (
   bar: RefObject<HTMLDivElement | null>,
   list: RefObject<HTMLOListElement | null>,
+  indexAt: (px: number) => number,
   active: boolean,
   count: number,
 ) => {
   const [place, setPlace] = useState({ at: 1, away: false });
+  const latest = useRef(indexAt);
+  latest.current = indexAt;
   useEffect(() => {
     if (!active) return;
     let frame = 0;
     const read = () => {
       frame = 0;
-      const items = list.current?.children;
+      const top = list.current?.getBoundingClientRect().top;
       const edge = bar.current?.getBoundingClientRect().bottom;
-      if (items === undefined || edge === undefined || items.length === 0)
+      if (top === undefined || edge === undefined || count === 0)
         return setPlace({ at: 1, away: false });
-      const at = firstBelow(items, edge) + 1;
-      const away = items[0]!.getBoundingClientRect().top < edge - 1;
+      const at = Math.min(count, latest.current(edge - top + 1) + 1);
+      const away = top < edge - 1;
       setPlace((was) =>
         was.at === at && was.away === away ? was : { at, away },
       );
@@ -243,7 +247,24 @@ const usePlace = (
   return place;
 };
 
-/** Every part removed, by kind if picked, each with its reason, where it was in the original, and a way to see and hear it. */
+/** A cut's height until it is drawn: its lines at about 7 px a letter, beside a 44 px button. */
+const guess = ({ reason, text }: Removed) => {
+  const column = Math.min(innerWidth >= 1024 ? 300 : innerWidth - 136, 560);
+  const rows = (words: string) =>
+    Math.ceil((words.length * 7) / Math.max(120, column));
+  const lines =
+    20 +
+    (reason === undefined ? 0 : 4 + 20 * rows(reason)) +
+    (text === undefined ? 0 : 4 + 20 * Math.min(3, rows(text) + 1));
+  return 24 + Math.max(44, lines) + 1;
+};
+
+/**
+ * Every part removed, by kind if picked, each with its reason, where it
+ * was in the original, and a way to see and hear it. Drawn again after a
+ * reload, it opens at the row it was read from, and a clip that was open
+ * is open again, waiting to be played.
+ */
 export function Cuts({
   id,
   cuts,
@@ -253,9 +274,15 @@ export function Cuts({
   send,
   onPlay,
   active,
+  visible,
+  start,
+  onTop,
 }: {
   readonly id: string;
   readonly cuts: CutsData;
+  /** As it was left: the row at the top, and the cut whose clip was open. */
+  readonly start: { readonly row?: number; readonly playing?: number | null };
+  readonly onTop: (row: number) => void;
   readonly filter: Filter;
   readonly playing: number | null;
   readonly clip: Clip;
@@ -264,16 +291,77 @@ export function Cuts({
   readonly onPlay: () => void;
   /** Whether its tab is the one open. */
   readonly active: boolean;
+  /** Whether it can be seen, open or sliding in. */
+  readonly visible: boolean;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const bar = useRef<HTMLDivElement>(null);
-  const list = useRef<HTMLOListElement>(null);
+  const box = useRef<HTMLDivElement>(null);
   const count = (kind: CutKind) =>
     cuts.removed.filter((cut) => cut.kind === kind).length;
-  const shown = cuts.removed
-    .map((cut, index) => ({ cut, index }))
-    .filter(({ cut }) => filter === 'all' || cut.kind === filter);
-  const place = usePlace(bar, list, active, shown.length);
+  const shown = useMemo(
+    () =>
+      cuts.removed
+        .map((cut, index) => ({ cut, index }))
+        .filter(({ cut }) => filter === 'all' || cut.kind === filter),
+    [cuts, filter],
+  );
+  // Each cut keeps its measured height whichever kind is shown.
+  const keyOf = useCallback(
+    (at: number) => String(shown[at]?.index ?? at),
+    [shown],
+  );
+  const estimate = useCallback(
+    (at: number) => {
+      const row = shown[at];
+      return row === undefined ? 70 : guess(row.cut);
+    },
+    [shown],
+  );
+  const rows = useWindowed({
+    count: shown.length,
+    keyOf,
+    estimate,
+    box,
+    live: visible,
+    onTop: active ? onTop : undefined,
+  });
+  const place = usePlace(bar, rows.list, rows.indexAt, active, shown.length);
+  // The kind picked, scrolled into the row of kinds, as after a reload.
+  useLayoutEffect(() => {
+    const row = bar.current?.querySelector<HTMLElement>('[role=group]');
+    const picked = row?.querySelector<HTMLElement>('[aria-pressed=true]');
+    if (!row || !picked) return;
+    const left = picked.offsetLeft - row.offsetLeft;
+    if (
+      left < row.scrollLeft ||
+      left + picked.offsetWidth > row.scrollLeft + row.clientWidth
+    )
+      row.scrollLeft = left - 16;
+  }, [filter, active]);
+  // The cut whose clip has started: scrolled away and back, it waits, as
+  // one open again after a reload does.
+  const started = useRef<number | null>(start.playing ?? null);
+  // Once, as it is first drawn open: back to the row it was read from.
+  const opened = useRef(false);
+  useLayoutEffect(() => {
+    if (opened.current || !active || shown.length === 0) return;
+    opened.current = true;
+    if (start.row === undefined || start.row <= 0) return;
+    rows.hold(
+      Math.min(start.row, shown.length - 1),
+      // From the tabs' bottom edge, as the row was kept.
+      () =>
+        document.querySelector('[data-pinned]')?.getBoundingClientRect()
+          .bottom ?? 0,
+    );
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- once, as it opens.
+  }, [active, shown.length]);
+  const autoplay = (index: number) => () => {
+    if (started.current === index) return false;
+    started.current = index;
+    return true;
+  };
   // Back to the first cut, just under the kinds' bar, on a phone.
   const toTop = (behavior: ScrollBehavior) => {
     const element = root.current;
@@ -363,65 +451,79 @@ export function Cuts({
           Nothing was removed.
         </p>
       ) : (
-        <ol
-          ref={list}
-          className="divide-y divide-border lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain lg:pr-1"
+        <div
+          ref={box}
+          className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain lg:pr-1"
         >
-          {shown.map(({ cut, index }) => (
-            <li
-              key={index}
-              aria-current={index === playing || undefined}
-              className="py-3"
-            >
-              <div className="flex items-start gap-3">
-                <div className="min-w-0 flex-1 space-y-1">
-                  <p className="flex flex-wrap items-baseline gap-x-2 text-sm">
-                    <span className="font-medium">{LABEL[cut.kind]}</span>
-                    <span className="text-muted-foreground tabular-nums">
-                      {clock(cut.start)}–{clock(cut.end)} ·{' '}
-                      {span(cut.end - cut.start)}
-                    </span>
-                  </p>
-                  {cut.reason !== undefined && (
-                    <p className="text-sm text-pretty">{cut.reason}</p>
-                  )}
-                  {cut.text !== undefined && (
-                    <p className="line-clamp-3 text-sm text-pretty text-muted-foreground">
-                      “{cut.text}”
+          <ol
+            ref={rows.list}
+            style={{ paddingTop: rows.before, paddingBottom: rows.after }}
+          >
+            {shown.slice(rows.start, rows.end).map(({ cut, index }, offset) => (
+              <li
+                key={index}
+                ref={rows.measure}
+                data-index={rows.start + offset}
+                aria-current={index === playing || undefined}
+                className={`py-3 ${rows.start + offset > 0 ? 'border-t border-border' : ''}`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <p className="flex flex-wrap items-baseline gap-x-2 text-sm">
+                      <span className="font-medium">{LABEL[cut.kind]}</span>
+                      <span className="text-muted-foreground tabular-nums">
+                        {clock(cut.start)}–{clock(cut.end)} ·{' '}
+                        {span(cut.end - cut.start)}
+                      </span>
                     </p>
+                    {cut.reason !== undefined && (
+                      <p className="text-sm text-pretty">{cut.reason}</p>
+                    )}
+                    {cut.text !== undefined && (
+                      <p className="line-clamp-3 text-sm text-pretty text-muted-foreground">
+                        “{cut.text}”
+                      </p>
+                    )}
+                  </div>
+                  {index === playing ? (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="h-11 px-3 lg:pointer-fine:h-8"
+                      aria-label={`Close the ${LABEL[cut.kind].toLowerCase()} at ${clock(cut.start)}`}
+                      onClick={() => send({ _tag: 'Play', cut: null })}
+                    >
+                      <SquareIcon /> Close
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-11 px-3 lg:pointer-fine:h-8"
+                      aria-label={`Play the ${LABEL[cut.kind].toLowerCase()} at ${clock(cut.start)} of the original`}
+                      onClick={() => {
+                        onPlay();
+                        started.current = null;
+                        send({ _tag: 'Play', cut: index });
+                      }}
+                    >
+                      <PlayIcon /> Play
+                    </Button>
                   )}
                 </div>
-                {index === playing ? (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="h-11 px-3 lg:pointer-fine:h-8"
-                    aria-label={`Close the ${LABEL[cut.kind].toLowerCase()} at ${clock(cut.start)}`}
-                    onClick={() => send({ _tag: 'Play', cut: null })}
-                  >
-                    <SquareIcon /> Close
-                  </Button>
-                ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-11 px-3 lg:pointer-fine:h-8"
-                    aria-label={`Play the ${LABEL[cut.kind].toLowerCase()} at ${clock(cut.start)} of the original`}
-                    onClick={() => {
-                      onPlay();
-                      send({ _tag: 'Play', cut: index });
-                    }}
-                  >
-                    <PlayIcon /> Play
-                  </Button>
+                {index === playing && (
+                  <Playing
+                    id={id}
+                    index={index}
+                    cut={cut}
+                    clip={clip}
+                    autoplay={autoplay(index)}
+                  />
                 )}
-              </div>
-              {index === playing && (
-                <Playing id={id} index={index} cut={cut} clip={clip} />
-              )}
-            </li>
-          ))}
-        </ol>
+              </li>
+            ))}
+          </ol>
+        </div>
       )}
     </div>
   );

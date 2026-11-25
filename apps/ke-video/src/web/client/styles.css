@@ -24,6 +24,18 @@
     }
   }
 
+  /*
+   * A phone on its side has about 375 px of height: the player scrolls
+   * away with the page, as tall as the screen under the app bar, so the
+   * layers kept at the top are only the bar, the tabs and the cuts' kinds.
+   */
+  @media (orientation: landscape) and (height < 32rem) and (width < 64rem) {
+    :root {
+      --player-h: calc(100dvh - var(--stack-bar));
+      --stack-tabs: var(--stack-bar);
+    }
+  }
+
   body {
     @apply bg-background font-sans text-foreground antialiased;
   }
@@ -37,6 +49,9 @@
     touch-action: manipulation;
   }
 }
+
+/* A phone on its side, short enough that what stays at the top must be little. */
+@custom-variant short-landscape (@media (orientation: landscape) and (height < 32rem) and (width < 64rem));
 
 /* The page's side padding, wider than the notch in landscape. */
 @utility gutter {

@@ -16,13 +16,33 @@ import { Api, Outputs } from '../api/index.ts';
  * one that is resumed picks up live. Once done, its transcript, summary
  * and cuts are read once, and the page shows which panel is open, which
  * kind of cut the list shows, and which cut is playing: its clip is made
- * when it is asked for, which can take a few seconds.
+ * when it is asked for, which can take a few seconds. The panel and the
+ * kind are in the URL (`?tab=cuts&kind=fillers`), replaced as they
+ * change, so a reload or a link opens the same view; one the page does
+ * not know reads as the first.
  * After a delete it goes back to the list.
  */
 
 const Panel = Schema.Literals(['transcript', 'summary', 'cuts']);
+type Panel = typeof Panel.Type;
 const Filter = Schema.Union([CutKind, Schema.Literal('all')]);
 export type Filter = typeof Filter.Type;
+
+const panelOf = (tab: string | undefined): Panel =>
+  Schema.is(Panel)(tab) ? tab : 'transcript';
+const filterOf = (kind: string | undefined): Filter =>
+  Schema.is(Filter)(kind) ? kind : 'all';
+
+/** The URL of the view: the defaults are left out. */
+const at = (id: string, panel: Panel, filter: Filter) => {
+  const route: { readonly _tag: 'Video'; readonly id: string } = {
+    _tag: 'Video',
+    id,
+    ...(panel === 'transcript' ? {} : { tab: panel }),
+    ...(filter === 'all' ? {} : { kind: filter }),
+  };
+  return Router.replace(route, { resetScroll: false });
+};
 
 /** The clip of the cut playing: made, with the seconds of it removed, or why not. */
 const Clip = Schema.Struct({
@@ -68,6 +88,11 @@ const remove = Command.make('remove', {
 export const Video = Page.define({
   path: '/videos/:id',
   params: { id: Schema.String },
+  // Read as text, so an unknown tab or kind opens the page, not Not found.
+  query: {
+    tab: Schema.optionalKey(Schema.String),
+    kind: Schema.optionalKey(Schema.String),
+  },
   render: 'client',
   requires: [Api],
   metadata: ({ id }) => ({ title: `${id} · ke-video` }),
@@ -103,6 +128,11 @@ export const Video = Page.define({
     Cancel: {},
     Delete: {},
     Removed: {},
+    /** The URL's tab and kind, as the page is first drawn. */
+    Opened: {
+      tab: Schema.optionalKey(Schema.String),
+      kind: Schema.optionalKey(Schema.String),
+    },
     Show: { panel: Panel },
     Pick: { filter: Filter },
     Play: { cut: Schema.NullOr(Schema.Number) },
@@ -239,8 +269,22 @@ export const VideoLive = Video.build({
       model: { busy: false },
       command: Router.replace({ _tag: 'List' }),
     }),
-    Show: ({ panel }) => ({ model: { panel } }),
-    Pick: ({ filter }) => ({ model: { filter, playing: null, clip: null } }),
+    Opened: ({ tab, kind }) => ({
+      model: { panel: panelOf(tab), filter: filterOf(kind) },
+    }),
+    Show: ({ panel }, { model, props }) =>
+      panel === model.panel
+        ? {}
+        : {
+            model: { panel },
+            command: at(props.params.id, panel, model.filter),
+          },
+    Pick: ({ filter }, { model, props }) => ({
+      model: { filter, playing: null, clip: null },
+      ...(filter === model.filter
+        ? {}
+        : { command: at(props.params.id, model.panel, filter) }),
+    }),
     Play: ({ cut }) => ({ model: { playing: cut, clip: null } }),
     Clipped: ({ clip }, { model }) =>
       clip.cut === model.playing ? { model: { clip } } : {},

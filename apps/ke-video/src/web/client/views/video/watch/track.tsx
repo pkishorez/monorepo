@@ -280,7 +280,8 @@ export function Panels<Tab extends string>({
   readonly track: Track<Tab>;
   readonly shown: ReadonlyArray<Tab>;
   readonly open: Tab;
-  readonly panel: (tab: Tab, active: boolean) => ReactNode;
+  /** What a tab holds; `active` while it is open, `visible` while it can be seen. */
+  readonly panel: (tab: Tab, active: boolean, visible: boolean) => ReactNode;
 }) {
   const at = Math.max(0, shown.indexOf(open));
   // The tab open draws first; the ones beside once the page is idle, so a
@@ -327,7 +328,8 @@ export function Panels<Tab extends string>({
                     }
               }
             >
-              {(active || drawn.has(tab)) && panel(tab, active)}
+              {(active || drawn.has(tab)) &&
+                panel(tab, active, active || track.moving)}
             </div>
           );
         })}
