@@ -13,8 +13,7 @@ import type { NewBuildFake, NewBuildMessage } from './actor.ts';
  *            downloaded: with none, nothing happens.
  * 3. Move    the page is the newest build from then on (`Moved`, kept
  *            before the reload); a notice says so on the page, and after
- *            `RELOAD_AFTER` the page reloads into it, or, told only to say
- *            so, the notice goes.
+ *            `RELOAD_AFTER` the page reloads into it.
  */
 
 /** How long the notice shows before the page reloads, in ms. */
@@ -23,19 +22,16 @@ export const RELOAD_AFTER = 1_500;
 /** What the notice says while the page moves. */
 export const MOVING = 'Moving to the newest build…';
 
-/** What it says when the page only says so. */
-export const MOVED = 'Moved to the newest build (no reload)';
-
 export interface NewBuildOptions {
   /** What reloads the page: `location.reload` unless given. */
   readonly reload?: () => void;
-  /** Draws `text` on the page, and gives back what takes it away: a notice at the foot unless given. */
-  readonly say?: (text: string) => () => void;
+  /** Draws `text` on the page: a notice at the foot unless given. */
+  readonly say?: (text: string) => void;
 }
 
 /** A notice at the foot of the page, over the app; nothing outside a browser. */
-const notice = (text: string): (() => void) => {
-  if (typeof document === 'undefined') return () => undefined;
+const notice = (text: string): void => {
+  if (typeof document === 'undefined') return;
   const element = document.createElement('div');
   element.setAttribute('role', 'status');
   element.dataset['kestackFake'] = 'new-build';
@@ -54,7 +50,6 @@ const notice = (text: string): (() => void) => {
     boxShadow: '0 4px 16px rgb(0 0 0 / 0.25)',
   } satisfies Partial<CSSStyleDeclaration>);
   document.body.append(element);
-  return () => element.remove();
 };
 
 /** `OnOutdated` over the fake; a Reference, so the Layer names no Service an app must have. */
@@ -79,14 +74,11 @@ export const newBuildOver = (
         // 2. Wait, 3. Move
         const move = Effect.gen(function* () {
           yield* send({ _tag: 'MoveAsked' });
-          const { model } = yield* Effect.orDie(
-            root.until(({ model: now }) => now.newer),
-          );
+          yield* Effect.orDie(root.until(({ model }) => model.newer));
           yield* send({ _tag: 'Moved' });
-          const unsay = say(model.reloads ? MOVING : MOVED);
+          say(MOVING);
           yield* Effect.sleep(RELOAD_AFTER);
-          if (model.reloads) reload();
-          else unsay();
+          reload();
         });
 
         // 1. Ask
