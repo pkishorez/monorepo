@@ -1,4 +1,4 @@
-import { Context, Effect, Fiber, Layer, type Scope, Stream } from 'effect';
+import { Context, Effect, Layer, type Scope, Stream } from 'effect';
 import { Runtime } from '@kestack/kabuki';
 import { describe, expect, it, vi } from 'vitest';
 import { Recorder } from '../../recorder.ts';
@@ -6,11 +6,9 @@ import { CHUNK, microphone, type MicrophoneMessage } from '../index.ts';
 
 /*
  * The Microphone fake as the Dictation sees it, through the real
- * Recorder: the first use waits for the person to allow it; allowed, it
- * records made-up PCM, loud or silent, into one clip; denied or blocked,
- * broken, or with nothing plugged in, it says why as the browser's
- * Recorder does; a chosen microphone gone falls back to the default, and
- * the one recording unplugged ends it. Its inputs list the default first.
+ * Recorder: allowed at once, it records a made-up voice into one clip; a
+ * chosen microphone gone falls back to the default, and it switches to
+ * another into the same recording. Its inputs list the default first.
  */
 
 type Fake = Runtime<typeof microphone.actor>;
@@ -56,89 +54,24 @@ const recordFor = (
   });
 
 describe('the Microphone fake', () => {
-  it('asks first, then records a loud voice into one clip', () =>
+  it('records a voice into one clip, allowed at once', () =>
     run((fake, recorder) =>
       Effect.gen(function* () {
-        const recording = yield* Effect.forkChild(recordFor(recorder));
-        yield* eventually(() => expect(fake.root.model.asking).toBe(true));
-        yield* control(fake, { _tag: 'AllowMicrophone' });
-        const { heard, levels, clip } = yield* Fiber.join(recording);
+        const { heard, levels, clip } = yield* recordFor(recorder);
         expect(heard).toEqual({ name: 'Built-in Microphone', fellBack: false });
         expect(levels.every((level) => level > 0.3)).toBe(true);
         expect(clip.length % (CHUNK * 2)).toBe(0);
         expect(clip.length).toBeGreaterThanOrEqual(3 * CHUNK * 2);
         expect(fake.root.model).toMatchObject({
-          permission: 'Allowed',
           recording: null,
           recordings: 1,
         });
       }),
     ));
 
-  it('records silence when silent', () =>
+  it('falls back to the default when the one chosen is gone, and records from one plugged in', () =>
     run((fake, recorder) =>
       Effect.gen(function* () {
-        yield* control(fake, { _tag: 'AllowMicrophone' });
-        yield* control(fake, { _tag: 'Silent' });
-        const { levels, clip } = yield* recordFor(recorder);
-        expect(levels.every((level) => level === 0)).toBe(true);
-        expect(clip.every((byte) => byte === 0)).toBe(true);
-      }),
-    ));
-
-  it('says why it cannot record, as the browser’s Recorder does', () =>
-    run((fake, recorder) =>
-      Effect.gen(function* () {
-        const why = () =>
-          Effect.flip(Effect.scoped(recorder.record(null))).pipe(
-            Effect.map(({ reason, blocked }) => ({ reason, blocked })),
-          );
-        yield* control(fake, { _tag: 'DenyMicrophone' });
-        expect(yield* why()).toEqual({
-          reason: 'The microphone is blocked for this site',
-          blocked: true,
-        });
-        yield* control(fake, { _tag: 'AllowMicrophone' });
-        yield* control(fake, { _tag: 'BlockUntilReload' });
-        expect((yield* why()).blocked).toBe(true);
-        // A reload ends it.
-        expect(
-          microphone.kept(fake.snapshot).root.model.untilReload.blocked,
-        ).toBe(false);
-      }),
-    ));
-
-  it('says when it is broken', () =>
-    run((fake, recorder) =>
-      Effect.gen(function* () {
-        yield* control(fake, { _tag: 'AllowMicrophone' });
-        yield* control(fake, { _tag: 'BreakMicrophone' });
-        const { reason, blocked } = yield* Effect.flip(
-          Effect.scoped(recorder.record(null)),
-        );
-        expect({ reason, blocked }).toEqual({
-          reason: 'The microphone is in use by something else',
-          blocked: false,
-        });
-      }),
-    ));
-
-  it('says when none is plugged in', () =>
-    run((fake, recorder) =>
-      Effect.gen(function* () {
-        yield* control(fake, { _tag: 'AllowMicrophone' });
-        yield* control(fake, { _tag: 'Unplug', name: '' });
-        const { reason } = yield* Effect.flip(
-          Effect.scoped(recorder.record(null)),
-        );
-        expect(reason).toBe('No microphone found');
-      }),
-    ));
-
-  it('falls back to the default when the one chosen is gone, and ends as the one recording is unplugged', () =>
-    run((fake, recorder) =>
-      Effect.gen(function* () {
-        yield* control(fake, { _tag: 'AllowMicrophone' });
         const { heard } = yield* recordFor(recorder, 'mic-9');
         expect(heard).toEqual({ name: 'Built-in Microphone', fellBack: true });
         yield* control(fake, { _tag: 'PlugIn', name: '' });
@@ -149,18 +82,15 @@ describe('the Microphone fake', () => {
             yield* eventually(() =>
               expect(fake.root.model.recording).toBe('mic-2'),
             );
-            yield* control(fake, { _tag: 'Unplug', name: 'USB Microphone' });
-            // The levels end, so the recording does.
-            yield* Stream.runDrain(recording.levels);
           }),
         );
+        expect(fake.root.model.recording).toBeNull();
       }),
     ));
 
   it('switches to another microphone into the same recording', () =>
     run((fake, recorder) =>
       Effect.gen(function* () {
-        yield* control(fake, { _tag: 'AllowMicrophone' });
         yield* control(fake, { _tag: 'PlugIn', name: 'Yeti' });
         yield* Effect.scoped(
           Effect.gen(function* () {
@@ -174,7 +104,7 @@ describe('the Microphone fake', () => {
       }),
     ));
 
-  it('lists its inputs once allowed, the default first, again as one is plugged in', () =>
+  it('lists its inputs, the default first, again as one is plugged in', () =>
     run((fake, recorder) =>
       Effect.gen(function* () {
         const seen: Array<ReadonlyArray<string>> = [];
@@ -183,9 +113,6 @@ describe('the Microphone fake', () => {
             Effect.sync(() => void seen.push(inputs.map(({ label }) => label))),
           ),
         );
-        yield* eventually(() => expect(fake.root.model.asking).toBe(true));
-        expect(seen).toEqual([]);
-        yield* control(fake, { _tag: 'AllowMicrophone' });
         yield* eventually(() =>
           expect(seen.at(-1)).toEqual([
             'Default - Built-in Microphone',
@@ -193,14 +120,25 @@ describe('the Microphone fake', () => {
           ]),
         );
         yield* control(fake, { _tag: 'PlugIn', name: 'Yeti' });
-        yield* control(fake, { _tag: 'MakeSystemDefault', name: 'Yeti' });
         yield* eventually(() =>
           expect(seen.at(-1)).toEqual([
-            'Default - Yeti',
+            'Default - Built-in Microphone',
             'Built-in Microphone',
             'Yeti',
           ]),
         );
       }),
+    ));
+
+  it('keeps nothing recording across a reload', () =>
+    run((fake, recorder) =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          yield* recorder.record(null);
+          expect(fake.root.model.recording).toBe('mic-1');
+          const kept = microphone.kept(fake.snapshot).root.model;
+          expect(kept.recording).toBeNull();
+        }),
+      ),
     ));
 });

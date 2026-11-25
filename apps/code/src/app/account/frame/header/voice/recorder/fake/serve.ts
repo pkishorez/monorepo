@@ -18,32 +18,26 @@ import { CHUNK_MS, chunkOf } from './sound.ts';
 /*
  * `Recorder` over the running Microphone fake: the real Recorder
  * (`recorderOver`, which keeps the clip and its audio) over microphones
- * read from the fake's Model, failing as the browser fails, with the
- * browser's own errors made into sentences the same way (`unavailable`).
+ * read from the fake's Model, the site allowed at once, failing as the
+ * browser fails, with the browser's own errors made into sentences the
+ * same way (`unavailable`).
  *
- * 1. Allow  the first use asks: it waits until a Control allows or denies
- *           it. Denied, or blocked until a reload, it fails as blocked.
- * 2. Open   after `opensInMs`; broken, it fails as in use; with none
- *           plugged in, as missing. The one chosen, else the system
- *           default, falling back to it when the one chosen is gone.
- * 3. Hear   a chunk each eighth of a second, loud or silent as the Model
- *           says now; the one recording unplugged, it ends.
- * 4. List   once allowed, the system default first (named after the one
- *           it is, as Chrome names it), then each one, again on each change.
+ * 1. Open   at once: the one chosen, else the system default (the first
+ *           plugged in), falling back to it when the one chosen is gone;
+ *           with none plugged in, it fails as missing.
+ * 2. Hear   a chunk of a voice each eighth of a second.
+ * 3. List   the system default first (named after the one it is, as
+ *           Chrome names it), then each one, again on each change.
  */
 
 /** An error as the browser throws it, by its name. */
 const browserError = (name: string, message: string) =>
   Object.assign(new Error(message), { name });
 
-const BLOCKED = () => unavailable(browserError('NotAllowedError', 'Denied'));
+/** The system default: the first plugged in; none when nothing is. */
+const systemDefault = (model: MicrophoneModel) => model.microphones[0];
 
-/** The system default, as the Model says it is now; none when nothing is plugged in. */
-const systemDefault = (model: MicrophoneModel) =>
-  model.microphones.find(({ id }) => id === model.systemDefault) ??
-  model.microphones[0];
-
-/** The inputs as the browser lists them, once allowed. */
+/** The inputs as the browser lists them. */
 const listed = (model: MicrophoneModel): ReadonlyArray<Input> => {
   const fallback = systemDefault(model);
   return [
@@ -61,31 +55,11 @@ export const microphoneOver = (
   const root = runtime.root;
   const send = (message: MicrophoneMessage) =>
     Effect.sync(() => void root.send(message));
-  const models = runtime.changes.pipe(
-    Stream.map((snapshot) => snapshot.root.model),
-  );
 
-  // 1. Allow
-  const allowed = Effect.gen(function* () {
-    if (root.model.permission === 'Prompt' && !root.model.asking)
-      yield* send({ _tag: 'PermissionAsked' });
-    const { model } = yield* Effect.orDie(
-      root.until(({ model: now }) => now.permission !== 'Prompt'),
-    );
-    if (model.permission === 'Denied') return yield* Effect.fail(BLOCKED());
-  });
-
-  // 2. Open
+  // 1. Open
   const open = (microphone: string | null) =>
     Effect.gen(function* () {
-      yield* allowed;
-      if (root.model.untilReload.blocked) return yield* Effect.fail(BLOCKED());
-      yield* Effect.sleep(root.model.opensInMs);
       const model = root.model;
-      if (model.broken)
-        return yield* Effect.fail(
-          unavailable(browserError('NotReadableError', 'In use')),
-        );
       const chosen =
         microphone === null
           ? undefined
@@ -104,20 +78,21 @@ export const microphoneOver = (
       };
     });
 
-  // 3. Hear
+  // 2. Hear
   const hear: Microphones['hear'] = (chunks, microphone, added) =>
     Effect.gen(function* () {
       const first = yield* open(microphone);
-      let live = first.id;
       let ended = false;
       const levels = yield* Queue.sliding<number, Cause.Done>(1);
-      const end = Effect.sync(() => {
-        ended = true;
-        Queue.endUnsafe(levels);
-      });
-      yield* send({ _tag: 'RecordingFrom', id: live });
+      yield* send({ _tag: 'RecordingFrom', id: first.id });
       yield* Effect.addFinalizer(() =>
-        Effect.andThen(end, send({ _tag: 'RecordingEnded' })),
+        Effect.andThen(
+          Effect.sync(() => {
+            ended = true;
+            Queue.endUnsafe(levels);
+          }),
+          send({ _tag: 'RecordingEnded' }),
+        ),
       );
       let index = 0;
       yield* Effect.forkScoped(
@@ -126,7 +101,7 @@ export const microphoneOver = (
             Effect.sleep(CHUNK_MS),
             Effect.sync(() => {
               if (ended) return;
-              const chunk = chunkOf(index++, root.model.loud);
+              const chunk = chunkOf(index++);
               chunks.push(chunk.samples);
               added();
               Queue.offerUnsafe(levels, chunk.level);
@@ -134,24 +109,10 @@ export const microphoneOver = (
           ),
         ),
       );
-      // The one recording unplugged ends it, as its track ending does.
-      yield* Effect.forkScoped(
-        models.pipe(
-          Stream.filter(
-            (model) => !model.microphones.some(({ id }) => id === live),
-          ),
-          Stream.take(1),
-          Stream.runDrain,
-          Effect.andThen(end),
-        ),
-      );
       const switchTo: Hearing['switchTo'] = (next) =>
         Effect.gen(function* () {
           const opened = yield* open(next);
-          if (!ended) {
-            live = opened.id;
-            yield* send({ _tag: 'RecordingFrom', id: live });
-          }
+          if (!ended) yield* send({ _tag: 'RecordingFrom', id: opened.id });
           return opened.heard;
         });
       return {
@@ -161,15 +122,10 @@ export const microphoneOver = (
       } satisfies Hearing;
     });
 
-  // 4. List
-  const inputs = Stream.unwrap(
-    Effect.as(
-      allowed,
-      models.pipe(
-        Stream.map(listed),
-        Stream.changesWith((a, b) => JSON.stringify(a) === JSON.stringify(b)),
-      ),
-    ),
+  // 3. List
+  const inputs = runtime.changes.pipe(
+    Stream.map((snapshot) => listed(snapshot.root.model)),
+    Stream.changesWith((a, b) => JSON.stringify(a) === JSON.stringify(b)),
   );
 
   return Layer.merge(
