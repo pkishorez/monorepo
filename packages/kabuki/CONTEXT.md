@@ -7,7 +7,7 @@ An app is one tree of Actors that lives outside React. Each Actor is a small sta
 ### The package
 
 **Part**:
-One of the four pieces kabuki is learned and taken in, each its own subpath using only the ones below it: core, the Actors and how they run; react, drawing them; routing, giving them a place in the URL; start, serving them as one app. An app takes as many as it needs, from the bottom up.
+One of the four pieces kabuki is learned and taken in, each its own subpath using only the ones below it: core, the Actors and how they run; react, drawing them; routing, giving them a place in the URL; start, serving them as one app. An app takes as many as it needs, from the bottom up. Beside them, fake, at `@kestack/kabuki/fake`, is no Part: it uses none of them, and fakes the services an app uses.
 _Avoid_: layer (that is Effect's Layer), module, package (kabuki is one), door (a Part has several)
 
 ### The tree
@@ -333,3 +333,13 @@ _Avoid_: devtools (the repo's DevTools is another thing), debugger, panel, stage
 **Story**:
 An answer told on the Inspector, one Scene at a time, as data an agent writes: each Scene names a moment of the History, the card it is about and one part of it, and says one thing about it, and the Inspector lights that part and dims the rest. It plays on the app's own History, or on a saved one it carries, the same every time.
 _Avoid_: tour, walkthrough, scene list
+
+### Faking
+
+**Fake**:
+One service pretended in a browser, in plain Effect, as `Fake.make` makes it: its name, its state, the facts it knows, as a Schema, with where it starts, its controls, and its Layer, the service the app uses, built over the state and watching it. Each control is one thing a person or an agent may do to it: the Schema of its payload, and what it does to the state, or the reason, a person can read, why it cannot. A description: it holds no state, and knows no Actor, DevTools or RPC.
+_Avoid_: mock, stub, Actor (a Fake runs none), edge
+
+**FakeWorld**:
+An app's Fakes together, each named once, as `FakeWorld.make` makes them: one Layer of every Fake's service, every Fake as it is now as a Stream, and one way to run a control by its Fake's name and its own, its payload decoded by its Schema, saying `'done'` or why not. It keeps nothing: each build of its Layer starts every Fake from its `initial`, or from where `start` says, in that build's Scope, and the world ends as the Scope closes. Built twice, each build is a world of its own, and what is shown and controlled is the latest one still open.
+_Avoid_: fake mode, sandbox, environment, saved world

@@ -47,6 +47,14 @@
       "types": "./dist/routing/types.d.ts",
       "default": "./dist/routing/types.js"
     },
+    "./fake": {
+      "types": "./dist/fake/index.d.ts",
+      "default": "./dist/fake/index.js"
+    },
+    "./fake/types": {
+      "types": "./dist/fake/types.d.ts",
+      "default": "./dist/fake/types.js"
+    },
     "./start": {
       "types": "./dist/start/index.d.ts",
       "default": "./dist/start/index.js"
