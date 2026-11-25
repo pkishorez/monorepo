@@ -23,9 +23,9 @@ import {
  * Git as the File System fake keeps it: no `git` to run, only `.git` in
  * the tree, laid out as file-system/fake/git.ts says, read and written
  * through the File System key as git reads and writes its own files. Every
- * answer is what git would give on that layout. Its state is the File
- * System's, so it has no Actor of its own: the File System Fake's sample
- * project lays it out, and Code's own steps change it. A fetch copies
+ * answer is what git would give on that layout. Its state is the disk's,
+ * so it keeps none of its own: the File System fake's sample project lays
+ * it out, and Code's own steps change it. A fetch copies
  * Origin's `refs/heads` into `refs/remotes/origin`, dropping what Origin
  * no longer has. A new Worktree is made as git makes one, with the
  * repository's files copied from its main Worktree: the fake keeps no

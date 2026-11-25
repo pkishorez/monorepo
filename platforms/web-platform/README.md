@@ -34,7 +34,7 @@ An app's stylesheet imports `@kestack/web-platform/ui/theme/global.css`, which a
 - `alchemy` and `@alchemy.run/cloudflare` (optional): the Cloudflare Website and state `./app/alchemy` deploys with.
 - `laymos` (optional): the file diff and change types the diff, git-changes and source-explorer viewers read.
 - `use-effect-ts` (optional): runs `./ui/viewers/source-explorer`'s loaders inside React.
-- `@kestack/kabuki` (optional): the Start parts `./app/document`'s Document draws, the Start app `./pwa/vite` builds beside, the Actor and View `./recipes/account-switcher` is, and `./pwa/fake`'s Actor.
+- `@kestack/kabuki` (optional): the Start parts `./app/document`'s Document draws, the Start app `./pwa/vite` builds beside, the Actor and View `./recipes/account-switcher` is, and `./pwa/fake`'s Fake, made with its `Fake.make`.
 - `@kestack/std-toolkit` (optional): `OnOutdated`, which `./pwa/fake` serves.
 
 ## Exports
@@ -292,10 +292,9 @@ The PWA on the page.
 
 The New build fake, for an app's fake mode, where no service worker runs: the builds a deploy puts out, as the page's PWA sees them. It carries `kestack-fake`, so a production build that brings it in fails.
 
-| Export         | What it does                                                                                                                                                                                                                                                       |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `newBuild`     | The Fake, for `FakeWorld.make`: blank, the page is the newest build. Control: `PutOutNewerBuild`. `serve` gives std-toolkit's `OnOutdated`: asked once per page load, it waits for a newer build, says so on the page, and reloads into it; a reload keeps no ask. |
-| `newBuildOver` | `OnOutdated` over a running New build fake, with another `reload` or notice (`say`), as tests give.                                                                                                                                                                |
+| Export     | What it does                                                                                                                                                                                                                                                                                                  |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `newBuild` | The Fake, for `FakeWorld.make` (`@kestack/kabuki/fake`): its state says whether a newer build is out, none at first; its control `PutOutNewerBuild` puts one out. Its Layer gives std-toolkit's `OnOutdated`: asked once per page load, it waits for a newer build, says so on the page, and reloads into it. |
 
 ### `@kestack/web-platform/recipes/frame`
 

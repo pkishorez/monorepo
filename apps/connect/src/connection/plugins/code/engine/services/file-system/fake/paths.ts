@@ -40,7 +40,7 @@ export const isWithin = (folder: string, path: string) =>
   folder === '/' || path === folder || path.startsWith(`${folder}/`);
 
 /**
- * A path as a person writes it in a Control, made absolute: `~` and `~/…`
+ * A path as a person writes it, made absolute: `~` and `~/…`
  * from home, `/…` as it is, anything else from home.
  */
 export const fromHome = (home: string, given: string) => {

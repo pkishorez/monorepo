@@ -22,15 +22,16 @@ server half, one `auth.rpc()` or `auth.http()` Layer per backend.
 service, so app code does not care which one it runs on.
 
 An app whose whole backend runs in the tab, in fake mode, cannot reach an
-Auth Worker, so it uses the `fake` door instead: `signIn`, the Sign-in fake,
-a Fake its Fake World runs (`@kestack/devtools-kabuki/fake`), whose Controls
-answer each sign-in, gives the browser's `Accounts` in place of `browser()`;
+Auth Worker, so it uses the `fake` door instead: `signIn()`, the Sign-in
+fake, a Fake its FakeWorld runs (`@kestack/kabuki/fake`), whose controls
+answer each sign-in on the page that asked, gives the browser's `Accounts`
+in place of `browser()`;
 `fakeGuard.rpc()` or `fakeGuard.http()` take the place of `auth.rpc()` or
 `auth.http()`. Tests sign in with `fakeAccounts({ choose })`, and handlers'
 tests put a fixed Principal behind every call with `fakeGuard.rpc({ as })`.
 `server`, `client/browser` and `client/device` are always the real ones: an
 app picks the fake itself, in fake mode only, and a production build that
-carries it fails (the Web Platform's check for `FAKE_MARK`). A Fake
+carries it fails (the Web Platform's check for `kestack-fake`). A Fake
 Account's email must be at `kestack.test`.
 
 The Guard is Middleware from
@@ -68,7 +69,7 @@ Peer dependencies, all optional; install the ones your doors need:
 - `effect`: the root, `server`, `client/*` and `fake` doors are Effect values.
 - `@kestack/rpc-toolkit`: the Guard is its Middleware, and the clients re-check through its `onExit`.
 - `@kestack/std-toolkit`: `client/browser` and `client/device` keep Accounts in its StdTable adapters.
-- `@kestack/kabuki`: `fake`'s Sign-in fake is a Kabuki Actor.
+- `@kestack/kabuki`: `fake`'s Sign-in fake is made with its `Fake.make`.
 - `better-sqlite3`: `worker/memory` runs SQLite in-process for tests.
 - `alchemy` and `@alchemy.run/cloudflare`: `worker/alchemy` declares the D1 database in `alchemy.run.ts`.
 - `react`: the pages and `GoogleButton` are React. The `worker` door carries its own bundled copy, so a deployment does not need it installed.
@@ -149,22 +150,14 @@ Peer dependencies, all optional; install the ones your doors need:
 
 ### `@kestack/auth-toolkit/fake`
 
-| Export             | What it does                                                                                                                                                                             |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `signIn`           | The Sign-in fake, a Fake: its Actor, its Controls, `serve` (the browser's `Accounts` over it) and `kept` (no sign-in asking after a reload).                                             |
-| `SignInFake`       | The Sign-in fake's Kabuki Actor: who is signed in on this browser, and the sign-in asking who.                                                                                           |
-| `SIGN_IN_CONTROLS` | The Sign-in fake's Controls, the Message tags the bubble offers.                                                                                                                         |
-| `blank`            | The Sign-in fake's Model as it starts: nobody signed in.                                                                                                                                 |
-| `browserOver`      | `Accounts` and the signing of every guarded call over the running Sign-in fake, with `browser`'s `cache`, `returnTo` and `maxAccounts`, and `leave`, how the page leaves for `returnTo`. |
-| `fakeAccounts`     | `Accounts` over a Sign-in fake of its own whose every sign-in `choose` answers, for tests.                                                                                               |
-| `fakeGuard.rpc`    | The Guard's server half for Effect RPC that reads each call's Fake Token, or puts `as` behind every call, and asks no one.                                                               |
-| `fakeGuard.http`   | The same for Effect HttpApi.                                                                                                                                                             |
-| `fakeSignIn`       | A fake User on a Sign-in of its own, as a device signed in as them holds one, to put behind every call with `fakeGuard.rpc({ as })`; null outside kestack.test.                          |
-| `fakeSigning`      | The Guard's client half for such a device: every call signed as its own Sign-in (nobody's, never sent), whatever other Signing is around, such as a browser tab's Accounts.              |
-| `SIGNED_IN_AS`     | Who a blank sign-in signs in: `you@kestack.test`.                                                                                                                                        |
-| `FAKE_DOMAIN`      | The one domain a fake User's email may be at: `kestack.test`.                                                                                                                            |
-| `FAKE_AUTH_WORKER` | The URL the Sign-in fake's errors name as its Auth Worker.                                                                                                                               |
-| `FAKE_MARK`        | `kestack-fake`, the mark every bundle carrying a fake holds, which a production build is checked for.                                                                                    |
+| Export           | What it does                                                                                                                                                                                                                                                             |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `signIn`         | The Sign-in fake, a Fake for a FakeWorld, given an optional `cache` as `browser`'s: who is signed in on this browser and the sign-in asking who, its controls `SignInAs` and `Cancel` answering it in place, and its Layer the browser's `Accounts` and signing over it. |
+| `fakeAccounts`   | `Accounts` over a Sign-in fake of its own whose every sign-in `choose` answers, for tests.                                                                                                                                                                               |
+| `fakeGuard.rpc`  | The Guard's server half for Effect RPC that reads each call's Fake Token, or puts `as` behind every call, and asks no one.                                                                                                                                               |
+| `fakeGuard.http` | The same for Effect HttpApi.                                                                                                                                                                                                                                             |
+| `fakeSignIn`     | A fake User on a Sign-in of its own, as a device signed in as them holds one, to put behind every call with `fakeGuard.rpc({ as })`; null outside kestack.test.                                                                                                          |
+| `fakeSigning`    | The Guard's client half for such a device: every call signed as its own Sign-in (nobody's, never sent), whatever other Signing is around, such as a browser tab's Accounts.                                                                                              |
 
 ### `@kestack/auth-toolkit/google-button`
 
@@ -223,7 +216,7 @@ const whoAmI = Effect.gen(function* () {
 - When another tab switched Accounts, the backend fails the call `AccountChanged` before the handler runs, and `Accounts` checks again by itself.
 - A Batched RPC Request is verified once, and the cookies the Auth Worker refreshed go on its response.
 - `signIn()` leaves the page for the Login Screen and never completes in place; `signIn({ provider: 'google', returnTo })` leaves for Google at once, from the app's own screen, as the Login Screen's button does, a failure landing on the Login Screen, and past `browser({ maxAccounts })` (5 unless given) fails `AccountLimitReached`.
-- In fake mode, the Sign-in fake's `browserOver(runtime)` replaces `browser({ url })` and `fakeGuard.rpc()` replaces `auth.rpc({ url })`; the contract and the app's calls stay the same, and the bubble answers each sign-in.
+- In fake mode, the Sign-in fake's Layer (`signIn({ cache })` in the app's FakeWorld) replaces `browser({ url })` and `fakeGuard.rpc()` replaces `auth.rpc({ url })`; the contract and the app's calls stay the same, and `signIn()` waits on the same page for the fake's `SignInAs` or `Cancel` control instead of leaving it.
 - `switchTo(userId)` is a round trip: until it is confirmed the state is `SignedIn` with `switchingTo`, and calls still act as the Account before; one that fails leaves the state as it was and fails ([ADR 0021](./docs/adr/0021-an-account-switch-under-way-is-state.md)).
 
 ### A CLI signing in as a Device

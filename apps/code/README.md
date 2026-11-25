@@ -68,13 +68,14 @@ waits for "Reload" before taking a new version.
 `pnpm dev` runs the whole app in the browser tab, with nothing behind it:
 the sign-in, Connect Cloud and each computer's code Plugin run for real in
 the tab, over Fakes of the outside world (who signs in, the computers, the
-agents, Speech to Text, the microphone, new builds), and a bubble on the
-page shows each Fake and its Controls ([Fakes](../../docs/fakes.md),
-`src/fake.ts`). Sign in through the bubble's Sign-in "Sign in as", then
-add a computer with Computers "Add computer", signed in as the same email.
+agents, Speech to Text, the microphone, new builds), together in one
+FakeWorld ([Fakes](../../docs/fakes.md), `src/fake.ts`). Each page load
+starts every Fake afresh: nobody signed in, no computer. The page shows no
+controls of its own: the sign-in waits until a control of the Sign-in fake
+answers it, run through the FakeWorld (`world.control`).
 
 ```sh
-pnpm --filter code dev           # fake mode: the whole app in the tab, with the fake bubble
+pnpm --filter code dev           # fake mode: the whole app in the tab, over its Fakes
 pnpm --filter code dev:connect   # real mode: this branch's Connect, then the site, signed in through the Auth Worker
 pnpm --filter code deploy        # your own stage, at its workers.dev URLs
 pnpm --filter code deploy:prod   # ALLOW_DEPLOY=true: code.kishore.app
@@ -85,7 +86,8 @@ pnpm --filter code deploy:prod   # ALLOW_DEPLOY=true: code.kishore.app
   branch in front in a linked git worktree); nothing else starts. Fake mode is read
   only while developing (`import.meta.env.DEV`), so a production build
   never carries it, and fails if anything brings a fake in (`kestack-fake`).
-  A reload keeps the Fakes and the Middle; the bubble's Start fresh wipes them.
+  A reload starts the Fakes afresh, and keeps the Middle's tables and
+  Code's own databases in IndexedDB.
 - `pnpm dev:connect` calls `withConnect` from `@kestack/connect/dev`
   ([Connect in development](../connect/docs/dev.md)), then runs
   `alchemy dev` (`alchemy.run.ts`, `src/deploy/infra/`) through Portless,

@@ -17,7 +17,7 @@ an Actor.
 ```
 src/
 ├── start.tsx                 draws the app, and gives what lives as long as the page
-├── fake.ts                   fake mode: the root Layer over the Fakes, and the bubble
+├── fake.ts                   fake mode: the root Layer over the Fakes, and their world
 ├── app/ ◆                    the root page: who is signed in
 │   ├── storage/              what this device keeps: local/, cache/, database/
 │   ├── sign-in/              what is drawn in place of the app
@@ -63,11 +63,11 @@ stays where it is used; only its real Layer is built here.
 ### `fake.ts`
 
 Fake mode, which `start.tsx` imports only while developing with
-`VITE_MODE=fake` (`pnpm dev`): the Fake World (Sign-in, Computers, Agent,
-Speech, Microphone, New build), Connect Cloud and each computer's code
-Plugin in the tab over it (`inTab`), and the root Layer with the same keys
-as the real one, each edge from a Fake; and the fake bubble, drawn beside
-the app.
+`VITE_MODE=fake` (`pnpm dev`): the FakeWorld (Sign-in, Computers, Agent,
+Speech, Microphone, New build), which shows each Fake's state and runs its
+controls, Connect Cloud and each computer's code Plugin in the tab over it
+(`inTab`), and the root Layer with the same keys as the real one, each edge
+from a Fake.
 
 ### `app/` ◆ the root page
 

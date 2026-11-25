@@ -1,11 +1,6 @@
-import { Context, Effect, Layer } from 'effect';
-import { Runtime } from '@kestack/kabuki';
+import { Context, Effect, Layer, SubscriptionRef } from 'effect';
 import { HarnessHost, Models } from '@kestack/ai-toolkit/harness';
-import {
-  agent,
-  agentOver,
-  type FakeHarness,
-} from '@kestack/ai-toolkit/harness/fake';
+import { agent, type FakeHarness } from '@kestack/ai-toolkit/harness/fake';
 import { Speech } from '@kestack/ai-toolkit/speech';
 import { speech } from '@kestack/ai-toolkit/speech/fake';
 import { HOME } from '../../connection/plugins/code/engine/services/file-system/fake/index.js';
@@ -22,12 +17,10 @@ import type { AgentEdges } from '../index.js';
 /** The Agent and Speech fakes' edges, the Agent's config folders under the File System fake's home. */
 const fakes = Layer.unwrap(
   Effect.gen(function* () {
-    const agentRuntime = yield* Runtime.scoped(agent.actor);
-    const speechRuntime = yield* Runtime.scoped(speech.actor);
-    return Layer.merge(
-      agentOver(agentRuntime, { home: HOME, paceMs: 0 }),
-      speech.serve(speechRuntime),
-    );
+    const agentFake = agent({ home: HOME, paceMs: 0 });
+    const agentState = yield* SubscriptionRef.make(agentFake.initial);
+    const speechState = yield* SubscriptionRef.make(speech.initial);
+    return Layer.merge(agentFake.layer(agentState), speech.layer(speechState));
   }),
 );
 

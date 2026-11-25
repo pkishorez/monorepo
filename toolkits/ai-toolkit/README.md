@@ -19,7 +19,7 @@ pnpm add @kestack/ai-toolkit effect @kestack/kabuki @kestack/std-toolkit
 ```
 
 - `effect`: every harness call, Schema and error is an Effect value.
-- `@kestack/kabuki`: Speech to Text runs its model as a private Actor.
+- `@kestack/kabuki`: Speech to Text runs its model as a private Actor, and `harness/fake` and `speech/fake` are made with its `Fake.make`.
 - `@kestack/std-toolkit`: the entity Schemas of Raw and Message.
 
 Claude Code and Codex are not dependencies: install the ones you use, and sign in (`claude auth login`, `codex login`). The Claude Agent SDK's JavaScript ships inside `dist/vendor`, under Anthropic's license; Speech to Text's runtime, `sherpa-onnx-node`, is fetched from the npm registry when it is switched on. Node 24 or newer is required, and a `tar` that reads gzip and bzip2 to unpack Speech to Text's files.
@@ -90,17 +90,11 @@ Claude Code and Codex are not dependencies: install the ones you use, and sign i
 
 ### `@kestack/ai-toolkit/harness/fake`
 
-| Export            | What it does                                                                                                                              |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `agent`           | The Agent fake, a Fake the Fake World runs: Claude Code and Codex installed and signed in, each reply replaying a recorded Turn.          |
-| `agentOver`       | Layer of `Harnesses`, `OneShotPrompt`, `HarnessHost` and `Models` over the running Agent fake, with the home and the pace a caller names. |
-| `AgentFake`       | The Agent fake's Kabuki Actor: the recording replies replay, the Agents open and the replies running.                                     |
-| `AGENT_CONTROLS`  | The Message tags the bubble offers as the Agent fake's Controls.                                                                          |
-| `blank`           | The Agent fake's Model as it starts: nothing open, every reply a random recording.                                                        |
-| `RECORDINGS`      | The Turns recorded from the real Claude Code and Codex that replies replay.                                                               |
-| `RECORDING_NAMES` | The names `ReplyWith` pins a recording by, `random` first.                                                                                |
-| `makeFakeHarness` | A fake `claude` harness for tests, driven Turn by Turn, with a fake One-shot Prompt.                                                      |
-| `FAKE_SKILLS`     | The Skills the fake harness offers.                                                                                                       |
+| Export            | What it does                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `agent`           | The Agent fake, for `FakeWorld.make` (`@kestack/kabuki/fake`): Claude Code and Codex installed and signed in under the home it is given, each reply replaying a recorded Turn at the pace it is given; its state shows the Agents open, each on its model and settings, and the replies running, its control `ReplyWith` pins the recording replies replay, and its Layer gives `Harnesses`, `OneShotPrompt`, `HarnessHost` and `Models`. |
+| `makeFakeHarness` | A fake `claude` harness for tests, driven Turn by Turn, with a fake One-shot Prompt.                                                                                                                                                                                                                                                                                                                                                      |
+| `FAKE_SKILLS`     | The Skills the fake harness offers.                                                                                                                                                                                                                                                                                                                                                                                                       |
 
 ### `@kestack/ai-toolkit/speech`
 
@@ -120,17 +114,10 @@ Claude Code and Codex are not dependencies: install the ones you use, and sign i
 
 ### `@kestack/ai-toolkit/speech/fake`
 
-| Export               | What it does                                                                                                                     |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `speech`             | The Speech fake, a Fake the Fake World runs: Speech to Text on a computer, downloading by itself, hearing what its Control says. |
-| `speechFakeOver`     | Layer of `Speech` over the running Speech fake: the real speech model and Takes on it.                                           |
-| `SpeechFake`         | The Speech fake's Kabuki Actor: the wish and model on disk, the download running, and what the model hears.                      |
-| `SPEECH_CONTROLS`    | The Message tags the bubble offers as the Speech fake's Controls.                                                                |
-| `blank`              | The Speech fake's Model as it starts: switched off, nothing on disk, a plain sentence heard.                                     |
-| `HEARD_TEXT`         | What a Take turns into until `Hear` says otherwise.                                                                              |
-| `SPEECH_MODEL_BYTES` | How many bytes the Speech fake's model download reports.                                                                         |
-| `makeFakeSpeech`     | A fake `SpeechToText` for tests, its download held or failed on cue.                                                             |
-| `FAKE_MODEL_BYTES`   | How many bytes the fake model's download reports.                                                                                |
+| Export           | What it does                                                                                                                                                                                                                                                                                              |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `speech`         | The Speech fake, for `FakeWorld.make` (`@kestack/kabuki/fake`): Speech to Text on a computer, its state the wish, the model on disk and what it hears; it downloads by itself, its control `Hear` says what every Take turns into, and its Layer gives `Speech`, the real speech model and Takes over it. |
+| `makeFakeSpeech` | A fake `SpeechToText` for tests, its download held or failed on cue.                                                                                                                                                                                                                                      |
 
 ## Usage
 

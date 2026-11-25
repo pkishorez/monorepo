@@ -1,11 +1,10 @@
-import { createElement } from 'react';
 import { Effect, Layer } from 'effect';
-import { browserOver, signIn } from '@kestack/auth-toolkit/fake';
+import { signIn } from '@kestack/auth-toolkit/fake';
 import { agent } from '@kestack/ai-toolkit/harness/fake';
 import { speech } from '@kestack/ai-toolkit/speech/fake';
 import { inTab, type Tables, tunnelClients } from '@kestack/connect/browser';
 import { computers } from '@kestack/connect/fake';
-import { FakeBubble, FakeWorld } from '@kestack/devtools-kabuki/fake';
+import { FakeWorld } from '@kestack/kabuki/fake';
 import { IDB } from '@kestack/std-toolkit/db/idb';
 import { newBuild } from '@kestack/web-platform/pwa/fake';
 import { PLUGIN_CODE, Sockets } from './app/account/connection/index.ts';
@@ -23,12 +22,13 @@ import {
  * (`pnpm dev`), so a production build never carries it.
  *
  * 1. World   the Fakes, each one thing of the outside world a person would
- *            name, run in the tab (`FakeWorld`): who signs in (Sign-in, its
- *            Accounts kept in the device's `accounts` table as the real
- *            ones are), the computers and Connect Cloud (Computers), the
- *            agents and Speech to Text every computer has (Agent,
- *            Speech), this browser's microphones (Microphone) and the
- *            builds a deploy puts out (New build).
+ *            name, together in one FakeWorld (`world`): who signs in
+ *            (Sign-in, its Accounts remembered in the device's `accounts`
+ *            table as the real ones are), the computers (Computers), the
+ *            agents and Speech to Text every computer has (Agent, Speech),
+ *            this browser's microphones (Microphone) and the builds a
+ *            deploy puts out (New build). `world.fakes` shows each Fake's
+ *            state, and `world.control` runs its controls, for DevTools.
  * 2. Middle  Connect Cloud and each computer's code Plugin, the real code,
  *            in the tab over the Fakes (`inTab`), at this Code's Release;
  *            each Connection's socket dialled through the tab's tunnels
@@ -39,48 +39,23 @@ import {
  *            `OnOutdated` from the New build fake; `Preferences` and
  *            `Storage` as in real mode, in IndexedDB. Built once, by Start,
  *            for as long as the page: so the World and every in-process
- *            client live as long as it does. Before anything opens a
- *            database, a Start fresh asked by the bubble clears them all.
- * 4. Bubble  `Bubble`, the Fakes' Models and Controls, drawn beside the app.
+ *            client live as long as it does.
  *
- * A reload keeps the World: each Fake starts from the Snapshot it last
- * saved (`code:fake-world`), the Middle's tables are in IndexedDB
- * (`code:fake-middle`), and Code's own databases are kept as in real mode,
- * so all three agree after it. A reply running at the reload ends
- * interrupted, as on a computer's restart: the Agent fake keeps no reply,
- * and the code Plugin's Bootstrap Sweep finds its Turn cut off. Start
- * fresh, from the bubble, deletes every database before anything opens
- * one.
+ * The World keeps nothing: each page load starts every Fake from its
+ * start, nobody signed in and no computer. What is kept is kept as
+ * before: the Middle's tables in IndexedDB (`code:fake-middle`), and
+ * Code's own databases as in real mode.
  */
 
 // 1. World
-/** Where the Fake World keeps each Fake's Snapshot. */
-const WORLD = 'code:fake-world';
-
-export const world = FakeWorld.make(
-  [
-    {
-      ...signIn,
-      serve: (runtime: Parameters<typeof signIn.serve>[0]) =>
-        browserOver(runtime, {
-          cache: accountsTable,
-          returnTo: new URL('/', window.location.href).href,
-          // The page it leaves for starts from the World saved, the
-          // sign-in just answered in it.
-          leave: async (to) => {
-            await world.saved();
-            window.location.assign(to);
-          },
-        }),
-    },
-    computers,
-    agent,
-    speech,
-    microphone,
-    newBuild,
-  ],
-  { saved: FakeWorld.indexedDb(WORLD) },
-);
+export const world = FakeWorld.make([
+  signIn({ cache: accountsTable }),
+  computers,
+  agent(),
+  speech,
+  microphone,
+  newBuild,
+]);
 
 // 2. Middle
 /** Where the code Plugin's Release this Code calls is kept, as Connect Cloud names it. */
@@ -116,15 +91,8 @@ const middle = Sockets.from(tunnelClients).pipe(
 );
 
 // 3. Root
-export const layer = Layer.unwrap(
-  Effect.promise(async () => {
-    await FakeWorld.beforeStart();
-    return Layer.mergeAll(middle, preferencesIdb(fitted), storageIdb).pipe(
-      Layer.provideMerge(world.layer),
-    );
-  }),
-);
-
-// 4. Bubble
-/** The fake bubble, over the World: draw it once, beside the app. */
-export const Bubble = () => createElement(FakeBubble, { world });
+export const layer = Layer.mergeAll(
+  middle,
+  preferencesIdb(fitted),
+  storageIdb,
+).pipe(Layer.provideMerge(world.layer));

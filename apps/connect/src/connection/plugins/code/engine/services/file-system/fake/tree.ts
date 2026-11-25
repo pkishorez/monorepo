@@ -5,7 +5,7 @@ import { dirname, join, normalize, partsOf, isWithin } from './paths.js';
  * The fake's tree, as plain data: every entry by its absolute path, `/`
  * included. A folder holds what is below it; a file holds its text, or
  * its bytes as base64. Hidden is only a name starting with `.`. Every
- * function here is pure: the Actor's Updates change the tree with them,
+ * function here is pure: the disk changes (fake.ts) change the tree with them,
  * and the layer reads it with `resolve`.
  */
 

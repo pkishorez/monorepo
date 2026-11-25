@@ -10,8 +10,7 @@ import {
   SubscriptionRef,
 } from 'effect';
 import { TestClock } from 'effect/testing';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Runtime } from '@kestack/kabuki';
+import { describe, expect, it, vi } from 'vitest';
 import { Accounts } from '@kestack/auth-toolkit/client';
 import { fakeAccounts } from '@kestack/auth-toolkit/fake';
 import { addressOf, CloudClient } from '../../cloud/client/index.js';
@@ -23,7 +22,10 @@ import {
   pluginPath,
 } from '../../connection/plugins/code/api/index.js';
 import {
-  fileSystem,
+  addSampleProject,
+  diskOf,
+  emptyHome,
+  fileSystemOver,
   HOME,
 } from '../../connection/plugins/code/engine/services/file-system/fake/index.js';
 import { fakeGit } from '../../connection/plugins/code/engine/services/git/fake/index.js';
@@ -59,17 +61,12 @@ const KEY = 'k'.repeat(32);
 /** Down: no Report for three Heartbeats of 15 seconds, as Code reads a Connection. */
 const DOWN_AFTER = 45_000;
 
-const opened: Array<Runtime<typeof fileSystem.actor>> = [];
-afterEach(async () => {
-  await Promise.all(opened.splice(0).map((runtime) => runtime.dispose()));
-});
-
 /** A computer online with the sample project at `~/code/shop`. */
 const computer = (id: string, more: Partial<Computer> = {}): Computer => {
-  const runtime = Runtime.make(fileSystem.actor);
-  opened.push(runtime);
-  runtime.root.send({ _tag: 'AddSampleProject', folder: '~/code/shop' });
-  const files = fileSystem.serve(runtime);
+  const disk = Effect.runSync(
+    SubscriptionRef.make(addSampleProject('~/code/shop')(emptyHome)),
+  );
+  const files = fileSystemOver(diskOf(disk));
   return {
     id,
     name: `${id} (main)`,

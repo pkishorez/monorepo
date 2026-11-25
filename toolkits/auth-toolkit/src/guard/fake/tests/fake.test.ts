@@ -1,5 +1,5 @@
 import { NodeHttpPlatform, NodeServices } from '@effect/platform-node';
-import { Effect, Fiber, Layer, Schema, type Scope, Stream } from 'effect';
+import { Effect, Exit, Fiber, Layer, Schema, type Scope, Stream } from 'effect';
 import { Etag } from 'effect/http';
 import {
   HttpApi,
@@ -9,7 +9,7 @@ import {
   HttpApiTest,
 } from 'effect/http-api';
 import { Rpc, RpcGroup, RpcTest } from 'effect/rpc';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { Authz } from '../../authz/index.js';
 import { Accounts, AccountsState } from '../../client/accounts/index.js';
 import { fakeAccounts, fakeGuard, fakeSignIn, fakeSigning } from '../index.js';
@@ -35,10 +35,6 @@ const listed = Effect.flatMap(Accounts, ({ current }) =>
       : [],
   ),
 );
-
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
 
 describe('fakeAccounts', () => {
   it('signs in whoever was chosen and makes them the Active Account', async () => {
@@ -166,60 +162,19 @@ describe('fakeAccounts', () => {
     expect(fakeToken.read('real-session-token')).toBeNull();
   });
 
-  it('comes back where a sign-in asks, else where it was made to, as the real one does', async () => {
-    const assign = vi.fn();
-    const here = 'https://app.example.com/a/ada';
-    vi.stubGlobal('window', { location: { href: here, assign } });
-    /** Signs in as the next chosen, and says whether it completed here. */
-    const signIn = (options?: { readonly returnTo: string }) =>
+  it('signs in on the same page, whatever a sign-in says it comes back to', async () => {
+    const listedAfter = await run(
       Effect.gen(function* () {
         const accounts = yield* Accounts;
-        const fiber = yield* Effect.forkChild(accounts.signIn(options), {
-          startImmediately: true,
-        });
-        yield* Effect.sleep(5);
-        const done = fiber.pollUnsafe() !== undefined;
-        yield* Fiber.interrupt(fiber);
-        return done;
-      });
-    const layer = fakeAccounts({
-      choose: queue(
-        { email: 'ada@kestack.test' },
-        { email: 'bob@kestack.test' },
-        { email: 'cy@kestack.test' },
-      ),
-      returnTo: 'https://app.example.com/',
-    });
-    const [done, kept] = await run(
-      Effect.gen(function* () {
-        // On this page: signed in in place.
-        const inPlace = yield* signIn({ returnTo: here });
-        // Elsewhere, as the Layer says: the page leaves, as the real one's.
-        const home = yield* signIn();
-        // Elsewhere, as the sign-in says.
-        const asked = yield* signIn({
-          returnTo: 'https://app.example.com/a/cy',
-        });
-        // The pages it left for read them anew.
-        yield* (yield* Accounts).check;
-        return [[inPlace, home, asked], yield* listed] as const;
+        yield* accounts.signIn({ returnTo: 'https://app.example.com/a/ada' });
+        return yield* listed;
       }),
-      layer,
+      fakeAccounts({ choose: queue({ email: 'ada@kestack.test' }) }),
     );
-    expect(done).toEqual([true, false, false]);
-    expect(assign.mock.calls.map(([to]) => to)).toEqual([
-      'https://app.example.com/',
-      'https://app.example.com/a/cy',
-    ]);
-    // Each is signed in, for the page it left for to read.
-    expect(kept.map(([email]) => email)).toEqual([
-      'ada@kestack.test',
-      'bob@kestack.test',
-      'cy@kestack.test',
-    ]);
+    expect(listedAfter).toEqual([['ada@kestack.test', 'ada', true]]);
   });
 
-  it('fails a sign-in at an email outside kestack.test, signing nobody in', async () => {
+  it('refuses an email outside kestack.test, signing nobody in', async () => {
     const [exit, state] = await run(
       Effect.gen(function* () {
         const accounts = yield* Accounts;
@@ -228,10 +183,7 @@ describe('fakeAccounts', () => {
       }),
       fakeAccounts({ choose: queue({ email: 'ada@example.com' }) }),
     );
-    expect(exit).toMatchObject({
-      _tag: 'Failure',
-      cause: { reasons: [{ error: { _tag: 'AuthWorkerRejected' } }] },
-    });
+    expect(Exit.isSuccess(exit)).toBe(true);
     expect(state).toEqual(AccountsState.SignedOut());
   });
 });
