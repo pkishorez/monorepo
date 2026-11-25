@@ -7,9 +7,8 @@ import { newBuildOver } from './serve.ts';
 /*
  * `@kestack/web-platform/pwa/fake`: the New build fake, the builds a deploy
  * puts out as one page's PWA sees them, as a Fake the Fake World runs. Its
- * Actor starts blank, the page the newest build; its Controls put a newer
- * build out or take it back, and choose whether moving to it reloads the
- * page. `serve` gives std-toolkit's `OnOutdated`, what an app runs when it
+ * Actor starts blank, the page the newest build; its Control puts a newer
+ * build out. `serve` gives std-toolkit's `OnOutdated`, what an app runs when it
  * finds it is older than what it talks to, in place of `updateToNewest`;
  * `newBuildOver(runtime, options)` takes another reload or notice.
  *
@@ -45,7 +44,6 @@ export {
   type NewBuildModel,
 } from './actor.ts';
 export {
-  MOVED,
   MOVING,
   newBuildOver,
   RELOAD_AFTER,

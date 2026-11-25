@@ -292,10 +292,10 @@ The PWA on the page.
 
 The New build fake, for an app's fake mode, where no service worker runs: the builds a deploy puts out, as the page's PWA sees them. It carries `kestack-fake`, so a production build that brings it in fails.
 
-| Export         | What it does                                                                                                                                                                                                                                                                                            |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `newBuild`     | The Fake, for `FakeWorld.make`: blank, the page is the newest build. Controls: `PutOutNewerBuild`, `NoNewerBuild`, `ReloadWhenMoving`. `serve` gives std-toolkit's `OnOutdated`: asked once per page load, it waits for a newer build, says so on the page, and reloads into it; a reload keeps no ask. |
-| `newBuildOver` | `OnOutdated` over a running New build fake, with another `reload` or notice (`say`), as tests give.                                                                                                                                                                                                     |
+| Export         | What it does                                                                                                                                                                                                                                                       |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `newBuild`     | The Fake, for `FakeWorld.make`: blank, the page is the newest build. Control: `PutOutNewerBuild`. `serve` gives std-toolkit's `OnOutdated`: asked once per page load, it waits for a newer build, says so on the page, and reloads into it; a reload keeps no ask. |
+| `newBuildOver` | `OnOutdated` over a running New build fake, with another `reload` or notice (`say`), as tests give.                                                                                                                                                                |
 
 ### `@kestack/web-platform/recipes/frame`
 

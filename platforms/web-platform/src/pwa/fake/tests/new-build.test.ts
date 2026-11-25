@@ -2,19 +2,13 @@ import { Context, Effect, Layer, type Scope } from 'effect';
 import { Runtime } from '@kestack/kabuki';
 import { OnOutdated } from '@kestack/std-toolkit/replica';
 import { describe, expect, it, vi } from 'vitest';
-import {
-  MOVED,
-  MOVING,
-  newBuild,
-  newBuildOver,
-  RELOAD_AFTER,
-} from '../index.ts';
+import { MOVING, newBuild, newBuildOver, RELOAD_AFTER } from '../index.ts';
 
 /*
  * The New build fake as an app sees it, through `OnOutdated`: asked to
  * move, it waits for a newer build, then says so and reloads, once per
- * page load; told only to say so, it reloads nothing. Moved, no newer
- * build is out, so the page it reloads into never moves again.
+ * page load. Moved, no newer build is out, so the page it reloads into
+ * never moves again.
  */
 
 type Fake = Runtime<typeof newBuild.actor>;
@@ -23,22 +17,18 @@ const run = <A, E>(
   body: (
     fake: Fake,
     toNewest: Effect.Effect<void>,
-    seen: { readonly said: Array<string>; reloads: number; shown: number },
+    seen: { readonly said: Array<string>; reloads: number },
   ) => Effect.Effect<A, E, Scope.Scope>,
 ) =>
   Effect.runPromise(
     Effect.scoped(
       Effect.gen(function* () {
-        const seen = { said: [] as Array<string>, reloads: 0, shown: 0 };
+        const seen = { said: [] as Array<string>, reloads: 0 };
         const fake = yield* Runtime.scoped(newBuild.actor);
         const built = yield* Layer.build(
           newBuildOver(fake, {
             reload: () => void seen.reloads++,
-            say: (text) => {
-              seen.said.push(text);
-              seen.shown++;
-              return () => void seen.shown--;
-            },
+            say: (text) => void seen.said.push(text),
           }),
         );
         return yield* body(fake, Context.get(built, OnOutdated), seen);
@@ -82,19 +72,6 @@ describe('the New build fake', () => {
         yield* Effect.sleep(RELOAD_AFTER + 100);
         expect(seen.reloads).toBe(1);
         expect(fake.root.model.asked).toBe(1);
-      }),
-    ));
-
-  it('only says so when told not to reload', () =>
-    run((fake, toNewest, seen) =>
-      Effect.gen(function* () {
-        fake.root.send({ _tag: 'ReloadWhenMoving', reload: false });
-        fake.root.send({ _tag: 'PutOutNewerBuild' });
-        yield* toNewest;
-        yield* eventually(() => expect(seen.said).toEqual([MOVED]));
-        yield* eventually(() => expect(seen.shown).toBe(0));
-        expect(seen.reloads).toBe(0);
-        expect(fake.root.model.moved).toBe(1);
       }),
     ));
 
