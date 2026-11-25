@@ -107,13 +107,16 @@ export type Step =
     }
   /**
    * A Background Job: a shell command, or a subagent, that runs on after
-   * the reply, writing `output`, until a Control ends it.
+   * the reply, writing `output`, then ends done after `runsMs`, saying
+   * `summary` (blank for the harness's own words).
    */
   | {
       readonly _tag: 'Job';
       readonly kind: 'shell' | 'agent';
       readonly title: string;
       readonly output: ReadonlyArray<string>;
+      readonly runsMs: number;
+      readonly summary: string;
     }
   /** The context was compacted. */
   | { readonly _tag: 'Compact' }
@@ -132,7 +135,7 @@ export type Ending =
   /** The harness's process exits mid-reply: its stream fails. */
   | { readonly _tag: 'CutOff' };
 
-/** The names a Control picks a Script by: `echo`, then the library's. */
+/** The names `ReplyWith` picks a Script by: `echo`, then the library's. */
 export const SCRIPT_NAMES = [
   'echo',
   'words',
@@ -406,12 +409,16 @@ export const SCRIPTS: ReadonlyArray<Script> = [
           '\u001b[32m➜\u001b[0m  Local:   \u001b[36mhttp://localhost:5173/\u001b[0m\n',
           '\u001b[2m12:01:04\u001b[0m page reload src/app.tsx\n',
         ],
+        runsMs: 8_000,
+        summary: '',
       },
       {
         _tag: 'Job',
         kind: 'agent',
         title: 'Watch the logs for errors',
         output: [],
+        runsMs: 12_000,
+        summary: 'No errors in the logs.',
       },
       {
         _tag: 'Say',

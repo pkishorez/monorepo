@@ -6,19 +6,17 @@ import { agentOver } from './serve.js';
 
 /*
  * `@kestack/ai-toolkit/harness/fake`: the Agent fake, Claude Code and
- * Codex as one computer has them, as a Fake the Fake World runs. Its Actor
- * starts with both installed and signed in, every reply an echo; its
- * Controls make the world (installs, logins, binaries, config folders,
- * Skills, models), pick the Script every reply plays, act on a running
- * reply, start a Turn of the agent's own, end Background Jobs, and set the
- * next Title, Btw answer and Context Usage. `serve` gives `Harnesses`,
+ * Codex as one computer has them, as a Fake the Fake World runs. Both
+ * start installed and signed in, in their own config folders, with their
+ * models from the real catalog; every reply is an echo, and its one
+ * Control picks the Script every reply plays. `serve` gives `Harnesses`,
  * `OneShotPrompt`, `HarnessHost` and `Models`, what connect's code Plugin
- * asks for besides Speech; `agentOver(runtime, { home })` names another
- * home. Browser-safe: nothing here imports Node.
+ * asks for besides Speech; `agentOver(runtime, { home, paceMs })` names
+ * another home, or another pace. Browser-safe: nothing here imports Node.
  *
  * `kept` is the Snapshot a reload keeps: the world, without what ran in
- * it. Agents, replies, Background Jobs and wakeups die with the page, as
- * they die with a computer's restart.
+ * it. Agents, replies and Background Jobs die with the page, as they die
+ * with a computer's restart.
  *
  * `makeFakeHarness` is the older fake for tests, scripted Turn by Turn.
  */
@@ -34,7 +32,6 @@ const kept = (
       agents: [],
       replies: [],
       jobs: [],
-      wakeups: [],
     },
   },
 });
@@ -53,7 +50,6 @@ export {
   blank,
   type AgentMessage,
   type AgentModel,
-  type Now,
   type Reply,
 } from './actor.js';
 export { agentOver, type AgentEdges, type AgentOptions } from './serve.js';

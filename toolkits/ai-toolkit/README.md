@@ -92,13 +92,13 @@ Claude Code and Codex are not dependencies: install the ones you use, and sign i
 
 | Export            | What it does                                                                                                                                    |
 | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `agent`           | The Agent fake, a Fake the Fake World runs: Claude Code and Codex as one computer has them, each reply played from a Script, with its Controls. |
-| `agentOver`       | Layer of `Harnesses`, `OneShotPrompt`, `HarnessHost` and `Models` over the running Agent fake, with the home its config folders are under.      |
-| `AgentFake`       | The Agent fake's Kabuki Actor: what is installed and signed in, the replies running, Background Jobs, the next Title and Btw answer.            |
+| `agent`           | The Agent fake, a Fake the Fake World runs: Claude Code and Codex installed and signed in, each reply played from the Script its Control picks. |
+| `agentOver`       | Layer of `Harnesses`, `OneShotPrompt`, `HarnessHost` and `Models` over the running Agent fake, with the home and the pace a caller names.       |
+| `AgentFake`       | The Agent fake's Kabuki Actor: the Script replies play, the Agents open, the replies running and their Background Jobs.                         |
 | `AGENT_CONTROLS`  | The Message tags the bubble offers as the Agent fake's Controls.                                                                                |
-| `blank`           | The Agent fake's Model as it starts: both harnesses installed and signed in, every reply an echo.                                               |
+| `blank`           | The Agent fake's Model as it starts: nothing open, every reply an echo.                                                                         |
 | `SCRIPTS`         | The Script library: words, every tool kind, a plan, subagents, questions, Background Jobs, compaction, a long reply, failing and cut off.       |
-| `SCRIPT_NAMES`    | The names a Control picks a Script by, `echo` first.                                                                                            |
+| `SCRIPT_NAMES`    | The names `ReplyWith` picks a Script by, `echo` first.                                                                                          |
 | `makeFakeHarness` | A fake `claude` harness for tests, scripted Turn by Turn, with a fake One-shot Prompt.                                                          |
 | `FAKE_SKILLS`     | The Skills the fake harness offers.                                                                                                             |
 
@@ -120,17 +120,17 @@ Claude Code and Codex are not dependencies: install the ones you use, and sign i
 
 ### `@kestack/ai-toolkit/speech/fake`
 
-| Export               | What it does                                                                                                                  |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `speech`             | The Speech fake, a Fake the Fake World runs: Speech to Text on a computer, its download and what it hears, with its Controls. |
-| `speechFakeOver`     | Layer of `Speech` over the running Speech fake: the real speech model and Takes on it.                                        |
-| `SpeechFake`         | The Speech fake's Kabuki Actor: the wish and model on disk, the download running, and how the model hears.                    |
-| `SPEECH_CONTROLS`    | The Message tags the bubble offers as the Speech fake's Controls.                                                             |
-| `blank`              | The Speech fake's Model as it starts: switched off, nothing on disk, downloads running by themselves.                         |
-| `HEARD_TEXT`         | What a Take turns into until a Control says otherwise.                                                                        |
-| `SPEECH_MODEL_BYTES` | How many bytes the Speech fake's model download reports.                                                                      |
-| `makeFakeSpeech`     | A fake `SpeechToText` for tests, its download held or failed on cue.                                                          |
-| `FAKE_MODEL_BYTES`   | How many bytes the fake model's download reports.                                                                             |
+| Export               | What it does                                                                                                                     |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `speech`             | The Speech fake, a Fake the Fake World runs: Speech to Text on a computer, downloading by itself, hearing what its Control says. |
+| `speechFakeOver`     | Layer of `Speech` over the running Speech fake: the real speech model and Takes on it.                                           |
+| `SpeechFake`         | The Speech fake's Kabuki Actor: the wish and model on disk, the download running, and what the model hears.                      |
+| `SPEECH_CONTROLS`    | The Message tags the bubble offers as the Speech fake's Controls.                                                                |
+| `blank`              | The Speech fake's Model as it starts: switched off, nothing on disk, a plain sentence heard.                                     |
+| `HEARD_TEXT`         | What a Take turns into until `Hear` says otherwise.                                                                              |
+| `SPEECH_MODEL_BYTES` | How many bytes the Speech fake's model download reports.                                                                         |
+| `makeFakeSpeech`     | A fake `SpeechToText` for tests, its download held or failed on cue.                                                             |
+| `FAKE_MODEL_BYTES`   | How many bytes the fake model's download reports.                                                                                |
 
 ## Usage
 

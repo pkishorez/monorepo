@@ -1,12 +1,4 @@
-import {
-  Context,
-  Effect,
-  Exit,
-  Fiber,
-  Layer,
-  type Scope,
-  Stream,
-} from 'effect';
+import { Context, Effect, Fiber, Layer, type Scope, Stream } from 'effect';
 import { TestClock } from 'effect/testing';
 import { Runtime } from '@kestack/kabuki';
 import { describe, expect, it } from 'vitest';
@@ -24,12 +16,19 @@ import {
   type TurnHandle,
   type TurnOut,
 } from '../../contract/index.js';
-import { agent, type AgentMessage, type AgentModel } from '../index.js';
+import {
+  agent,
+  agentOver,
+  type AgentMessage,
+  type AgentModel,
+  type AgentOptions,
+} from '../index.js';
 
 /*
- * The Agent fake as connect's code Plugin sees it: each Control lands in
- * what `Harnesses`, `HarnessHost`, `Models` and `OneShotPrompt` answer, and
- * each Script plays as records the real projections draw.
+ * The Agent fake as connect's code Plugin sees it: Claude Code and Codex
+ * installed and signed in, as `Harnesses`, `HarnessHost`, `Models` and
+ * `OneShotPrompt` answer, and each Script plays as records the real
+ * projections draw.
  */
 
 type Fake = Runtime<typeof agent.actor>;
@@ -37,16 +36,18 @@ type Edges = Context.Context<Harnesses | HarnessHost | Models | OneShotPrompt>;
 
 const DEFAULT = HarnessAccount.layerDefault;
 
-/** The Agent fake running at no pace, and its edges. */
+/** The Agent fake running at no pace unless given, and its edges. */
 const run = <A, E>(
   body: (fake: Fake, edges: Edges) => Effect.Effect<A, E, Scope.Scope>,
+  options: AgentOptions = {},
 ) =>
   Effect.runPromise(
     Effect.scoped(
       Effect.gen(function* () {
         const fake = yield* Runtime.scoped(agent.actor);
-        fake.root.send({ _tag: 'SetPace', ms: 0 });
-        const edges = yield* Layer.build(agent.serve(fake));
+        const edges = yield* Layer.build(
+          agentOver(fake, { paceMs: 0, ...options }),
+        );
         return yield* body(fake, edges);
       }),
     ),
@@ -61,10 +62,17 @@ const until = (fake: Fake, test: (model: AgentModel) => boolean) =>
 const harnessOf = (edges: Edges, name: HarnessName) =>
   Context.get(edges, Harnesses).get(name);
 
-const opened = (edges: Edges, name: HarnessName) =>
+const opened = (
+  edges: Edges,
+  name: HarnessName,
+  account: HarnessAccount['Service'] = {
+    binary: undefined,
+    configFolder: undefined,
+  },
+) =>
   harnessOf(edges, name)
     .open({ cwd: '/home/you/app', model: 'm', settings: {} })
-    .pipe(Effect.provide(DEFAULT));
+    .pipe(Effect.provideService(HarnessAccount, account));
 
 /** Every record and fact of a turn, until it ends. */
 const collect = (turn: TurnHandle) =>
@@ -99,91 +107,55 @@ const say = (agentOpen: Agent, text: string) =>
   collect(agentOpen.turn({ text, images: [] }));
 
 describe('the Agent fake, its world', () => {
-  it('runs both harnesses from PATH until one is uninstalled', async () => {
-    const found = await run((fake, edges) =>
+  it('runs both harnesses from PATH, and no binary elsewhere', async () => {
+    const found = await run((_, edges) =>
       Effect.gen(function* () {
         const host = Context.get(edges, HarnessHost);
         const account = { binary: undefined, configFolder: undefined };
-        const before = yield* host.binaryAt(harnessOf(edges, 'codex'), account);
-        yield* control(fake, { _tag: 'Uninstall', harness: 'codex', why: '' });
-        const after = yield* host.binaryAt(harnessOf(edges, 'codex'), account);
-        yield* control(fake, {
-          _tag: 'Uninstall',
-          harness: 'claude',
-          why: 'Claude Code needs a newer macOS',
-        });
-        const claude = yield* host.binaryAt(
-          harnessOf(edges, 'claude'),
-          account,
-        );
-        const open = yield* Effect.exit(opened(edges, 'claude'));
-        return { before, after, claude, open };
-      }),
-    );
-    expect(found.before).toMatchObject({
-      path: '/usr/local/bin/codex',
-      error: null,
-      isDefault: true,
-    });
-    expect(found.after.error).toMatch(/^Codex is not installed/);
-    expect(found.claude.error).toBe('Claude Code needs a newer macOS');
-    expect(Exit.isFailure(found.open)).toBe(true);
-  });
-
-  it('takes a binary path only once one runs there', async () => {
-    const found = await run((fake, edges) =>
-      Effect.gen(function* () {
-        const host = Context.get(edges, HarnessHost);
-        const claude = harnessOf(edges, 'claude');
-        const refused = yield* Effect.flip(
-          host.checkBinary(claude, '~/bin/claude'),
-        );
-        yield* control(fake, {
-          _tag: 'AddBinary',
-          harness: 'claude',
-          path: '~/bin/claude',
-        });
         return {
-          refused,
-          taken: yield* host.checkBinary(claude, '~/bin/claude'),
+          claude: yield* host.binaryAt(harnessOf(edges, 'claude'), account),
+          codex: yield* host.binaryAt(harnessOf(edges, 'codex'), account),
+          refused: yield* Effect.flip(
+            host.checkBinary(harnessOf(edges, 'claude'), '~/bin/claude'),
+          ),
         };
       }),
     );
-    expect(found.refused._tag).toBe('InvalidBinary');
-    expect(found.taken).toBe('/home/you/bin/claude');
+    expect(found.claude).toMatchObject({
+      path: '/usr/local/bin/claude',
+      error: null,
+      isDefault: true,
+    });
+    expect(found.codex).toMatchObject({
+      path: '/usr/local/bin/codex',
+      version: 'codex-cli 0.154.0',
+    });
+    expect(found.refused).toMatchObject({
+      _tag: 'InvalidBinary',
+      message: 'No file at /home/you/bin/claude',
+    });
   });
 
   it('says which config folder an account uses, and why', async () => {
-    const found = await run((fake, edges) =>
+    const found = await run((_, edges) =>
       Effect.gen(function* () {
         const host = Context.get(edges, HarnessHost);
-        const own = yield* host.configFolderOf('claude', undefined);
-        const given = yield* host.configFolderOf('claude', '~/.claude-work');
-        yield* control(fake, {
-          _tag: 'SetConfigFromEnvironment',
-          harness: 'codex',
-          folder: '/srv/codex',
-        });
         return {
-          own,
-          given,
-          environment: yield* host.configFolderOf('codex', undefined),
+          own: yield* host.configFolderOf('claude', undefined),
+          given: yield* host.configFolderOf('claude', '~/.claude-work'),
+          codex: yield* host.configFolderOf('codex', undefined),
         };
       }),
     );
     expect(found).toEqual({
       own: { path: '/home/you/.claude', from: 'default' },
       given: { path: '/home/you/.claude-work', from: 'account' },
-      environment: {
-        path: '/srv/codex',
-        from: 'environment',
-        variable: 'CODEX_HOME',
-      },
+      codex: { path: '/home/you/.codex', from: 'default' },
     });
   });
 
-  it("lists the login's models; models.dev's without a login; fails on cue", async () => {
-    const found = await run((fake, edges) =>
+  it("lists the login's models; models.dev's without a login", async () => {
+    const found = await run((_, edges) =>
       Effect.gen(function* () {
         const models = Context.get(edges, Models);
         const claude = harnessOf(edges, 'claude');
@@ -200,22 +172,8 @@ describe('the Agent fake, its world', () => {
           binary: undefined,
           configFolder: undefined,
         });
-        const otherBefore = yield* ids(work);
-        yield* control(fake, {
-          _tag: 'SignIn',
-          harness: 'claude',
-          configFolder: '~/.claude-work',
-        });
-        const otherAfter = yield* ids(work);
-        yield* control(fake, {
-          _tag: 'ModelsFail',
-          harness: 'claude',
-          reason: 'Claude Code could not be asked',
-        });
-        const failed = yield* Effect.flip(
-          models.list(claude).pipe(Effect.provide(DEFAULT)),
-        );
-        return { signedIn, otherBefore, otherAfter, failed };
+        const other = yield* ids(work);
+        return { signedIn, other };
       }),
     );
     expect(found.signedIn).toEqual([
@@ -223,148 +181,65 @@ describe('the Agent fake, its world', () => {
       'claude-sonnet-5',
       'claude-haiku-5-5',
     ]);
-    expect(found.otherBefore).toContain('claude-opus-4-5');
-    expect(found.otherBefore).not.toContain('claude-opus-4-5-20251101');
-    expect(found.otherAfter).toEqual(found.signedIn);
-    expect(found.failed.message).toBe('Claude Code could not be asked');
+    expect(found.other).toContain('claude-opus-4-5');
+    expect(found.other).not.toContain('claude-opus-4-5-20251101');
   });
 
-  it('offers Skills by folder, or fails to list them', async () => {
-    const found = await run((fake, edges) =>
-      Effect.gen(function* () {
-        const codex = harnessOf(edges, 'codex');
-        yield* control(fake, {
-          _tag: 'AddSkill',
-          harness: 'codex',
-          folder: '~/app',
-          name: 'deploy',
-          description: 'Deploys the app',
-        });
-        const names = (cwd: string) =>
-          codex.skills(cwd).pipe(
-            Effect.provide(DEFAULT),
-            Effect.map((skills) => skills.map(({ name }) => name)),
-          );
-        const inApp = yield* names('/home/you/app/web');
-        const elsewhere = yield* names('/home/you/other');
-        yield* control(fake, {
-          _tag: 'SkillsFail',
-          harness: 'codex',
-          reason: 'skills/list timed out',
-        });
-        const failed = yield* Effect.flip(names('/home/you/app'));
-        return { inApp, elsewhere, failed: failed.message };
-      }),
+  it('offers its built-in Skills in every folder', async () => {
+    const found = await run((_, edges) =>
+      harnessOf(edges, 'codex')
+        .skills('/home/you/app/web')
+        .pipe(
+          Effect.provide(DEFAULT),
+          Effect.map((skills) => skills.map(({ name }) => name)),
+        ),
     );
-    expect(found).toEqual({
-      inApp: ['review', 'explain', 'deploy'],
-      elsewhere: ['review', 'explain'],
-      failed: 'skills/list timed out',
-    });
+    expect(found).toEqual(['review', 'explain']);
   });
 
-  it('writes the next Title and Btw answer as told, each once', async () => {
-    const found = await run((fake, edges) =>
+  it('writes a Title from the message, and a plain Btw answer', async () => {
+    const found = await run((_, edges) =>
       Effect.gen(function* () {
         const oneShot = Context.get(edges, OneShotPrompt);
-        const prompt =
-          'Write a title\n\n<latest-message>\nadd dark mode to the settings page please\n</latest-message>';
-        const fromMessage = yield* oneShot.prompt(prompt);
-        yield* control(fake, { _tag: 'TitleNext', title: 'Dark mode' });
-        const told = yield* oneShot.prompt(prompt);
-        yield* control(fake, { _tag: 'FailNextTitle', reason: '' });
-        const failed = yield* Effect.flip(oneShot.prompt(prompt));
-        const again = yield* oneShot.prompt(prompt);
-        yield* control(fake, { _tag: 'FailNextBtw', reason: 'Asked too soon' });
-        const btw = yield* Effect.flip(
-          harnessOf(edges, 'claude')
-            .ask({ cwd: '/', nativeId: 'n', model: 'm', question: 'why?' })
-            .pipe(Effect.provide(DEFAULT)),
+        const title = yield* oneShot.prompt(
+          'Write a title\n\n<latest-message>\nadd dark mode to the settings page please\n</latest-message>',
         );
-        return {
-          fromMessage,
-          told,
-          failed: failed.message,
-          again,
-          btw: btw.message,
-        };
+        const btw = yield* harnessOf(edges, 'claude')
+          .ask({ cwd: '/', nativeId: 'n', model: 'm', question: 'why?' })
+          .pipe(Effect.provide(DEFAULT));
+        return { title, btw };
       }),
     );
-    expect(found).toEqual({
-      fromMessage: 'add dark mode to the',
-      told: 'Dark mode',
-      failed: 'Codex could not write a title.',
-      again: 'add dark mode to the',
-      btw: 'Asked too soon',
-    });
+    expect(found.title).toBe('add dark mode to the');
+    expect(found.btw).toMatchObject({ _tag: 'Text' });
+    expect(found.btw._tag === 'Text' && found.btw.text).toContain('“why?”');
   });
 });
 
 describe('the Agent fake, its replies', () => {
-  it('opens an Agent and writes the next Title slowly, as told', async () => {
-    const found = await run((fake, edges) =>
-      Effect.gen(function* () {
-        const oneShot = Context.get(edges, OneShotPrompt);
-        const prompt =
-          'Write a title\n\n<latest-message>\nfix the login page\n</latest-message>';
-        yield* control(fake, {
-          _tag: 'OpensSlowly',
-          harness: 'claude',
-          ms: 3000,
-        });
-        yield* control(fake, { _tag: 'TitleSlowly', ms: 2000 });
-        const opening = yield* Effect.forkChild(opened(edges, 'claude'));
-        const titling = yield* Effect.forkChild(oneShot.prompt(prompt));
-        yield* TestClock.adjust('1999 millis');
-        const early = [opening.pollUnsafe(), titling.pollUnsafe()];
-        yield* TestClock.adjust('1 millis');
-        const title = yield* Fiber.join(titling);
-        const stillOpening = opening.pollUnsafe();
-        yield* TestClock.adjust('1 second');
-        yield* Fiber.join(opening);
-        // Only the next Title is slow.
-        const next = yield* Effect.forkChild(oneShot.prompt(prompt));
-        yield* TestClock.adjust('1 millis');
-        return {
-          early,
-          title,
-          stillOpening,
-          next: next.pollUnsafe(),
-          opensInMs: fake.root.model.claude.opensInMs,
-        };
-      }).pipe(Effect.provide(TestClock.layer())),
-    );
-    expect(found).toMatchObject({
-      early: [undefined, undefined],
-      title: 'fix the login page',
-      stillOpening: undefined,
-      next: Exit.succeed('fix the login page'),
-      opensInMs: 3000,
-    });
-  });
-
   it('echoes by default, and shows each running reply in its Model', async () => {
-    const found = await run((fake, edges) =>
-      Effect.gen(function* () {
-        const claude = yield* opened(edges, 'claude');
-        const agents = fake.root.model.agents.map(({ harness }) => harness);
-        yield* control(fake, { _tag: 'SetPace', ms: 20 });
-        const fiber = yield* Effect.forkChild(say(claude, 'hello'));
-        const running = (yield* until(
-          fake,
-          (model) => model.replies.length > 0,
-        )).model.replies.map(({ prompt, script }) => [prompt, script]);
-        const outs = yield* Fiber.join(fiber);
-        return {
-          agents,
-          running,
-          text: partsOf(harnessOf(edges, 'claude'), outs)
-            .flatMap((part) => (part.type === 'textChunk' ? [part.text] : []))
-            .join(''),
-          end: lastOf(outs),
-          after: fake.root.model.replies.length,
-        };
-      }),
+    const found = await run(
+      (fake, edges) =>
+        Effect.gen(function* () {
+          const claude = yield* opened(edges, 'claude');
+          const agents = fake.root.model.agents.map(({ harness }) => harness);
+          const fiber = yield* Effect.forkChild(say(claude, 'hello'));
+          const running = (yield* until(
+            fake,
+            (model) => model.replies.length > 0,
+          )).model.replies.map(({ prompt, script }) => [prompt, script]);
+          const outs = yield* Fiber.join(fiber);
+          return {
+            agents,
+            running,
+            text: partsOf(harnessOf(edges, 'claude'), outs)
+              .flatMap((part) => (part.type === 'textChunk' ? [part.text] : []))
+              .join(''),
+            end: lastOf(outs),
+            after: fake.root.model.replies.length,
+          };
+        }),
+      { paceMs: 20 },
     );
     expect(found.agents).toEqual(['claude']);
     expect(found.running).toEqual([['hello', 'echo']]);
@@ -484,9 +359,6 @@ describe('the Agent fake, its replies', () => {
           const question =
             questions._tag === 'Some' ? questions.value[0]! : undefined;
           const waiting = fiber.pollUnsafe() === undefined;
-          yield* control(fake, { _tag: 'AnswersFail', reason: 'Not now' });
-          const refused = yield* Effect.flip(open.answer(question!.id, {}));
-          yield* control(fake, { _tag: 'AnswersFail', reason: '' });
           const [first, second] = question!.items;
           yield* open.answer(question!.id, {
             [first!.id]: ['SQLite'],
@@ -497,7 +369,6 @@ describe('the Agent fake, its replies', () => {
           return {
             items: question!.items.length,
             waiting,
-            refused: refused.message,
             parts: partsOf(harnessOf(edges, name), outs),
             late: late._tag,
             end: lastOf(outs),
@@ -506,7 +377,6 @@ describe('the Agent fake, its replies', () => {
       );
       expect(found.items).toBe(2);
       expect(found.waiting).toBe(true);
-      expect(found.refused).toBe('Not now');
       expect(found.parts.some((part) => part.type === 'questionAnswered')).toBe(
         true,
       );
@@ -520,23 +390,6 @@ describe('the Agent fake, its replies', () => {
     },
   );
 
-  it('carries on unanswered when the reply gives up asking', async () => {
-    const parts = await run((fake, edges) =>
-      Effect.gen(function* () {
-        yield* control(fake, { _tag: 'ReplyWith', script: 'question' });
-        const open = yield* opened(edges, 'claude');
-        const fiber = yield* Effect.forkChild(say(open, 'go'));
-        yield* until(fake, (model) => model.replies[0]?.question != null);
-        yield* control(fake, { _tag: 'GiveUpAsking', reply: '' });
-        return partsOf(harnessOf(edges, 'claude'), yield* Fiber.join(fiber));
-      }),
-    );
-    expect(parts).toContainEqual(
-      expect.objectContaining({ type: 'questionAnswered', answers: null }),
-    );
-    expect(parts.at(-1)).toMatchObject({ type: 'turnEnded', status: 'done' });
-  });
-
   it.each([
     ['claude', 'Claude Code stopped with exit code 137'],
     ['codex', 'Codex was stopped by SIGKILL'],
@@ -547,70 +400,48 @@ describe('the Agent fake, its replies', () => {
         Effect.gen(function* () {
           const open = yield* opened(edges, name);
           yield* control(fake, { _tag: 'ReplyWith', script: 'cut off' });
-          const scripted = yield* Effect.flip(say(open, 'go'));
-          yield* control(fake, { _tag: 'ReplyWith', script: 'long' });
-          yield* control(fake, { _tag: 'SetPace', ms: 20 });
-          const fiber = yield* Effect.forkChild(Effect.flip(say(open, 'go')));
-          yield* until(fake, (model) => model.replies.length > 0);
-          yield* control(fake, { _tag: 'CutOffNow', reply: '' });
-          return {
-            scripted: scripted.message,
-            now: (yield* Fiber.join(fiber)).message,
-          };
+          return yield* Effect.flip(say(open, 'go'));
         }),
       );
-      expect(found).toEqual({ scripted: why, now: why });
+      expect(found.message).toBe(why);
     },
   );
 
-  it('fails now with the reason given, and ends as the script says', async () => {
+  it('fails as the script says', async () => {
     const found = await run((fake, edges) =>
       Effect.gen(function* () {
         const open = yield* opened(edges, 'codex');
         yield* control(fake, { _tag: 'ReplyWith', script: 'fails' });
-        const scripted = lastOf(yield* say(open, 'go'));
-        yield* control(fake, { _tag: 'ReplyWith', script: 'long' });
-        yield* control(fake, { _tag: 'SetPace', ms: 20 });
-        const fiber = yield* Effect.forkChild(say(open, 'go'));
-        yield* until(fake, (model) => model.replies.length > 0);
-        yield* control(fake, {
-          _tag: 'FailNow',
-          reply: '',
-          reason: 'Overloaded',
-        });
-        const outs = yield* Fiber.join(fiber);
+        const outs = yield* say(open, 'go');
         return {
-          scripted,
-          now: lastOf(outs),
+          end: lastOf(outs),
           drawn: partsOf(harnessOf(edges, 'codex'), outs).at(-1),
         };
       }),
     );
-    expect(found.scripted).toMatchObject({
+    expect(found.end).toMatchObject({
       status: 'failed',
       error: 'API Error: 529 Overloaded',
     });
-    expect(found.now).toMatchObject({ status: 'failed', error: 'Overloaded' });
     expect(found.drawn).toMatchObject({
       type: 'turnEnded',
       status: 'failed',
-      error: 'Overloaded',
+      error: 'API Error: 529 Overloaded',
     });
   });
 
-  it('hangs until stopped, then ends cancelled', async () => {
-    const found = await run((fake, edges) =>
-      Effect.gen(function* () {
-        const open = yield* opened(edges, 'claude');
-        yield* control(fake, { _tag: 'ReplyWith', script: 'long' });
-        yield* control(fake, { _tag: 'SetPace', ms: 20 });
-        const fiber = yield* Effect.forkChild(say(open, 'go'));
-        yield* until(fake, (model) => model.replies.length > 0);
-        yield* control(fake, { _tag: 'HangNow', reply: '' });
-        yield* until(fake, (model) => model.replies[0]?.hanging === true);
-        yield* open.cancel;
-        return lastOf(yield* Fiber.join(fiber));
-      }),
+  it('ends cancelled once stopped', async () => {
+    const found = await run(
+      (fake, edges) =>
+        Effect.gen(function* () {
+          const open = yield* opened(edges, 'claude');
+          yield* control(fake, { _tag: 'ReplyWith', script: 'long' });
+          const fiber = yield* Effect.forkChild(say(open, 'go'));
+          yield* until(fake, (model) => model.replies.length > 0);
+          yield* open.cancel;
+          return lastOf(yield* Fiber.join(fiber));
+        }),
+      { paceMs: 20 },
     );
     expect(found).toEqual({
       _tag: 'TurnEnd',
@@ -619,15 +450,14 @@ describe('the Agent fake, its replies', () => {
     });
   });
 
-  it("fails every turn with the harness's login error once signed out", async () => {
-    const found = await run((fake, edges) =>
+  it("fails every turn with the harness's login error in another config folder", async () => {
+    const found = await run((_, edges) =>
       Effect.gen(function* () {
-        yield* control(fake, {
-          _tag: 'SignOut',
-          harness: 'claude',
-          configFolder: '',
+        const open = yield* opened(edges, 'claude', {
+          binary: undefined,
+          configFolder: '~/.claude-work',
         });
-        const outs = yield* say(yield* opened(edges, 'claude'), 'go');
+        const outs = yield* say(open, 'go');
         return {
           end: lastOf(outs),
           drawn: partsOf(harnessOf(edges, 'claude'), outs).at(-1),
@@ -642,17 +472,18 @@ describe('the Agent fake, its replies', () => {
   });
 
   it('takes a steer between two steps', async () => {
-    const outs = await run((fake, edges) =>
-      Effect.gen(function* () {
-        const open = yield* opened(edges, 'claude');
-        yield* control(fake, { _tag: 'ReplyWith', script: 'long' });
-        yield* control(fake, { _tag: 'SetPace', ms: 5 });
-        const turn = open.turn({ text: 'go', images: [] });
-        const fiber = yield* Effect.forkChild(collect(turn));
-        yield* until(fake, (model) => model.replies.length > 0);
-        yield* turn.steer('steer-1', { text: 'also docs', images: [] });
-        return yield* Fiber.join(fiber);
-      }),
+    const outs = await run(
+      (fake, edges) =>
+        Effect.gen(function* () {
+          const open = yield* opened(edges, 'claude');
+          yield* control(fake, { _tag: 'ReplyWith', script: 'long' });
+          const turn = open.turn({ text: 'go', images: [] });
+          const fiber = yield* Effect.forkChild(collect(turn));
+          yield* until(fake, (model) => model.replies.length > 0);
+          yield* turn.steer('steer-1', { text: 'also docs', images: [] });
+          return yield* Fiber.join(fiber);
+        }),
+      { paceMs: 5 },
     );
     expect(outs).toContainEqual({ _tag: 'TurnSteered', id: 'steer-1' });
     expect(lastOf(outs)).toMatchObject({ status: 'done' });
@@ -689,7 +520,7 @@ describe('the Agent fake, its replies', () => {
   });
 });
 
-describe('the Agent fake, Background Jobs and its own Turns', () => {
+describe('the Agent fake, Background Jobs', () => {
   it("lists a reply's jobs, follows their output, and reports each end", async () => {
     const found = await run((fake, edges) =>
       Effect.gen(function* () {
@@ -700,27 +531,16 @@ describe('the Agent fake, Background Jobs and its own Turns', () => {
           Stream.filter((list) => list.length === 2),
           Stream.runHead,
         );
-        const shell = jobs._tag === 'Some' ? jobs.value[0]! : undefined;
+        const [shell, helper] = jobs._tag === 'Some' ? jobs.value : [];
         const output = yield* Effect.forkChild(
           Stream.runCollect(open.backgroundJobOutput(shell!.id)),
         );
-        // Followed from here on.
-        yield* Effect.sleep('20 millis');
-        yield* control(fake, {
-          _tag: 'WriteJobOutput',
-          job: shell!.id,
-          text: 'ready\n',
-        });
-        yield* control(fake, { _tag: 'StopsFail', reason: 'kill refused' });
-        const refused = yield* Effect.flip(open.stopBackgroundJob(shell!.id));
-        yield* control(fake, {
-          _tag: 'EndJob',
-          job: shell!.id,
-          how: 'done',
-          summary: '',
-        });
+        yield* open.stopBackgroundJob(helper!.id);
+        const refused = yield* Effect.flip(open.stopBackgroundJob('none'));
+        // The shell job's time is up.
+        yield* TestClock.adjust('8 seconds');
         const ended = yield* open.between.pipe(
-          Stream.take(1),
+          Stream.take(2),
           Stream.runCollect,
         );
         const report = yield* open.agentTurns.pipe(Stream.runHead);
@@ -734,51 +554,30 @@ describe('the Agent fake, Background Jobs and its own Turns', () => {
           report: partsOf(harnessOf(edges, 'claude'), reportOuts)
             .flatMap((part) => (part.type === 'textChunk' ? [part.text] : []))
             .join(''),
-          left: fake.root.model.jobs.map(({ kind }) => kind),
+          left: fake.root.model.jobs.length,
         };
-      }),
+      }).pipe(Effect.provide(TestClock.layer())),
     );
     expect(found.kinds).toEqual(['shell', 'agent']);
-    expect(found.output).toContain('ready');
     expect(found.output).toContain('localhost:5173');
-    expect(found.refused).toBe('kill refused');
+    expect(found.refused).toBe('No Background Job none');
     expect(found.ended).toEqual([
+      expect.objectContaining({ type: 'jobEnded', status: 'stopped' }),
       expect.objectContaining({ type: 'jobEnded', status: 'done' }),
     ]);
     expect(found.report).toContain('"pnpm dev" finished');
-    expect(found.left).toEqual(['agent']);
-  });
-
-  it('starts a Turn of its own when told, once it is free', async () => {
-    const found = await run((fake, edges) =>
-      Effect.gen(function* () {
-        const open = yield* opened(edges, 'codex');
-        yield* control(fake, {
-          _tag: 'StartTurnItself',
-          agent: '',
-          script: 'plan',
-        });
-        const turn = yield* open.agentTurns.pipe(Stream.runHead);
-        const outs = turn._tag === 'Some' ? yield* collect(turn.value) : [];
-        return {
-          parts: partsOf(harnessOf(edges, 'codex'), outs),
-          wakeups: fake.root.model.wakeups.length,
-        };
-      }),
-    );
-    expect(found.parts.some((part) => part.type === 'codex.plan')).toBe(true);
-    expect(found.wakeups).toBe(0);
+    expect(found.left).toBe(0);
   });
 
   it('a reload keeps the world, not what ran in it', async () => {
     const kept = await run((fake, edges) =>
       Effect.gen(function* () {
         yield* opened(edges, 'claude');
-        yield* control(fake, { _tag: 'Uninstall', harness: 'codex', why: '' });
+        yield* control(fake, { _tag: 'ReplyWith', script: 'plan' });
         return agent.kept(fake.snapshot).root.model;
       }),
     );
     expect(kept.agents).toEqual([]);
-    expect(kept.codex.installed).toBe(false);
+    expect(kept.replyWith).toBe('plan');
   });
 });

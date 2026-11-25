@@ -1,33 +1,24 @@
-import { Clock, Data, Effect } from 'effect';
+import { Clock, Effect } from 'effect';
 import type {
   AgentQuestion,
   QuestionAnswer,
 } from '../../contract/wire/index.js';
 import type { TurnOut } from '../contract/index.js';
-import type { Now } from './actor.js';
-import type { Ending, Script, Step } from './scripts.js';
+import type { Script, Step } from './scripts.js';
 import { piecesOf, type Ended, type Started, type Writer } from './writer.js';
 
 /*
  * Plays a Script into one reply: every Step through the harness's Writer,
- * the pace between two pieces, and the waits. What a Control asks of the
- * reply (its `now`) is taken between two Steps; failing, cutting off and
- * hanging also break into a wait. Steers the reply took are said between
- * two Steps, and at its end. Never fails: it gives how the reply ended.
+ * the pace between two pieces, and the waits. Steers the reply took are
+ * said between two Steps, and at its end. Never fails: it gives how the
+ * reply ended.
  */
 
-/** What a reply plays on: its stream, its Control, and the world's Model. */
+/** What a reply plays on: its stream, its pace, and the world's Model. */
 export interface Stage {
   readonly emit: (out: TurnOut) => Effect.Effect<void>;
-  /** How long to wait between two pieces, now. */
-  readonly pace: Effect.Effect<number>;
-  /** What a Control asks of this reply now, or null. */
-  readonly now: Effect.Effect<Now | null>;
-  /** Waits until a Control asks something `test` accepts. */
-  readonly until: (test: (now: Now) => boolean) => Effect.Effect<Now>;
-  /** The reply took what `now` asked. */
-  readonly took: Effect.Effect<void>;
-  readonly hangs: Effect.Effect<void>;
+  /** How long to wait between two pieces, in ms. */
+  readonly pace: number;
   /** Asks `question`; waits for its answer, null if declined. */
   readonly ask: (
     question: AgentQuestion,
@@ -45,28 +36,6 @@ export interface Stage {
     ReadonlyArray<{ readonly id: string; readonly text: string }>
   >;
 }
-
-/** A Control ended the reply early. */
-class Stop extends Data.TaggedError('Stop')<{ readonly ending: Ending }> {}
-
-/** What a Control asks that breaks into a wait. */
-const breaks = (now: Now) =>
-  now._tag === 'Fail' || now._tag === 'CutOff' || now._tag === 'Hang';
-
-/** The question an Ask Control puts. */
-const ASKED_NOW: Extract<Step, { _tag: 'Ask' }> = {
-  _tag: 'Ask',
-  items: [
-    {
-      header: 'Go on',
-      question: 'Should I go on?',
-      options: [
-        { label: 'Yes', description: 'Carry on as planned' },
-        { label: 'No', description: 'Stop here' },
-      ],
-    },
-  ],
-};
 
 /** What the agent heard, as it says it back. */
 const heardOf = (
@@ -92,36 +61,15 @@ export const play = (
   const emitAll = (outs: ReadonlyArray<TurnOut>) =>
     Effect.forEach(outs, stage.emit, { discard: true });
 
-  /** Takes what a Control asks that breaks: ends early, or hangs. */
-  const breakWith = (now: Now): Effect.Effect<never, Stop> =>
-    Effect.gen(function* () {
-      yield* stage.took;
-      if (now._tag === 'Fail')
-        return yield* new Stop({
-          ending: { _tag: 'Failed', reason: now.reason },
-        });
-      if (now._tag === 'CutOff')
-        return yield* new Stop({ ending: { _tag: 'CutOff' } });
-      yield* stage.hangs;
-      return yield* Effect.never;
-    });
-
-  /** Waits a while, unless a Control breaks in. */
-  const wait = (ms?: number): Effect.Effect<void, Stop> =>
-    Effect.gen(function* () {
-      const pace = ms ?? (yield* stage.pace);
-      const now = yield* Effect.raceFirst(
-        Effect.as(Effect.sleep(pace), null),
-        stage.until(breaks),
-      );
-      if (now !== null) yield* breakWith(now);
-    });
+  /** Waits a while: the pace, unless given. */
+  const wait = (ms?: number): Effect.Effect<void> =>
+    Effect.sleep(ms ?? stage.pace);
 
   const write = (
     channel: 'text' | 'reasoning',
     text: string,
     by: Writer,
-  ): Effect.Effect<void, Stop> =>
+  ): Effect.Effect<void> =>
     Effect.gen(function* () {
       const { chunks, whole } = by.text(channel, piecesOf(text));
       for (const chunk of chunks) {
@@ -135,40 +83,25 @@ export const play = (
   const ask = (
     step: Extract<Step, { _tag: 'Ask' }>,
     by: Writer,
-  ): Effect.Effect<void, Stop> =>
+  ): Effect.Effect<void> =>
     Effect.gen(function* () {
       const asked = by.ask(step, yield* Clock.currentTimeMillis);
       yield* emitAll(asked.records);
-      const heard = yield* Effect.raceFirst(
-        stage.ask(asked.question),
-        stage.until((now) => breaks(now) || now._tag === 'GiveUp'),
-      );
+      const { answer } = yield* stage.ask(asked.question);
       yield* stage.heard;
-      if (!('answer' in heard) && heard._tag !== 'GiveUp')
-        return yield* breakWith(heard);
-      if (!('answer' in heard)) yield* stage.took;
-      const answer = 'answer' in heard ? heard.answer : null;
       yield* emitAll(asked.answered(answer));
       yield* write('text', heardOf(asked.question, answer), by);
     });
 
-  /** Takes what a Control asks between two Steps, and says the steers taken. */
-  const between: Effect.Effect<void, Stop> = Effect.gen(function* () {
+  /** Says the steers taken, between two Steps. */
+  const between: Effect.Effect<void> = Effect.gen(function* () {
     for (const steer of yield* stage.steers) {
       yield* stage.emit({ _tag: 'TurnSteered', id: steer.id });
       yield* write('text', `Noted: ${steer.text}`, writer);
     }
-    const now = yield* stage.now;
-    if (now === null) return;
-    if (breaks(now)) return yield* breakWith(now);
-    yield* stage.took;
-    if (now._tag === 'Ask') yield* ask(ASKED_NOW, writer);
   });
 
-  const run = (
-    steps: ReadonlyArray<Step>,
-    by: Writer,
-  ): Effect.Effect<void, Stop> =>
+  const run = (steps: ReadonlyArray<Step>, by: Writer): Effect.Effect<void> =>
     Effect.forEach(
       steps,
       (step) =>
@@ -179,7 +112,7 @@ export const play = (
       { discard: true },
     );
 
-  const runStep = (step: Step, by: Writer): Effect.Effect<void, Stop> => {
+  const runStep = (step: Step, by: Writer): Effect.Effect<void> => {
     switch (step._tag) {
       case 'Say':
         return write('text', step.text, by);
@@ -231,11 +164,7 @@ export const play = (
     yield* run(script.steps, writer);
     yield* between;
     return writer.ends(script.ending, script.usage, said);
-  }).pipe(
-    Effect.catchTag('Stop', ({ ending }) =>
-      Effect.succeed(writer.ends(ending, script.usage, said)),
-    ),
-  );
+  });
 };
 
 /** A reply whose login is gone: it opens, and fails as the harness does. */

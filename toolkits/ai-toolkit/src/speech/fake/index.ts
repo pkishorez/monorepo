@@ -7,11 +7,10 @@ import { speechFakeOver } from './serve.js';
 /*
  * `@kestack/ai-toolkit/speech/fake`: the Speech fake, Speech to Text as a
  * computer has it, as a Fake the Fake World runs. Its Actor starts blank,
- * switched off with nothing on disk; its Controls hold, move, finish and
- * fail the model's download, and say what a Take turns into (a text, words
- * as they are heard, nothing), or make hearing fail or stop answering.
- * `serve` gives `Speech`: the real speech model and Takes over the fake.
- * Browser-safe: nothing here imports Node.
+ * switched off with nothing on disk. The model downloads by itself once
+ * the app asks for it, and its one Control says what every Take turns
+ * into. `serve` gives `Speech`: the real speech model and Takes over the
+ * fake. Browser-safe: nothing here imports Node.
  *
  * `kept` is the Snapshot a reload keeps: no download running, as one dies
  * with a computer's restart; the wish and the model on disk stay.

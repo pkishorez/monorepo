@@ -6,7 +6,7 @@ import type { Setting } from '../contract/index.js';
  * What the Agent fake knows of Claude Code and Codex as installed on a
  * computer, copied from the real harnesses (`../claude`, `../codex`),
  * whose own files run only on Node: their Settings, which models.dev ids
- * each accepts, their default models and install hints, and a copy of the
+ * each accepts, their default models and binaries, and a copy of the
  * models.dev rows and of each login's model list, as they read in late
  * 2026. Change it when the real ones change.
  */
@@ -25,10 +25,7 @@ export interface Played {
   readonly onPath: string;
   /** What its binary's `--version` prints. */
   readonly version: string;
-  /** Why it does not run when it is not installed, as the real one says. */
-  readonly install: string;
-  /** The variable naming its config folder, and its own folder under home. */
-  readonly variable: string;
+  /** Its own config folder, under home. */
   readonly own: string;
   /** The login's own models, its default marked. */
   readonly account: ReadonlyArray<{
@@ -82,9 +79,6 @@ export const CLAUDE: Played = {
   ],
   onPath: '/usr/local/bin/claude',
   version: '3.4.12 (Claude Code)',
-  install:
-    'Claude Code is not installed: install it from https://claude.com/claude-code, then run `claude auth login`',
-  variable: 'CLAUDE_CONFIG_DIR',
   own: '.claude',
   account: [
     { id: 'claude-opus-5-5', isDefault: true },
@@ -125,9 +119,6 @@ export const CODEX: Played = {
   ],
   onPath: '/usr/local/bin/codex',
   version: 'codex-cli 0.154.0',
-  install:
-    'Codex is not installed: install it with `npm install -g @openai/codex`, then run `codex login`',
-  variable: 'CODEX_HOME',
   own: '.codex',
   account: [
     { id: 'gpt-6-astra', isDefault: true },
@@ -196,7 +187,7 @@ export const MODELS_DEV: Readonly<
   ],
 };
 
-/** The Skills a harness offers everywhere until a Control adds more. */
+/** The Skills a harness offers, in every folder. */
 export const BUILT_IN_SKILLS: ReadonlyArray<Skill> = [
   { name: 'review', description: 'Reviews the diff', argumentHint: '[focus]' },
   { name: 'explain', description: 'Explains the code' },
