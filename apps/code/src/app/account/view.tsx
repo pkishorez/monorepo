@@ -133,7 +133,7 @@ function Drawn({ root, model, props, children, send }: Active) {
     [children.Home, children.Settings, children.Project, none, ready, switcher],
   );
   return (
-    <div {...root}>
+    <div {...root} className="h-full">
       {(children.frame === undefined || !shown) && <WaitScreen />}
       {children.frame !== undefined && (
         <Links value={links}>

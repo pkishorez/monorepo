@@ -40,11 +40,13 @@ function Form({
   sending,
   outcome,
   onSend,
+  onEdit,
 }: {
   readonly action: Action;
   readonly sending: boolean;
   readonly outcome: Outcome | undefined;
   readonly onSend: (message: unknown) => void;
+  readonly onEdit: () => void;
 }) {
   const [draft, setDraft] = useState<Draft>(() => draftOf(action.input));
   const [problems, setProblems] = useState<ReadonlyArray<Problem>>([]);
@@ -68,7 +70,10 @@ function Form({
         input={action.input}
         draft={draft}
         problems={problems}
-        onDraft={setDraft}
+        onDraft={(next) => {
+          setDraft(next);
+          onEdit();
+        }}
       />
       {problems.some((one) => one.path === '') && (
         <p className="text-[11px] text-destructive">
@@ -97,6 +102,7 @@ export function Actions({
   sending,
   outcome,
   onSend,
+  onEdit,
   onNow,
 }: {
   readonly actions: ReadonlyArray<Action>;
@@ -104,6 +110,7 @@ export function Actions({
   readonly sending: string | null;
   readonly outcome: Outcome | null;
   readonly onSend: (tag: string, message: unknown) => void;
+  readonly onEdit: (tag: string) => void;
   readonly onNow: () => void;
 }) {
   const [open, setOpen] = useState<string | null>(null);
@@ -166,6 +173,7 @@ export function Actions({
                     sending={sending !== null}
                     outcome={outcome?.tag === action.tag ? outcome : undefined}
                     onSend={(message) => onSend(action.tag, message)}
+                    onEdit={() => onEdit(action.tag)}
                   />
                 )}
               </li>

@@ -36,6 +36,18 @@ export const updates: UpdatesOf<typeof WorldShape> = {
       outcomes: told(model.outcomes, { fake, control: name, said: 'done' }),
     },
   }),
+  Edited: ({ fake, control: name }, data) => {
+    const said = outcomeOf(data, fake, name)?.said;
+    return said === undefined || said === 'running'
+      ? {}
+      : {
+          model: {
+            outcomes: data.model.outcomes.filter(
+              (one) => one.fake !== fake || one.control !== name,
+            ),
+          },
+        };
+  },
   Refused: ({ fake, control: name, reason }, { model }) => ({
     model: {
       outcomes: told(model.outcomes, {

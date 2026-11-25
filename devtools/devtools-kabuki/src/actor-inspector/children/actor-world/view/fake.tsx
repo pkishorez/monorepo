@@ -18,9 +18,11 @@ const useFlash = (value: unknown) => {
 export function FakeCard({
   fake,
   onRun,
+  onEdit,
 }: {
   readonly fake: Shown;
   readonly onRun: (control: string, payload: unknown) => void;
+  readonly onEdit: (control: string) => void;
 }) {
   const id = useId();
   const flash = useFlash(fake.value);
@@ -60,6 +62,7 @@ export function FakeCard({
                   key={control.name}
                   control={control}
                   onRun={(payload) => onRun(control.name, payload)}
+                  onEdit={() => onEdit(control.name)}
                 />
               ))}
             </ul>

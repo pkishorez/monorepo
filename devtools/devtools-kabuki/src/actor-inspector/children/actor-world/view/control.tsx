@@ -115,9 +115,11 @@ function Bare({
 function Form({
   control,
   onRun,
+  onEdit,
 }: {
   readonly control: Control;
   readonly onRun: (payload: unknown) => void;
+  readonly onEdit: () => void;
 }) {
   const [draft, setDraft] = useState<Draft>(() => draftOf(control.input));
   const [problems, setProblems] = useState<ReadonlyArray<Problem>>([]);
@@ -138,7 +140,10 @@ function Form({
         input={control.input}
         draft={draft}
         problems={problems}
-        onDraft={setDraft}
+        onDraft={(next) => {
+          setDraft(next);
+          onEdit();
+        }}
       />
       <div className="flex flex-wrap items-start gap-x-3 gap-y-1.5">
         <Button
@@ -163,9 +168,11 @@ function Form({
 export function ControlItem({
   control,
   onRun,
+  onEdit,
 }: {
   readonly control: Control;
   readonly onRun: (payload: unknown) => void;
+  readonly onEdit: () => void;
 }) {
   const [open, setOpen] = useState(false);
   if (control.bare) return <Bare control={control} onRun={onRun} />;
@@ -192,7 +199,7 @@ export function ControlItem({
         </span>
         {!open && control.outcome && <Mark outcome={control.outcome} />}
       </button>
-      {open && <Form control={control} onRun={onRun} />}
+      {open && <Form control={control} onRun={onRun} onEdit={onEdit} />}
     </li>
   );
 }

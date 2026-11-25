@@ -22,6 +22,7 @@ export function Body(self: BodyProps) {
         sending={model.sending}
         outcome={model.outcome}
         onSend={(tag, message) => send({ _tag: 'Submitted', tag, message })}
+        onEdit={(tag) => send({ _tag: 'Edited', tag })}
         onNow={() => send({ _tag: 'NowAsked' })}
       />
     </>

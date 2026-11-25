@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { DataOf } from '@kestack/kabuki/types';
-import { branchOf, lookedCard, timelineOf } from '../logic/shared/index.ts';
+import {
+  branchOf,
+  bringOf,
+  lookedCard,
+  timelineOf,
+} from '../logic/shared/index.ts';
 import type { RunningShape } from '../logic/shared/index.ts';
 import type {
   BlueprintNode,
@@ -101,6 +106,16 @@ describe('the Timeline', () => {
 
   it("shows the History's start before the first Step", () => {
     expect(timelineOf(data('start'))).toMatchObject({ at: -1, next: [] });
+  });
+});
+
+describe('what the canvas brings into view', () => {
+  it('is the card a past Step’s Message was for', () => {
+    expect(bringOf(data(3))).toEqual({ id: 'Counter/page#1', key: 'step:3' });
+  });
+
+  it('is the whole tree once back at the Head', () => {
+    expect(bringOf(data(null))).toEqual({ key: 'now' });
   });
 });
 

@@ -28,5 +28,7 @@ export const updates: UpdatesOf<typeof InstanceShape> = {
   Refused: ({ tag, said, reason }) => ({
     model: { sending: null, outcome: { tag, said, reason } },
   }),
+  Edited: ({ tag }, { model }) =>
+    model.outcome?.tag === tag ? { model: { outcome: null } } : {},
   NowAsked: () => ({ emit: { _tag: 'NowAsked' } }),
 };

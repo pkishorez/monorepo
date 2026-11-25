@@ -48,6 +48,7 @@ export const InstanceShape = Actor.define('Instance', {
     Submitted: { tag: Schema.String, message: Schema.Unknown },
     Answered: { tag: Schema.String, said: Said },
     Refused: { tag: Schema.String, said: Said, reason: Schema.String },
+    Edited: { tag: Schema.String },
     NowAsked: {},
   },
   emits: { NowAsked: {} },

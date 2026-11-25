@@ -25,6 +25,9 @@ export function Body(self: BodyProps) {
                   payload,
                 })
               }
+              onEdit={(control) =>
+                send({ _tag: 'Edited', fake: fake.name, control })
+              }
             />
           </li>
         ))}
