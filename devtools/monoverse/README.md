@@ -1,6 +1,6 @@
 # @kestack/monoverse
 
-The folder rules a package's monoverse.json names, checked by the monoverse lint CLI and by DevTools' Monoverse, with one engine
+The rules this monorepo's code follows: the folder rules a package's monoverse.json names, checked by the monoverse lint CLI and by DevTools' Monoverse, and the oxlint rules every file follows
 
 ## Big picture
 
@@ -32,13 +32,18 @@ The `kabuki` preset fills the doors in for a Kabuki app, following the
 [kabuki-guidelines](../../.claude/skills/kabuki-guidelines/SKILL.md) skill.
 It is meant to replace [laymos](../laymos/README.md) lint.
 
+It also holds the oxlint rules the code inside each file follows, such as
+`no-comments`, so every rule this monorepo adopts lives in one package. Why
+each rule is on, and which were weighed and left off, is in
+[docs/lint-rules.md](docs/lint-rules.md).
+
 ## Install
 
 ```sh
 pnpm add -D @kestack/monoverse
 ```
 
-No peer dependencies.
+- `@oxlint/plugins` (optional): the types of `@kestack/monoverse/oxlint`, for a config written in TypeScript.
 
 ## Exports
 
@@ -62,6 +67,13 @@ No peer dependencies.
 | `parentOf`         | The folder holding a path.                                                                                  |
 | `joinPath`         | A name inside a folder.                                                                                     |
 | `relativeTo`       | A path as seen from a folder that holds it.                                                                 |
+
+### `@kestack/monoverse/oxlint`
+
+| Export    | What it does                                                                                      |
+| --------- | ------------------------------------------------------------------------------------------------- |
+| `default` | The oxlint JS plugin `monoverse`, with its `no-comments` rule.                                    |
+| `rules`   | Every oxlint rule this monorepo turns on, plugin and built-in, each set to `error`, to spread in. |
 
 ### `@kestack/monoverse/schema.json`
 
@@ -180,3 +192,43 @@ project.importsOf('alias/src/start.ts');
 - Imports are resolved on the disk under `root`, and only a file in
   `files` is a target. `read` may hand over each file's text instead of
   the disk.
+
+### Turn on the oxlint rules
+
+Load the plugin in a Vite+ `lint` config and spread `rules` over the files that
+follow them. This is the monorepo's root `vite.config.ts`.
+
+```ts
+import { defineConfig } from 'vite-plus';
+import { rules as monoverseRules } from './devtools/monoverse/src/oxlint/index.ts';
+
+export default defineConfig({
+  lint: {
+    jsPlugins: [
+      {
+        name: 'monoverse',
+        specifier: './devtools/monoverse/src/oxlint/index.ts',
+      },
+    ],
+    options: { reportUnusedDisableDirectives: 'warn' },
+    overrides: [
+      {
+        files: ['devtools/devtools/**', 'devtools/monoverse/**'],
+        rules: monoverseRules,
+      },
+    ],
+  },
+});
+```
+
+```text
+src/start.ts:3:1: error monoverse(no-comments): Comments are not allowed. Say it in code (a name, a type, a test), or move the note to this package's docs/.
+```
+
+- Outside this repository, the specifier is `@kestack/monoverse/oxlint`, and
+  `rules` comes from the same import.
+- `no-comments` lets through only what a tool reads: `oxlint-disable…` with
+  the rules named and a reason after `--`, `@ts-expect-error`, `/// <reference>`,
+  bundler hints and a shebang. It has no autofix, and cannot itself be turned
+  off.
+- The plugin must be named `monoverse`, the prefix `rules` uses.
