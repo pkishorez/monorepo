@@ -1,0 +1,47 @@
+{
+  "name": "ke-video",
+  "version": "0.0.0",
+  "description": "Turns a YouTube link into a short video with silences, fillers, ads and filler talk removed, its transcript and a summary, through the ke-video command and a local web app.",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "bin": {
+    "ke-video": "bin/ke-video.mjs"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "prepare:deps": "vp run --filter 'ke-video^...' build",
+    "web": "vp run --filter 'ke-video^...' build && vp dev",
+    "web:lan": "vp run --filter 'ke-video^...' build && vp dev --host",
+    "lint": "tsc --noEmit && pnpm lint:laymos",
+    "lint:laymos": "laymos lint",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@effect/platform-node": "catalog:",
+    "@kestack/ai-toolkit": "workspace:*",
+    "@kestack/cli-platform": "workspace:*",
+    "@kestack/kabuki": "workspace:*",
+    "@kestack/use-gesture": "workspace:*",
+    "@kestack/web-platform": "workspace:*",
+    "effect": "catalog:",
+    "lucide-react": "catalog:",
+    "motion": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "laymos": "workspace:*",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

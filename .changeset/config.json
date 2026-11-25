@@ -23,7 +23,7 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["code"],
+  "ignore": ["code", "ke-video"],
   "privatePackages": {
     "version": true,
     "tag": false

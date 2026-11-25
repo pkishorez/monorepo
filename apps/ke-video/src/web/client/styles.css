@@ -1,0 +1,72 @@
+@import '@kestack/web-platform/ui/theme/global.css';
+@import '@kestack/web-platform/ui/theme/font-inter.css';
+
+@layer base {
+  /*
+   * The layers that stay at the top as the page scrolls, each set under
+   * the ones above it: the app bar, under the notch; on the done page,
+   * the player, then its tabs, then the open tab's own bar (the cuts'
+   * kinds). Each layer's `top` is the sum of the heights above it.
+   */
+  :root {
+    --bar-h: 2.75rem;
+    --stack-bar: calc(env(safe-area-inset-top) + var(--bar-h));
+    --player-h: min(56.25vw, 45dvh);
+    --tabs-h: 2.75rem;
+    --stack-tabs: calc(var(--stack-bar) + var(--player-h));
+    --stack-panel: calc(var(--stack-tabs) + var(--tabs-h));
+    --filters-h: 3rem;
+  }
+
+  @media (width >= 40rem) {
+    :root {
+      --bar-h: 3rem;
+    }
+  }
+
+  /*
+   * A phone on its side has about 375 px of height: the player scrolls
+   * away with the page, as tall as the screen under the app bar, so the
+   * layers kept at the top are only the bar, the tabs and the cuts' kinds.
+   */
+  @media (orientation: landscape) and (height < 32rem) and (width < 64rem) {
+    :root {
+      --player-h: calc(100dvh - var(--stack-bar));
+      --stack-tabs: var(--stack-bar);
+    }
+  }
+
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+  }
+
+  /* Taps on controls never wait for a double-tap zoom. */
+  a,
+  button,
+  input,
+  label,
+  [role='tab'] {
+    touch-action: manipulation;
+  }
+}
+
+/* A phone on its side, short enough that what stays at the top must be little. */
+@custom-variant short-landscape (@media (orientation: landscape) and (height < 32rem) and (width < 64rem));
+
+/* The page's side padding, wider than the notch in landscape. */
+@utility gutter {
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+  @variant sm {
+    padding-left: max(1.5rem, env(safe-area-inset-left));
+    padding-right: max(1.5rem, env(safe-area-inset-right));
+  }
+}
+
+/* A row that scrolls sideways with no bar showing: the cuts' kinds. */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

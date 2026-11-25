@@ -13,6 +13,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   HarnessAccount,
   isRecord,
+  OneShotPrompt,
   type Agent,
   type AgentQuestion,
   type QuestionAnswer,
@@ -23,7 +24,7 @@ import {
 } from '../../contract/index.js';
 import type { Part, Projected } from '../../../contract/projection/index.js';
 import type { Raw } from '../../../contract/raw/index.js';
-import { claude } from '../index.js';
+import { claude, claudeOneShot, claudeOneShotWith } from '../index.js';
 import { restore } from '../agent/index.js';
 
 /** Every message the Agent SDK's query yields, as the harness reads it. */
@@ -609,6 +610,35 @@ describe.skipIf(!enabled)(
       expect(transcript(again.nativeId)).toContain('ALPHA');
       expect(transcript(again.nativeId)).not.toContain('BRAVO');
     }, 240_000);
+
+    it('answers a One-shot Prompt, in a temp folder removed after', async () => {
+      const before = readdirSync(tmpdir()).filter((name) =>
+        name.startsWith('ai-toolkit-claude-one-shot-'),
+      );
+      const reply = await run(
+        OneShotPrompt.use((oneShot) =>
+          oneShot.prompt('Reply with exactly: ok-one-shot'),
+        ).pipe(Effect.provide(claudeOneShot)),
+      );
+      expect(reply).toContain('ok-one-shot');
+      expect(
+        readdirSync(tmpdir()).filter((name) =>
+          name.startsWith('ai-toolkit-claude-one-shot-'),
+        ),
+      ).toEqual(before);
+    }, 60_000);
+
+    it('fails a One-shot Prompt that takes longer than its limit, saying so', async () => {
+      const failure = await run(
+        OneShotPrompt.use((oneShot) =>
+          oneShot.prompt('Reply with exactly: ok-one-shot'),
+        ).pipe(
+          Effect.provide(claudeOneShotWith({ timeout: '10 millis' })),
+          Effect.flip,
+        ),
+      );
+      expect(failure.message).toBe('Claude Code took too long to answer');
+    }, 30_000);
 
     it('asks in text and in data, leaving the session’s transcript as it was', async () => {
       const nativeId = await run(

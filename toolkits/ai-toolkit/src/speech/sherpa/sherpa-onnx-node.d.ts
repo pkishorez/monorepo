@@ -33,6 +33,12 @@ declare module 'sherpa-onnx-node' {
 
   interface OfflineRecognizerResult {
     readonly text: string;
+    /** Each token's text; one that starts with a space begins a word. */
+    readonly tokens: ReadonlyArray<string>;
+    /** When each token begins, in seconds from the start of the stream. */
+    readonly timestamps: ReadonlyArray<number>;
+    /** How long each token lasts, in seconds; empty for models without. */
+    readonly durations: ReadonlyArray<number>;
   }
 
   interface OfflineRecognizer {

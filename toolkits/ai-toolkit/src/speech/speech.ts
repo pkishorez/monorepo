@@ -10,7 +10,15 @@ import { makeTakes, type TakeHeard } from './takes/index.js';
 export type { TakeHeard } from './takes/index.js';
 
 // What a program gives Speech: a SpeechToText, sherpa-onnx's unless a fake.
-export { SpeechToText, type Recognizer } from './contract/index.js';
+// A program may load a Recognizer from it itself, to hear words' times.
+export {
+  SAMPLE_RATE,
+  SpeechToText,
+  SpeechToTextError,
+  type Heard,
+  type HeardWord,
+  type Recognizer,
+} from './contract/index.js';
 export { sherpa } from './sherpa/index.js';
 
 /*

@@ -43,7 +43,7 @@ export {
   ModelsError,
   type ModelsOptions,
 } from './catalog/index.js';
-export { claude } from './claude/index.js';
+export { claude, claudeOneShot, claudeOneShotWith } from './claude/index.js';
 export { codex, codexOneShot } from './codex/index.js';
 
 /** `list` as the program's Coding Harnesses, each found by its name. */

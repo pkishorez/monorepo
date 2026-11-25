@@ -1,1 +1,1 @@
-export { claude } from './claude.js';
+export { claude, claudeOneShot, claudeOneShotWith } from './claude.js';

@@ -13,7 +13,11 @@ import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Context, Effect, Layer } from 'effect';
 import { afterEach, describe, expect, it } from 'vitest';
-import { SpeechToText, type Fetched } from '../../contract/index.js';
+import {
+  SAMPLE_RATE,
+  SpeechToText,
+  type Fetched,
+} from '../../contract/index.js';
 import { sherpa } from '../index.js';
 import { runtimePackages, SHERPA_VERSION } from '../runtime.js';
 
@@ -21,7 +25,7 @@ import { runtimePackages, SHERPA_VERSION } from '../runtime.js';
  * The Parakeet model's install against small files and a small tarball of
  * the same shape, served from this process, the tarball with Range support;
  * sherpa-onnx's runtime from a small registry served the same way; and one real transcription,
- * run only when the model is already on disk: in AI_TOOLKIT_SPEECH_MODEL,
+ * with its words' times, run only when the model is already on disk: in AI_TOOLKIT_SPEECH_MODEL,
  * or where `ke-connect serve` keeps it.
  */
 
@@ -382,7 +386,7 @@ describe('Parakeet with sherpa-onnx', () => {
       !existsSync(wave) ||
       !existsSync(join(runtime, 'package.json')),
   )(
-    'transcribes a recording with the model on disk',
+    'transcribes a recording with the model on disk, and hears each word’s times',
     () =>
       Effect.runPromise(
         Effect.scoped(
@@ -397,6 +401,23 @@ describe('Parakeet with sherpa-onnx', () => {
               samples[at] = pcm.readInt16LE(at * 2) / 32768;
             const text = yield* recognizer.transcribe(samples);
             expect(text.toLowerCase()).toContain('the old portrait');
+            const heard = yield* recognizer.hear(samples);
+            expect(heard.text).toBe(text);
+            expect(heard.words.map((word) => word.text).join(' ')).toBe(text);
+            expect(heard.words.slice(0, 3)).toEqual([
+              { text: 'Well,', start: 0.4, end: 0.64 },
+              { text: 'I', start: 0.72, end: 0.8 },
+              { text: "don't", start: 0.8, end: 1.04 },
+            ]);
+            const seconds = samples.length / SAMPLE_RATE;
+            heard.words.forEach((word, at) => {
+              expect(word.start).toBeLessThanOrEqual(word.end);
+              expect(word.end).toBeLessThanOrEqual(seconds);
+              if (at > 0)
+                expect(word.start).toBeGreaterThanOrEqual(
+                  heard.words[at - 1]!.start,
+                );
+            });
           }),
         ),
       ),
