@@ -88,6 +88,10 @@
     {
       "hash": "551d9f7fd34f224adfc7cfe70d7a60cdf4dd6e9d8d6c86c1511c26559711ba14",
       "summary": "The code Plugin in fake mode, on Kabuki's described Actors and tried Messages"
+    },
+    {
+      "hash": "7d9690bcee225f887d9b469c75566865b5a1a6f0c61a5e5e69fda278da4c896e",
+      "summary": "The code Plugin for fake mode: Code runs whole in a browser tab on Kabuki's FakeWorld"
     }
   ]
 }
