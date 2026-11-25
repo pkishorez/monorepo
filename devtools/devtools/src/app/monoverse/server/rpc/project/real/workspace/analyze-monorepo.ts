@@ -12,10 +12,6 @@ import {
   type AnalyzeMonorepoError,
 } from './engine.js';
 
-/**
- * Reads a Project at a branch as a Monorepo or a Single Package, and maps
- * the engine's errors to the contract's.
- */
 export function analyzeMonorepo(
   snapshot: Snapshot,
   files: ReadonlyArray<string>,

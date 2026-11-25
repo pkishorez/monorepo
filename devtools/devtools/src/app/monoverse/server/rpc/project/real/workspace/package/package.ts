@@ -15,11 +15,6 @@ const fields: Readonly<Record<DependencyKind, string>> = {
   optional: 'optionalDependencies',
 };
 
-/**
- * Reads one `package.json` and keeps what Monoverse needs from it. A manifest
- * that is missing yields nothing, and so does one with no name unless
- * `fallbackName` names it.
- */
 export function readPackageManifest(
   snapshot: Snapshot,
   packagePath: string,

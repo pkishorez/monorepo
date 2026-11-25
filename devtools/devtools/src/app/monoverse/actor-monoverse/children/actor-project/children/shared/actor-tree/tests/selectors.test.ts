@@ -3,13 +3,6 @@ import { describe, expect, test } from 'vitest';
 import type { Check } from '../../../../../../../server/rpc/project/contract/index.js';
 import { findingsOf, findingsWithin } from '../logic/shared/index.js';
 
-/*
- * What the tree marks as wrong: in a Package, each Violation once, at the
- * file it is reported on and every folder above; in the repo, each Package's
- * Violations from its Check, and the Packages in a cycle apart, never
- * counted as Violations.
- */
-
 const violation = (from: string, to: string) => ({
   from,
   to,
@@ -30,7 +23,6 @@ describe('in a Package', () => {
     expect(violations.get('pkg/src/a')).toBe(2);
     expect(violations.get('pkg/src')).toBe(3);
     expect(violations.get('pkg')).toBe(3);
-    // A file imported by a broken link holds none of its own.
     expect(violations.get('pkg/src/b/y.ts')).toBeUndefined();
     expect(cycles.size).toBe(0);
     expect(checks.size).toBe(0);

@@ -5,7 +5,6 @@ import { Projects } from '../../../../../../services/projects/contract/index.js'
 import { isReading, readAt, type PackageShape } from './shared/index.js';
 
 export const workers: WorkersOf<typeof PackageShape> = {
-  // 1. Read
   read: {
     each: ({ model, props, state }) =>
       isReading(state, props.branch, model.tries)

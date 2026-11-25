@@ -3,13 +3,6 @@ import { SearchIcon, XIcon } from 'lucide-react';
 import { useEffect, useRef, type KeyboardEvent } from 'react';
 import { keepFocus } from './trail.js';
 
-/*
- * The search field, which keeps the keys while the Picker is open: a
- * combobox over the list, taking focus as it opens, but never on a device
- * with only a finger, where it waits to be tapped. A spinner says the
- * server is asked; with something typed, a button clears it.
- */
-
 const fingerOnly = () =>
   typeof matchMedia !== 'undefined' &&
   matchMedia('(pointer: coarse)').matches &&
@@ -30,7 +23,6 @@ export function Search({
   readonly loading: boolean;
   readonly readOnly: boolean;
   readonly listId: string;
-  /** The option highlighted, for a screen reader to follow. */
   readonly activeId: string | undefined;
   readonly onType: (query: string) => void;
   readonly onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;

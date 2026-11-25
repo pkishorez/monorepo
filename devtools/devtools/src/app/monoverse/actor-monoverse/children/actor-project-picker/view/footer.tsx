@@ -3,11 +3,6 @@ import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import type { ReactNode } from 'react';
 import { isMac } from './keys.js';
 
-/*
- * The foot of the Picker: the keys that do something now, for a device
- * with a keyboard, or what is being added while the server adds it.
- */
-
 export function Footer({
   inFolder,
   query,
@@ -17,10 +12,8 @@ export function Footer({
 }: {
   readonly inFolder: boolean;
   readonly query: string;
-  /** A Project is highlighted, which can be removed. */
   readonly project: boolean;
   readonly canBack: boolean;
-  /** The folder being added, `~`-shortened. */
   readonly adding: string | null;
 }) {
   const mod = isMac() ? '⌘' : 'Ctrl';

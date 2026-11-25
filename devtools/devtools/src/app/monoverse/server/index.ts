@@ -9,13 +9,6 @@ import { gitLayer } from './services/git/real/index.js';
 import { sqliteProjectStoreLayer } from './services/project-store/real/index.js';
 import { snapshotsLayer } from './services/snapshots/real/index.js';
 
-/*
- * Monoverse's server door: its RPC at /rpc/monoverse, with the Project
- * store kept in the DevTools database at `db` (its own table; other
- * Tools may share the file), and the folder picker walking from `home`
- * (the user's home folder unless given).
- */
-
 export const monoverseServer = (options: {
   readonly db: string;
   readonly home?: string | undefined;

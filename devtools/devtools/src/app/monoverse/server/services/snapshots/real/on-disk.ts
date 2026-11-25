@@ -5,13 +5,8 @@ import type { GitShape } from '../../git/contract/index.js';
 import type { Snapshot } from '../contract/index.js';
 import { listKnownFiles } from './known-files.js';
 
-/** How many files are read at once. */
 const concurrency = 32;
 
-/**
- * The Project at `root` as the folder `folder` holds it on disk, uncommitted
- * work included: `root` itself, or its copy inside another worktree.
- */
 export function diskSnapshot(
   git: GitShape,
   root: string,

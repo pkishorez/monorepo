@@ -7,7 +7,6 @@ import type { LotelShape } from './shared/index.js';
 const PREFERENCES_KEY = 'lotel:trace-layout';
 
 export const workers: WorkersOf<typeof LotelShape> = {
-  // 2. Open: the layout as it was left, then each change kept.
   restore: {
     while: ({ model }) => !model.restored,
     run: (self) =>

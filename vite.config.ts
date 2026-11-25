@@ -1,7 +1,15 @@
 import { defineConfig } from 'vite-plus';
+import { rules as monoverseRules } from './devtools/monoverse/src/oxlint/index.ts';
 
 export default defineConfig({
   lint: {
+    jsPlugins: [
+      {
+        name: 'monoverse',
+        specifier: './devtools/monoverse/src/oxlint/index.ts',
+      },
+    ],
+    options: { reportUnusedDisableDirectives: 'warn' },
     ignorePatterns: [
       '.claude/worktrees/**',
       'dist/**',
@@ -9,9 +17,14 @@ export default defineConfig({
       '**/std-toolkit/db-dynamodb/src/generated/**',
       '**/__tests__/fixtures/**',
       '**/test/fixtures/**',
+      '**/tests/fixtures/**',
       'platforms/web-platform/src/ui/components/primitives/*.tsx',
     ],
     overrides: [
+      {
+        files: ['devtools/devtools/**', 'devtools/monoverse/**'],
+        rules: monoverseRules,
+      },
       {
         // Kabuki apps keep state in Nodes and motion in the Frame. A
         // useEffect there needs a disable comment that says why.

@@ -6,15 +6,6 @@ import type { EngineAnswer, EngineJob } from './engine-worker.js';
 
 export type { EngineJob } from './engine-worker.js';
 
-/*
- * Runs @kestack/monoverse's engine on a job in a worker thread of its own,
- * so the server keeps answering (Lotel, Kabuki Sessions) while a large
- * project is checked. A few run at once, the rest wait their turn, and a
- * request given up stops its worker. From source it is
- * `engine-worker.ts`; in the packaged CLI, `monoverse-engine.mjs` beside
- * it.
- */
-
 const workerFile = new URL(
   import.meta.url.endsWith('.ts')
     ? './engine-worker.ts'
@@ -22,15 +13,12 @@ const workerFile = new URL(
   import.meta.url,
 );
 
-/** How many engines run at once. */
 const turns = Semaphore.makeUnsafe(3);
 
 const workers = new Set<Worker>();
 
-/** How many engines are running now. */
 export const runningEngines = (): number => workers.size;
 
-/** The engine's answer to `job`; interrupted, its worker is stopped. */
 export function runEngine(
   job: EngineJob,
 ): Effect.Effect<Extract<EngineAnswer, { ok: true }>, Error> {

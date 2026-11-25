@@ -10,12 +10,6 @@ import {
 } from '../view/outline/layout.js';
 import { selectionAction } from '../view/selection-bar/selection-bar.js';
 
-/*
- * Outline's rows, one under the other: a Package's takes two lines, its
- * folder's name over its own name and version, and everything below it
- * moves down by the difference.
- */
-
 const tree = buildTree('', [
   { path: 'apps/web', kind: 'package', label: '@acme/web', version: '1.2.0' },
   { path: 'apps/readme.md', kind: 'file' },
@@ -37,7 +31,6 @@ describe('placeRows', () => {
     ]);
     expect(place.middle(1)).toBe(topInset + rowHeight + packageRowHeight / 2);
     expect(place.bottom).toBe(topInset + 2 * rowHeight + packageRowHeight);
-    // The open folder's guide runs the whole height of what it holds.
     expect(guidesOf(rows, place, 0)).toMatchObject([
       {
         folder: 'apps',
@@ -54,8 +47,6 @@ describe('placeRows', () => {
     });
   });
 });
-
-/* The selection bar's one button, named by what it stands for. */
 
 describe('the selection bar', () => {
   it('opens a Package or a file', () => {

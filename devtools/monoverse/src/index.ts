@@ -1,9 +1,3 @@
-/*
- * Monoverse's rules, for any tool that reads a codebase: the
- * `monoverse lint` CLI runs them, and so does DevTools, through the same
- * functions, so both find the same.
- */
-
 export {
   type Config,
   type ConfigResult,

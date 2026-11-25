@@ -3,7 +3,6 @@ import { FolderOpenIcon, RotateCwIcon } from 'lucide-react';
 
 import { Problem } from './shared/index.js';
 
-/** The project's folder could not be opened. */
 export function CannotOpen({
   root,
   problem,
@@ -13,7 +12,6 @@ export function CannotOpen({
 }: {
   root: string;
   problem: string;
-  /** The folder is gone, or holds no project. */
   missing: boolean;
   onRetry: () => void;
   onPickAnother: () => void;

@@ -1,8 +1,3 @@
-/**
- * Every elementary cycle in a graph of names, each reported once: starting
- * at its alphabetically first member, in dependency order. The list of
- * cycles is sorted by their members.
- */
 export function findCycles(
   edges: ReadonlyMap<string, ReadonlyArray<string>>,
 ): Array<Array<string>> {
@@ -17,8 +12,6 @@ export function findCycles(
   const cycles: Array<Array<string>> = [];
 
   for (const start of edges.keys()) {
-    // A cycle starts at its smallest name and only visits nodes that can return
-    // to it. This avoids enumerating every path through acyclic dependencies.
     const canReturn = new Set([start]);
     const pending = [start];
     while (pending.length > 0) {

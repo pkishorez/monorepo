@@ -11,19 +11,12 @@ import {
 } from './package-graph/package-graph.js';
 import { detectPackageManager } from './package-manager/package-manager.js';
 
-/** A Workspace before its files are listed and its Packages checked. */
 export type WorkspaceAnalysis = Omit<Workspace, 'files' | 'packages'> & {
   readonly packages: ReadonlyArray<GraphPackage>;
 };
 
 export type AnalyzeMonorepoError = MonorepoReadError | ManifestError;
 
-/**
- * Reads a Project at a branch as a Monorepo or a Single Package: its
- * Package Manager, every Package, their dependencies on each other by name,
- * and any cycles. A Single Package has one Package, its root. `files` are
- * every file of the snapshot, which the workspace globs are matched on.
- */
 export function analyzeMonorepo(
   snapshot: Snapshot,
   files: ReadonlyArray<string>,

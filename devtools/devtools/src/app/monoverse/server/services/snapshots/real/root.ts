@@ -6,11 +6,6 @@ import { Effect } from 'effect';
 
 import { InvalidRootError } from '../../../rpc/project/contract/index.js';
 
-/**
- * The folder Monoverse opened, as an absolute path that exists and is a
- * folder; `~` is expanded. Every request names it, since several Worktrees
- * of one Project may be open at once.
- */
 export function existingRoot(root: string) {
   return Effect.gen(function* () {
     const expanded = expandHome(root);

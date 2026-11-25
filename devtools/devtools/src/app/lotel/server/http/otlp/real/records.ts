@@ -7,14 +7,6 @@ import type {
   NewSpanRecord,
 } from '../../../rpc/telemetry/contract/index.js';
 
-/*
- * An OTLP export request as the records the Telemetry Store keeps: each
- * Span and Log Record keeps the Resource and Instrumentation Scope it came
- * under as its context. A Span without a trace ID or span ID has no
- * identity, so it is rejected; a Log Record needs neither.
- */
-
-/** The Span Records of a trace export request, and how many Spans had no identity. */
 export const spanRecordsFromRequest = (request: ExportTraceServiceRequest) => {
   const records: NewSpanRecord[] = [];
   let rejected = 0;
@@ -51,7 +43,6 @@ export const spanRecordsFromRequest = (request: ExportTraceServiceRequest) => {
   return { records, rejected };
 };
 
-/** The Log Records of a logs export request; none is rejected. */
 export const logRecordsFromRequest = (request: ExportLogsServiceRequest) => {
   const records: NewLogRecord[] = [];
 

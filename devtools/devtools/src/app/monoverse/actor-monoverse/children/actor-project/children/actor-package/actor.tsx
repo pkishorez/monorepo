@@ -17,7 +17,6 @@ export const Package = PackageShape.build({
   on: updates,
   workers,
   states: {
-    // 2. Show
     Contents: {
       children: {
         tree: Actor.child(Tree, {

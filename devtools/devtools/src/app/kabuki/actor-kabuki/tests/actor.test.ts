@@ -8,21 +8,11 @@ import type { Sessions } from '../../services/sessions/contract/index.js';
 import { fakeSessions } from '../../services/sessions/fake/index.js';
 import { Kabuki } from '../index.js';
 
-/*
- * The Kabuki Tool in memory, on a DevTools that lists what the test says,
- * mounted by a host that keeps what it Emits and hands back what it names
- * as Props, as the page does with the address: the Kabuki Session its Input
- * names opens while it is live, waits while it is not, the list is dialed
- * again when its socket closes, picking one tells the host, and the host
- * naming another moves the same Tool.
- */
-
 const Name = Schema.NullOr(Schema.String);
 
 const HostShape = Actor.define('Host', {
   input: Schema.Struct({ session: Name }),
   model: Schema.Struct({
-    /** What the host names, as an address would. */
     session: Name,
     picked: Schema.Array(Name),
   }),
@@ -39,11 +29,9 @@ const Host = HostShape.build({
     }),
   },
   on: {
-    // Written down, as the page writes `?session=`.
     Picked: ({ name }, { model }) => ({
       model: { session: name, picked: [...model.picked, name] },
     }),
-    // Back, Forward or a typed address.
     Moved: ({ session }) => ({ model: { session } }),
   },
 });
@@ -89,7 +77,6 @@ describe('the Kabuki Tool', () => {
         const devtools = yield* fakeSessions;
         const app = yield* start('quiet-otter', devtools.layer);
         const socket = yield* Queue.take(devtools.sockets);
-        // Not live until DevTools says it is.
         expect(tool(app).state).toEqual({
           _tag: 'Absence',
           name: 'quiet-otter',
@@ -204,7 +191,6 @@ describe('the Kabuki Tool', () => {
         });
         expect(inspected(app)).toBe(true);
 
-        // Picking the one already picked changes nothing and says nothing.
         kabuki.send({ _tag: 'Chosen', name: 'quiet-otter' });
         kabuki.send({ _tag: 'Chosen', name: 'gone-heron' });
         yield* settle;
@@ -244,7 +230,6 @@ describe('the Kabuki Tool', () => {
         yield* settle;
         expect(tool(app).address).toBe(before);
         expect(tool(app).state).toEqual({ _tag: 'Choice' });
-        // The list was not dialed again, and the host was told nothing.
         expect(yield* Queue.size(devtools.sockets)).toBe(0);
         expect(tool(app).model).toMatchObject({ link: 'live' });
         expect(app.snapshot.root.model).toMatchObject({ picked: [] });
@@ -276,7 +261,6 @@ describe('the Kabuki Tool', () => {
           _tag: 'Inspection',
           name: 'brave-fox',
         });
-        // Reached once, and said once.
         expect(devtools.dialed).toEqual(['quiet-otter', 'brave-fox']);
       }),
     ));

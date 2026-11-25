@@ -9,29 +9,17 @@ import {
   type PackageChoice,
 } from './package-menu.js';
 
-/*
- * Where you are, top left, on one line: the project, a menu that opens
- * the picker, and in a Monorepo the Package shown, or All packages, a
- * menu to go straight to another or back to the Monorepo's tree. A Single
- * Package is its project alone.
- */
-
 export function Breadcrumb({
   project,
   path,
   packages,
   onSwitch,
 }: {
-  /** The project's name. */
   project: string;
-  /** Its folder, absolute. */
   path: string;
-  /** A Monorepo's Packages, the one shown, and where a choice goes; null for a Single Package. */
   packages: {
     readonly all: ReadonlyArray<PackageChoice>;
-    /** By its folder; null: the Monorepo's tree. */
     readonly current: string | null;
-    /** While Changes is on, what changed in each; null while it is off. */
     readonly changes: PackageChanges | null;
     readonly onChoose: (path: string | null) => void;
   } | null;

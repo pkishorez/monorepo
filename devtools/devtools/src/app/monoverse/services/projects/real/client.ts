@@ -8,20 +8,13 @@ import {
   MonoverseRpc,
 } from '../../../server/rpc/contract/index.js';
 
-/*
- * The typed client of the Monoverse server's /rpc/monoverse, which the
- * Projects service speaks through; nothing outside it sees the client.
- */
-
 export type Client = RpcClient.FromGroup<
   typeof MonoverseRpc,
   RpcClientError.RpcClientError
 >;
 
-/** The client, on the protocol `protocolAt` gives. */
 export const makeClient = RpcClient.make(MonoverseRpc);
 
-/** How the client reaches the DevTools Server at `origin`. */
 export const protocolAt = (origin: string) =>
   RpcClient.layerProtocolHttp({
     url: origin,

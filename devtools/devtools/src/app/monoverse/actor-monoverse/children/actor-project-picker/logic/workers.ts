@@ -11,11 +11,9 @@ import {
   type ProjectPickerShape,
 } from './shared/index.js';
 
-// A moment after the typing stops: each key typed stops the asking before.
 const DEBOUNCE = '150 millis';
 
 export const workers: WorkersOf<typeof ProjectPickerShape> = {
-  // 1. Recent, read again after a refusal only when asked.
   recent: {
     each: ({ model }) =>
       model.recent === null && model.recentProblem === null ? ['read'] : [],
@@ -31,8 +29,6 @@ export const workers: WorkersOf<typeof ProjectPickerShape> = {
         Effect.flatMap((message) => self.send(message)),
       ),
   },
-  // 2. Folder: home read ahead, which also says where home is. A failure
-  // is said by the folder Step, which asks again.
   home: {
     each: ({ model }) => (model.home === null ? ['home'] : []),
     run: (self) =>
@@ -43,7 +39,6 @@ export const workers: WorkersOf<typeof ProjectPickerShape> = {
         Effect.ignore,
       ),
   },
-  // 2. Folder: the top Step, for a search its listing does not cover.
   load: {
     each: ({ model }) => {
       const top = topOf(model);
@@ -62,8 +57,6 @@ export const workers: WorkersOf<typeof ProjectPickerShape> = {
         const projects = yield* Projects;
         const { model } = yield* self.get;
         const message = yield* Effect.gen(function* () {
-          // Below home, the folder is written out from home, found first
-          // if no listing has said where it is yet.
           const home =
             segments.length === 0
               ? null

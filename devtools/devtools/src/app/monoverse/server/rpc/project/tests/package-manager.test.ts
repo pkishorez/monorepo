@@ -8,7 +8,6 @@ import { describe, expect, test } from 'vitest';
 import { openSnapshot } from '../../../tests/services.js';
 import { detectPackageManager } from '../real/workspace/package-manager/package-manager.js';
 
-// Writes `files` into a fresh folder and detects its Package Manager.
 async function detect(files: Record<string, string>) {
   const root = await mkdtemp(join(tmpdir(), 'monoverse-package-manager-'));
   try {

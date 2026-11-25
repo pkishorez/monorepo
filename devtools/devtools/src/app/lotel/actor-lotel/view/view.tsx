@@ -5,20 +5,11 @@ import { cn } from '@kestack/web-platform/ui/components/utils';
 import type { LotelShape } from '../logic/shared/index.js';
 import { ClearTelemetry } from './clear-telemetry.js';
 
-/*
- * The Lotel Tool drawn: how many Traces the Feed lists and clearing all
- * telemetry along the top; the Feed down the left, as wide as it is
- * dragged; and the Trace open beside it. On a narrow screen only one of
- * the two shows: the Trace while one is open, the Feed otherwise.
- */
-
 const LIST_WIDTH = { initial: 360, min: 280, max: 560 };
 
 type BodyProps = ViewPropsOf<typeof LotelShape> & {
-  /** How many Traces the Feed lists, once it is drawn. */
   readonly count: number | undefined;
   readonly feed: ReactNode;
-  /** The Trace open, while one is. */
   readonly trace: ReactNode;
 };
 
@@ -26,7 +17,6 @@ export function Body({ root, model, send, count, feed, trace }: BodyProps) {
   const [listWidth, setListWidth] = useState(LIST_WIDTH.initial);
   const detailOpen = trace !== null;
 
-  // Dragging the divider only lays the page out: nothing to remember.
   const onListDividerMouseDown = useCallback(
     (event: React.MouseEvent) => {
       event.preventDefault();

@@ -4,6 +4,7 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -11,15 +12,6 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { checkProject, openProject } from '../index.ts';
-
-/*
- * The engine over four fixture packages on disk: `app`, with the Kabuki
- * preset; `alias`, reached through tsconfig `paths`, package.json
- * `imports` and its own name, with exceptions and restrictions; `bare`,
- * with no monoverse.json; and `invalid`, whose monoverse.json is broken.
- * Every line that should fail says so with `// ✗ <kind>`: the test reads
- * those marks, so the fixtures are their own list of expectations.
- */
 
 const root = fileURLToPath(new URL('../../test/fixtures', import.meta.url));
 
@@ -211,6 +203,31 @@ describe('openProject', () => {
     }
   });
 
+  it('finds targets when the root is reached through a symbolic link, as the resolver answers with real paths', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'monoverse-link-'));
+    mkdirSync(join(dir, 'real/src/inner'), { recursive: true });
+    writeFileSync(
+      join(dir, 'real/src/start.ts'),
+      "import { inner } from './inner/index.ts';",
+    );
+    writeFileSync(
+      join(dir, 'real/src/inner/index.ts'),
+      'export const inner = 1;',
+    );
+    symlinkSync(join(dir, 'real'), join(dir, 'link'));
+    try {
+      const opened = openProject({
+        root: join(dir, 'link'),
+        files: ['src/start.ts', 'src/inner/index.ts'],
+      });
+      expect(opened.importsOf('src/start.ts')[0]?.target).toBe(
+        'src/inner/index.ts',
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('reads a file from `read` when given, rather than the disk', () => {
     const read = openProject({
       ...project,
@@ -231,7 +248,6 @@ describe('openProject', () => {
 });
 
 describe('what a file’s text is read as', () => {
-  /** A project of one package, `p`, whose files are `texts`, never the disk. */
   const virtual = (texts: Readonly<Record<string, string>>) => {
     const all = { 'p/package.json': '{}', ...texts };
     return {

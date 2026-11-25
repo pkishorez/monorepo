@@ -10,14 +10,6 @@ import {
 } from '../contract/index.js';
 import { requireGit, runGit } from './run-git.js';
 
-/*
- * Where a Project folder sits in its git repository, and where each of the
- * repository's local branches can be read: from the worktree that has it
- * checked out, files on disk and uncommitted work included, or else from
- * git at its last commit.
- */
-
-/** The repository of the folder `root`; a GitError `not-a-repo` outside one. */
 export async function locateRepository(root: string): Promise<Repository> {
   const [toplevel = '', prefix = ''] = (
     await requireGit(
@@ -39,7 +31,6 @@ export async function locateRepository(root: string): Promise<Repository> {
   };
 }
 
-/** Reads `git worktree list --porcelain`; a bare entry has no files to show. */
 export function parseWorktreeList(output: string): Checkout[] {
   const checkouts: Checkout[] = [];
   for (const block of output.split(/\n\s*\n/)) {
@@ -62,11 +53,6 @@ export function parseWorktreeList(output: string): Checkout[] {
   return checkouts;
 }
 
-/**
- * The Project folder inside the worktree that has `branch` checked out:
- * `root` itself for the folder's own worktree; null when no worktree has
- * it, or the one that has it lacks the folder.
- */
 export async function worktreeFolder(
   repository: Repository,
   root: string,
@@ -81,12 +67,6 @@ export async function worktreeFolder(
   return (await isDirectory(folder)) ? folder : null;
 }
 
-/**
- * Where `branch` of the Project at `root` is read: null is `root` as it is
- * on disk; a branch some worktree has checked out is that worktree's copy
- * of the folder; any other commit-ish is read from git. Unknown ones fail
- * as `unknown-ref`, a folder outside git as `not-a-repo`.
- */
 export async function placeBranch(
   root: string,
   branch: string | null,
@@ -110,13 +90,8 @@ export async function placeBranch(
   return { kind: 'commit', repository, commit: commit.trim() };
 }
 
-/** Bases Compare-to starts at, in order of preference. */
 const preferredBases = ['main', 'master', 'develop'];
 
-/**
- * The local branches of the Project's repository, the current one first
- * then by name, each with the worktree folder it is read from, if any.
- */
 export async function listBranches(root: string): Promise<Branches> {
   const repository = await locateRepository(root);
   const names = (

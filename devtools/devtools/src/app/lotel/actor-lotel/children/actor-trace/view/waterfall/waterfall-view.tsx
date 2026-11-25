@@ -126,8 +126,6 @@ export function Gantt({
           next.add(spanId);
           return next;
         }
-        // Reveal immediate children with their own branches collapsed. Roots
-        // are never collapsed themselves, so their toggle flips the branches.
         const branches = node.children.filter(
           (child) => child.children.length > 0,
         );
@@ -196,15 +194,12 @@ export function Gantt({
     ]);
   }, [focusPath, selectedSpanId, trace.roots]);
 
-  // Pixel width of the bar column (minus its inset margins) lets each row tell
-  // whether its bar is being held open by the pixel minimum.
   const [barColRef, barColWidth] = useElementWidth<HTMLDivElement>();
   const barAreaPx = Math.max(0, barColWidth - BAR_COL_INSET * 2);
   const minWidthPct = barAreaPx > 0 ? BAR_MIN_WIDTH_PX / barAreaPx : 0;
 
   return (
     <div className="flex flex-col">
-      {/* Sticky header — name col placeholder + time axis */}
       <div className="sticky top-0 z-10 flex shrink-0 items-stretch border-b border-border bg-popover">
         <div
           className="relative flex shrink-0 items-center border-r border-border/30 px-3 py-2"

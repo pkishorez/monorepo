@@ -6,7 +6,6 @@ import {
 } from '../logic/shared/index.js';
 import { FilterControls, FilterPills, GroupByControl } from './filter-bar.js';
 
-/** The search, the Filters and the grouping, above the Trace list. */
 export function ListFilters({
   search,
   onSearchChange,

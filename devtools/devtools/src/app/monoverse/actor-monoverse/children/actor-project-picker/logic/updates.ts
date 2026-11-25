@@ -20,10 +20,6 @@ import {
   type ProjectPickerShape,
 } from './shared/index.js';
 
-// 3. Moves: typing, going into a folder, back, and the highlight, which
-// follows the best row until the keys or the mouse move it.
-
-/** The Model with the top Step changed. */
 const withTop = (
   model: Model,
   patch: Partial<Pick<FolderStep, 'query' | 'highlighted' | 'listing'>>,
@@ -43,11 +39,6 @@ const withTop = (
   };
 };
 
-/**
- * The highlight on the best row, or, with `keep`, where it is while that
- * row is still shown and was moved there, never left on a row that was
- * only the best before.
- */
 const highlighted = (
   model: Model,
   keep: false | { readonly before: string | undefined },
@@ -58,7 +49,6 @@ const highlighted = (
   return withTop(model, { highlighted: kept ? now : (values[0] ?? '') });
 };
 
-/** The highlight `by` rows on, round from the last to the first. */
 const moved = (model: Model, by: number): Model => {
   const values = valuesOf(model);
   if (values.length === 0) return model;
@@ -71,10 +61,6 @@ const moved = (model: Model, by: number): Model => {
 const highlightedTo = (model: Model, value: string) =>
   withTop(model, { highlighted: value });
 
-/**
- * The folder Steps from home down to `segments`, the top one searching
- * `query`: a Step already open on the way is kept as it was.
- */
 const stackTo = (
   model: Model,
   segments: ReadonlyArray<string>,
@@ -97,7 +83,6 @@ const stackTo = (
   return { ...model, folders };
 };
 
-/** `query` typed in the top Step: searched, or gone to the folder its path names. */
 const typed = (model: Model, query: string): Model => {
   const top = topOf(model);
   const gone = top === null ? null : walk(top.segments, query, model.home);
@@ -108,11 +93,9 @@ const typed = (model: Model, query: string): Model => {
   return highlighted({ ...next, problem: null }, false);
 };
 
-/** From Recent to home, searching what was typed there, a path included. */
 const openFolders = (model: Model): Model =>
   typed(stackTo(model, [], ''), model.query.trim());
 
-/** Into the sub-folder `name` of the top Step. */
 const into = (model: Model, name: string): Model => {
   const top = topOf(model);
   if (top === null) return model;
@@ -134,13 +117,11 @@ const into = (model: Model, name: string): Model => {
   );
 };
 
-/** Down to `depth` folder Steps, 0 being Recent. */
 const backTo = (model: Model, depth: number): Model =>
   depth >= model.folders.length || depth < 0
     ? model
     : { ...model, folders: model.folders.slice(0, depth), problem: null };
 
-/** The listing the server gave for the top Step, if it is still the top. */
 const loaded = (
   model: Model,
   segments: ReadonlyArray<string>,
@@ -152,7 +133,6 @@ const loaded = (
   return highlighted(withTop(model, { listing }), { before });
 };
 
-/** What a pick or a choice does on Recent: open a Project, or go to the folders. */
 const onRecent = (model: Model, value: string) => {
   if (value === OPEN_FOLDER) return { model: openFolders(model) };
   const project = projectAt(model, value);
@@ -182,7 +162,6 @@ export const updates: UpdatesOf<typeof ProjectPickerShape> = {
   Highlighted: ({ value }, { model }) => ({
     model: highlightedTo(model, value),
   }),
-  // 1. Recent, 2. Folder
   Picked: ({ value }, { model }) => {
     if (model.adding !== null) return {};
     if (topOf(model) === null) return onRecent(model, value);
@@ -191,7 +170,6 @@ export const updates: UpdatesOf<typeof ProjectPickerShape> = {
       ? { model: into(model, row.folder.name) }
       : {};
   },
-  // 3. Choose
   Chose: ({ on }, { model }) => {
     if (model.adding !== null) return {};
     if (topOf(model) === null) return on === null ? {} : onRecent(model, on);
@@ -225,9 +203,7 @@ export const updates: UpdatesOf<typeof ProjectPickerShape> = {
     model: backTo(model, model.folders.length - 1),
   }),
   WentBackTo: ({ depth }, { model }) => ({ model: backTo(model, depth) }),
-  // 4. Close
   Dismissed: () => ({ emit: { _tag: 'Dismissed' } }),
-  // 1. Recent: gone at once, the highlight on the row that took its place.
   RemoveAsked: ({ id }, { model }) => {
     if (model.removing.includes(id) || topOf(model) !== null) return {};
     const before = shownOf(model, null).rows.map(({ value }) => value);
@@ -273,7 +249,6 @@ export const updates: UpdatesOf<typeof ProjectPickerShape> = {
   Retried: (_, { model }) => ({
     model: { ...model, recentProblem: null },
   }),
-  // 2. Folder: home read ahead, handed to its Step if it waits for it.
   HomeFound: ({ listing }, { model }) => {
     const home = listingOf(listing, '', false);
     const read: Model = { ...model, home: listing.home, homeListing: home };

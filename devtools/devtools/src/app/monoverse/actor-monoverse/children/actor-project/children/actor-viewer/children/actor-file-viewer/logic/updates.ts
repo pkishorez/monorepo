@@ -8,7 +8,6 @@ export const init: InitOf<typeof FileViewerShape> = (input) => ({
 });
 
 export const updates: UpdatesOf<typeof FileViewerShape> = {
-  // The load's answer, heard only while Loading.
   Read: ({ content, binary }, { state }) =>
     state._tag === 'Loading'
       ? { state: { _tag: 'Text', content, binary } }

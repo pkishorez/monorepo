@@ -6,7 +6,6 @@ import type {
   PackageDependency,
 } from '../../../contract/index.js';
 
-/** What the package service reads from one manifest; no graph knowledge yet. */
 export type PackageManifest = {
   readonly name: string;
   readonly path: string;
@@ -15,7 +14,6 @@ export type PackageManifest = {
   readonly declared: Readonly<Record<DependencyKind, readonly string[]>>;
 };
 
-/** A Package as its manifests say, before its monoverse.json is read. */
 export type GraphPackage = Omit<Package, 'check'>;
 
 export type PackageGraph = {
@@ -30,10 +28,6 @@ const kindOrder: readonly DependencyKind[] = [
   'optional',
 ];
 
-/**
- * Builds the Package graph: a declared dependency is internal when its name
- * matches another Package's name, whatever version syntax declares it.
- */
 export function buildPackageGraph(
   manifests: readonly PackageManifest[],
 ): PackageGraph {
@@ -68,7 +62,6 @@ function internalDependencies(
     .map(([name, kinds]) => ({ name, kinds }));
 }
 
-/** Every elementary cycle over the union of kinds, each reported once. */
 export function findCycles(packages: readonly GraphPackage[]): PackageCycle[] {
   const edges = new Map<string, readonly string[]>(
     packages.map((pkg) => [

@@ -3,68 +3,29 @@ import type { ContractsRule } from '../contracts/index.ts';
 import type { ImportsRule } from '../imports/index.ts';
 import { isInside } from '../tree/index.ts';
 
-/*
- * A package's `monoverse.json`, beside its `package.json`. A package
- * with one is checked; a package without one is not.
- *
- *   sourceRoots   the folders the rules check, relative to the package
- *   ignore        globs, relative to the package, of files the rules skip
- *   preset        ready-made rules, `"default"` or `"kabuki"`, or
- *   rules         the package's own: `imports`, `contracts`; one left out is off
- *   exceptions    imports the imports rule lets through, each with a reason
- *   restrictions  imports refused on top of the rules, each with a reason
- *
- * Exactly one of `preset` and `rules`. Any other key is an error. Every
- * glob is relative to the package, and a folder, written plainly or with
- * a trailing `/`, covers everything inside it.
- */
-
-/** The file a package's settings live in. */
 export const configFile = 'monoverse.json';
 
-/** The rules a package turns on. A rule left out is off. */
 export interface Rules {
   readonly imports?: ImportsRule;
   readonly contracts?: ContractsRule;
 }
 
-/**
- * An import from files matching `from` to targets matching `to`, with
- * why. As an exception, the imports rule lets it through; as a
- * restriction, it is refused.
- */
 export interface Pass {
   readonly from: string;
   readonly to: string;
   readonly reason: string;
 }
 
-/** A package's settings, its preset already expanded into rules. */
 export interface Config {
-  /** Folders relative to the package, `''` for the whole package. */
   readonly sourceRoots: readonly string[];
-  /** Globs relative to the package. */
   readonly ignore: readonly string[];
   readonly rules: Rules;
   readonly exceptions: readonly Pass[];
   readonly restrictions: readonly Pass[];
 }
 
-/** The name of a ready-made set of rules. */
 export type PresetName = 'default' | 'kabuki';
 
-/**
- * Ready-made rules, one per folder convention.
- *
- * - `default`: code is shared only through `shared/` folders.
- * - `kabuki`: a Kabuki app. Each Actor shares pure code through
- *   `logic/shared/`, components through `view/shared/`, Actors through
- *   `children/shared/`, and Effect contexts through
- *   `capabilities/*\/contract/` and `services/*\/contract/`. A feature's
- *   browser half reaches its server half only through its RPC
- *   contracts, `server/rpc/contract/` and `server/rpc/*\/contract/`; an
- *   `http/*\/contract/` is open to its server alone.
- */
 export const presets: Readonly<Record<PresetName, Rules>> = {
   default: { imports: { doors: ['shared'] } },
   kabuki: {
@@ -87,16 +48,13 @@ export const presets: Readonly<Record<PresetName, Rules>> = {
   },
 };
 
-/** A `monoverse.json` read: its settings, or what is wrong with it. */
 export type ConfigResult =
   | { readonly ok: true; readonly config: Config }
   | { readonly ok: false; readonly error: string };
 
-/** Reads the text of a `monoverse.json`. */
 export const parseConfig = (text: string): ConfigResult => {
   let json: unknown;
   try {
-    // An editor may save the file with a byte order mark; JSON has none.
     json = JSON.parse(text.replace(/^\uFEFF/, ''));
   } catch (cause) {
     return fail(`is not JSON: ${(cause as Error).message}`);
@@ -109,22 +67,11 @@ export const parseConfig = (text: string): ConfigResult => {
   }
 };
 
-/**
- * Whether `glob` matches `path`, or a folder holding it: `src/cli`
- * matches `src/cli/main.ts`, and `react` matches `react/jsx-runtime`.
- * A folder written with a trailing `/`, read as `react/**`, matches the
- * folder or package itself too: `react`.
- */
 export const matches = (path: string, glob: string): boolean =>
   posix.matchesGlob(path, glob) ||
   posix.matchesGlob(path, `${glob}/**`) ||
   (glob.endsWith('/**') && posix.matchesGlob(path, glob.slice(0, -3)));
 
-/**
- * Whether the rules check `path`, a file relative to its package: it
- * is or sits in a source root, is not a declaration or minified file, and
- * no `ignore` glob matches it.
- */
 export const isChecked = (config: Config, path: string): boolean =>
   config.sourceRoots.some((root) => path === root || isInside(path, root)) &&
   !/\.d\.[cm]?ts$/.test(path) &&
@@ -169,11 +116,9 @@ const readConfig = (json: unknown): Config => {
   };
 };
 
-/** A glob as written, `./src/tests/`, as it is matched: `src/tests/**`. */
 const glob = (entry: string): string =>
   entry.replace(/^(\.\/)+/, '').replace(/\/+$/, '/**');
 
-/** The `exceptions` or `restrictions` list: each a `from`, a `to` and a `reason`. */
 const passes = (value: unknown, what: string): readonly Pass[] => {
   if (value === undefined) return [];
   if (!Array.isArray(value)) return invalid(`"${what}" must be a list.`);
@@ -239,10 +184,6 @@ const rules = (value: unknown): Rules => {
   return result;
 };
 
-/**
- * A source root as written, `src/` or `.`, made a clean relative folder.
- * An absolute path or a `..` anywhere is refused, as the schema refuses it.
- */
 const folder = (entry: string): string => {
   if (entry.startsWith('/') || entry.split('/').includes('..'))
     invalid(`"sourceRoots" has "${entry}", which is not inside the package.`);
@@ -250,7 +191,6 @@ const folder = (entry: string): string => {
   return clean === '.' ? '' : clean;
 };
 
-/** A door or contract folder as written, `./shared/`, as the rules match it: `shared`. */
 const pattern = (entry: string): string => {
   const clean = entry.replace(/^(\.\/)+/, '').replace(/\/+$/, '');
   if (clean === '' || clean.startsWith('/') || clean.split('/').includes('..'))

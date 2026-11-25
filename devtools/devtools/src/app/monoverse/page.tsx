@@ -9,25 +9,6 @@ import {
   type Place,
 } from './actor-monoverse/index.js';
 
-/*
- * `/monoverse`: the Monoverse Tool, with its Place in the address, so a
- * link opens it where it was:
- * `?project=<saved id>&package=<folder>&branch=<name>&base=<name>&changes=1`,
- * each left out while it is none (or off). The address is all the page
- * knows: it keeps no Model.
- *
- * 1. Start  the Tool starts at the Place the address names.
- * 2. Move   the Tool says where the user moved, and the page writes it,
- *           unless the address names it already: a new history entry for
- *           another project or Package, so Back goes back there; in place
- *           for a branch, Compare to or Changes, and for a project the
- *           Tool could not find.
- * 3. Follow Back, Forward or a typed address hands the Tool the Place it
- *           now names, as Props, and the same Tool moves there. Its own
- *           move comes back that way too, naming the Place it shows:
- *           nothing moves.
- */
-
 export const MonoversePage = Page.define({
   path: '/monoverse',
   query: {
@@ -48,7 +29,6 @@ interface Query {
   readonly changes?: string;
 }
 
-/** The Place an address names. */
 const placeOf = (query: Query): Place => ({
   project: query.project ?? null,
   package: query.package ?? null,
@@ -57,7 +37,6 @@ const placeOf = (query: Query): Place => ({
   changes: query.changes === '1',
 });
 
-/** The page's Route at a Place, naming only what is not none. */
 const routeOf = (place: Place) => ({
   _tag: 'Monoverse' as const,
   ...(place.project === null ? {} : { project: place.project }),
@@ -70,29 +49,24 @@ const routeOf = (place: Place) => ({
 export const MonoversePageLive = MonoversePage.build({
   children: {
     tool: Actor.child(Monoverse, {
-      // 1. Start
       input: ({ props }) => placeOf(props.query),
-      // 3. Follow
       props: ({ props }) => placeOf(props.query),
-      // 2. Move
       emits: {
         Moved: ({ _tag, ...place }) => ({ _tag: 'Moved', place }),
       },
     }),
   },
   on: {
-    // 2. Move
     Moved: ({ place }, { props }) => {
       const named = placeOf(props.query);
       const route = routeOf(place);
       if (JSON.stringify(route) === JSON.stringify(routeOf(named))) return {};
       const elsewhere =
         place.project !== named.project || place.package !== named.package;
+      const found = place.project !== null;
       return {
         command:
-          elsewhere && place.project !== null
-            ? Router.push(route)
-            : Router.replace(route),
+          elsewhere && found ? Router.push(route) : Router.replace(route),
       };
     },
   },

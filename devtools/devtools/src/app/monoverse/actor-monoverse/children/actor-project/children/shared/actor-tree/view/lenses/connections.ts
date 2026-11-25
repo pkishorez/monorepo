@@ -14,13 +14,6 @@ import {
   type TreePackage,
 } from '../../logic/shared/index.js';
 
-/*
- * The Connections and Violations lenses: what the selection uses and is
- * used by, as the tree is drawn now, where the broken links are, and
- * what is wrong with the selection.
- */
-
-/** What the selection connects to, keyed by the node on screen. */
 export function useConnections(
   tree: FolderTree,
   isOpen: (path: string) => boolean,
@@ -48,7 +41,6 @@ export function useConnections(
   }, [tree, isOpen, selected, links, brokenKeys]);
 }
 
-/** What the tree marks on each node: Violations, Packages in a cycle, each Package's Check. */
 export function useFindings(
   broken: ReadonlyArray<BrokenLink>,
   packages: ReadonlyArray<TreePackage>,
@@ -56,7 +48,6 @@ export function useFindings(
   return useMemo(() => findingsOf(broken, packages), [broken, packages]);
 }
 
-/** What is wrong with the selection, each with what to do about it. */
 export function useSelectionFindings(
   selected: string | null,
   base: string,

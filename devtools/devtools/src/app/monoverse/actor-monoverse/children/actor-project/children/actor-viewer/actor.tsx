@@ -20,7 +20,6 @@ export const Viewer = ViewerShape.build({
   init,
   on: updates,
   states: {
-    // 1. File
     File: {
       children: {
         file: Actor.child(FileViewer, {
@@ -29,7 +28,6 @@ export const Viewer = ViewerShape.build({
         }),
       },
     },
-    // 3. Show
     Folder: {
       children: {
         file: Actor.child(FileViewer, {

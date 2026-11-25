@@ -5,12 +5,6 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { beforeAll, describe, expect, it } from 'vitest';
 
-/*
- * `monoverse lint`, run from source, in a git repository made of the
- * fixture packages: `packages/*` is the workspace, and `extra/app` is a
- * package no workspace glob names.
- */
-
 const cli = fileURLToPath(new URL('../cli/main.ts', import.meta.url));
 const fixtures = fileURLToPath(new URL('../../test/fixtures', import.meta.url));
 let repo = '';
@@ -20,14 +14,17 @@ const write = (path: string, text: string) => {
   writeFileSync(join(repo, path), text);
 };
 
-const run = (cwd: string, ...args: string[]) => {
+const runWith = (env: NodeJS.ProcessEnv, cwd: string, ...args: string[]) => {
   const { status, stdout, stderr } = spawnSync(
     process.execPath,
     [cli, ...args],
-    { cwd: join(repo, cwd), encoding: 'utf8' },
+    { cwd: join(repo, cwd), encoding: 'utf8', env },
   );
   return { status, out: stdout + stderr };
 };
+
+const run = (cwd: string, ...args: string[]) =>
+  runWith(process.env, cwd, ...args);
 
 const lint = (cwd: string, ...flags: string[]) => run(cwd, 'lint', ...flags);
 
@@ -80,6 +77,20 @@ describe('monoverse lint', () => {
     expect(out).not.toContain('invalid');
   });
 
+  it('inside a git hook, which sets GIT_DIR without GIT_WORK_TREE, still finds the repository from where it runs', () => {
+    const { GIT_WORK_TREE: _, ...env } = process.env;
+    expect(
+      runWith(
+        { ...env, GIT_DIR: join(repo, '.git') },
+        'packages/clean/src',
+        'lint',
+      ),
+    ).toEqual({
+      status: 0,
+      out: 'monoverse: checked 1 package, no problems.\n',
+    });
+  });
+
   it('says so when the package has no monoverse.json', () => {
     expect(lint('packages/bare')).toEqual({
       status: 0,
@@ -99,7 +110,6 @@ describe('monoverse lint', () => {
       out: 'monoverse: checked 1 package, no problems.\n',
     });
 
-    // A wrong import on disk, not staged, is not in the commit.
     const good = "import { a } from './a/index.ts';\nexport const start = a;\n";
     const bad = "import { a } from './a/part.ts';\nexport const start = a;\n";
     write('packages/clean/src/a/part.ts', 'export const a = 1;\n');
@@ -107,7 +117,6 @@ describe('monoverse lint', () => {
     write('packages/clean/src/start.ts', bad);
     expect(lint('', '--staged').status).toBe(0);
 
-    // Staged, it is; even with the file fixed again on disk.
     git('add', 'packages/clean/src/start.ts');
     write('packages/clean/src/start.ts', good);
     const { status, out } = lint('', '--staged');

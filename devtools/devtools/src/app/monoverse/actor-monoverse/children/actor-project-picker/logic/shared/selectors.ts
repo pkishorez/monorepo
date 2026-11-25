@@ -9,31 +9,14 @@ import {
   type Shown,
 } from './shape.js';
 
-/*
- * What the top Step shows, and the paths and ranks it is worked out with.
- * Pure, so the Updates and the View read the same rows.
- *
- * 1. Recent  the saved Projects, best match first, then "Open a folder…",
- *            whatever the search, or first for a path: it goes to the
- *            folder Steps, searching what was typed, a path included.
- * 2. Folder  the top folder's sub-folders, best match first. A listing
- *            covers a longer search when it was not cut short and lists
- *            the same scope, hidden or not; any other search is asked of
- *            the server again.
- */
-
 const PROJECT = 'project:';
 export const projectValue = (id: string) => `${PROJECT}${id}`;
 
-// Steps ----------------------------------------------------------------------
-
-/** The top folder Step, or null on Recent. */
 export const topOf = (model: Model): FolderStep | null =>
   model.folders.at(-1) ?? null;
 
 export const queryOf = (model: Model) => topOf(model)?.query ?? model.query;
 
-/** Whether `listing` answers `query`, there or by narrowing what it holds. */
 export const covers = (listing: Listing, query: string) => {
   const wanted = query.trim();
   if (listing.hidden !== hiddenOf(wanted)) return false;
@@ -45,11 +28,8 @@ export const covers = (listing: Listing, query: string) => {
   );
 };
 
-/** Whether the folder Step waits for the server. */
 export const waits = (step: FolderStep) =>
   step.listing === null || !covers(step.listing, step.query);
-
-// 1. Recent, 2. Folder -------------------------------------------------------
 
 export function shownOf(model: Model, current: string | null): Shown {
   const top = topOf(model);
@@ -86,8 +66,6 @@ function recentShown(model: Model, current: string | null): Shown {
   const recent: ReadonlyArray<Group> =
     ranked.length > 0 ? [{ heading: 'Recent', rows: ranked }] : [];
   const pinned: Group = { heading: null, rows: [{ entry: open, matched: [] }] };
-  // A path typed means a folder: Enter goes there, before any Project
-  // whose folder it names.
   const groups = query.includes('/')
     ? [pinned, ...recent]
     : [...recent, pinned];
@@ -156,7 +134,6 @@ function folderShown(model: Model, top: FolderStep): Shown {
     truncated: !waiting && listing !== null && listing.truncated,
     where: {
       crumbs: ['~', ...top.segments],
-      // Never a folder that could not be read.
       path:
         listing !== null && listing.problem !== null
           ? null
@@ -170,37 +147,19 @@ function folderShown(model: Model, top: FolderStep): Shown {
   };
 }
 
-// Paths ----------------------------------------------------------------------
-
-/** A path under home, written from `~`; others as they are. */
 export function tilde(path: string, home: string | null): string {
   if (home !== null) {
     if (path === home) return '~';
     return path.startsWith(`${home}/`) ? `~${path.slice(home.length)}` : path;
   }
-  // Before the server has said where home is: the usual places.
   const match = /^\/Users\/[^/]+|^\/home\/[^/]+/.exec(path);
   return match ? `~${path.slice(match[0].length)}` : path;
 }
 
-/** The absolute folder `segments` below home. */
 export const absolute = (home: string, segments: ReadonlyArray<string>) =>
   segments.length === 0 ? home : `${home}/${segments.join('/')}`;
 
-/** Whether a search asks for hidden folders: it starts with a `.`. */
 export const hiddenOf = (query: string) => query.trim().startsWith('.');
-
-// Ranks ----------------------------------------------------------------------
-
-/*
- * Which rows a search finds, best first, as the code app's Picker ranks
- * them: a label that starts with the search beats one that has it at a
- * word start, which beats one that has it anywhere, which beats one whose
- * letters merely appear in order; a detail that has it comes last. Ties go
- * to the shorter label. With no search, every row stays in the order it
- * was given. `matched` holds the label's matching character offsets, for
- * drawing them lit.
- */
 
 interface Labelled {
   readonly label: string;

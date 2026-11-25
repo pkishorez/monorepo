@@ -12,12 +12,6 @@ import { Projects } from '../../contract/index.js';
 import type { Client } from '../client.js';
 import { projectsOn, problemOf } from '../index.js';
 
-/*
- * The Projects service on a client that answers what the test says: an
- * analysis carries the Package links and cycles, a Package read carries
- * the Check the server made, and every failure is one plain sentence.
- */
-
 const workspace: Workspace = {
   kind: 'monorepo',
   name: 'mono',
@@ -140,7 +134,6 @@ describe('Projects service', () => {
       reason: 'failed',
       message: 'The DevTools server could not be reached: socket hang up',
     });
-    // What the picker is told of a folder it cannot list.
     expect(
       problemOf(
         new FolderError({

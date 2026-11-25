@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 
-/** One group of a side panel: a quiet heading over its controls. */
 export function PanelSection({
   title,
   className,

@@ -9,7 +9,6 @@ import { withFixture } from '../../../tests/git-fixture.js';
 import { servicesLayer } from '../../../tests/services.js';
 import * as handlers from '../real/changes.js';
 
-// The handlers, on the real services.
 const getBranches = (root: string) =>
   handlers.getBranches(root).pipe(Effect.provide(servicesLayer));
 const getChanges = (root: string, branch: string | null, base: string) =>

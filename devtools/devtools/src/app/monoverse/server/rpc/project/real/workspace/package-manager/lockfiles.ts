@@ -1,6 +1,5 @@
 import type { PackageManager } from '../../../contract/index.js';
 
-/** Each lockfile and the Package Manager that writes it, checked in this order. */
 export const lockfileNames: ReadonlyArray<
   readonly [name: string, packageManager: PackageManager]
 > = [

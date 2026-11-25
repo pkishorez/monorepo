@@ -10,19 +10,6 @@ import type { PackageChanges, PackageChoice } from './package-menu.js';
 import { PanelSection } from './panel-section.js';
 import { PanelPackageList } from './package-list.js';
 
-/*
- * A wide screen's controls, in two panels hugging the centred tree, so the
- * pointer never travels far: on the left, where you are (the project,
- * what is selected, and in a Monorepo All packages and every Package, one
- * click away); on the right, what you see (the branch, what it is
- * compared to, Changes and what the tree draws, and the tree put back
- * as it opened). Each stays put as the tree scrolls, and always in the same
- * place, whatever tree is shown. Nothing in them moves as the tree loads,
- * changes or is selected in: the left runs the full height whatever it
- * holds, and the places the tree fills keep their size while it is away.
- */
-
-/** From the middle of the screen to a panel's near edge: half the widest tree, and a gap. */
 const fromMiddle = 'calc(50% + 340px)';
 
 function Panel({
@@ -33,7 +20,6 @@ function Panel({
 }: {
   side: 'left' | 'right';
   label: string;
-  /** Top to bottom of the screen, whatever it holds. */
   full?: boolean;
   children: ReactNode;
 }) {
@@ -54,17 +40,14 @@ function Panel({
 
 export interface WherePanelProps {
   readonly project: string;
-  /** The project's folder, absolute. */
   readonly path: string;
   readonly onSwitch: () => void;
-  /** A Monorepo's Packages, the one shown, and where a choice goes; null for a Single Package. */
   readonly packages: {
     readonly all: ReadonlyArray<PackageChoice>;
     readonly current: string | null;
     readonly changes: PackageChanges | null;
     readonly onChoose: (path: string | null) => void;
   } | null;
-  /** Where the tree draws what is selected. */
   readonly selectionSlot: Ref<HTMLDivElement>;
 }
 
@@ -90,7 +73,6 @@ export function WherePanel({
         <CrumbLabel icon={FolderGit2Icon}>{project}</CrumbLabel>
       </button>
       <Divider />
-      {/* The selection card's own height, held while the tree loads. */}
       <div ref={selectionSlot} className="h-24 shrink-0" />
       {packages === null ? null : (
         <>
@@ -113,21 +95,18 @@ export function ViewPanel({
   foldersSlot,
   ...git
 }: GitControlsProps & {
-  /** Where the tree draws its button back to the default view. */
   foldersSlot: Ref<HTMLDivElement>;
 }) {
   return (
     <Panel side="right" label="View">
       <GitPanel {...git} />
       <PanelSection title="Tree">
-        {/* The reset button's own height, held while the tree loads. */}
         <div ref={foldersSlot} className="flex h-8 flex-col" />
       </PanelSection>
     </Panel>
   );
 }
 
-/** A hairline between a panel's groups, in place of a heading for each. */
 function Divider() {
   return <div aria-hidden className="mx-2 h-px shrink-0 bg-border/60" />;
 }

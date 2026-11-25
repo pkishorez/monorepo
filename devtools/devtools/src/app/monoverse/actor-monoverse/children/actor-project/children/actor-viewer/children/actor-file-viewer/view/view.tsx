@@ -17,7 +17,6 @@ const folderOf = (path: string) => {
   return at === -1 ? './' : `${path.slice(0, at)}/`;
 };
 
-/** How many lines a diff adds and removes. */
 const countsOf = (diff: FileDiff) => {
   let added = 0;
   let removed = 0;
@@ -28,14 +27,6 @@ const countsOf = (diff: FileDiff) => {
     }
   return { added, removed };
 };
-
-/*
- * The open file: its name, folder, what its diff adds and removes, and
- * how its diff reads, over its body, in a dialog its parent holds. On a
- * wide screen a close button ends the header; on a phone, where the
- * dialog fills the screen, a back arrow starts it, to a folder's list or
- * out of the file, and the header grows to a thumb's size.
- */
 
 export function Body({
   root,
@@ -58,11 +49,12 @@ export function Body({
           'max-sm:h-auto max-sm:min-h-14 max-sm:pt-[env(safe-area-inset-top)] max-sm:pr-1.5 max-sm:pl-1.5',
         )}
       >
-        {/* On a phone, back sits top left: to the list, or out of the file. */}
         <Button
           variant="ghost"
           size="icon"
-          aria-label={model.inside ? 'Back to the list' : 'Close the file'}
+          aria-label={
+            model.besideFolderList ? 'Back to the list' : 'Close the file'
+          }
           className="size-11 sm:hidden"
           onClick={() => send({ _tag: 'Closed' })}
         >
@@ -86,7 +78,7 @@ export function Body({
           </span>
         )}
         {_tag === 'Diff' ? <DiffToggles /> : null}
-        {model.inside ? null : (
+        {model.besideFolderList ? null : (
           <Button
             variant="ghost"
             size="icon"

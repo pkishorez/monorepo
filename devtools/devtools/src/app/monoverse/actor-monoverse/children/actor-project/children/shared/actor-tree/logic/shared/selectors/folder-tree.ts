@@ -5,26 +5,17 @@ import {
   type Change,
 } from '../../../../../../logic/shared/index.js';
 
-/*
- * The folder tree Monoverse draws: the real folders on disk, built from
- * the files in them. A Package in the repo view is one leaf of its own,
- * standing for its whole folder.
- */
-
 type NodeKind = 'folder' | 'file' | 'package';
 
 export interface TreeNode {
   readonly path: string;
   readonly name: string;
   readonly kind: NodeKind;
-  /** A Package's name, which may differ from its folder's. */
   readonly label?: string;
-  /** A Package's version, when it has one. */
   readonly version?: string;
   readonly children: ReadonlyArray<TreeNode>;
 }
 
-/** What the tree is built from: a file, or a Package standing for its folder. */
 export interface Leaf {
   readonly path: string;
   readonly kind: 'file' | 'package';
@@ -32,9 +23,7 @@ export interface Leaf {
   readonly version?: string;
 }
 
-/** The tree with every node findable by its path. */
 export interface FolderTree {
-  /** The folder the tree is rooted at; never drawn itself. */
   readonly root: TreeNode;
   readonly nodes: ReadonlyMap<string, TreeNode>;
 }
@@ -48,16 +37,9 @@ interface Draft {
   children: Map<string, Draft>;
 }
 
-/**
- * The tree of `leaves` under `base`: one folder per path segment between
- * them, folders and Packages first, then files, each by name; the root
- * named `label`, when given. Leaves
- * outside `base` are left out, as is anything inside a Package.
- */
 export function buildTree(
   base: string,
   leaves: Iterable<Leaf>,
-  /** What the root stands for, by name: the project, or the Package. */
   label?: string,
 ): FolderTree {
   const top: Draft = {
@@ -91,7 +73,6 @@ export function buildTree(
     const name = segments.at(-1)!;
     const existing = at.children.get(name);
     if (existing !== undefined && existing.kind === 'folder') {
-      // A Package takes over the folder its files would have made.
       if (leaf.kind === 'package') existing.children.clear();
       else continue;
     }
@@ -127,14 +108,9 @@ const byKind = (left: Draft, right: Draft) => {
 
 export interface Row {
   readonly node: TreeNode;
-  /** 0 for the nodes directly in the root. */
   readonly depth: number;
 }
 
-/**
- * The nodes on screen, top to bottom: everything in the root, and inside
- * every folder `isOpen` says is open, less what `shown` leaves out.
- */
 export function visibleRows(
   tree: FolderTree,
   isOpen: (path: string) => boolean,
@@ -152,11 +128,6 @@ export function visibleRows(
   return rows;
 }
 
-/**
- * The node on screen that holds `path`: the path itself when every folder
- * above it is open, else the outermost closed folder on the way down.
- * Nothing for a path the tree does not hold.
- */
 export function visibleOf(
   tree: FolderTree,
   isOpen: (path: string) => boolean,
@@ -176,7 +147,6 @@ export function visibleOf(
   return undefined;
 }
 
-/** The files to draw: those on disk, and the deleted ones where they stood. */
 export function withDeleted(
   files: ReadonlyArray<string>,
   changes: ReadonlyArray<Change> | null,

@@ -14,66 +14,37 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-/*
- * A commit's files written to a folder on disk, for what reads the disk
- * itself: the whole commit, one folder per commit, under a folder of
- * copies. A copy is written under a temporary name, a marker last, and
- * renamed when whole, so a half-written one is never read. A commit never
- * changes, so a copy is kept and reused while its marker and its files
- * are all there (the OS may clear its temp folder file by file: every
- * file is looked for once per process, the marker after that), and only
- * the few used last stay. A symbolic link in the commit is one in the
- * copy. The checkout's node_modules, the repository's and each Package's,
- * are linked in, so a tsconfig that extends an installed one reads as it
- * does on disk; on every open, one missing or pointing at nothing is
- * linked again.
- */
-
-/** Where the copies live, unless told otherwise. */
 export const copiesFolder = join(tmpdir(), 'kestack-devtools', 'monoverse');
 
-/** How many copies stay, the ones used last. */
 const keptCopies = 6;
 
-/** A temporary folder left this long is a write that died. */
 const abandonedAfter = 60 * 60 * 1000;
 
-/** Files written, or looked for, at once. */
 const concurrency = 32;
 
-/** Files read from git at once. */
 const batch = 500;
 
-/** Written last into a whole copy: its commit and how many files it holds. */
 const marker = '.kestack-devtools-copy.json';
 
-/** Copies being written now, by folder, so two opens write one. */
 const writing = new Map<string, Promise<string>>();
 
-/** Copies found whole, every file there, since this process started. */
 const whole = new Set<string>();
 
-/** One file of the commit, by its path from the repository's top. */
 export interface CopiedFile {
   readonly path: string;
-  /** A symbolic link, whose contents are where it points. */
   readonly link: boolean;
 }
 
 export interface CommitCopy {
-  /** The folder the copies live in. */
   readonly copies: string;
   readonly commit: string;
-  /** The worktree on disk whose node_modules are linked in. */
   readonly checkout: string;
-  /** Every file of the commit. */
   readonly list: () => Promise<ReadonlyArray<CopiedFile>>;
   readonly readMany: (
     paths: ReadonlyArray<string>,
   ) => Promise<ReadonlyMap<string, Uint8Array>>;
 }
 
-/** The folder holding the whole commit, written now unless a whole copy is kept. */
 export function commitFolder(copy: CommitCopy): Promise<string> {
   const folder = join(copy.copies, copy.commit);
   const kept = writing.get(folder);
@@ -103,14 +74,12 @@ async function ensure(copy: CommitCopy, folder: string): Promise<string> {
     whole.add(folder);
   } catch (cause) {
     await rm(temp, { recursive: true, force: true });
-    // Another process wrote it first: theirs is as good.
     if (!(await isWhole(folder, copy.commit, files))) throw cause;
   }
   await prune(copy.copies, folder);
   return folder;
 }
 
-/** Whether the copy at `folder` is whole: its marker says so, and every file is there. */
 async function isWhole(
   folder: string,
   commit: string,
@@ -165,12 +134,6 @@ async function write(
   );
 }
 
-/**
- * Links the checkout's node_modules into the copy at `folder`, the
- * repository's and each Package's, where the checkout has one and the
- * copy has none, or a link that points at nothing: written before an
- * install, or from a worktree since removed.
- */
 async function linkInstalled(
   copy: CommitCopy,
   files: ReadonlyArray<CopiedFile>,
@@ -185,22 +148,15 @@ async function linkInstalled(
     const installed = join(copy.checkout, at, 'node_modules');
     const link = join(folder, at, 'node_modules');
     if (!(await isDirectory(installed)) || (await isDirectory(link))) continue;
-    // A link that points at nothing.
     if (await exists(link)) await rm(link, { force: true });
     try {
       await symlink(installed, link, 'dir');
     } catch (cause) {
-      // Another open linked it first.
       if (!isCode(cause, 'EEXIST')) throw cause;
     }
   }
 }
 
-/**
- * Keeps the copies used last, `current` always, and removes the rest and
- * any write that died. Removing a copy removes its links, never what they
- * point to.
- */
 async function prune(copies: string, current: string): Promise<void> {
   const entries = await readdir(copies, { withFileTypes: true });
   const found: Array<{ readonly path: string; readonly used: number }> = [];
@@ -208,7 +164,6 @@ async function prune(copies: string, current: string): Promise<void> {
     if (!entry.isDirectory()) continue;
     const path = join(copies, entry.name);
     const used = await usedAt(path);
-    // Another prune removed it first.
     if (used === undefined) continue;
     if (entry.name.startsWith('.')) {
       if (Date.now() - used > abandonedAfter)
@@ -222,7 +177,6 @@ async function prune(copies: string, current: string): Promise<void> {
   }
 }
 
-/** When a copy was last used; undefined when it is gone. */
 async function usedAt(path: string): Promise<number | undefined> {
   try {
     return (await stat(path)).mtimeMs;
@@ -232,7 +186,6 @@ async function usedAt(path: string): Promise<number | undefined> {
   }
 }
 
-/** Runs `work` on every item, a few at once. */
 async function each<A>(
   items: ReadonlyArray<A>,
   work: (item: A) => Promise<void>,

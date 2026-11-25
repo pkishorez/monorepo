@@ -10,13 +10,6 @@ import { Switch } from '@kestack/web-platform/ui/components/switch';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import { SlidersHorizontalIcon } from 'lucide-react';
 
-/*
- * Settings on a phone: one sliders button, the same one everywhere, that
- * opens a sheet from the bottom with one row per setting, each a thumb's
- * height: its name on the left, its control on the right.
- */
-
-/** The sliders button: the one look every settings menu opens from. */
 export const settingsTrigger = cn(
   'flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 outline-none',
   'hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 data-[popup-open]:bg-muted max-sm:size-11',
@@ -32,7 +25,6 @@ export function SettingsSheet({
   children,
 }: {
   title: string;
-  /** What the button shows in place of the sliders: a spinner, say. */
   icon?: ReactNode;
   children: ReactNode;
 }) {
@@ -57,7 +49,6 @@ export function SettingsSheet({
   );
 }
 
-/** One setting: its name, an optional line under it, and its control. */
 export function SettingRow({
   label,
   hint,
@@ -80,7 +71,6 @@ export function SettingRow({
   );
 }
 
-/** A setting that is on or off: the whole row is its target. */
 export function SettingSwitch({
   label,
   hint,
@@ -119,7 +109,6 @@ export function SettingSwitch({
   );
 }
 
-/** One of a few choices, side by side. */
 export function Segments<Value extends string>({
   label,
   value,

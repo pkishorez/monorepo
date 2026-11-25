@@ -7,11 +7,6 @@ const known: ReadonlySet<string> = new Set<PackageManager>([
   'bun',
 ]);
 
-/**
- * The Package Manager a root `package.json` names in its `packageManager`
- * field (`"<name>@<version>"`, as Corepack writes it), or `undefined` when
- * the text is missing, not JSON, or names none of the four.
- */
 export function declaredPackageManager(
   manifestText: string | undefined,
 ): PackageManager | undefined {

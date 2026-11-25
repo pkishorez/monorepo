@@ -4,13 +4,7 @@ import type { ViewPropsOf } from '@kestack/kabuki/react/types';
 import type { ViewerShape } from '../logic/shared/index.js';
 import { Folder } from './folder.js';
 
-/*
- * What is open over the tree, in the dialog its holder draws: a file
- * alone, or a folder's list beside the file it shows.
- */
-
 type BodyProps = ViewPropsOf<typeof ViewerShape> & {
-  /** The FileViewer: the file open, or the one a folder shows. */
   readonly file: ReactNode;
 };
 

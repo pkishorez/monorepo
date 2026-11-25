@@ -21,31 +21,12 @@ import { fileGraph, graphSources } from './file-graph.js';
 import { readText } from './read-text.js';
 import { analyzeMonorepo } from './workspace/analyze-monorepo.js';
 
-/*
- * Where the work happens: the server does what needs the disk, git and
- * OXC, and hands back the files and the file import graph of the Project
- * at the branch asked for, each Package checked against its
- * monoverse.json by @kestack/monoverse, the engine `monoverse lint` runs,
- * in a worker thread, on a folder on disk holding the branch: the
- * worktree that has it, or a copy of its commit. Everything that depends
- * on what is open or selected (the tree, the roll-up of connections) runs
- * in the browser on those facts, in the Actors' logic and the Projects
- * service, so a click never waits on the server.
- */
-
-/**
- * The workspace and every file in it, for the repo view: its tree draws
- * each Package as one node with its Check, and a folder viewed lists the
- * files inside its Packages too.
- */
 export function openProject(root: string, branch: string | null) {
   return Effect.gen(function* () {
     const snapshots = yield* Snapshots;
     const snapshot = yield* snapshots.open(root, branch);
     const files = yield* listFiles(snapshot);
     const workspace = yield* analyzeMonorepo(snapshot, files);
-    // Only a Package with a monoverse.json is checked: without one, a
-    // branch from git is never put on disk.
     const checked = workspace.packages
       .map(({ path }) => rootRelative(path))
       .filter((base) => files.includes(joinPath(base, configFile)));
@@ -66,13 +47,11 @@ export function openProject(root: string, branch: string | null) {
   });
 }
 
-/** One Package's files, Source roots, file import graph and Check, for its view. */
 export function readPackage(root: string, branch: string | null, path: string) {
   return Effect.gen(function* () {
     const snapshots = yield* Snapshots;
     const snapshot = yield* snapshots.open(root, branch);
     const base = rootRelative(path);
-    // The whole Project, so the Package is checked as it is within it.
     const all = yield* listFiles(snapshot);
     const files = all.filter((file) => isWithin(file, base));
     if (!files.includes(joinPath(base, 'package.json'))) {
@@ -83,8 +62,6 @@ export function readPackage(root: string, branch: string | null, path: string) {
       });
     }
     const sourceRoots = yield* sourceRootsOf(snapshot, files, base);
-    // The graph resolves its imports on disk as the check does, so the
-    // engine runs for every Package that has a source file, checked or not.
     const answer = yield* engineOnDisk(snapshot, base, {
       files: all,
       packages: files.includes(joinPath(base, configFile)) ? [base] : [],
@@ -99,10 +76,6 @@ export function readPackage(root: string, branch: string | null, path: string) {
   });
 }
 
-/**
- * The engine's answer to `job` on the snapshot's folder on disk; with
- * nothing to check and no imports to list, none, and nothing put on disk.
- */
 function engineOnDisk(
   snapshot: Snapshot,
   base: string,
@@ -133,7 +106,6 @@ function engineOnDisk(
   });
 }
 
-/** A Package's Check as the contract says it. */
 function checkOf(result: PackageResult): Check {
   switch (result._tag) {
     case 'Unchecked':
@@ -157,10 +129,6 @@ function checkOf(result: PackageResult): Check {
   }
 }
 
-/**
- * The Package's Source roots, relative to the root: its monoverse.json's,
- * or the whole Package without one that can be read.
- */
 function sourceRootsOf(
   snapshot: Snapshot,
   files: ReadonlyArray<string>,
@@ -197,7 +165,6 @@ function listFiles(snapshot: Snapshot) {
   });
 }
 
-/** Fulfils the Project RPC, reading through Snapshots. */
 export const ProjectRpcLive = ProjectRpc.toLayer({
   OpenProject: ({ root, branch }) => openProject(root, branch),
   ReadPackage: ({ root, branch, path }) => readPackage(root, branch, path),

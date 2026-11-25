@@ -4,7 +4,6 @@ import type { ProjectEntry } from '../../server/rpc/projects/contract/index.js';
 import { placeOf, projectOf, samePlace } from './selectors.js';
 import type { MonoverseShape, Place, State } from './shared/index.js';
 
-/** Where a saved project opens. */
 const opening = (
   projects: ReadonlyArray<ProjectEntry> | null,
   project: string,
@@ -37,7 +36,6 @@ export const init: InitOf<typeof MonoverseShape> = (place) => ({
 });
 
 export const updates: UpdatesOf<typeof MonoverseShape> = {
-  // 1. List
   Listed: ({ projects }, { model, state }) => {
     if (state._tag !== 'Finding')
       return { model: { projects, projectsProblem: null } };
@@ -45,7 +43,6 @@ export const updates: UpdatesOf<typeof MonoverseShape> = {
     return {
       model: { projects, projectsProblem: null },
       state: next,
-      // A project not saved shows the picker, and the Place says so.
       ...(next._tag === 'Picking'
         ? { emit: moved({ ...placeOf(model, next), package: null }) }
         : {}),
@@ -57,7 +54,6 @@ export const updates: UpdatesOf<typeof MonoverseShape> = {
       ? { state: { _tag: 'Picking' as const } }
       : {}),
   }),
-  // 2. Pick
   SwitchAsked: () => ({ model: { switching: true } }),
   Dismissed: () => ({ model: { switching: false } }),
   Picked: ({ project }, { model, state }) => {
@@ -67,7 +63,6 @@ export const updates: UpdatesOf<typeof MonoverseShape> = {
         : [project, ...(model.projects ?? [])];
     if (projectOf(state) === project.id)
       return { model: { projects, switching: false } };
-    // Another project opens at its own current branch and default base.
     const fresh = {
       projects,
       package: null,
@@ -86,7 +81,6 @@ export const updates: UpdatesOf<typeof MonoverseShape> = {
       emit: moved(placeOf({ ...model, ...fresh }, next)),
     };
   },
-  // 3. Show
   Moved: ({ package: path, branch, base, changes }, { model, state }) => {
     const where = { package: path, branch, base, changes };
     return {
@@ -97,7 +91,6 @@ export const updates: UpdatesOf<typeof MonoverseShape> = {
   DeletedToggled: (_, { model }) => ({ model: { deleted: !model.deleted } }),
   UnchangedChosen: ({ unchanged }) => ({ model: { unchanged } }),
   IgnoredToggled: (_, { model }) => ({ model: { ignored: !model.ignored } }),
-  // 4. Follow
   Followed: ({ place }, { model, state }) => {
     if (samePlace(place, placeOf(model, state))) return {};
     const where = {

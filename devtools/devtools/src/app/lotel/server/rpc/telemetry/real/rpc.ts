@@ -12,13 +12,6 @@ import {
 } from '../../../services/telemetry-store/contract/index.js';
 import { makeTraceDetails, makeTraceSummary } from './traces.js';
 
-/*
- * The Telemetry RPC, answered from the Telemetry Store and served at
- * `/rpc/lotel`. A store failure reaches the client as a LotelRpcError
- * carrying what failed; asking for a Trace no Span Record names is
- * TraceNotFound, as Log Records alone never make a Trace.
- */
-
 const toRpcError = (cause: unknown) =>
   new LotelRpcError({
     message:
@@ -50,7 +43,6 @@ const getTrace = (traceId: string) =>
     return makeTraceDetails(traceId, spans, logs);
   });
 
-/** The Telemetry RPC's handlers, needing the Telemetry Store. */
 export const TelemetryRpcLive = TelemetryRpc.toLayer({
   SaveSpans: ({ records }) =>
     Effect.flatMap(TelemetryStore, (store) => store.saveSpans(records)).pipe(
@@ -85,7 +77,6 @@ export const TelemetryRpcLive = TelemetryRpc.toLayer({
     ),
 });
 
-/** The Telemetry RPC on the server's router, over HTTP as NDJSON. */
 export const telemetryRpcRoute = RpcServer.layerHttp({
   group: TelemetryRpc,
   path: TELEMETRY_RPC_PATH,

@@ -5,27 +5,14 @@ import {
 import { ancestorsOf } from '../../../../../../logic/shared/index.js';
 import type { BrokenLink, Finding, Findings, TreePackage } from '../index.js';
 
-/*
- * What the tree marks as wrong, worked out from its Props. In a Package,
- * the broken links are its Violations: each counts once, at the file
- * `monoverse lint` tells it on and every folder above it, the Package's
- * monoverse.json for what is wrong with that file itself. In the repo,
- * the broken links are a Package cycle's, and the Violations are each
- * Package's own, from its Check, counted at the Package and every folder
- * above it.
- */
-
-/** Adds `count` to `path` and to every folder above it. */
 function addUp(counts: Map<string, number>, path: string, count: number) {
   for (const at of [path, ...ancestorsOf(path)])
     counts.set(at, (counts.get(at) ?? 0) + count);
 }
 
-/** The Violations a Check found; none when it found none or did not run. */
 const violationsOf = (check: TreePackage['check']) =>
   check._tag === 'Checked' ? check.violations : [];
 
-/** `path` as seen from the Package folder `base`, relative to the root. */
 const fromPackage = (base: string, path: string) =>
   base === ''
     ? path
@@ -33,11 +20,6 @@ const fromPackage = (base: string, path: string) =>
       ? path.slice(base.length + 1)
       : path;
 
-/**
- * Where a finding is, from its Package, as `monoverse lint` says it:
- * `from:line:column → to`, without the line where none is known, or
- * without `to` for a finding in `from` alone.
- */
 const whereOf = (
   base: string,
   { from, to, line, column }: Omit<BrokenLink, 'message'>,
@@ -49,7 +31,6 @@ const whereOf = (
   return to === undefined ? at : `${at} → ${fromPackage(base, to)}`;
 };
 
-/** What the tree marks on each node, in a Package or in the repo. */
 export function findingsOf(
   broken: ReadonlyArray<BrokenLink>,
   packages: ReadonlyArray<TreePackage>,
@@ -72,13 +53,6 @@ export function findingsOf(
   return { violations, cycles, checks };
 }
 
-/**
- * What is wrong with the selection, each with what to do about it and
- * where, named from its Package: in a Package, the Violations of the
- * files it holds; in the repo, the cycle links it is part of, and the
- * Violations of the Packages it holds. `base` is the folder the tree
- * stands for.
- */
 export function findingsWithin(
   selected: string,
   base: string,

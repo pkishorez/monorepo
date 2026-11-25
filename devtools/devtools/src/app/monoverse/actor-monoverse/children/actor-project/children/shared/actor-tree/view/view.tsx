@@ -19,12 +19,6 @@ import {
 import { useChanges } from './lenses/git.js';
 import { Outline, type TreeActions } from './outline/outline.js';
 
-/*
- * The tree drawn, as Outline: everything it draws is worked out here from
- * the Model and the Props, once per change to what it reads, never on a
- * pan or a zoom.
- */
-
 export function Body({
   root,
   model,
@@ -45,7 +39,6 @@ export function Body({
   } = props;
   const { selected } = model;
 
-  // Every file drawn, deleted ones included while Changes is on.
   const every = useMemo(() => withDeleted(files, changes), [files, changes]);
   const tree = useMemo(() => {
     const leaves: Array<Leaf> = [
@@ -66,9 +59,6 @@ export function Body({
   const openSet = useMemo(() => new Set(model.open), [model.open]);
   const isOpen = useCallback((path: string) => openSet.has(path), [openSet]);
 
-  // Ignored files show dimmed, unless they are left out; connections and
-  // what is wrong are always drawn. While Changes is on, what the branch left
-  // unchanged is drawn as it is, faded, or not at all.
   const changeOf = useChanges(changes);
   const hiding = changes !== null && unchanged === 'hide';
   const rows = useMemo(() => {
@@ -84,8 +74,6 @@ export function Body({
       changes !== null && unchanged === 'dim' && !changeOf.has(path),
     [changes, unchanged, changeOf],
   );
-  // The folders inside each folder holding folders, at any depth; and
-  // every folder, for opening or closing them all.
   const foldersInside = useMemo(() => {
     const inside = new Map<string, Array<string>>();
     const all: Array<string> = [];
@@ -114,7 +102,6 @@ export function Body({
       },
     };
   }, [foldersInside, openSet]);
-  // Whether the tree is as it opened: the default view, nothing selected.
   const atHome = useMemo(
     () =>
       selected === null &&
@@ -130,8 +117,6 @@ export function Body({
     broken,
     packages,
   );
-  // A selection keeps in front itself, what is inside it, what it connects
-  // to, and the folders holding those; the rest steps back.
   const dimmed = useMemo(() => {
     if (selected === null) return () => false;
     const kept = new Set<string>([selected, ...ancestorsOf(selected)]);
@@ -144,7 +129,6 @@ export function Body({
     [sourceRoots],
   );
 
-  // Read by the actions as they run, so nothing draws again for them.
   const latest = useRef({
     selected,
     links,

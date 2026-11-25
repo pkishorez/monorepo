@@ -12,12 +12,6 @@ import {
 import { Feed } from '../index.js';
 import { listingOf } from '../logic/shared/index.js';
 
-/*
- * The Feed in memory, on telemetry the test writes: it lists what arrives,
- * narrows it by the Filters, holds new Traces back while one is open, and
- * remembers its Filters.
- */
-
 const root = (
   traceId: string,
   service: string,
@@ -34,7 +28,6 @@ const root = (
   events: [],
 });
 
-/** A parent that holds the Feed and opens what it picks. */
 const HostShape = Actor.define('Host', {
   model: { opened: Schema.NullOr(Schema.String) },
   message: { Opened: { traceId: Schema.String }, Closed: {} },

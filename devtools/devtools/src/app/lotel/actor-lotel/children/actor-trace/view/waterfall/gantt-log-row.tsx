@@ -72,7 +72,6 @@ export function GanttLogRow({
       style={{ minHeight: `${ROW_HEIGHT_PX - 6}px` }}
       type="button"
     >
-      {/* Name column — the log sits as a child entry in the span tree */}
       <div
         className="flex shrink-0 items-center gap-1.5 overflow-hidden border-r border-border/30"
         style={{
@@ -123,7 +122,6 @@ export function GanttLogRow({
         </span>
       </div>
 
-      {/* Bar column stays empty — only spans get a viz */}
       <div aria-hidden className="flex-1" />
     </button>
   );

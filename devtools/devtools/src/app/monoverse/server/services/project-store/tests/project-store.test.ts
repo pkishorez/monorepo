@@ -39,7 +39,6 @@ describe('the Project store', () => {
             'beta',
             'alpha',
           ]);
-          // The same folder again is the entry it already is.
           expect(yield* store.add(join(folder, 'alpha'))).toEqual(alpha);
           expect(yield* store.list()).toHaveLength(2);
 

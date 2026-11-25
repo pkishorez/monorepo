@@ -25,6 +25,9 @@ Terms are defined in [CONTEXT.md](./CONTEXT.md) and, per Tool, in
 [docs/lotel.md](./docs/lotel.md) and [docs/monoverse.md](./docs/monoverse.md).
 Decisions are in [docs/adr/](./docs/adr/); how the app is put together is
 [ADR 0013](./docs/adr/0013-the-app-is-one-kabuki-tree-of-composable-tools.md).
+The code holds no comments; what it cannot say for itself, such as limits set
+by Vite, git or the browser, is in
+[docs/implementation-notes.md](./docs/implementation-notes.md).
 
 ## Install
 

@@ -16,26 +16,14 @@ import {
   type ProjectsService,
 } from '../../services/projects/contract/index.js';
 
-/*
- * Monoverse in memory, on a Projects service that answers what the test
- * says, mounted by a host that keeps the Place it hears of and hands it
- * back as Props, as the page does with the address: the project its
- * Input names opens as a Project at the Place, a project not saved shows
- * the picker, the picker opens over a project, every move made in the
- * Project moves the Place, and the host naming another Place moves the
- * same Monoverse there.
- */
-
 const HostShape = Actor.define('Host', {
   input: PlaceSchema,
   model: Schema.Struct({
-    /** What the host names, as an address would. */
     place: PlaceSchema,
     moved: Schema.Array(PlaceSchema),
   }),
   message: {
     Moved: { place: PlaceSchema },
-    /** Back, Forward or a typed address. */
     Go: { place: PlaceSchema },
   },
 });
@@ -50,7 +38,6 @@ const Host = HostShape.build({
     }),
   },
   on: {
-    // Written down, as the page writes the address.
     Moved: ({ place }, { model }) => ({
       model: { place, moved: [...model.moved, place] },
     }),
@@ -150,10 +137,8 @@ const branches: Branches = {
   ],
 };
 
-/** Every call the service was asked, with what. */
 type Asked = Array<readonly [string, unknown]>;
 
-/** The service as the test says; the picker's folders never answer. */
 const service = (asked: Asked): ProjectsService => {
   const answer =
     <A, I>(name: string, value: (input: I) => A) =>
@@ -172,7 +157,6 @@ const service = (asked: Asked): ProjectsService => {
     listFolders: () => Effect.never,
     analyse: answer('analyse', ({ root }: { root: string }) => {
       const workspace = root === '/repo' ? monorepo : single;
-      // The Package links the real service works out of each workspace.
       return {
         workspace,
         links:
@@ -223,9 +207,7 @@ const send = (
   app: App,
   actor: string,
   message: { readonly _tag: string; readonly [field: string]: unknown },
-) =>
-  // oxlint-disable-next-line typescript/no-explicit-any -- any Actor's Message
-  app.at(find(app, actor)!.address)!.send(message as any);
+) => app.at(find(app, actor)!.address)!.send(message as any);
 const named = (asked: Asked, name: string) =>
   asked.filter(([each]) => each === name).map(([, input]) => input);
 
@@ -263,7 +245,6 @@ describe('Monoverse', () => {
         expect(named(asked, 'analyse')).toEqual([
           { root: '/repo', branch: null },
         ]);
-        // Started from the Input: nothing to tell.
         expect(host(app).moved).toEqual([]);
       }),
     ));
@@ -315,7 +296,6 @@ describe('Monoverse', () => {
           _tag: 'Monorepo',
         });
         expect(find(app, 'ProjectPicker')).toBeUndefined();
-        // Another project opens at its own branch.
         expect(host(app).place).toEqual(place({ project: 'n' }));
       }),
     ));
@@ -409,7 +389,6 @@ describe('Monoverse', () => {
           project: 's',
           root: '/solo',
         });
-        // Another project is a Project of its own.
         expect(find(app, 'Project')!.address).not.toBe(first);
         expect(find(app, 'Project')!.state).toMatchObject({ _tag: 'Package' });
 
@@ -430,8 +409,6 @@ describe('Monoverse', () => {
         expect(tool(app).state).toEqual({ _tag: 'Picking' });
         expect(find(app, 'Project')).toBeUndefined();
 
-        // The projects were listed once by Monoverse, once by the picker it
-        // shows, and the host was told nothing.
         expect(named(asked, 'projects')).toHaveLength(2);
         expect(host(app).moved).toEqual([]);
       }),
@@ -450,7 +427,6 @@ describe('Monoverse', () => {
           place({ project: 'm', branch: 'next', changes: true }),
         );
         expect(host(app).moved).toHaveLength(2);
-        // Analysed once at each branch: the move handed back did nothing.
         expect(named(asked, 'analyse')).toHaveLength(2);
       }),
     ));
@@ -468,7 +444,6 @@ describe('Monoverse', () => {
           _tag: 'Showing',
           project: 'm',
         });
-        // oxlint-disable-next-line typescript/no-explicit-any -- the Project slot
         const project = (app.snapshot.root.children as any).project as Instance;
         expect(project.state).toMatchObject({ _tag: 'Monorepo' });
       }),

@@ -6,12 +6,6 @@ import { cn } from '@kestack/web-platform/ui/components/utils';
 
 import { JsonTree } from '@kestack/web-platform/ui/viewers/json';
 
-/**
- * Attribute keys carrying these prefixes describe the emitting
- * resource/instrumentation scope rather than the operation itself. They are
- * verbose and identical across most spans, so we hide them behind an
- * expand-on-demand disclosure and let user-defined attributes take precedence.
- */
 const SYSTEM_PREFIXES = ['resource.', 'scope.', 'tracer.'] as const;
 
 function isSystemKey(key: string): boolean {

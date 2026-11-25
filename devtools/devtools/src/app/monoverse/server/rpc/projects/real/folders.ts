@@ -9,13 +9,6 @@ import {
   type FolderListing,
 } from '../contract/index.js';
 
-/*
- * The folders the Project picker walks: the home folder and everything
- * below it, never above. One listing is one folder's sub-folders, read in
- * one `readdir` and a `stat` each, in parallel, never deeper.
- */
-
-/** The most sub-folders one listing holds. */
 const limit = 100;
 
 const collator = new Intl.Collator(undefined, {
@@ -25,12 +18,6 @@ const collator = new Intl.Collator(undefined, {
 
 type Kind = Folder['kind'];
 
-/**
- * The sub-folders of `path` (home when null; `~` and paths relative to
- * home allowed) whose name holds `query`, any case, name-sorted; hidden
- * ones only when `hidden`. A symbolic link to a folder is listed as a
- * `link`. A path outside home is refused.
- */
 export function listFolders(
   home: string,
   input: {
@@ -42,7 +29,7 @@ export function listFolders(
   return Effect.gen(function* () {
     const given = input.path ?? home;
     const path = expand(home, given);
-    if (!isInside(home, path)) {
+    if (!isInsideAsWritten(home, path)) {
       return yield* new FolderError({
         reason: 'outside-home',
         path,
@@ -113,7 +100,6 @@ async function subFolders(
     entries.map(async (entry) => {
       if (entry.isDirectory()) return { name: entry.name, link: false };
       if (!entry.isSymbolicLink()) return null;
-      // A link counts when it leads to a folder.
       const target = await stat(join(path, entry.name)).catch(() => null);
       return target?.isDirectory() === true
         ? { name: entry.name, link: true }
@@ -125,11 +111,6 @@ async function subFolders(
     .sort((left, right) => collator.compare(left.name, right.name));
 }
 
-/**
- * What a folder would open as: a Monorepo when it has `pnpm-workspace.yaml`
- * or a `package.json` with `workspaces`, a Single Package when it has a
- * `package.json` alone, else neither.
- */
 async function kindOf(folder: string): Promise<Kind> {
   const [workspace, manifest] = await Promise.all([
     stat(join(folder, 'pnpm-workspace.yaml')).then(
@@ -150,7 +131,6 @@ async function kindOf(folder: string): Promise<Kind> {
   }
 }
 
-/** A path as the user wrote it, absolute: `~`, `~/code`, absolute, or relative to home. */
 function expand(home: string, path: string): string {
   const trimmed = path.trim();
   if (trimmed === '' || trimmed === '~') return home;
@@ -158,8 +138,7 @@ function expand(home: string, path: string): string {
   return isAbsolute(trimmed) ? resolve(trimmed) : join(home, trimmed);
 }
 
-/** Whether `path` is `home` or below it, as written: a link inside home may lead anywhere. */
-function isInside(home: string, path: string): boolean {
+function isInsideAsWritten(home: string, path: string): boolean {
   const between = relative(home, path);
   return (
     between === '' ||

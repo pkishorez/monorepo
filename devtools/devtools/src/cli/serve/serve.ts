@@ -18,8 +18,9 @@ import { makeBrowserApplicationLive } from './browser-application.js';
 import { makeRequestAccessLive } from './request-access.js';
 
 const HOST = '127.0.0.1';
-// This module is bundled into dist/cli/main.mjs; the UI is its sibling.
-const DEFAULT_UI_ROOT = fileURLToPath(new URL('../ui/', import.meta.url));
+const UI_ROOT_BESIDE_BUNDLED_CLI = fileURLToPath(
+  new URL('../ui/', import.meta.url),
+);
 
 type Options = {
   readonly port: number;
@@ -29,13 +30,8 @@ type Options = {
   readonly skipUiCheck?: boolean;
 };
 
-/**
- * Builds the one loopback server that hosts DevTools: each Tool's routes,
- * from its server door, the bundled app around them, and who may reach it.
- */
 export function makeDevtoolsServer(options: Options) {
-  const uiRoot = options.uiRoot ?? DEFAULT_UI_ROOT;
-  // DevTools' own page, opened at either loopback host.
+  const uiRoot = options.uiRoot ?? UI_ROOT_BESIDE_BUNDLED_CLI;
   const ownOrigins = [
     `http://${HOST}:${options.port}`,
     `http://localhost:${options.port}`,
@@ -49,8 +45,6 @@ export function makeDevtoolsServer(options: Options) {
 
       return HttpRouter.serve(
         Layer.mergeAll(
-          // Lotel and Monoverse keep separate tables in the one DevTools
-          // database.
           lotelServer({ db: options.db }),
           monoverseServer({ db: options.db }),
           kabukiServer({ origins: ownOrigins }),
@@ -70,8 +64,6 @@ export function makeDevtoolsServer(options: Options) {
           NodeHttpServer.layer(createServer, {
             host: HOST,
             port: options.port,
-            // A Kabuki Session's socket stays open as long as its app runs,
-            // so waiting for open requests to drain would hold every stop.
             disablePreemptiveShutdown: true,
           }),
         ),

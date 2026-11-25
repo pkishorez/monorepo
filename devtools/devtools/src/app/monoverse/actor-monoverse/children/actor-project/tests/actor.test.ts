@@ -19,16 +19,6 @@ import {
 } from '../../../../services/projects/contract/index.js';
 import { Project } from '../index.js';
 
-/*
- * A Project in memory, on a Projects service that answers what the test
- * says, held by a host that keeps where the Project moves to and hands it
- * back as Props, with how the trees are drawn, as Monoverse does: a Monorepo opens in its tree, a Single
- * Package goes straight to its Package, a Package is entered and left,
- * another branch is analysed with the views on screen, Changes reads what
- * the branch changed, a file or a folder opens over the tree, and the
- * tree's settings draw both.
- */
-
 const WhereSchema = Schema.Struct({
   package: Schema.NullOr(Schema.String),
   branch: Schema.NullOr(Schema.String),
@@ -41,11 +31,9 @@ const HostShape = Actor.define('Host', {
   input: Schema.Struct({ root: Schema.String, where: WhereSchema }),
   model: Schema.Struct({
     root: Schema.String,
-    /** Where the host names, as Monoverse would. */
     where: WhereSchema,
     moved: Schema.Array(WhereSchema),
     switched: Schema.Number,
-    /** How the trees are drawn, as Monoverse keeps it. */
     deleted: Schema.Boolean,
     unchanged: Schema.Literals(['show', 'dim', 'hide']),
     ignored: Schema.Boolean,
@@ -55,7 +43,6 @@ const HostShape = Actor.define('Host', {
     DeletedToggled: {},
     UnchangedChosen: { unchanged: Schema.Literals(['show', 'dim', 'hide']) },
     IgnoredToggled: {},
-    /** Back, Forward or a typed address. */
     Go: { where: WhereSchema },
     SwitchAsked: {},
   },
@@ -201,10 +188,8 @@ const changeSet: ChangeSet = {
   ],
 };
 
-/** Every call the service was asked, with what. */
 type Asked = Array<readonly [string, unknown]>;
 
-/** The service as the test says; the picker's calls never answer. */
 const service = (asked: Asked): ProjectsService => {
   const answer =
     <A, I>(name: string, value: (input: I) => A) =>
@@ -220,7 +205,6 @@ const service = (asked: Asked): ProjectsService => {
     listFolders: () => Effect.never,
     analyse: answer('analyse', ({ root }: { root: string }) => {
       const workspace = root === '/repo' ? monorepo : single;
-      // The Package links the real service works out of each workspace.
       return {
         workspace,
         links:
@@ -273,9 +257,7 @@ const send = (
   app: App,
   actor: string,
   message: { readonly _tag: string; readonly [field: string]: unknown },
-) =>
-  // oxlint-disable-next-line typescript/no-explicit-any -- any Actor's Message
-  app.at(find(app, actor)!.address)!.send(message as any);
+) => app.at(find(app, actor)!.address)!.send(message as any);
 const named = (asked: Asked, name: string) =>
   asked.filter(([each]) => each === name).map(([, input]) => input);
 
@@ -324,7 +306,6 @@ describe('Project', () => {
           changes: null,
         });
         expect(tree.model).toMatchObject({ open: ['apps', 'packages'] });
-        // Opened where the host named: nothing to tell.
         expect(host(app).moved).toEqual([]);
       }),
     ));
@@ -341,7 +322,6 @@ describe('Project', () => {
         expect(find(app, 'Package')!.state).toMatchObject({
           _tag: 'Contents',
         });
-        // Its Violations, as the server checked them, are the tree's broken links.
         const trees = walk(app.snapshot.root).filter(
           (each) => each.actor === 'Tree',
         );
@@ -404,7 +384,6 @@ describe('Project', () => {
           { root: '/repo', branch: null },
           { root: '/repo', branch: 'next' },
         ]);
-        // The Monorepo's tree stayed, under the Package entered.
         expect(find(app, 'Tree')!.address).toEqual(tree);
         expect(named(asked, 'readPackage')).toEqual([
           { root: '/repo', branch: null, path: 'apps/web' },
@@ -464,7 +443,7 @@ describe('Project', () => {
           path: 'docs/notes.md',
           base: null,
           status: null,
-          inside: false,
+          besideFolderList: false,
         });
         send(app, 'FileViewer', { _tag: 'Closed' });
         expect(find(app, 'Viewer')).toBeUndefined();
@@ -506,7 +485,6 @@ describe('Project', () => {
         send(app, 'Project', { _tag: 'Retried' });
         yield* settle;
         expect(project(app).state).toMatchObject({ _tag: 'Monorepo' });
-        // The branches were read again with it.
         expect(named(asked, 'branches')).toHaveLength(2);
         send(app, 'Project', { _tag: 'SwitchAsked' });
         expect(host(app).switched).toBe(1);
@@ -518,11 +496,9 @@ describe('Project', () => {
       Effect.gen(function* () {
         const app = yield* start({ package: 'apps/web' });
         yield* settle;
-        // The Package's own tree, inside the Monorepo's.
         const inner = walk(app.snapshot.root)
           .filter((each) => each.actor === 'Tree')
           .at(-1)!;
-        // oxlint-disable-next-line typescript/no-explicit-any -- any Actor's Message
         app.at(inner.address)!.send({
           _tag: 'Viewed',
           path: 'apps/web/src',
@@ -539,7 +515,6 @@ describe('Project', () => {
           path: 'apps/web/src',
           title: 'apps/web/src',
           files: ['apps/web/src/index.ts', 'apps/web/src/app/actor.ts'],
-          // The Package's, so its ignored files can be told apart.
           sourceRoots: ['apps/web/src'],
         });
         expect(find(app, 'FileViewer')!.model).toMatchObject({
@@ -552,7 +527,6 @@ describe('Project', () => {
           base: 'main',
           changed: [{ path: 'apps/web/src/index.ts', status: 'modified' }],
         });
-        // The first changed file, though an unchanged one comes first.
         expect(find(app, 'FileViewer')!.model).toMatchObject({
           path: 'apps/web/src/index.ts',
         });
@@ -572,7 +546,6 @@ describe('Project', () => {
         const app = yield* start({}, asked);
         yield* settle;
         send(app, 'Tree', { _tag: 'Viewed', path: 'apps/web', files: [] });
-        // Changes turns on, in the Monorepo's tree still.
         expect(host(app).where).toMatchObject({ package: null, changes: true });
         yield* settle;
         expect(named(asked, 'changes')).toHaveLength(1);
@@ -581,7 +554,6 @@ describe('Project', () => {
           base: 'main',
           changed: [{ path: 'apps/web/src/index.ts', status: 'modified' }],
         });
-        // Changes off again: the folder stays open, all of it listed.
         app.root.send({ _tag: 'Go', where: where() });
         yield* settle;
         expect(find(app, 'Viewer')!.state).toMatchObject({
@@ -615,11 +587,9 @@ describe('Project', () => {
         yield* settle;
         send(app, 'Tree', { _tag: 'Opened', path: 'docs/notes.md' });
         expect(find(app, 'Viewer')).toBeDefined();
-        // Back, to the Monorepo's tree.
         app.root.send({ _tag: 'Go', where: where() });
         expect(find(app, 'Viewer')).toBeUndefined();
         yield* settle;
-        // Forward, to the Package again.
         app.root.send({ _tag: 'Go', where: where({ package: 'apps/web' }) });
         yield* settle;
         expect(find(app, 'Viewer')).toBeUndefined();
@@ -665,7 +635,6 @@ describe('Project', () => {
           changes: [changeSet.files[0]],
         });
 
-        // Looked into, the folder starts without them, and brings them back.
         send(app, 'Tree', { _tag: 'Viewed', path: '', files: [] });
         yield* settle;
         expect(find(app, 'Viewer')!.state).toMatchObject({

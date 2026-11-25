@@ -5,8 +5,6 @@ import { Projects } from '../../../../services/projects/contract/index.js';
 import { analysisAt, changesAt, type ProjectShape } from './shared/index.js';
 
 export const workers: WorkersOf<typeof ProjectShape> = {
-  // 1. Analyse: while opening, or once the branch named is another than
-  // the one analysed.
   analyse: {
     each: (data) => {
       const { state } = data;
@@ -39,7 +37,6 @@ export const workers: WorkersOf<typeof ProjectShape> = {
         yield* self.send(message);
       }),
   },
-  // 2. Git: the branches, once per reload.
   branches: {
     each: ({ model }) => [JSON.stringify([model.root, model.reloads])],
     run: (self, key) =>
@@ -58,7 +55,6 @@ export const workers: WorkersOf<typeof ProjectShape> = {
         yield* self.send(message);
       }),
   },
-  // 2. Git: what the branch changed, while Changes is on.
   changes: {
     each: (data) => {
       const at = changesAt(data);
@@ -89,7 +85,6 @@ export const workers: WorkersOf<typeof ProjectShape> = {
         yield* self.send(message);
       }),
   },
-  // 4. View: once for each Package the Props name.
   follow: {
     each: ({ props }) => [JSON.stringify(props.package)],
     run: (self, key) =>

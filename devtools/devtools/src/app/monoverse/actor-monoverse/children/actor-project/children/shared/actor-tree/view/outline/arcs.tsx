@@ -1,10 +1,8 @@
-// Outline's connections, curving through the gutter left of the rows.
 import { memo, useMemo, useSyncExternalStore } from 'react';
 
 import type { Connection } from '../../logic/shared/index.js';
 import { rowHeight, type Placement } from './layout.js';
 
-/** The row under the pointer, kept outside React so only the arcs follow it. */
 export interface Hovered {
   readonly get: () => string | null;
   readonly set: (path: string | null) => void;
@@ -34,24 +32,12 @@ interface Arc {
   readonly bend: number;
   readonly d: string;
   readonly colour: string;
-  /** Where the arrowhead sits: the end the link points at. */
   readonly head: number;
-  /** Where the line leaves: the end the link comes from. */
   readonly tail: number;
 }
 
-// At each row an arc touches, what it uses leaves or lands a little above
-// the middle and what uses it a little below, so the two never sit on
-// top of each other.
 const lane = { uses: -3.5, usedBy: 3.5 } as const;
 
-/**
- * One arc from the selected row to each row it connects to, curving out
- * into the gutter left of the rows and back: sky for what it uses, amber
- * for what uses it, red where a link is broken. An arrowhead marks the
- * end each link points at; nearer rows bow out less, so the arcs nest
- * instead of crossing. Pointing at a connected row brings its arcs forward.
- */
 export const OutlineArcs = memo(function OutlineArcs({
   selected,
   selectedIndex,
@@ -67,10 +53,8 @@ export const OutlineArcs = memo(function OutlineArcs({
   connections: ReadonlyMap<string, Connection>;
   indexOf: (path: string) => number | undefined;
   place: Placement;
-  /** The width of the gutter; the rows start at its right edge. */
   lead: number;
   hovered: Hovered;
-  /** Drawn at once, as when the selection moved by the keys. */
   still: boolean;
 }) {
   const edge = lead - 2;
@@ -84,9 +68,6 @@ export const OutlineArcs = memo(function OutlineArcs({
       const to = place.middle(index);
       const rows = Math.abs(to - from) / rowHeight;
       const broken = connection.broken > 0;
-      // Out from one row's edge into the gutter and back to the other's;
-      // the end that holds the arrowhead stops short of the row to leave
-      // the head room.
       const draw = (start: number, end: number, bend: number) => {
         const out = edge - bend;
         const stop = edge - 5;
@@ -120,7 +101,6 @@ export const OutlineArcs = memo(function OutlineArcs({
         });
       }
     }
-    // The longest arcs first, so the short ones draw over them.
     return drawn.sort((left, right) => right.bend - left.bend);
   }, [connections, indexOf, place, from, edge]);
   const pointed = useSyncExternalStore(hovered.subscribe, hovered.get);
@@ -138,7 +118,6 @@ export const OutlineArcs = memo(function OutlineArcs({
       width={lead}
       height={1}
     >
-      {/* Keyed by the selection, so a new selection draws its arcs out afresh. */}
       <g
         key={selected}
         fill="none"

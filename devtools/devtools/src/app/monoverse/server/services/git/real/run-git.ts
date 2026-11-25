@@ -4,7 +4,6 @@ import { GitError } from '../contract/index.js';
 
 const maxBuffer = 32 * 1024 * 1024;
 
-/** Runs git in `baseDir`, never throwing: `ok` says whether it succeeded. */
 export function runGit(
   baseDir: string,
   args: readonly string[],
@@ -24,7 +23,6 @@ export function runGit(
   });
 }
 
-/** Runs git in `baseDir` and gives its output, or throws a GitError for `reason`. */
 export async function requireGit(
   baseDir: string,
   args: readonly string[],

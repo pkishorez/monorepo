@@ -7,13 +7,7 @@ import { Waiting } from '../../../../../view/shared/index.js';
 import { Problem, Rereading } from '../../../view/shared/index.js';
 import { isReading, type PackageShape } from '../logic/shared/index.js';
 
-/*
- * A Package's view: its tree once read, quietly marked while it is read
- * again at another branch; or why it could not be read.
- */
-
 type BodyProps = ViewPropsOf<typeof PackageShape> & {
-  /** The Package's tree, once it is read. */
   readonly tree: ReactNode;
 };
 

@@ -1,7 +1,3 @@
-// Outline: the folder tree as a dense, editor-like indented list that
-// scrolls like a page, centred. Connections curve through a gutter on the left, beside the names
-// on any screen; git changes, broken links and the ignored sit quietly in
-// each row. While something is selected, the rest steps back.
 import {
   useCallback,
   useLayoutEffect,
@@ -48,85 +44,43 @@ import {
 import { OutlineRow, type OutlineRowActions, type RowOpens } from './row.js';
 import './outline.css';
 
-/** What Outline draws: the facts the Tree view works out from its Model and Props. */
 export interface OutlineProps {
-  /** `repo`: a Monorepo, each Package one closed node. `package`: one Package's files. */
   readonly scope: 'repo' | 'package';
-  /** The whole tree; `tree.root` is never drawn itself. */
   readonly tree: FolderTree;
-  /** The folders open. */
   readonly open: ReadonlySet<string>;
-  /** The nodes showing, top to bottom, depth-first: inside every open folder, less hidden ones. */
   readonly rows: ReadonlyArray<Row>;
   readonly selected: string | null;
-  /**
-   * What the selection connects to, keyed by the node showing that holds
-   * the far end: a sibling, something beside an ancestor, or a closed
-   * folder standing for everything in it.
-   */
   readonly connections: ReadonlyMap<string, Connection>;
-  /** How many Violations, and Packages in a cycle, each node holds, and each Package's Check. */
   readonly findings: Findings;
-  /** What is wrong with the selection, each with what to do about it. */
   readonly selectionFindings: ReadonlyArray<Finding>;
-  /** What changed in each node since Compare-to; empty while Changes is off. */
   readonly changes: ReadonlyMap<string, NodeChange>;
-  /** Whether Changes is on, so a folder is viewed for its changes. */
   readonly changesOn: boolean;
-  /**
-   * While something is selected, whether a node steps back: all but the
-   * selection, what is inside it, what it connects to, and the folders
-   * holding those.
-   */
   readonly dimmed: (path: string) => boolean;
-  /** While Changes is on and the unchanged are dimmed: whether the branch left a node unchanged. */
   readonly faded: (path: string) => boolean;
-  /** Outside the Source roots: drawn dimmed, never analysed. */
   readonly ignored: (path: string) => boolean;
-  /**
-   * Which folders open and close everything inside them at once: those
-   * holding folders, each whether all of it is open; and whether every
-   * folder in the tree is.
-   */
   readonly folding: {
     readonly all: boolean;
     readonly inside: (path: string) => boolean | null;
   };
-  /** The tree is as it opened: the default view, nothing selected. */
   readonly atHome: boolean;
   readonly actions: TreeActions;
 }
 
 export interface TreeActions {
-  /** Selects a node; the selected one, or null, lets go. */
   readonly select: (path: string | null) => void;
-  /** Opens or closes a folder. */
   readonly toggle: (path: string) => void;
-  /** Double click: opens a folder, a file in the Viewer, a Package in its own view. */
   readonly activate: (node: TreeNode) => void;
-  /**
-   * The selection bar's one button: a file in the Viewer, a Package in
-   * its own view, a folder (the root too) in the Viewer.
-   */
   readonly view: (node: TreeNode) => void;
-  /** A Package's changes, from the repository's tree, in the Viewer. */
   readonly changes: (node: TreeNode) => void;
-  /** Opens the folders down to what a connected closed folder holds that is connected. */
   readonly reveal: (path: string) => void;
-  /** Every folder open, or, if every one is, all closed down to the top level. */
   readonly toggleAll: () => void;
-  /** Back to the default view: the folders open at first, nothing selected. */
   readonly reset: () => void;
-  /** Everything inside a folder open, or every folder in it closed. */
   readonly toggleInside: (path: string) => void;
 }
 
-/** Room left and right of the tree, inside the scrolling box. */
 const side = 12;
-/** The bar held at the top of the tree as it scrolls: the fold toggle, and reset. */
 const topBarHeight = 32;
 
-// The Selection Bar's key, in the colours the arcs are drawn in.
 const outlineColours = {
   uses: 'var(--outline-uses)',
   usedBy: 'var(--outline-used-by)',
@@ -151,9 +105,6 @@ export function Outline({
   atHome,
   actions,
 }: OutlineProps) {
-  // The screen's width: the gutter and the column fit it, so on a phone the
-  // names, their marks and every arc show without scrolling sideways.
-  // Measured before the first paint, so the tree never moves once drawn.
   const frame = useRef<HTMLDivElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const [screen, setScreen] = useState(0);
@@ -169,14 +120,8 @@ export function Outline({
     return () => observer.disconnect();
   }, []);
   const lead = leadFor(screen);
-  // The same for every tree, so moving between them moves nothing.
   const width = columnWidth(screen - 2 * side - lead - endInset);
-  // The tree, centred; wider than the screen, it scrolls sideways.
   const blockWidth = lead + width + endInset;
-  // On a wide screen the side panels hold what is selected and the reset
-  // button; elsewhere the Selection Bar sits over the tree, and reset in
-  // the tree's own top bar. Room below, clear of the Selection Bar; rows
-  // brought into view by the keys stop clear of the top bar.
   const slots = usePanelSlots();
   const room = {
     top: 12,
@@ -197,10 +142,8 @@ export function Outline({
   );
   const [hovered] = useState(createHovered);
   const content = useRef<HTMLDivElement>(null);
-  // Whether the selection last moved by the keys: those moves never animate.
   const byKeys = useRef(false);
 
-  // Read by the handlers as they run, so nothing draws again for them.
   const latest = useRef({ rows, open, selected, connections, indexOf });
   latest.current = { rows, open, selected, connections, indexOf };
 
@@ -219,15 +162,9 @@ export function Outline({
     }),
     [actions],
   );
-  // What each row's open button opens, on every row at any depth: what
-  // changed in it while Changes is on, or a Package's changes, which turn
-  // Changes on; else a file, or a folder's files.
   const opensOf = (node: TreeNode): RowOpens =>
     changesOn || node.kind === 'package' ? 'diff' : 'view';
 
-  // Focuses a row, scrolling only as far as it takes to show it clear of
-  // the corner button and the Selection Bar.
-  // The row may be far out of sight, and not drawn: it is drawn first.
   const reachRow = useRef<(index: number, then: () => void) => void>(
     () => undefined,
   );
@@ -272,7 +209,6 @@ export function Outline({
           break;
         case 'ArrowRight':
           if (isFolder && !open.has(node.path)) {
-            // Into a closed folder the selection reaches: open it to what it holds.
             if (connections.has(node.path)) actions.reveal(node.path);
             else actions.toggle(node.path);
           } else if (isFolder && rows[at + 1]?.depth === depth + 1) {
@@ -297,7 +233,6 @@ export function Outline({
         default:
           return;
       }
-      // Arrows are the tree's here, not the prototype picker's.
       event.preventDefault();
       event.stopPropagation();
       if (next === undefined) return;
@@ -311,7 +246,6 @@ export function Outline({
   const onPointerOver = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
       if (!(event.target instanceof Element)) return;
-      // A finger has no hover: a tap must not leave the other arcs faded.
       if (event.pointerType !== 'mouse') return hovered.set(null);
       hovered.set(
         event.target.closest('[data-row]')?.getAttribute('data-path') ?? null,
@@ -326,9 +260,6 @@ export function Outline({
   const tabbable =
     selectedIndex === undefined ? rows[0]?.node.path : (selected ?? undefined);
 
-  // Only the rows that show are drawn, and those the keys and Tab need
-  // wherever the tree is scrolled: the selection, the row Tab lands on,
-  // and the one focused.
   const [focused, setFocused] = useState<string | null>(null);
   const keyOf = useCallback(
     (index: number) => rows[index]?.node.path ?? String(index),
@@ -390,7 +321,6 @@ export function Outline({
         }}
         onClick={(event) => {
           if (!(event.target instanceof Element)) return;
-          // Neither a row nor the controls over the tree: empty space.
           if (event.target.closest('[data-row], [data-space-ignore]') !== null)
             return;
           byKeys.current = false;
@@ -521,7 +451,6 @@ export function Outline({
         : slots.selection === null
           ? null
           : createPortal(
-              // Its colours are the tree's own.
               <div className="outline-tree">{selectionBar(true)}</div>,
               slots.selection,
             )}

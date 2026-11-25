@@ -15,12 +15,6 @@ import {
 } from './telemetry-schema.js';
 import { Schema } from 'effect';
 
-/*
- * What the Lotel Tool and the DevTools Server say to each other, served at
- * `/rpc/lotel`: write Span Records and Log Records, read them back page by
- * page after an Update Cursor, read Traces, and clear everything.
- */
-
 const makeTelemetryRpc = () =>
   RpcGroup.make(
     Rpc.make('SaveSpans', {
@@ -66,5 +60,4 @@ const makeTelemetryRpc = () =>
 
 export const TelemetryRpc = makeTelemetryRpc();
 
-/** Where the DevTools Server serves the Telemetry RPC. */
 export const TELEMETRY_RPC_PATH = '/rpc/lotel';

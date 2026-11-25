@@ -8,43 +8,23 @@ import {
   relativeTo,
 } from '../tree/index.ts';
 
-/*
- * The imports rule: a file may import
- *
- *   1. any file in its own module;
- *   2. below it, the index file of any module, at any depth;
- *   3. beside or above it, a door: the index file of a door folder, or of
- *      a folder directly inside one, that its own folder or a folder above
- *      it owns.
- *
- * Nothing else. A file outside the importer's package, or in a package
- * nested inside it, is never judged. Paths are relative to the project
- * root.
- */
-
-/** The imports rule's settings. */
 export interface ImportsRule {
-  /** Door folders, as paths from the folder that owns them: `logic/shared`, `services/*\/contract`. */
   readonly doors: readonly string[];
 }
 
-/** Whether one import keeps the imports rule, and if not, why. */
 export type ImportVerdict =
   | { readonly ok: true }
   | {
       readonly ok: false;
       readonly reason: 'inside';
-      /** The module reached into, whose index file to import instead. */
       readonly module: string;
     }
   | {
       readonly ok: false;
       readonly reason: 'door';
-      /** The doors that could have been used. */
       readonly doors: readonly string[];
     };
 
-/** Whether `importer` may import `target`, two files the Tree holds. */
 export const judgeImport = (
   tree: Tree,
   rule: ImportsRule,
@@ -71,10 +51,6 @@ export const judgeImport = (
   return { ok: false, reason: 'door', doors: rule.doors };
 };
 
-/**
- * Whether `dir` is a door, or a folder directly in one, that a folder
- * holding `importer` owns: the package `root` or a folder inside it.
- */
 const isDoorIndex = (
   importer: string,
   dir: string,
@@ -92,11 +68,6 @@ const isDoorIndex = (
     }),
   );
 
-/**
- * What a broken import is told, and how to fix it. `what` names the
- * import as the reader knows it: the specifier as written, or a path.
- * `root` is the package, so the module is named from it.
- */
 export const importMessage = (
   verdict: Exclude<ImportVerdict, { readonly ok: true }>,
   what: string,

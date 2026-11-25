@@ -30,35 +30,16 @@ import {
 import { BranchMenu } from './branch-menu.js';
 import { PhoneGitSettings } from './phone-settings.js';
 
-/*
- * The three controls at the top right, and nothing else: Branch, the
- * branch whose files are shown; Compare to, the branch its changes are
- * measured against; and Changes, which colours what the branch changed,
- * and the sliders beside it: whether a Package's ignored files are drawn,
- * and while Changes is on, how what the branch left unchanged is drawn
- * and whether the files it deleted are. On a phone all of them sit in one
- * settings sheet, behind the sliders button.
- */
-
 export interface GitControlsProps {
-  /** The repository's branches; null while they are read. */
   readonly branches: Branches | null;
-  /** Why there are none: the project is not in a git repository, say. */
   readonly problem: string | null;
-  /** The branch shown. */
   readonly branch: string | null;
-  /** The branch compared to. */
   readonly base: string | null;
   readonly changes: boolean;
-  /** Changes is on, and what the branch changed is being read. */
   readonly reading: boolean;
-  /** Why what the branch changed could not be read. */
   readonly changesProblem: string | null;
-  /** Whether the files the branch deleted are drawn. */
   readonly deleted: boolean;
-  /** How what the branch left unchanged is drawn. */
   readonly unchanged: Unchanged;
-  /** Whether a Package's files outside its Source roots are drawn. */
   readonly ignored: boolean;
   readonly onBranch: (name: string) => void;
   readonly onBase: (name: string) => void;
@@ -126,7 +107,6 @@ function WideGitControls(props: GitControlsProps) {
   );
 }
 
-/** A switch with its label, the whole of it one target; why it is off, when it cannot be on. */
 export function ChangesToggle({
   on,
   blocked,
@@ -180,11 +160,6 @@ export function ChangesToggle({
   );
 }
 
-/**
- * What the tree draws, behind the sliders, always there so nothing beside
- * it moves: the same settings a folder looked into offers. While the
- * changes are read it turns a spinner, and a warning when they cannot be.
- */
 function ViewSettings({
   reading,
   problem,

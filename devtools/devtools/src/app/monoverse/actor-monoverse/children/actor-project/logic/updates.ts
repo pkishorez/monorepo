@@ -7,7 +7,6 @@ import {
   type Where,
 } from './shared/index.js';
 
-/** Whether a folder is a Package viewed from the Monorepo's tree, which knows no Package's files, only what changed. */
 const viewedForChanges = (
   { props, state }: DataOf<typeof ProjectShape>,
   path: string,
@@ -16,7 +15,6 @@ const viewedForChanges = (
   props.package === null &&
   state.workspace.packages.some((one) => one.path === path);
 
-/** A move from where the Props name. */
 const moved = (props: Where, change: Partial<Where>) => ({
   _tag: 'Moved' as const,
   package: props.package,
@@ -40,7 +38,6 @@ export const init: InitOf<typeof ProjectShape> = ({ root }) => ({
 });
 
 export const updates: UpdatesOf<typeof ProjectShape> = {
-  // 1. Analyse
   Analysed: ({ at, workspace, links, cycles }, data) => {
     if (at !== analysisAt(data)) return {};
     return {
@@ -64,7 +61,6 @@ export const updates: UpdatesOf<typeof ProjectShape> = {
       ? { state: { _tag: 'Opening' as const } }
       : {}),
   }),
-  // 2. Git
   BranchesRead: ({ branches }) => ({
     model: { branches, gitProblem: null },
   }),
@@ -72,7 +68,6 @@ export const updates: UpdatesOf<typeof ProjectShape> = {
     model: { branches: null, gitProblem: problem },
   }),
   BranchChosen: ({ branch }, { model, props }) => {
-    // The folder's own branch is named as none, so the address stays bare.
     const named = branch === model.branches?.current ? null : branch;
     if (named === props.branch) return {};
     return { emit: moved(props, { branch: named }) };
@@ -97,7 +92,6 @@ export const updates: UpdatesOf<typeof ProjectShape> = {
       : {},
   ChangesRefused: ({ at, problem }, data) =>
     at === changesAt(data) ? { model: { changesProblem: problem } } : {},
-  // 3. Enter
   Entered: ({ package: path }, { props, state }) => {
     if (state._tag !== 'Monorepo' || path === props.package) return {};
     return { model: { open: null }, emit: moved(props, { package: path }) };
@@ -106,8 +100,6 @@ export const updates: UpdatesOf<typeof ProjectShape> = {
     if (props.package === null) return {};
     return { model: { open: null }, emit: moved(props, { package: null }) };
   },
-  // 4. View: what was open in another Package closes, as Back or Forward
-  // goes there.
   Followed: ({ package: path }, { model }) =>
     model.open === null || model.open.package === path
       ? {}
@@ -132,6 +124,5 @@ export const updates: UpdatesOf<typeof ProjectShape> = {
     };
   },
   ViewClosed: () => ({ model: { open: null } }),
-  // 5. Switch
   SwitchAsked: () => ({ emit: { _tag: 'SwitchAsked' } }),
 };

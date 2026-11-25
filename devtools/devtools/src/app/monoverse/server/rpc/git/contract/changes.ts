@@ -20,7 +20,6 @@ export const ChangedPathSchema = Schema.Struct({
 export type ChangedPath = typeof ChangedPathSchema.Type;
 
 export const ChangeSetSchema = Schema.Struct({
-  /** The commit the change set is measured from: the merge-base of the branch and the one it is compared to. */
   baseRef: Schema.String,
   files: Schema.Array(ChangedPathSchema),
 }).annotate({
@@ -69,12 +68,6 @@ export type FileDiff = typeof FileDiffSchema.Type;
 
 export const BranchSchema = Schema.Struct({
   name: Schema.String,
-  /**
-   * The Project's folder inside the worktree that has this branch checked
-   * out, absolute: reading the branch reads that folder, uncommitted work
-   * and all. Null: no worktree has it, so it is read from git at its last
-   * commit.
-   */
   worktree: Schema.NullOr(Schema.String),
 }).annotate({
   title: 'Branch',
@@ -85,11 +78,8 @@ export const BranchSchema = Schema.Struct({
 export type Branch = typeof BranchSchema.Type;
 
 export const BranchesSchema = Schema.Struct({
-  /** The branch the Project's own folder has checked out; null when detached. */
   current: Schema.NullOr(Schema.String),
-  /** What Compare-to starts at: `main`, else `master`, else `develop`, else the current branch. */
   defaultBase: Schema.NullOr(Schema.String),
-  /** Every local branch, the current one first, then by name. */
   branches: Schema.Array(BranchSchema),
 }).annotate({
   title: 'Branches',

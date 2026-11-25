@@ -11,19 +11,8 @@ import {
 } from '../../../services/git/contract/index.js';
 import { parsePatch } from './parse-patch.js';
 
-/*
- * What a branch changed since it left another, in the Project folder:
- * from the merge-base of the two to the branch's last commit when it is
- * read from git, or to its worktree's files, uncommitted work included,
- * when one has it checked out. Paths are relative to the Project folder.
- */
-
 const wholeFileContext = 1_000_000;
 
-/**
- * The change set of the branch placed at `placement` since `base`. `root`
- * is the Project folder git runs in when the branch is read from git.
- */
 export async function readChangeSet(
   git: GitShape,
   root: string,
@@ -43,14 +32,12 @@ export async function readChangeSet(
   const mergeBase = await mergeBaseOf(git, folder, base, 'HEAD');
   const changed = new Map<string, ChangeStatus>();
 
-  // Committed work between the merge-base and HEAD.
   for (const [path, status] of await nameStatus(git, folder, [
     mergeBase,
     'HEAD',
   ])) {
     record(changed, path, status);
   }
-  // Uncommitted work: the working tree against HEAD, plus untracked files.
   for (const [path, status] of await nameStatus(git, folder, ['HEAD'])) {
     record(changed, path, status);
   }
@@ -67,7 +54,6 @@ export async function readChangeSet(
   return { baseRef: mergeBase, files: sorted(files) };
 }
 
-/** How one file changed on the branch placed at `placement` since `base`. */
 export async function readFileDiff(
   git: GitShape,
   root: string,
@@ -104,11 +90,9 @@ export async function readFileDiff(
     '--',
     path,
   ]);
-  // An untracked file has no diff against the merge-base: it is all new.
   const patch = tracked.ok
     ? await git.require(
         folder,
-        // Full context so one hunk carries the complete before and after file.
         ['diff', '--no-renames', '--no-color', unified, mergeBase, '--', path],
         'command-failed',
       )
@@ -132,7 +116,6 @@ async function mergeBaseOf(
   base: string,
   tip: string,
 ): Promise<string> {
-  // Never read as an option.
   if (base === '' || base.startsWith('-')) {
     throw new GitError({
       reason: 'unknown-ref',
@@ -177,14 +160,12 @@ async function nameStatus(
   return entries;
 }
 
-// A path added since the merge-base stays added, however it changed after.
 function record(
   changed: Map<string, ChangeStatus>,
   path: string,
   status: ChangeStatus,
 ): void {
   const current = changed.get(path);
-  // Added since the merge-base, then deleted: it never touched the merge-base.
   if (current === 'added' && status === 'deleted') {
     changed.delete(path);
     return;

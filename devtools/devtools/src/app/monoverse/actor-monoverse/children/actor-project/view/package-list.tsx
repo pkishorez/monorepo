@@ -9,16 +9,6 @@ import {
 } from './package-menu.js';
 import { CheckMark } from './shared/index.js';
 
-/*
- * The Packages held open in the left panel, one quiet line each: the name,
- * without the scope most of them share, what its monoverse.json found,
- * and while Changes is on how many files changed, in the colour they roll
- * up to. The one shown is the only row highlighted; All packages leads,
- * the way back to the repo view. A search field narrows the list once it
- * is long.
- */
-
-/** Past this many Packages, the list gets a search field. */
 const searchFrom = 10;
 
 const tone = {
@@ -27,7 +17,6 @@ const tone = {
   deleted: 'text-removed',
 } as const;
 
-/** The scope most Packages share, as `@scope/`, so their names can drop it. */
 function sharedScope(packages: ReadonlyArray<PackageChoice>): string | null {
   const counts = new Map<string, number>();
   for (const { name } of packages) {
@@ -54,7 +43,6 @@ export function PanelPackageList({
   onChoose,
 }: {
   packages: ReadonlyArray<PackageChoice>;
-  /** By its folder; null: the repo view. */
   current: string | null;
   changes: PackageChanges | null;
   onChoose: (path: string | null) => void;

@@ -16,49 +16,26 @@ import {
 } from '../shared/tree/index.ts';
 import { type Sources, isSource } from './source.ts';
 
-/*
- * One package checked as its monoverse.json says: every file it checks,
- * each import judged by the imports rule unless an exception lifts it,
- * then by the restrictions, which nothing lifts, and each contract read.
- * What is wrong with the monoverse.json itself (an exception that lifts
- * nothing, a restriction that covers no file) is told once, on it.
- */
-
-/** What a Violation breaks. */
 export type ViolationKind =
-  /** An import reaches inside a module. */
   | 'inside'
-  /** An import reaches beside or above, not through a door. */
   | 'door'
-  /** A contract is missing, or exports what it may not. */
   | 'contract'
-  /** An import a restriction refuses. */
   | 'restriction'
-  /** An exception that lifts no import: told on the monoverse.json. */
   | 'unused-exception'
-  /** A restriction whose `from` matches no checked file: told on the monoverse.json. */
   | 'stale-restriction';
 
-/** One thing that breaks a package's monoverse.json. */
 export interface Violation {
   readonly kind: ViolationKind;
-  /** The file it is told on, relative to the root. */
   readonly file: string;
-  /** Where, both 1-based. */
   readonly line: number;
   readonly column: number;
-  /** The file the import names, relative to the root, when it names one. */
   readonly to?: string;
-  /** The import as written. */
   readonly specifier?: string;
   readonly message: string;
 }
 
-/** What a package's check found. */
 export type PackageResult =
-  /** No monoverse.json: nothing is checked. */
   | { readonly _tag: 'Unchecked' }
-  /** A monoverse.json that cannot be read, and why. Nothing else is checked. */
   | {
       readonly _tag: 'Invalid';
       readonly file: string;
@@ -66,14 +43,11 @@ export type PackageResult =
     }
   | { readonly _tag: 'Checked'; readonly violations: readonly Violation[] };
 
-/** One package's check. */
 export interface PackageReport {
-  /** The package folder, relative to the root; `''` is the root. */
   readonly path: string;
   readonly result: PackageResult;
 }
 
-/** Checks the package at `pkg`, a folder holding a `package.json`. */
 export const checkPackage = (
   sources: Sources,
   tree: Tree,
@@ -200,11 +174,6 @@ const violationsOf = (
   );
 };
 
-/**
- * Where the `index`th entry of the top-level list under `key` starts in
- * a monoverse.json. Strings are skipped whole, so a `{` in a glob or a
- * value that reads like the key never counts.
- */
 const entryAt = (
   text: string,
   key: string,

@@ -14,13 +14,6 @@ import { Toasts } from '../../services/toasts/contract/index.js';
 import { fakeToasts } from '../../services/toasts/fake/index.js';
 import { Lotel } from '../index.js';
 
-/*
- * The Lotel Tool in memory, on telemetry the test gives: a Trace the Feed
- * picks opens beside it and closes again, its layout outlives it, and
- * clearing waits for a confirmation, closes the Trace open, and says how
- * it went.
- */
-
 const span: OtelSpan = {
   traceId: 'trace-1',
   spanId: 'root',
@@ -55,7 +48,6 @@ const start = (
 const run = <A>(effect: Effect.Effect<A, unknown, Scope.Scope>) =>
   Effect.runPromise(Effect.scoped(effect));
 
-/** The app once the Feed has the Span and the Trace it makes is open. */
 const opened = (app: Effect.Success<ReturnType<typeof start>>) =>
   Effect.gen(function* () {
     const feed = yield* app.root.children.feed.until(
@@ -147,7 +139,6 @@ describe('the Lotel Tool', () => {
         yield* app.root.until(({ model }) => model.restored);
         app.root.send({ _tag: 'ClearAsked' });
         app.root.send({ _tag: 'ClearConfirmed' });
-        // Back to asking once the Command has failed, not left clearing.
         yield* Effect.sleep('10 millis');
         expect(app.root.model.clearing).toBe('confirming');
         expect(toasts.shown).toEqual([

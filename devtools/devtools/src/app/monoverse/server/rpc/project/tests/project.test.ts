@@ -7,7 +7,6 @@ import { withFixture } from '../../../tests/git-fixture.js';
 import { copies, servicesLayer } from '../../../tests/services.js';
 import { openProject, readPackage } from '../real/project.js';
 
-// The handlers, on the real services.
 const open = (root: string, branch: string | null) =>
   openProject(root, branch).pipe(Effect.provide(servicesLayer));
 const read = (root: string, branch: string | null, path: string) =>
@@ -17,15 +16,12 @@ describe('a Project opened at a branch', () => {
   test('read from git: its Workspace, and a Package with its imports', () =>
     withFixture(async ({ repo }) => {
       const workspace = await Effect.runPromise(open(repo, 'feature'));
-      // No Package has a monoverse.json: nothing is checked, so the branch
-      // is never put on disk.
       expect(readdirSync(copies)).toEqual([]);
       expect(workspace).toMatchObject({
         kind: 'monorepo',
         name: 'fixture',
         path: repo,
         packageManager: 'pnpm',
-        // Every file, those inside its Packages too.
         files: [
           'package.json',
           'packages/core/package.json',
@@ -57,7 +53,6 @@ describe('a Project opened at a branch', () => {
           ['packages/core/src/index.ts', 'packages/core/src/feature.ts'],
           ['packages/core/src/index.ts', 'packages/core/src/util.ts'],
         ],
-        // No monoverse.json: not checked.
         check: { _tag: 'Unchecked' },
       });
     }));

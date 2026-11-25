@@ -20,30 +20,15 @@ export const PackageDependencySchema = Schema.Struct({
 
 export type PackageDependency = typeof PackageDependencySchema.Type;
 
-/** An import of one file by another, both relative to the root: `[from, to]`. */
 export const ImportSchema = Schema.Tuple([Schema.String, Schema.String]);
 
 export type Import = typeof ImportSchema.Type;
 
 export const ViolationSchema = Schema.Struct({
-  /**
-   * The file `monoverse lint` tells it on: the importer, the contract, or
-   * the Package's monoverse.json for what is wrong with that file itself.
-   */
   from: Schema.String,
-  /** Where in `from`, both 1-based. */
   line: Schema.Number,
   column: Schema.Number,
-  /** The file an import names, when it names one. */
   to: Schema.optional(Schema.String),
-  /**
-   * `inside`: an import reaches inside a module; `door`: it reaches
-   * beside or above, not through a door; `contract`: a contract folder
-   * is missing, or exports what it may not; `restriction`: an import a
-   * restriction refuses, its reason in the message; `unused-exception`:
-   * an exception that lets no import through; `stale-restriction`: a
-   * restriction that covers no checked file.
-   */
   reason: Schema.Literals([
     'inside',
     'door',
@@ -52,7 +37,6 @@ export const ViolationSchema = Schema.Struct({
     'unused-exception',
     'stale-restriction',
   ]),
-  /** What `monoverse lint` says of it, word for word. */
   message: Schema.String,
 }).annotate({
   title: 'Violation',
@@ -63,11 +47,8 @@ export const ViolationSchema = Schema.Struct({
 export type Violation = typeof ViolationSchema.Type;
 
 export const CheckSchema = Schema.TaggedUnion({
-  /** No monoverse.json: the Package is not checked. */
   Unchecked: {},
-  /** A monoverse.json that cannot be read: that file, relative to the root, and why. */
   Invalid: { file: Schema.String, message: Schema.String },
-  /** Checked: everything that breaks the rules. */
   Checked: { violations: Schema.Array(ViolationSchema) },
 }).annotate({
   title: 'Check',
@@ -117,16 +98,10 @@ export type PackageManager = typeof PackageManagerSchema.Type;
 export const WorkspaceSchema = Schema.Struct({
   kind: Schema.Literals(['monorepo', 'single-package']),
   name: Schema.String,
-  /** The absolute folder opened. */
   path: Schema.String,
   packageManager: PackageManagerSchema,
   packages: Schema.Array(PackageSchema),
   cycles: Schema.Array(PackageCycleSchema),
-  /**
-   * Every file git knows (tracked, or new and not ignored), relative to
-   * the root: the repo view draws those outside every Package, and lists
-   * them all when a folder is viewed.
-   */
   files: Schema.Array(Schema.String),
 }).annotate({
   title: 'Workspace',
@@ -137,17 +112,9 @@ export const WorkspaceSchema = Schema.Struct({
 export type Workspace = typeof WorkspaceSchema.Type;
 
 export const PackageContentsSchema = Schema.Struct({
-  /** The Package's folder, relative to the root. */
   path: Schema.String,
-  /** Every file git knows inside the Package, relative to the root. */
   files: Schema.Array(Schema.String),
-  /**
-   * The Package's Source roots, relative to the root: the `sourceRoots`
-   * of its monoverse.json, the only files its rules check; the whole
-   * Package without a monoverse.json that can be read.
-   */
   sourceRoots: Schema.Array(Schema.String),
-  /** Which source file imports which, every source file git knows in it, tests too. */
   imports: Schema.Array(ImportSchema),
   check: CheckSchema,
 }).annotate({

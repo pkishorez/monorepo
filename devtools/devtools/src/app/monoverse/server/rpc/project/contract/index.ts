@@ -1,6 +1,3 @@
-// Opening a Project at a branch: its Workspace, one Package's files,
-// file import graph and Check, and the errors every read of a Project at
-// a branch may fail with.
 export {
   At,
   GitUnavailableError,

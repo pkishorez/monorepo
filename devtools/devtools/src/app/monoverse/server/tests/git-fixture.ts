@@ -3,21 +3,8 @@ import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-/*
- * A throwaway git repository for the server's tests, a pnpm Monorepo with
- * one Package, on three branches:
- *
- *   main     checked out in `repo`, the Package importing one file;
- *   feature  read from git only: a commit adds `feature.ts`, imported by
- *            the Package, and edits the README;
- *   wip      checked out in the worktree `worktree`, with an uncommitted
- *            edit and an untracked file.
- */
-
 export type Fixture = {
-  /** The main worktree, absolute and real. */
   readonly repo: string;
-  /** The worktree that has `wip` checked out. */
   readonly worktree: string;
   readonly git: (cwd: string, ...args: Array<string>) => string;
   readonly write: (path: string, content: string) => Promise<void>;

@@ -3,7 +3,6 @@ import { Command } from '@kestack/kabuki';
 import { Telemetry } from '../../services/telemetry/contract/index.js';
 import { Toasts } from '../../services/toasts/contract/index.js';
 
-// 3. Clear
 export const clear = Command.make('clear', {
   run: () =>
     Effect.gen(function* () {
@@ -20,7 +19,6 @@ export const clear = Command.make('clear', {
     ),
 });
 
-/** Tells the reader how something went, in a toast. */
 export const notify = Command.make('notify', {
   args: Schema.Struct({
     type: Schema.Literals(['success', 'error']),
