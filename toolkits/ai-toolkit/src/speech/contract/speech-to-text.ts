@@ -21,12 +21,29 @@ export interface Fetched {
   readonly total: number | null;
 }
 
+/** A word heard, and when it was said: seconds from the start of the samples. */
+export interface HeardWord {
+  readonly text: string;
+  readonly start: number;
+  readonly end: number;
+}
+
+/** The text heard, and each word of it with its times. */
+export interface Heard {
+  readonly text: string;
+  readonly words: ReadonlyArray<HeardWord>;
+}
+
 /** A model loaded into memory. */
 export interface Recognizer {
   /** The text spoken in mono samples at SAMPLE_RATE, each in [-1, 1]. */
   readonly transcribe: (
     samples: Float32Array,
   ) => Effect.Effect<string, SpeechToTextError>;
+  /** The same, with each word's times. */
+  readonly hear: (
+    samples: Float32Array,
+  ) => Effect.Effect<Heard, SpeechToTextError>;
 }
 
 export class SpeechToText extends Context.Service<

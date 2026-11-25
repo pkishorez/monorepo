@@ -1,9 +1,13 @@
 export {
+  SAMPLE_RATE,
   sherpa,
   Speech,
   SpeechToText,
+  SpeechToTextError,
   SpeechToTextNotReady,
   TranscriptionFailed,
+  type Heard,
+  type HeardWord,
   type Recognizer,
   type SpeechOptions,
   type SpeechService,

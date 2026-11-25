@@ -58,26 +58,28 @@ Claude Code and Codex are not dependencies: install the ones you use, and sign i
 
 ### `@kestack/ai-toolkit/harness`
 
-| Export                        | What it does                                                                                   |
-| ----------------------------- | ---------------------------------------------------------------------------------------------- |
-| `claude`                      | The Claude Code harness, through the Agent SDK.                                                |
-| `codex`                       | The Codex harness, through `codex app-server`.                                                 |
-| `codexOneShot`                | Layer of `OneShotPrompt` answered by Codex on a small model, read-only, in a temp folder.      |
-| `Harnesses`                   | Service listing the Coding Harnesses a program runs, each found by name.                       |
-| `harnesses`                   | Layer of `Harnesses` from a list of harnesses.                                                 |
-| `HarnessAccount`              | Service saying which Harness Account a call runs as: its binary and config folder.             |
-| `HarnessAccount.layerDefault` | Layer running the installed harness from PATH, on its own config folder.                       |
-| `binaryAt`                    | What a harness's binary resolves to, run as a given Harness Account.                           |
-| `checkBinary`                 | A path the user gave, expanded, once it runs as the harness's binary.                          |
-| `configFolderOf`              | The config folder an account really uses: its own, else the environment's, else the harness's. |
-| `InvalidBinary`               | Error: the path is missing, not executable, or its `--version` failed.                         |
-| `OneShotPrompt`               | Service answering a prompt with no Agent behind it and nothing kept.                           |
-| `HarnessError`                | Error: a Coding Harness failed.                                                                |
-| `isRecord`                    | Whether something in a Turn's stream is a record of the agent's, not a fact about the Turn.    |
-| `projectRaw`                  | One Raw record to its Message form, by the harness in a list that wrote it.                    |
-| `Models`                      | Service listing the Language Models each harness can run, from models.dev and the account.     |
-| `Models.layer`                | Layer of `Models`, keeping its models.dev copy in a file the caller names.                     |
-| `ModelsError`                 | Error: the models could not be listed.                                                         |
+| Export                        | What it does                                                                                          |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `claude`                      | The Claude Code harness, through the Agent SDK.                                                       |
+| `claudeOneShot`               | Layer of `OneShotPrompt` answered by Claude Code on a small model, with no tools, in a temp folder.   |
+| `claudeOneShotWith`           | The same Layer on another Language Model, the account's default unless named, and another time limit. |
+| `codex`                       | The Codex harness, through `codex app-server`.                                                        |
+| `codexOneShot`                | Layer of `OneShotPrompt` answered by Codex on a small model, read-only, in a temp folder.             |
+| `Harnesses`                   | Service listing the Coding Harnesses a program runs, each found by name.                              |
+| `harnesses`                   | Layer of `Harnesses` from a list of harnesses.                                                        |
+| `HarnessAccount`              | Service saying which Harness Account a call runs as: its binary and config folder.                    |
+| `HarnessAccount.layerDefault` | Layer running the installed harness from PATH, on its own config folder.                              |
+| `binaryAt`                    | What a harness's binary resolves to, run as a given Harness Account.                                  |
+| `checkBinary`                 | A path the user gave, expanded, once it runs as the harness's binary.                                 |
+| `configFolderOf`              | The config folder an account really uses: its own, else the environment's, else the harness's.        |
+| `InvalidBinary`               | Error: the path is missing, not executable, or its `--version` failed.                                |
+| `OneShotPrompt`               | Service answering a prompt with no Agent behind it and nothing kept.                                  |
+| `HarnessError`                | Error: a Coding Harness failed.                                                                       |
+| `isRecord`                    | Whether something in a Turn's stream is a record of the agent's, not a fact about the Turn.           |
+| `projectRaw`                  | One Raw record to its Message form, by the harness in a list that wrote it.                           |
+| `Models`                      | Service listing the Language Models each harness can run, from models.dev and the account.            |
+| `Models.layer`                | Layer of `Models`, keeping its models.dev copy in a file the caller names.                            |
+| `ModelsError`                 | Error: the models could not be listed.                                                                |
 
 ### `@kestack/ai-toolkit/harness/fake`
 
@@ -88,14 +90,16 @@ Claude Code and Codex are not dependencies: install the ones you use, and sign i
 
 ### `@kestack/ai-toolkit/speech`
 
-| Export                 | What it does                                                                           |
-| ---------------------- | -------------------------------------------------------------------------------------- |
-| `Speech`               | Service switching Speech to Text on and off, watching how it stands, and transcribing. |
-| `Speech.layer`         | Layer of `Speech`, keeping its wish and model in a folder the caller names.            |
-| `SpeechToText`         | Service a model runs behind: install, load and transcribe.                             |
-| `sherpa`               | Layer of `SpeechToText` on sherpa-onnx with Parakeet.                                  |
-| `SpeechToTextNotReady` | Error: Speech to Text is off, still downloading, or failed.                            |
-| `TranscriptionFailed`  | Error: the model would not load, or could not make out the audio.                      |
+| Export                 | What it does                                                                                                      |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `Speech`               | Service switching Speech to Text on and off, watching how it stands, and transcribing.                            |
+| `Speech.layer`         | Layer of `Speech`, keeping its wish and model in a folder the caller names.                                       |
+| `SpeechToText`         | Service a model runs behind: install, then load a Recognizer that transcribes, or hears each word with its times. |
+| `sherpa`               | Layer of `SpeechToText` on sherpa-onnx with Parakeet.                                                             |
+| `SAMPLE_RATE`          | The rate, 16 kHz, of the mono samples a Recognizer takes.                                                         |
+| `SpeechToTextError`    | Error: the model could not be fetched or loaded, or the audio not made out.                                       |
+| `SpeechToTextNotReady` | Error: Speech to Text is off, still downloading, or failed.                                                       |
+| `TranscriptionFailed`  | Error: the model would not load, or could not make out the audio.                                                 |
 
 ### `@kestack/ai-toolkit/speech/fake`
 
@@ -136,7 +140,7 @@ const program = Effect.scoped(
 
 ### Ask a One-shot Prompt
 
-`OneShotPrompt` answers a prompt with no Agent behind it. `codexOneShot` is Codex's; tests give `makeFakeHarness().layer`.
+`OneShotPrompt` answers a prompt with no Agent behind it. `claudeOneShot` is Claude Code's, `codexOneShot` Codex's; tests give `makeFakeHarness().layer`.
 
 ```ts
 import { Effect } from 'effect';
@@ -148,6 +152,7 @@ const reply = OneShotPrompt.use((oneShot) =>
 ```
 
 - It runs read-only, with no tools, on a small model, and keeps nothing; it fails after 30 seconds.
+- `claudeOneShotWith({ model, timeout })` runs Claude Code on another Language Model, the account's default when `model` is left out, and waits as long as `timeout`, such as `'15 minutes'` for a long prompt.
 
 ### Turn speech into text
 

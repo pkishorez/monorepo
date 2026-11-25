@@ -20,6 +20,8 @@ import {
 import { ask, fork } from './fork/index.js';
 import { readSettings, SETTINGS } from './settings.js';
 
+export { claudeOneShot, claudeOneShotWith } from './one-shot/index.js';
+
 /** A dated snapshot such as `claude-opus-4-5-20251101` repeats its alias. */
 const DATED = /-\d{8}$/;
 

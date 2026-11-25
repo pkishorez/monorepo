@@ -6,6 +6,7 @@ import {
   SpeechToTextError,
   type Recognizer,
 } from '../contract/index.js';
+import { heardWords } from './words.js';
 
 /*
  * The one typed wrapper around sherpa-onnx-node, and the only code that
@@ -14,7 +15,8 @@ import {
  * required on the first load, never before: a Connection that never turns
  * Speech to Text on never fetches or loads it. Loading and decoding run off the main
  * thread (`createAsync`, `decodeAsync`), so the server never blocks; one
- * clip is decoded at a time.
+ * clip is decoded at a time, whether transcribed or heard with its words'
+ * times.
  */
 
 /** Threads for one decode: enough to be quick, leaving the rest for the Coding Harnesses. */
@@ -64,19 +66,25 @@ export const loadRecognizer = (
       catch: failed(`The model in ${folder} could not be loaded`),
     });
     const lock = yield* Semaphore.make(1);
+    const decode = (samples: Float32Array) =>
+      Effect.tryPromise({
+        try: () => {
+          const stream = recognizer.createStream();
+          stream.acceptWaveform({ samples, sampleRate: SAMPLE_RATE });
+          return recognizer.decodeAsync(stream);
+        },
+        catch: failed('The audio could not be transcribed'),
+      }).pipe(lock.withPermits(1));
     const transcribe: Recognizer['transcribe'] = (samples) =>
       samples.length === 0
         ? Effect.succeed('')
-        : Effect.tryPromise({
-            try: () => {
-              const stream = recognizer.createStream();
-              stream.acceptWaveform({ samples, sampleRate: SAMPLE_RATE });
-              return recognizer.decodeAsync(stream);
-            },
-            catch: failed('The audio could not be transcribed'),
-          }).pipe(
-            Effect.map((result) => result.text.trim()),
-            lock.withPermits(1),
-          );
-    return { transcribe } satisfies Recognizer;
+        : Effect.map(decode(samples), (result) => result.text.trim());
+    const hear: Recognizer['hear'] = (samples) =>
+      samples.length === 0
+        ? Effect.succeed({ text: '', words: [] })
+        : Effect.map(decode(samples), (result) => ({
+            text: result.text.trim(),
+            words: heardWords(result),
+          }));
+    return { transcribe, hear } satisfies Recognizer;
   });

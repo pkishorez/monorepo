@@ -92,6 +92,10 @@ _Avoid_: tokens left, quota
 Turning spoken audio into text, on the computer itself. It knows nothing of Agents or Coding Harnesses.
 _Avoid_: transcription service, STT, voice
 
+**Heard Word**:
+One word Speech to Text heard, with when it was said: its start and end in seconds from the start of the audio it was given. Punctuation after a word is part of its text, not its times.
+_Avoid_: token, segment, timestamp, word timing
+
 ## TODO
 
 - The Agent SDK's JavaScript is vendored at one version (`@anthropic-ai/claude-agent-sdk` in the catalog), and Codex's app-server protocol is typed at one version, but each runs whatever Claude Code or Codex the user installed. Nothing checks that the two agree: a Claude Code or Codex much older or newer than the one this package was built against may refuse an option, or send records the projection does not know. Read each Harness Binary's `--version`, say when it is outside the range this package was tested with, and keep the range in one place.

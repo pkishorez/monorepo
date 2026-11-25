@@ -3,6 +3,8 @@ export {
   checkBinary,
   configFolderOf,
   claude,
+  claudeOneShot,
+  claudeOneShotWith,
   codex,
   codexOneShot,
   HarnessAccount,

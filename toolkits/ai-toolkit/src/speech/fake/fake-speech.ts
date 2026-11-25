@@ -1,20 +1,38 @@
 import { access, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Deferred, Effect, Layer } from 'effect';
-import { SpeechToText, SpeechToTextError } from '../contract/index.js';
+import {
+  SAMPLE_RATE,
+  SpeechToText,
+  SpeechToTextError,
+  type Heard,
+} from '../contract/index.js';
 
 /*
  * Speech to Text for tests. Its model is one small file, fetched in two
  * halves of 50 bytes; held, the fetch stops at the first half until
  * `release()`. A failure queued with `failNext` fails the next fetch at
  * that half. A loaded model hears how many samples it was given:
- * `heard <n> samples`.
+ * `heard <n> samples`, its three words spread evenly over the samples.
  */
 
 /** The bytes the fake model is. */
 export const FAKE_MODEL_BYTES = 100;
 
 const MODEL = 'model.txt';
+
+const heard = (samples: Float32Array): Heard => {
+  const text = `heard ${samples.length} samples`;
+  const each = samples.length / SAMPLE_RATE / 3;
+  return {
+    text,
+    words: text.split(' ').map((word, at) => ({
+      text: word,
+      start: at * each,
+      end: (at + 1) * each,
+    })),
+  };
+};
 
 export interface FakeSpeech {
   readonly layer: Layer.Layer<SpeechToText>;
@@ -61,8 +79,8 @@ export const makeFakeSpeech = (): FakeSpeech => {
       Effect.sync(() => {
         loads++;
         return {
-          transcribe: (samples) =>
-            Effect.succeed(`heard ${samples.length} samples`),
+          transcribe: (samples) => Effect.succeed(heard(samples).text),
+          hear: (samples) => Effect.succeed(heard(samples)),
         };
       }),
   });

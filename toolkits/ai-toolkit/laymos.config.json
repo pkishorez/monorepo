@@ -12,6 +12,7 @@
     "src/contract/projection": ["src/contract/wire"],
     "src/harness": ["src/contract"],
     "src/harness/claude/agent": ["src/harness/claude/project"],
+    "src/harness/claude/one-shot": ["src/harness/claude/catalog"],
     "src/harness/codex/project": ["src/harness/codex/thread"],
     "src/harness/codex/thread": ["src/harness/codex/catalog"],
     "src/speech/actor-speech-model": ["src/speech/capabilities"],
