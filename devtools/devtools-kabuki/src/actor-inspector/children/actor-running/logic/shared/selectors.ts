@@ -188,9 +188,10 @@ export const openedOf = (data: Data): ReadonlyArray<string> => {
 
 export const bringOf = (
   data: Data,
-): { readonly id: string; readonly key: string } | null => {
+): { readonly id?: string; readonly key: string } | null => {
   const followed = followedOf(data);
   const shown = shownOf(data);
+  if (shown === null) return { key: 'now' };
   return followed && typeof shown === 'number'
     ? { id: followed, key: `step:${shown}` }
     : null;

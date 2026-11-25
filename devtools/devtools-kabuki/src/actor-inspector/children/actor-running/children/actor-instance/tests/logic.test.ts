@@ -76,6 +76,30 @@ describe('a Send', () => {
   });
 });
 
+describe('what came of a Send', () => {
+  const said = {
+    model: {
+      ...init({ address: 'Door' }).model,
+      outcome: { tag: 'Knocked', said: 'handled' as const },
+    },
+    state: { _tag: 'Single' } as const,
+    props: { at: null, revision: 0, print: door, state: 'Closed' },
+    at: 0,
+  };
+
+  it('is shown until its form changes', () => {
+    expect(updates.Edited!({ _tag: 'Edited', tag: 'Knocked' }, said)).toEqual({
+      model: { outcome: null },
+    });
+  });
+
+  it('stays while another Message’s form changes', () => {
+    expect(updates.Edited!({ _tag: 'Edited', tag: 'Pushed' }, said)).toEqual(
+      {},
+    );
+  });
+});
+
 describe('a Message built from its form', () => {
   it('is its payload with its tag', () => {
     const input = inputOf({

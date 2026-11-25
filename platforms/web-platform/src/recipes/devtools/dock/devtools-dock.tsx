@@ -267,7 +267,10 @@ export function DevtoolsDock({
             docked && layout === 'bottom' ? 'flex-col' : 'flex-row',
           )}
         >
-          <div className="relative min-h-0 min-w-0 flex-1">{children}</div>
+          {/* The page paints in its own layer and box, so nothing in it covers the devtools; a page taller than the box scrolls in it. */}
+          <div className="relative isolate min-h-0 min-w-0 flex-1 overflow-auto">
+            {children}
+          </div>
           {aside}
         </div>
       )}

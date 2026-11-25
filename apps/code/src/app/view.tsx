@@ -23,7 +23,7 @@ export const AppView = View.make(
   ({ root, model, state, props, children, send }) => {
     if (nowhere(props.route))
       return (
-        <div {...root}>
+        <div {...root} className="h-full">
           <NowhereScreen />
         </div>
       );
@@ -34,7 +34,7 @@ export const AppView = View.make(
       children.Account === undefined
     )
       return (
-        <div {...root}>
+        <div {...root} className="h-full">
           <StartScreen
             start={active === null ? startOf(state) : 'waiting'}
             problem={model.signInProblem}
@@ -44,7 +44,7 @@ export const AppView = View.make(
         </div>
       );
     return (
-      <div {...root}>
+      <div {...root} className="h-full">
         <Account.Switcher
           value={{
             account: <AccountSwitcherView instance={children.account} />,

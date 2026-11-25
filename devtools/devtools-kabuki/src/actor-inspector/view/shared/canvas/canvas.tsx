@@ -35,7 +35,7 @@ const pathOf = (from: Placed, to: Placed) => {
 };
 
 interface Held {
-  readonly id: string;
+  readonly id: string | null;
   readonly until: number;
   readonly center: boolean;
   readonly reveal: boolean;
@@ -56,7 +56,7 @@ export function Canvas({
   readonly opened: ReadonlyArray<string>;
   readonly bodies?: ReadonlyMap<string, ReactNode>;
   readonly follow?: boolean;
-  readonly bring?: { readonly id: string; readonly key: string } | null;
+  readonly bring?: { readonly id?: string; readonly key: string } | null;
   readonly unfold?: (card: Card) => boolean;
   readonly folding?: boolean;
   readonly onOpen: (id: string, open: boolean) => void;
@@ -113,7 +113,7 @@ export function Canvas({
 
   const held = useRef<Held | null>(null);
   const hold = (
-    id: string,
+    id: string | null,
     center = false,
     shown = true,
     group?: ReadonlyArray<string>,
@@ -185,6 +185,14 @@ export function Canvas({
     }
     const touch = held.current;
     if (!touch || performance.now() > touch.until) return;
+    if (touch.id === null) {
+      const all = unionOf(placed);
+      if (!all) return;
+      const key = `all:${all.x}:${all.y}:${all.width}:${all.height}`;
+      if (centered.current !== key) space.show(all, { zoom: 1 });
+      centered.current = key;
+      return;
+    }
     const card = at.get(touch.id);
     if (!card) return;
     const before = was.get(touch.id);
@@ -225,7 +233,8 @@ export function Canvas({
   const brought = useRef<string | undefined>(undefined);
   if (bring && brought.current !== bring.key) {
     brought.current = bring.key;
-    hold(bring.id, true, true, []);
+    if (bring.id === undefined) hold(null);
+    else hold(bring.id, true, true, []);
   }
 
   const toggle = (id: string, open: boolean) => {

@@ -33,6 +33,7 @@ export const WorldShape = Actor.define('World', {
       control: Schema.String,
       reason: Schema.String,
     },
+    Edited: { fake: Schema.String, control: Schema.String },
   },
 });
 

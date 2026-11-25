@@ -188,6 +188,35 @@ describe('the World tab', () => {
       }),
     ));
 
+  it('says what came of a control only until its form changes', () =>
+    run(
+      Effect.gen(function* () {
+        const { tell, send, shown } = yield* inspect;
+        yield* tell([lights(false)]);
+        yield* send('Inspector', { _tag: 'Viewed', tab: 'World' });
+        yield* send('World', {
+          _tag: 'Submitted',
+          fake: 'lights',
+          control: 'Switched',
+          payload: { on: true },
+        });
+        yield* send('World', {
+          _tag: 'Submitted',
+          fake: 'lights',
+          control: 'Broke',
+          payload: {},
+        });
+        yield* send('World', {
+          _tag: 'Edited',
+          fake: 'lights',
+          control: 'Switched',
+        });
+        const [switched, broke] = shown()[0]!.controls;
+        expect(switched!.outcome).toBeUndefined();
+        expect(broke!.outcome).toMatchObject({ said: 'refused' });
+      }),
+    ));
+
   it('says why a control was refused, beside that control only', () =>
     run(
       Effect.gen(function* () {
