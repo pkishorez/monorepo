@@ -30,6 +30,8 @@ export const ChangeSetSchema = Schema.Struct({
 
 export type ChangeSet = typeof ChangeSetSchema.Type;
 
+export const uncommittedBase = 'HEAD';
+
 export const DiffLineSchema = Schema.Struct({
   kind: Schema.Literals(['context', 'added', 'removed']),
   content: Schema.String,

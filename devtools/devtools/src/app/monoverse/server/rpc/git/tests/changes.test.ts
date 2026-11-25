@@ -7,6 +7,7 @@ import { describe, expect, test } from 'vitest';
 
 import { withFixture } from '../../../tests/git-fixture.js';
 import { servicesLayer } from '../../../tests/services.js';
+import { uncommittedBase } from '../contract/index.js';
 import * as handlers from '../real/changes.js';
 
 const getBranches = (root: string) =>
@@ -60,6 +61,33 @@ describe('what a branch changed since it left another', () => {
         { path: 'packages/core/src/util.ts', status: 'deleted' },
         { path: 'README.md', status: 'modified' },
       ]);
+    }));
+
+  test('against uncommitted, in a worktree: only what it has not committed', () =>
+    withFixture(async ({ repo, worktree, git, write }) => {
+      await write(join(worktree, 'committed.ts'), 'export {};\n');
+      git(worktree, 'add', 'committed.ts');
+      git(worktree, 'commit', '-q', '-m', 'wip');
+      const set = await changes(repo, 'wip', uncommittedBase);
+      expect(set.baseRef).toBe(git(worktree, 'rev-parse', 'HEAD').trim());
+      expect(set.files).toEqual([
+        { path: 'packages/core/src/draft.ts', status: 'added' },
+        { path: 'README.md', status: 'modified' },
+      ]);
+    }));
+
+  test('against uncommitted, the folder itself: only its own pending work', () =>
+    withFixture(async ({ repo, write }) => {
+      await write(join(repo, 'loose.ts'), 'export {};\n');
+      const set = await changes(repo, null, uncommittedBase);
+      expect(set.files).toEqual([{ path: 'loose.ts', status: 'added' }]);
+    }));
+
+  test('against uncommitted, a branch read from git has nothing', () =>
+    withFixture(async ({ repo }) => {
+      expect((await changes(repo, 'feature', uncommittedBase)).files).toEqual(
+        [],
+      );
     }));
 
   test('null is the folder itself, against a branch read from git', () =>
@@ -144,6 +172,29 @@ describe('how one file changed', () => {
       );
       expect(fresh.hunks[0]?.lines).toEqual([
         { kind: 'added', content: 'export {};', newNumber: 1 },
+      ]);
+    }));
+
+  test('against uncommitted: committed lines are context, pending ones added', () =>
+    withFixture(async ({ repo, worktree, git, write }) => {
+      git(worktree, 'commit', '-q', '-am', 'wip');
+      await write(
+        join(worktree, 'README.md'),
+        '# Fixture\n\nWork in progress.\nStill going.\n',
+      );
+      const diff = await Effect.runPromise(
+        getFileDiff(repo, 'wip', uncommittedBase, 'README.md'),
+      );
+      expect(diff.hunks[0]?.lines).toEqual([
+        { kind: 'context', content: '# Fixture', oldNumber: 1, newNumber: 1 },
+        { kind: 'context', content: '', oldNumber: 2, newNumber: 2 },
+        {
+          kind: 'context',
+          content: 'Work in progress.',
+          oldNumber: 3,
+          newNumber: 3,
+        },
+        { kind: 'added', content: 'Still going.', newNumber: 4 },
       ]);
     }));
 

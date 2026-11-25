@@ -1,6 +1,9 @@
 import type { DataOf } from '@kestack/kabuki/types';
 
-import type { Branches } from '../../../../../../server/rpc/git/contract/index.js';
+import {
+  uncommittedBase,
+  type Branches,
+} from '../../../../../../server/rpc/git/contract/index.js';
 import type { ProjectShape } from '../index.js';
 
 type Data = DataOf<typeof ProjectShape>;
@@ -62,5 +65,16 @@ export function changesBlocked({
   if (base === null) return 'Choose a branch to compare to.';
   if (branch === base)
     return `${branch} is the branch compared to: choose another to see changes.`;
+  if (
+    base === uncommittedBase &&
+    branch !== null &&
+    !isCheckedOut(branches, branch)
+  )
+    return `${branch} is not checked out, so it has nothing uncommitted.`;
   return null;
 }
+
+const isCheckedOut = (branches: Branches, branch: string): boolean =>
+  branches.branches.some(
+    ({ name, worktree }) => name === branch && worktree !== null,
+  );

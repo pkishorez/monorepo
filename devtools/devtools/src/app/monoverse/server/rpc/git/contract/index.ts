@@ -6,6 +6,7 @@ export {
   ChangeSetSchema,
   ChangeStatusSchema,
   FileDiffSchema,
+  uncommittedBase,
 } from './changes.js';
 export type {
   Branch,

@@ -48,6 +48,7 @@ export function PhoneGitSettings(props: GitControlsProps) {
           label="Compare to"
           icon={<GitCompareArrowsIcon className="size-3.5" />}
           chosen={base}
+          uncommitted
           current={branches?.current ?? null}
           branches={list}
           disabled={noGit}

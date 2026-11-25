@@ -5,6 +5,7 @@ export {
   fileTreeRows,
   filesInOrder,
   foldersOf,
+  sinceOf,
   shownOf,
   stepFrom,
   stepsOf,

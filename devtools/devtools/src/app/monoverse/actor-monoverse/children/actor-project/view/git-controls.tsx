@@ -80,6 +80,7 @@ function WideGitControls(props: GitControlsProps) {
         icon={<GitCompareArrowsIcon className="size-3.5" />}
         prefix="vs"
         chosen={base}
+        uncommitted
         current={branches?.current ?? null}
         branches={list}
         disabled={noGit}

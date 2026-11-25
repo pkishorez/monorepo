@@ -15,9 +15,13 @@ import { cn } from '@kestack/web-platform/ui/components/utils';
 import { ChevronDownIcon } from 'lucide-react';
 
 import { shortenHome } from '../../../../server/rpc/contract/index.js';
-import type { Branch } from '../../../../server/rpc/git/contract/index.js';
+import {
+  uncommittedBase,
+  type Branch,
+} from '../../../../server/rpc/git/contract/index.js';
 
 const searchFrom = 8;
+const uncommittedLabel = 'Uncommitted';
 
 export function BranchMenu({
   label,
@@ -27,6 +31,7 @@ export function BranchMenu({
   current,
   branches,
   disabled,
+  uncommitted = false,
   onChoose,
   className,
 }: {
@@ -37,16 +42,22 @@ export function BranchMenu({
   current: string | null;
   branches: ReadonlyArray<Branch>;
   disabled?: boolean;
+  uncommitted?: boolean;
   onChoose: (name: string) => void;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const shown = chosen === uncommittedBase ? uncommittedLabel : chosen;
+  const choose = (name: string) => {
+    setOpen(false);
+    if (name !== chosen) onChoose(name);
+  };
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         disabled={disabled}
-        aria-label={`${label}: ${chosen ?? 'none'}`}
-        title={chosen === null ? label : `${label}: ${chosen}`}
+        aria-label={`${label}: ${shown ?? 'none'}`}
+        title={shown === null ? label : `${label}: ${shown}`}
         className={cn(
           'inline-flex h-8 max-w-56 max-sm:max-w-32 min-w-0 items-center gap-1.5 rounded-md px-2 text-sm text-foreground/90 transition-colors duration-150 outline-none select-none',
           'hover:bg-muted/70 focus-visible:ring-2 focus-visible:ring-ring/50 data-[popup-open]:bg-muted/70',
@@ -56,11 +67,16 @@ export function BranchMenu({
         )}
       >
         {icon}
-        {prefix === undefined ? null : (
+        {prefix === undefined || chosen === uncommittedBase ? null : (
           <span className="text-muted-foreground">{prefix}</span>
         )}
-        <span className="min-w-0 truncate font-mono text-[12.5px]">
-          {chosen ?? '—'}
+        <span
+          className={cn(
+            'min-w-0 truncate',
+            chosen !== uncommittedBase && 'font-mono text-[12.5px]',
+          )}
+        >
+          {shown ?? '—'}
         </span>
         <ChevronDownIcon className="size-3.5 opacity-70" />
       </PopoverTrigger>
@@ -68,7 +84,7 @@ export function BranchMenu({
         <Command
           loop
           className="rounded-md! bg-transparent"
-          defaultValue={chosen ?? undefined}
+          defaultValue={shown ?? undefined}
         >
           {branches.length > searchFrom ? (
             <CommandInput
@@ -80,15 +96,27 @@ export function BranchMenu({
             <CommandEmpty className="py-6 text-xs text-muted-foreground">
               No branch matches.
             </CommandEmpty>
+            {uncommitted ? (
+              <CommandItem
+                value={uncommittedLabel}
+                data-checked={chosen === uncommittedBase}
+                onSelect={() => choose(uncommittedBase)}
+                className="gap-2 py-1.5"
+              >
+                <span
+                  title="Only the changes not committed yet"
+                  className="min-w-0 flex-1 truncate"
+                >
+                  {uncommittedLabel}
+                </span>
+              </CommandItem>
+            ) : null}
             {branches.map((branch) => (
               <CommandItem
                 key={branch.name}
                 value={branch.name}
                 data-checked={branch.name === chosen}
-                onSelect={() => {
-                  setOpen(false);
-                  if (branch.name !== chosen) onChoose(branch.name);
-                }}
+                onSelect={() => choose(branch.name)}
                 className="gap-2 py-1.5"
               >
                 <span

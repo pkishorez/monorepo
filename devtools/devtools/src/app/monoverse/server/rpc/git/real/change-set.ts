@@ -1,8 +1,9 @@
-import type {
-  ChangedPath,
-  ChangeSet,
-  ChangeStatus,
-  DiffHunk,
+import {
+  uncommittedBase,
+  type ChangedPath,
+  type ChangeSet,
+  type ChangeStatus,
+  type DiffHunk,
 } from '../contract/index.js';
 import {
   GitError,
@@ -123,9 +124,10 @@ async function mergeBaseOf(
       cause: `Not a branch: ${base}`,
     });
   }
+  const from = base === uncommittedBase ? tip : base;
   const mergeBase = await git.require(
     cwd,
-    ['merge-base', base, tip],
+    ['merge-base', from, tip],
     'unknown-ref',
   );
   return mergeBase.trim();

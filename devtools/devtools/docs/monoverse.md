@@ -139,7 +139,9 @@ _Avoid_: ref, checkout
 **Compare to**:
 The branch changes are measured against: from where the Branch left it (their
 merge-base) to the Branch. It starts at `main`, else `master`, else
-`develop`.
+`develop`. Uncommitted, the first choice, measures against the Branch's own
+last commit, so only the work not yet committed shows; a Branch no Worktree
+has checked out has none.
 _Avoid_: Base ref, target branch
 
 **Changes**:

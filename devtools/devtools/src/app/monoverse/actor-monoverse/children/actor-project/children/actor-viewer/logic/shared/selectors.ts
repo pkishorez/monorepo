@@ -1,3 +1,4 @@
+import { uncommittedBase } from '../../../../../../../server/rpc/git/contract/index.js';
 import {
   changeTallies,
   isIgnored,
@@ -10,6 +11,9 @@ import {
   type FolderEntry,
   type FolderSettings,
 } from './shape.js';
+
+export const sinceOf = (base: string): string =>
+  base === uncommittedBase ? 'the last commit' : base;
 
 export function entriesOf(
   state: FolderState,

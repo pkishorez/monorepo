@@ -139,8 +139,9 @@ bottom bar    the selection, or the whole tree, and what to do with it:
               Changes on if it is off.
 top right     Branch: whose files you see, read from its worktree, or from
               git when none has it checked out. Compare to: what changes
-              are measured against. Changes: added green, modified yellow,
-              deleted red, rolled up to folders. The sliders beside it:
+              are measured against, another branch or Uncommitted for only
+              the work not committed yet. Changes: added green, modified
+              yellow, deleted red, rolled up to folders. The sliders beside it:
               whether a Package's ignored files are drawn, and while
               Changes is on, whether the unchanged are shown, dimmed or
               hidden and whether the deleted are drawn. On a phone all of
