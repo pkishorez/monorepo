@@ -129,3 +129,7 @@ computer with Computers "Add computer", signed in as the same email.
   the New build fake stands in for the update flow only.
 - **One Release.** Both sides run the same build, so version gaps between
   Code and a Connection cannot be shown.
+- **Agent replies are recordings.** Each reply replays a Turn recorded from
+  the real Claude Code or Codex, picked at random. A replay never pauses,
+  so an Agent asks no questions and starts no Background Jobs, and what the
+  recorded run wrote to disk does not reach the fake file system.
