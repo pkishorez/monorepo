@@ -71,7 +71,7 @@ const devtools = (port: number, accepted: Queue.Queue<Accepted>) =>
 
 describe('connect', () => {
   it(
-    'dials DevTools under a name, answers the eight calls, and dials again under the name DevTools gave',
+    'dials DevTools under a name, answers its calls, and dials again under the name DevTools gave',
     () =>
       run(
         Effect.gen(function* () {

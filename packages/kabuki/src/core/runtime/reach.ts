@@ -82,10 +82,10 @@ type Typed<A> = {
     /**
      * What a Message would do if it were Sent now, worked out from the
      * Snapshot alone: nothing is Sent and nothing runs. `InstanceNotFound`
-     * once it is gone from the tree; `Refused`, with the reason, when the
-     * Message does not match its Schema or its Update gives what its
-     * Schemas refuse; `Unhandled` with no rule for it in this State;
-     * `NoChange`; or the `Changes` it makes.
+     * once it is gone from the tree or the Runtime was let go; `Refused`,
+     * with the reason, when the Message does not match its Schema or its
+     * Update gives what its Schemas refuse; `Unhandled` with no rule for it
+     * in this State; `NoChange`; or the `Changes` it makes.
      */
     try(message: Types<A>['message']): Tried<Types<A>['model']>;
     /**
@@ -230,6 +230,7 @@ const live = (
       return app.send(address, message, from);
     },
     try: (message: Tagged) => {
+      if (app.gone()) return { _tag: 'InstanceNotFound' };
       const at = app.now();
       return tryMessage(root, { root: app.root(), at }, address, message, at);
     },

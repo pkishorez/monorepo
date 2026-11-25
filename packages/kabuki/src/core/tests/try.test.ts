@@ -154,6 +154,17 @@ describe('try says what a Message would do', () => {
       }),
     ));
 
+  it('InstanceNotFound: once the Runtime is let go', () =>
+    run(
+      Effect.gen(function* () {
+        const app = yield* scoped(List);
+        yield* Effect.promise(() => app.dispose());
+        expect(app.root.try({ _tag: 'Retitled', title: 'a' })).toEqual({
+          _tag: 'InstanceNotFound',
+        });
+      }),
+    ));
+
   it('Unhandled: no rule in this State, with the States that have one', () =>
     run(
       Effect.gen(function* () {
