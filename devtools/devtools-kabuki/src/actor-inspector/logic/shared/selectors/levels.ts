@@ -1,12 +1,9 @@
 import type { Card, CardLevel, Kind, Opened, Part } from '../index.ts';
 import { fieldsOf } from './shapes.ts';
 
-export const rollup = (
-  kinds: ReadonlyArray<Kind | undefined>,
-): Kind | undefined => {
+const rollup = (kinds: ReadonlyArray<Kind | undefined>): Kind | undefined => {
   const touched = kinds.filter((kind) => kind !== undefined);
   if (touched.length === 0) return undefined;
-  if (kinds.every((kind) => kind === 'removed')) return 'removed';
   if (touched.every((kind) => kind === 'added')) return 'added';
   return 'changed';
 };

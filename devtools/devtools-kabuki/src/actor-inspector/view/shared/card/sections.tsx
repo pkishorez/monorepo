@@ -7,12 +7,15 @@ import {
   childKind,
   childOf,
   fieldsOf,
+  givesOf,
   isEmpty,
   keysOf,
   kindsOf,
   levelsOf,
+  needsOf,
   schemaJson,
   sectionOfPart,
+  shownServicesOf,
   textOf,
   tookChanged,
 } from '../../../logic/shared/index.ts';
@@ -389,20 +392,9 @@ export function Sections({ opened }: { readonly opened?: Data }) {
       return next;
     });
   const { model, props } = card.print;
-  const gives = [
-    ...new Set([
-      ...card.print.top.provides,
-      ...Object.values(card.print.states).flatMap((level) => level.provides),
-    ]),
-  ];
-  const needs = uses.filter((use) => use.from !== null).map(({ name }) => name);
-  const shownServices = uses
-    .filter(
-      (use) =>
-        use.from === null &&
-        (services || (focus?.kind === 'requires' && focus.name === use.name)),
-    )
-    .map(({ name }) => name);
+  const gives = givesOf(card);
+  const needs = needsOf(uses);
+  const shownServices = shownServicesOf(uses, services, focus);
   const states =
     mode === 'active' && current
       ? levels.states.filter((level) => level.key === current)

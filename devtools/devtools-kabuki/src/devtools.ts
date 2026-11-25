@@ -10,6 +10,7 @@ export {
 export {
   KabukiSessionNotFound,
   KabukiSessionSummary,
+  dialSessions,
   grouped,
   isLocalEnvironment,
 } from './server/rpc/sessions/contract/index.ts';
@@ -50,7 +51,4 @@ export type {
   Watched,
   Worker,
 } from './services/kabuki-session/contract/index.ts';
-export {
-  dialSessions,
-  remote,
-} from './services/kabuki-session/remote/index.ts';
+export { remote } from './services/kabuki-session/real/index.ts';

@@ -1,4 +1,4 @@
-import type { Card } from '../index.ts';
+import type { Card, Part, Use } from '../index.ts';
 
 export const allOf = (card: Card): ReadonlyArray<Card> => [
   card,
@@ -35,6 +35,65 @@ export const providerOf = (
   }
   return undefined;
 };
+
+export const usesOf = (root: Card): ReadonlyMap<string, ReadonlyArray<Use>> =>
+  new Map(
+    allOf(root).map((card) => [
+      card.id,
+      card.print.requires.map((name): Use => ({
+        name,
+        from: providerOf(root, card.id, name) ?? null,
+      })),
+    ]),
+  );
+
+export const usersOf = (
+  uses: ReadonlyMap<string, ReadonlyArray<Use>>,
+  name: string,
+  provider: string | null,
+): ReadonlyArray<string> =>
+  [...uses]
+    .filter(([, used]) =>
+      used.some((use) => use.name === name && use.from === provider),
+    )
+    .map(([id]) => id);
+
+export const wayOf = (
+  root: Card,
+  provider: string | null,
+  users: ReadonlyArray<string>,
+): ReadonlySet<string> => {
+  const way = new Set<string>(provider ? [provider] : []);
+  for (const user of users) {
+    const path = pathTo(root, user);
+    const start = provider ? path.indexOf(provider) : 0;
+    path.slice(Math.max(0, start)).forEach((id) => way.add(id));
+  }
+  return way;
+};
+
+export const givesOf = (card: Card): ReadonlyArray<string> => [
+  ...new Set([
+    ...card.print.top.provides,
+    ...Object.values(card.print.states).flatMap((level) => level.provides),
+  ]),
+];
+
+export const needsOf = (uses: ReadonlyArray<Use>): ReadonlyArray<string> =>
+  uses.filter((use) => use.from !== null).map(({ name }) => name);
+
+export const shownServicesOf = (
+  uses: ReadonlyArray<Use>,
+  services: boolean,
+  focus: Part | undefined,
+): ReadonlyArray<string> =>
+  uses
+    .filter(
+      (use) =>
+        use.from === null &&
+        (services || (focus?.kind === 'requires' && focus.name === use.name)),
+    )
+    .map(({ name }) => name);
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

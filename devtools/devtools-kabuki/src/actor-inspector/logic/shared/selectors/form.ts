@@ -117,12 +117,3 @@ const valueAt = (input: Input, draft: Draft, path: string): Built => {
 
 export const valueOf = (input: Input, draft: Draft): Built =>
   valueAt(input, draft, '');
-
-export const messageOf = (tag: string, input: Input, draft: Draft): Built => {
-  const payload = valueOf(input, draft);
-  if (payload._tag === 'Unbuilt') return payload;
-  const { value } = payload;
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? built({ ...value, _tag: tag })
-    : unbuilt('', 'A Message is an object');
-};

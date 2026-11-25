@@ -165,6 +165,31 @@ describe('connect', () => {
       }),
     ));
 
+  it('answers without a FakeWorld when its loader fails, and says so once', () =>
+    run(
+      Effect.gen(function* () {
+        const said = vi.spyOn(console, 'error').mockImplementation(() => {});
+        yield* Effect.addFinalizer(() => Effect.sync(() => said.mockRestore()));
+        const port = yield* Effect.promise(freePort);
+        const accepted = yield* Queue.unbounded<Accepted>();
+        yield* devtools(port, accepted);
+        const { app } = yield* started;
+        const stop = connect({
+          url: `ws://127.0.0.1:${port}`,
+          world: () => Promise.reject(new Error('no world here')),
+        })(app);
+        yield* Effect.addFinalizer(() => Effect.sync(stop));
+        const one = yield* Queue.take(accepted);
+        expect(
+          Option.getOrThrow(yield* one.client.fakes().pipe(Stream.runHead)),
+        ).toEqual([]);
+        expect(said).toHaveBeenCalledTimes(1);
+        expect(said.mock.calls[0]![1]).toMatchObject({
+          message: 'no world here',
+        });
+      }),
+    ));
+
   it('never throws into the app where there are no sockets', () => {
     vi.stubGlobal('WebSocket', undefined);
     return run(

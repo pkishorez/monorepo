@@ -28,7 +28,7 @@
     "build:watch": "vp pack --watch",
     "cosmos": "cosmos",
     "dev": "vp run -F '@kestack/devtools^...' build && portless run --force tsx scripts/dev.mts",
-    "lint": "vp check && tsc --noEmit && tsc -p tsconfig.ui.json --noEmit",
+    "lint": "vp check && tsc --noEmit && tsc -p tsconfig.ui.json --noEmit && monoverse lint",
     "test": "vitest run && tsx scripts/package-smoke.mts"
   },
   "dependencies": {

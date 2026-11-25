@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { ChevronRightIcon, SendIcon } from 'lucide-react';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { cn } from '@kestack/web-platform/ui/components/utils';
-import { draftOf, messageOf } from '../../../../../logic/shared/index.ts';
+import { draftOf } from '../../../../../logic/shared/index.ts';
 import type { Draft, Problem } from '../../../../../logic/shared/index.ts';
 import { Fields } from '../../../../../view/shared/index.ts';
+import { messageOf } from '../logic/shared/index.ts';
 import type { Action, Outcome } from '../logic/shared/index.ts';
 
 const SAID: Record<Outcome['said'], string> = {
@@ -162,7 +163,7 @@ export function Actions({
                 {shown && (
                   <Form
                     action={action}
-                    sending={sending === action.tag}
+                    sending={sending !== null}
                     outcome={outcome?.tag === action.tag ? outcome : undefined}
                     onSend={(message) => onSend(action.tag, message)}
                   />

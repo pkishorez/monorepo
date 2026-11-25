@@ -16,8 +16,22 @@ import { inPage } from './services/kabuki-session/real/index.ts';
 
 type WorldGiven = FakeWorld | (() => Promise<FakeWorld>);
 
-const worldOf = (world: WorldGiven | undefined) =>
-  typeof world === 'function' ? Effect.promise(world) : Effect.succeed(world);
+const worldOf = (
+  world: WorldGiven | undefined,
+): Effect.Effect<FakeWorld | undefined> =>
+  typeof world === 'function'
+    ? Effect.tryPromise(() => world()).pipe(
+        Effect.tapError((error) =>
+          Effect.sync(() =>
+            console.error(
+              '[@kestack/devtools-kabuki] could not load the FakeWorld; going on without one',
+              error.cause,
+            ),
+          ),
+        ),
+        Effect.orElseSucceed(() => undefined),
+      )
+    : Effect.succeed(world);
 
 export interface ConnectOptions extends TabOptions {
   readonly world?: WorldGiven;

@@ -1,6 +1,8 @@
-import { Schema } from 'effect';
-import { Rpc, RpcGroup } from 'effect/rpc';
-import type { RpcClient, RpcClientError } from 'effect/rpc';
+import { Effect, Schema } from 'effect';
+import type { Scope } from 'effect';
+import { Rpc, RpcClient, RpcGroup } from 'effect/rpc';
+import type { RpcClientError } from 'effect/rpc';
+import { SESSIONS_PATH, protocolTo } from '../../contract/index.ts';
 
 export const KabukiSessionSummary = Schema.Struct({
   name: Schema.String,
@@ -29,6 +31,15 @@ export type KabukiSessionsClient = RpcClient.RpcClient<
   RpcGroup.Rpcs<typeof KabukiSessionsRpcs>,
   RpcClientError.RpcClientError
 >;
+
+export const dialSessions = (
+  origin: string,
+): Effect.Effect<KabukiSessionsClient, never, Scope.Scope> =>
+  Effect.flatMap(protocolTo(origin, SESSIONS_PATH), (protocol) =>
+    RpcClient.make(KabukiSessionsRpcs).pipe(
+      Effect.provideService(RpcClient.Protocol, protocol),
+    ),
+  );
 
 export interface EnvironmentGroup<S> {
   readonly environment: string;

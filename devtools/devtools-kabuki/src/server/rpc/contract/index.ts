@@ -4,6 +4,7 @@ export {
   SESSIONS_PATH,
   ServedRpcs,
   TabRpcs,
+  protocolTo,
   serialization,
   sessionPath,
 } from './wire.ts';
