@@ -1,0 +1,7 @@
+{
+  "$schema": "../../devtools/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "ignoredPaths": [],
+  "fileModules": [],
+  "rules": {}
+}
