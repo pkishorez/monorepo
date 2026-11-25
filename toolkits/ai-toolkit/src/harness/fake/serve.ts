@@ -1,12 +1,4 @@
-import {
-  Cause,
-  Deferred,
-  Duration,
-  Effect,
-  Layer,
-  Queue,
-  Stream,
-} from 'effect';
+import { Cause, Deferred, Effect, Layer, Queue, Stream } from 'effect';
 import type { Runtime } from '@kestack/kabuki';
 import type { HarnessName } from '../../contract/raw/index.js';
 import type {
@@ -22,7 +14,6 @@ import {
   HarnessHost,
   InvalidBinary,
   Models,
-  ModelsError,
   OneShotPrompt,
   QuestionNotAsked,
   type Agent,
@@ -34,8 +25,8 @@ import {
 } from '../contract/index.js';
 import { project as claudeProject } from '../claude/project/index.js';
 import { project as codexProject } from '../codex/project/index.js';
-import type { AgentFake, AgentMessage, AgentModel, Install } from './actor.js';
-import { MODELS_DEV, PLAYED, type Played } from './catalog.js';
+import type { AgentFake, AgentMessage, AgentModel } from './actor.js';
+import { BUILT_IN_SKILLS, MODELS_DEV, PLAYED, type Played } from './catalog.js';
 import { claudeWriter } from './claude.js';
 import { codexWriter } from './codex.js';
 import { loggedOut, play, type Stage } from './play.js';
@@ -49,27 +40,26 @@ import type { Started, WriterContext } from './writer.js';
  * Speech. Thin: each answer reads the Model, and every change is a Message
  * to it.
  *
- * 1. Host     a binary runs when its harness is installed and it is PATH's
- *             or one the Model added; a config folder is the account's, the
- *             environment's, else the harness's own under `home`; a login
- *             is its own folder signed in, or another folder the Model
- *             names.
+ * 1. Host     both harnesses are installed: a binary runs when it is
+ *             PATH's; a config folder is the account's, else the harness's
+ *             own under `home`; only its own folder holds a login.
  * 2. Models   the login's own models, filled in from the models.dev copy;
  *             with no login, the models.dev models the harness accepts, as
- *             the real one falls back; failing when the Model says.
- * 3. Agents   opening reads the Model (installed, the binary, opening
- *             failing); each reply plays the Model's Script (play.ts)
- *             through the harness's Writer, or fails as logged out; its
+ *             the real one falls back.
+ * 3. Agents   each reply plays the Model's Script (play.ts) through the
+ *             harness's Writer at `paceMs`, or fails as logged out; its
  *             questions, Background Jobs and Context Usage are read from
- *             the Model. A job a Control ended is written between turns,
- *             and Claude Code then starts a Turn of its own to report it.
- * 4. One-shots  a Title and a Btw answer as the Model says, each taken
- *             once.
+ *             the Model. A job ends once its Script's time is up, or when
+ *             stopped; its end is written between turns, and Claude Code
+ *             then starts a Turn of its own to report it.
+ * 4. One-shots  a Title from the message, and a plain Btw answer.
  */
 
 export interface AgentOptions {
   /** The home folder a config folder is under; `/home/you`, the File System fake's, unless given. */
   readonly home?: string;
+  /** How long a reply waits between two pieces, in ms; 300 unless given. */
+  readonly paceMs?: number;
 }
 
 /** What the fake's edges are. */
@@ -91,7 +81,7 @@ const NOT_SIGNED_IN_MODELS =
 
 export const agentOver = (
   runtime: Runtime<typeof AgentFake>,
-  { home = '/home/you' }: AgentOptions = {},
+  { home = '/home/you', paceMs = 300 }: AgentOptions = {},
 ): Layer.Layer<AgentEdges> =>
   Layer.unwrap(
     Effect.sync(() => {
@@ -102,8 +92,6 @@ export const agentOver = (
       const changes: Stream.Stream<AgentModel> = runtime.changes.pipe(
         Stream.map((snapshot) => snapshot.root.model),
       );
-      const until = (test: (model: AgentModel) => boolean) =>
-        Effect.orDie(root.until(({ model: now }) => test(now)));
 
       // Ids unique in this tab, and apart from those of an earlier load.
       const stamp = Date.now().toString(36);
@@ -133,27 +121,15 @@ export const agentOver = (
 
       const binaryOf = (
         played: Played,
-        install: Install,
         binary: string | undefined,
       ): BinaryInfo => {
         const path = binary === undefined ? played.onPath : expand(binary);
-        const runs =
-          install.installed &&
-          (path === played.onPath ||
-            install.binaries.map(expand).includes(path));
-        if (runs)
-          return {
-            path,
-            version: install.version || played.version,
-            error: null,
-            isDefault: binary === undefined,
-          };
-        return binary === undefined
+        return path === played.onPath
           ? {
-              path: null,
-              version: null,
-              error: install.notInstalledWhy || played.install,
-              isDefault: true,
+              path,
+              version: played.version,
+              error: null,
+              isDefault: binary === undefined,
             }
           : {
               path: null,
@@ -163,22 +139,9 @@ export const agentOver = (
             };
       };
 
-      const ownFolder = (played: Played, install: Install) =>
-        install.configFromEnvironment === null
-          ? `${home}/${played.own}`
-          : expand(install.configFromEnvironment);
-
-      const signedIn = (
-        played: Played,
-        configFolder: string | undefined,
-      ): boolean => {
-        const install = model()[played.name];
-        if (configFolder === undefined) return install.signedIn;
-        const path = expand(configFolder);
-        return path === ownFolder(played, install)
-          ? install.signedIn
-          : install.logins.map(expand).includes(path);
-      };
+      const signedIn = (played: Played, configFolder: string | undefined) =>
+        configFolder === undefined ||
+        expand(configFolder) === `${home}/${played.own}`;
 
       // 3. Agents
       const writerOf = (played: Played) =>
@@ -187,14 +150,10 @@ export const agentOver = (
       const open = (played: Played, config: AgentConfig) =>
         Effect.gen(function* () {
           const account = yield* HarnessAccount;
-          const install = model()[played.name];
-          const binary = binaryOf(played, install, account.binary);
+          const binary = binaryOf(played, account.binary);
           if (binary.error !== null)
             return yield* new HarnessError({ message: binary.error });
-          if (install.opensInMs > 0)
-            yield* Effect.sleep(Duration.millis(install.opensInMs));
-          if (install.opensFail !== null)
-            return yield* new HarnessError({ message: install.opensFail });
+          const scope = yield* Effect.scope;
           const loggedIn = signedIn(played, account.configFolder);
           const nativeId = config.nativeId ?? id(`fake-${played.name}-`);
           let current = config.model;
@@ -234,9 +193,6 @@ export const agentOver = (
               ended: false,
               steers: [],
             };
-            const replyOf = () =>
-              model().replies.find((reply) => reply.id === turn.id);
-
             const out = Stream.unwrap(
               Effect.gen(function* () {
                 const queue = yield* Queue.unbounded<
@@ -269,17 +225,7 @@ export const agentOver = (
                 const writer = writerOf(played)(context);
                 const stage: Stage = {
                   emit: (each) => Queue.offer(queue, each).pipe(Effect.asVoid),
-                  pace: Effect.sync(() => model().paceMs),
-                  now: Effect.sync(() => replyOf()?.now ?? null),
-                  until: (test) =>
-                    until((now) => {
-                      const asked = now.replies.find(
-                        (reply) => reply.id === turn.id,
-                      )?.now;
-                      return asked != null && test(asked);
-                    }).pipe(Effect.map(() => replyOf()!.now!)),
-                  took: send({ _tag: 'ReplyTook', id: turn.id }),
-                  hangs: send({ _tag: 'ReplyHangs', id: turn.id }),
+                  pace: paceMs,
                   ask: (question) =>
                     Effect.gen(function* () {
                       const answer =
@@ -299,10 +245,11 @@ export const agentOver = (
                     }),
                     send({ _tag: 'ReplyHeard', id: turn.id }),
                   ),
+                  // It runs on after the reply, until its Script's time is up.
                   jobStarted: (step, started) =>
-                    Effect.andThen(
-                      Effect.sync(() => jobs.set(started.id, started)),
-                      send({
+                    Effect.gen(function* () {
+                      jobs.set(started.id, started);
+                      yield* send({
                         _tag: 'JobStarted',
                         id: started.id,
                         agent: nativeId,
@@ -312,8 +259,20 @@ export const agentOver = (
                         toolCallId: started.toolCallId,
                         startedAt: Date.now(),
                         output: step.output,
-                      }),
-                    ),
+                      });
+                      yield* Effect.forkIn(
+                        Effect.andThen(
+                          Effect.sleep(step.runsMs),
+                          send({
+                            _tag: 'JobEnded',
+                            id: started.id,
+                            how: 'done',
+                            summary: step.summary,
+                          }),
+                        ),
+                        scope,
+                      );
+                    }),
                   filled: (usedTokens) =>
                     send({ _tag: 'ContextFilled', usedTokens }),
                   steers: Effect.sync(() => turn.steers.splice(0)),
@@ -368,7 +327,7 @@ export const agentOver = (
             return { out, steer };
           };
 
-          // Job endings and wakeups, as the Model asks.
+          // Job endings, as the Model has them.
           const ending = new Set<string>();
           const onChange = (now: AgentModel) =>
             Effect.gen(function* () {
@@ -407,23 +366,9 @@ export const agentOver = (
               }
               if (running !== undefined || offered) return;
               const report = reports.shift();
-              if (report !== undefined) {
-                offered = true;
-                return yield* Queue.offer(
-                  agentTurns,
-                  turnOf(report, '', 'Agent'),
-                );
-              }
-              const wakeup = now.wakeups.find(
-                ({ agent }) => agent === nativeId,
-              );
-              if (wakeup === undefined) return;
-              yield* send({ _tag: 'WakeupTaken', id: wakeup.id });
+              if (report === undefined) return;
               offered = true;
-              yield* Queue.offer(
-                agentTurns,
-                turnOf(scriptNamed(wakeup.script, ''), '', 'Agent'),
-              );
+              yield* Queue.offer(agentTurns, turnOf(report, '', 'Agent'));
             });
           yield* changes.pipe(Stream.runForEach(onChange), Effect.forkScoped);
 
@@ -465,18 +410,13 @@ export const agentOver = (
             ),
             stopBackgroundJob: (jobId) =>
               Effect.suspend(() => {
-                const now = model();
-                if (now.stopsFail !== null)
-                  return Effect.fail(
-                    new HarnessError({ message: now.stopsFail }),
-                  );
-                if (!now.jobs.some((job) => job.id === jobId))
+                if (!model().jobs.some((job) => job.id === jobId))
                   return Effect.fail(
                     new HarnessError({ message: `No Background Job ${jobId}` }),
                   );
                 return send({
-                  _tag: 'EndJob',
-                  job: jobId,
+                  _tag: 'JobEnded',
+                  id: jobId,
                   how: 'stopped',
                   summary: '',
                 });
@@ -512,9 +452,6 @@ export const agentOver = (
             answer: (questionId, answer) =>
               Effect.suspend(
                 (): Effect.Effect<void, HarnessError | QuestionNotAsked> => {
-                  const fails = model().answersFail;
-                  if (fails !== null)
-                    return Effect.fail(new HarnessError({ message: fails }));
                   const found = asked.get(questionId);
                   if (found === undefined)
                     return Effect.fail(
@@ -552,42 +489,19 @@ export const agentOver = (
         defaultModel: played.defaultModel,
         settings: played.settings,
         open: (config) => open(played, config),
-        skills: (cwd) =>
-          Effect.suspend(() => {
-            const install = model()[played.name];
-            if (install.skillsFail !== null)
-              return Effect.fail(
-                new HarnessError({ message: install.skillsFail }),
-              );
-            return Effect.succeed(
-              install.skills
-                .filter(
-                  ({ folder }) =>
-                    folder === '' ||
-                    cwd === expand(folder) ||
-                    cwd.startsWith(`${expand(folder)}/`),
-                )
-                .map(({ name, description }) => ({ name, description })),
-            );
-          }),
+        skills: () => Effect.succeed(BUILT_IN_SKILLS),
         fork: (input) =>
           Effect.sync(() => ({ nativeId: id(`${input.nativeId}-fork-`) })),
         ask: (input) =>
-          Effect.gen(function* () {
-            const { btw } = model();
-            yield* send({ _tag: 'BtwTaken' });
-            if (btw.failNext !== null)
-              return yield* new HarnessError({ message: btw.failNext });
-            const text =
-              btw.next ||
-              `A short answer to “${input.question.trim()}”, from the session so far: nothing in it changes the plan.`;
+          Effect.sync(() => {
+            const text = `A short answer to “${input.question.trim()}”, from the session so far: nothing in it changes the plan.`;
             return input.schema === undefined
               ? { _tag: 'Text' as const, text }
               : { _tag: 'Data' as const, data: { answer: text } };
           }),
         binary: Effect.gen(function* () {
           const account = yield* HarnessAccount;
-          return binaryOf(played, model()[played.name], account.binary);
+          return binaryOf(played, account.binary);
         }),
         project: played.name === 'claude' ? claudeProject : codexProject,
       });
@@ -607,9 +521,6 @@ export const agentOver = (
         list: (harness) =>
           Effect.gen(function* () {
             const played = playedOf(harness);
-            const install = model()[played.name];
-            if (install.modelsFail !== null)
-              return yield* new ModelsError({ message: install.modelsFail });
             const account = yield* HarnessAccount;
             if (!signedIn(played, account.configFolder)) {
               yield* Effect.logWarning(
@@ -640,47 +551,29 @@ export const agentOver = (
 
       const host = Layer.succeed(HarnessHost, {
         binaryAt: (harness, account) =>
-          Effect.sync(() =>
-            binaryOf(playedOf(harness), model()[harness.name], account.binary),
-          ),
+          Effect.sync(() => binaryOf(playedOf(harness), account.binary)),
         checkBinary: (harness, given) =>
           Effect.suspend(() => {
-            const info = binaryOf(
-              playedOf(harness),
-              model()[harness.name],
-              given,
-            );
+            const info = binaryOf(playedOf(harness), given);
             return info.error === null
               ? Effect.succeed(info.path!)
               : Effect.fail(new InvalidBinary({ message: info.error }));
           }),
         configFolderOf: (name: HarnessName, configFolder) =>
-          Effect.sync(() => {
-            const played = PLAYED[name];
-            const install = model()[name];
-            if (configFolder !== undefined)
-              return { path: expand(configFolder), from: 'account' as const };
-            return install.configFromEnvironment === null
-              ? { path: `${home}/${played.own}`, from: 'default' as const }
-              : {
-                  path: expand(install.configFromEnvironment),
-                  from: 'environment' as const,
-                  variable: played.variable,
-                };
-          }),
+          Effect.sync(() =>
+            configFolder === undefined
+              ? {
+                  path: `${home}/${PLAYED[name].own}`,
+                  from: 'default' as const,
+                }
+              : { path: expand(configFolder), from: 'account' as const },
+          ),
       });
 
       // 4. One-shots
       const oneShot = Layer.succeed(OneShotPrompt, {
         prompt: (text) =>
-          Effect.gen(function* () {
-            const { title } = model();
-            yield* send({ _tag: 'TitleTaken' });
-            if (title.inMs > 0)
-              yield* Effect.sleep(Duration.millis(title.inMs));
-            if (title.failNext !== null)
-              return yield* new HarnessError({ message: title.failNext });
-            if (title.next !== '') return title.next;
+          Effect.sync(() => {
             const latest =
               /<latest-message>\n([\s\S]*?)\n<\/latest-message>/.exec(
                 text,
