@@ -2,7 +2,7 @@
   "name": "@kestack/monoverse",
   "version": "0.0.0",
   "private": false,
-  "description": "The folder rules a package's monoverse.json names, checked by the monoverse lint CLI and by DevTools' Monoverse, with one engine",
+  "description": "The rules this monorepo's code follows: the folder rules a package's monoverse.json names, checked by the monoverse lint CLI and by DevTools' Monoverse, and the oxlint rules every file follows",
   "keywords": [
     "lint",
     "architecture",
@@ -19,6 +19,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./oxlint": {
+      "types": "./dist/oxlint/index.d.ts",
+      "default": "./dist/oxlint/index.js"
     },
     "./schema.json": "./schema.json"
   },
@@ -44,11 +48,21 @@
     "yaml": "catalog:"
   },
   "devDependencies": {
+    "@oxlint/plugins": "catalog:",
     "@tsconfig/node22": "catalog:",
     "@types/node": "catalog:",
+    "oxlint": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "@oxlint/plugins": "^1.94.0"
+  },
+  "peerDependenciesMeta": {
+    "@oxlint/plugins": {
+      "optional": true
+    }
   },
   "publishConfig": {
     "access": "public"
