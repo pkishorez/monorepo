@@ -1,5 +1,12 @@
-import { spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync, spawn } from 'node:child_process';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -205,6 +212,118 @@ describe('ke-video', () => {
       freed: expect.any(Number),
     });
     expect(existsSync(join(home, 'videos', ID))).toBe(false);
+  }, 60_000);
+
+  it('makes a clip of one removed part, H.264 with what comes before and after, once', async () => {
+    const { home, keVideo, status } = library();
+    await keVideo('create', LINK);
+    await vi.waitFor(
+      async () => expect((await status(ID)).state).toBe('done'),
+      { timeout: 20_000 },
+    );
+    const clip = (n: string, ...rest: ReadonlyArray<string>) =>
+      keVideo('clip', ID, n, ...rest);
+    expect(await clip('0')).toMatchObject({
+      code: 1,
+      stdout: '',
+      stderr: `${ID} has no cuts yet: its clean-up step is not done.\n`,
+    });
+    const folder = join(home, 'videos', ID);
+    writeFileSync(
+      join(folder, 'cuts.json'),
+      JSON.stringify({
+        kept: [
+          { start: 0, end: 10 },
+          { start: 10.5, end: 12 },
+          { start: 52, end: 60 },
+        ],
+        removed: [
+          { start: 10, end: 10.5, kind: 'silence' },
+          { start: 12, end: 52, kind: 'filler-talk', reason: 'intro' },
+        ],
+      }),
+    );
+    const original = join(folder, 'work', 'original.mp4');
+    expect((await clip('0')).stderr).toBe(
+      `The original of ${ID} is not downloaded (${original} is missing), so its cuts cannot be played.\n`,
+    );
+    mkdirSync(join(folder, 'work'), { recursive: true });
+    // A 60 s original, VP9 in mp4 as YouTube often sends.
+    execFileSync('ffmpeg', [
+      '-hide_banner',
+      '-loglevel',
+      'error',
+      '-y',
+      '-f',
+      'lavfi',
+      '-i',
+      'testsrc2=size=320x240:rate=25:duration=60',
+      '-f',
+      'lavfi',
+      '-i',
+      'sine=frequency=440:duration=60',
+      '-c:v',
+      'libvpx-vp9',
+      '-deadline',
+      'realtime',
+      '-cpu-used',
+      '8',
+      '-c:a',
+      'aac',
+      '-shortest',
+      original,
+    ]);
+    const made = await clip('0', '--json');
+    expect(made).toMatchObject({ code: 0, stderr: '' });
+    const answer = JSON.parse(made.stdout) as {
+      file: string;
+      removed: ReadonlyArray<{ start: number; end: number }>;
+    };
+    expect(answer).toEqual({
+      file: join(folder, 'work', 'clips', '0.mp4'),
+      removed: [{ start: 2, end: 2.5 }],
+    });
+    const probe = (file: string) =>
+      JSON.parse(
+        execFileSync('ffprobe', [
+          '-v',
+          'error',
+          '-show_streams',
+          '-show_format',
+          '-of',
+          'json',
+          file,
+        ]).toString(),
+      ) as {
+        streams: ReadonlyArray<{ codec_name: string }>;
+        format: { duration: string };
+      };
+    const short = probe(answer.file);
+    expect(short.streams.map((stream) => stream.codec_name).sort()).toEqual([
+      'aac',
+      'h264',
+    ]);
+    expect(Number(short.format.duration)).toBeCloseTo(4, 0);
+    const at = statSync(answer.file).mtimeMs;
+    expect(await clip('0')).toMatchObject({
+      code: 0,
+      stdout: `${answer.file}\n`,
+    });
+    expect(statSync(answer.file).mtimeMs).toBe(at);
+    // Over 30 s: its first 20 s and its last 5 s, joined.
+    const long = JSON.parse((await clip('1', '--json')).stdout) as {
+      file: string;
+      removed: ReadonlyArray<{ start: number; end: number }>;
+    };
+    expect(long.removed).toEqual([
+      { start: 2, end: 22 },
+      { start: 22, end: 27 },
+    ]);
+    expect(Number(probe(long.file).format.duration)).toBeCloseTo(28.5, 0);
+    expect(await clip('2')).toMatchObject({
+      code: 1,
+      stderr: `${ID} has no cut 2: its cuts are 0 to 1.\n`,
+    });
   }, 60_000);
 
   it('refuses to create while a requirement is missing, saying how to install it', async () => {

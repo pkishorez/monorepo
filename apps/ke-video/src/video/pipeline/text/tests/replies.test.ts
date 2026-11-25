@@ -8,6 +8,8 @@ import {
   jsonIn,
   learn,
   mergeCuts,
+  savedCuts,
+  sentencesKey,
 } from '../replies.ts';
 
 const cut = (
@@ -95,6 +97,35 @@ describe('mergeCuts', () => {
       mergeCuts([cut(1, 4, 'filler-talk', 'x'), cut(3, 5, 'ask', 'x')]),
     ).toEqual([{ from: 1, to: 5, kind: 'ask', reason: 'x' }]);
     expect(mergeCuts([cut(1, 2), cut(3, 4)])).toHaveLength(2);
+  });
+});
+
+describe('savedCuts', () => {
+  const sentences = [
+    { start: 0, text: 'Welcome back.' },
+    { start: 2.5, text: 'Hit subscribe.' },
+  ];
+  const key = sentencesKey(sentences);
+  const saved = {
+    sentences: key,
+    strength: 'normal',
+    cuts: [cut(1, 1, 'filler-talk', 'welcome'), cut(2, 2, 'ask', 'subscribe')],
+    learnings: [],
+  };
+
+  it("reads Claude's saved answer for the same sentences and strength", () => {
+    expect(savedCuts(saved, key, 'normal')).toEqual(saved);
+  });
+
+  it('refuses an answer for other sentences, another strength, or a broken file', () => {
+    const other = sentencesKey([{ start: 0, text: 'Welcome.' }]);
+    expect(other).not.toBe(key);
+    expect(savedCuts(saved, other, 'normal')).toBeNull();
+    expect(savedCuts(saved, key, 'heavy')).toBeNull();
+    expect(
+      savedCuts({ ...saved, cuts: [{ from: 1 }] }, key, 'normal'),
+    ).toBeNull();
+    expect(savedCuts(null, key, 'normal')).toBeNull();
   });
 });
 

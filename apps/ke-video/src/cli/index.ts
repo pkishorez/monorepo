@@ -88,6 +88,24 @@ const ke = Command.make('ke-video').pipe(
         "Start a video's worker again from the first step not done",
       ),
     ),
+    Command.make(
+      'clip',
+      {
+        id,
+        n: Argument.Int('n').pipe(
+          Argument.withDescription(
+            "The removed part's place in cuts.json's removed, from 0",
+          ),
+        ),
+        json,
+      },
+      ({ id, n, json }) =>
+        commands.clip(id, n, json).pipe(Effect.catch(exitWith)),
+    ).pipe(
+      Command.withDescription(
+        'Make, or find, a short clip of one removed part with a little before and after it; prints its path',
+      ),
+    ),
     Command.make('delete', { id, json }, ({ id, json }) =>
       commands.remove(id, json).pipe(Effect.catch(exitWith)),
     ).pipe(

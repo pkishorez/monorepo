@@ -105,6 +105,7 @@ export function Watch({
                 cuts={outputs.cuts}
                 filter={model.filter}
                 playing={model.playing}
+                clip={model.clip}
                 send={send}
                 onPlay={player.pause}
               />

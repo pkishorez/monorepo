@@ -38,6 +38,7 @@ export {
   downloadArgs,
   downloaded,
   downloadLine,
+  downloadProgress,
   infoArgs,
   readInfo,
   youtubeFailure,

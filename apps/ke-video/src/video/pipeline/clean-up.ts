@@ -20,8 +20,10 @@ import {
 } from './job.ts';
 import {
   Claude,
+  exists,
   probe,
   readJson,
+  remove,
   writeJson,
   type Info,
 } from './machine/index.ts';
@@ -33,13 +35,48 @@ import {
   decodeCuts,
   length,
   mergeCuts,
+  savedCuts,
+  sentencesKey,
   stamp,
   took,
 } from './text/index.ts';
 
-/** Claude's cuts of `all`, part by part; a part whose answer cannot be read twice goes on without cuts. */
+/** The cuts the strength makes: `light` keeps filler talk. */
+const byStrength = (job: Job, cuts: ReadonlyArray<Cut>) =>
+  cuts.filter((cut) => job.strength !== 'light' || cut.kind !== 'filler-talk');
+
+/**
+ * Claude's cuts of `all`, part by part; a part whose answer cannot be read
+ * twice goes on without cuts. Once every part is answered, the answer is
+ * kept in `work/claude.json`, and a later run of the step reads it from
+ * there instead of asking again, as long as the sentences are the same.
+ */
 const askCuts = (job: Job, details: Info, all: ReadonlyArray<Sentence>) =>
   Effect.gen(function* () {
+    const file = workFiles(job).claude;
+    const key = sentencesKey(all);
+    const saved = (yield* exists(file))
+      ? savedCuts(
+          yield* readJson(file).pipe(Effect.orElseSucceed(() => null)),
+          key,
+          job.strength,
+        )
+      : null;
+    if (saved !== null) {
+      yield* say(
+        job,
+        'clean-up',
+        `Claude: its answer for these ${count(all.length)} sentences is in work/claude.json; not asking again`,
+        'ads',
+      );
+      return { cuts: byStrength(job, saved.cuts), learnings: [] };
+    }
+    yield* say(
+      job,
+      'clean-up',
+      `Claude: reading ${count(all.length)} sentences for ads${job.strength === 'light' ? '' : ' and filler talk'}…`,
+      'ads',
+    );
     const claude = yield* Claude;
     const skill = {
       rules: yield* skillFile(job, 'cut-rules.md'),
@@ -48,6 +85,7 @@ const askCuts = (job: Job, details: Info, all: ReadonlyArray<Sentence>) =>
     const parts = chunks(all.length);
     const found: Array<Cut> = [];
     const learnings: Array<string> = [];
+    let whole = true;
     for (const [index, part] of parts.entries()) {
       const prompt = cutPrompt({
         skill,
@@ -63,6 +101,7 @@ const askCuts = (job: Job, details: Info, all: ReadonlyArray<Sentence>) =>
         decodeCuts(part.from, part.to),
       );
       if (Result.isFailure(answer)) {
+        whole = false;
         yield* say(
           job,
           'clean-up',
@@ -74,10 +113,15 @@ const askCuts = (job: Job, details: Info, all: ReadonlyArray<Sentence>) =>
       found.push(...answer.success.cuts);
       learnings.push(...answer.success.learnings);
     }
-    const cuts = mergeCuts(found).filter(
-      (cut) => job.strength !== 'light' || cut.kind !== 'filler-talk',
-    );
-    return { cuts, learnings };
+    const cuts = mergeCuts(found);
+    if (whole)
+      yield* writeJson(file, {
+        sentences: key,
+        strength: job.strength,
+        cuts,
+        learnings,
+      });
+    return { cuts: byStrength(job, cuts), learnings };
   });
 
 /**
@@ -97,12 +141,6 @@ export const cleanUp = (job: Job) =>
     const original = yield* probe(job.files.original);
     const all = sentences(words);
     yield* writeJson(files.sentences, all);
-    yield* say(
-      job,
-      'clean-up',
-      `Claude: reading ${count(all.length)} sentences for ads${job.strength === 'light' ? '' : ' and filler talk'}…`,
-      'ads',
-    );
     const { cuts, learnings } = yield* askCuts(job, details, all);
     yield* remember(job, 'clean-up', learnings);
     const made = plan({
@@ -118,6 +156,8 @@ export const cleanUp = (job: Job) =>
     if (made.kept.length === 0)
       return yield* fail('The plan keeps nothing of this video.');
     yield* writeJson(files.plan, made);
+    // Previews of the old cuts' parts would show the wrong part now.
+    yield* remove(files.clips);
     yield* writeJson(job.files.cuts, {
       kept: made.kept,
       removed: made.removed,

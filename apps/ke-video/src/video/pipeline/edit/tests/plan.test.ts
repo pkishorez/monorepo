@@ -131,6 +131,95 @@ describe('plan', () => {
     expect(totals(made.removed).ads).toBeCloseTo(1);
   });
 
+  it('lists each Claude cut on its own, even where it touches the next, as in xAt1xcC6qfM', () => {
+    // A teaser, music, the host's intro with an "um" and a pause in it, a
+    // subscribe ask straight after it, then the talk.
+    const words = [
+      word('Teaser', 0, 0.4),
+      word('one.', 0.5, 1),
+      word('Hello', 3, 3.4),
+      word('um', 3.4, 3.6),
+      word('host.', 4.6, 5),
+      word('Subscribe', 5.2, 5.6),
+      word('now.', 5.6, 6),
+      word('Real', 6.5, 6.9),
+      word('talk.', 6.9, 9),
+    ];
+    const made = plan(
+      input(words, {
+        duration: 9,
+        silences: [
+          { start: 3.6, end: 4.6 },
+          { start: 6, end: 6.5 },
+        ],
+        cuts: [
+          { from: 1, to: 1, kind: 'filler-talk', reason: 'teaser clips' },
+          { from: 2, to: 2, kind: 'filler-talk', reason: 'host intro' },
+          { from: 3, to: 3, kind: 'ask', reason: 'subscribe ask' },
+        ],
+      }),
+    );
+    // What is cut is the same as it ever was: everything before the talk.
+    expect(ranges(made.kept)).toEqual([[6.4, 9]]);
+    expect(
+      made.removed.map(({ start, end, kind, reason, text }) => [
+        Number(start.toFixed(3)),
+        Number(end.toFixed(3)),
+        kind,
+        reason,
+        text,
+      ]),
+    ).toEqual([
+      [0, 1, 'filler-talk', 'teaser clips', 'Teaser one.'],
+      [1, 3, 'fillers', undefined, undefined],
+      [3, 5.1, 'filler-talk', 'host intro', 'Hello um host.'],
+      [5.1, 6.4, 'ask', 'subscribe ask', 'Subscribe now.'],
+    ]);
+    const removed = totals(made.removed);
+    expect(removed).toEqual({
+      silence: 0,
+      fillers: expect.closeTo(2),
+      ads: expect.closeTo(1.3),
+      fillerTalk: expect.closeTo(3.1),
+    });
+    expect(
+      removed.silence + removed.fillers + removed.ads + removed.fillerTalk,
+    ).toBeCloseTo(made.duration - made.length);
+  });
+
+  it('lists a long pause next to a Claude cut on its own, and a short one as part of the cut', () => {
+    const words = [
+      word('Talk.', 0, 1),
+      word('Buy', 3, 3.4),
+      word('this.', 3.4, 4),
+      word('More.', 4.3, 6),
+    ];
+    const made = plan(
+      input(words, {
+        duration: 6,
+        silences: [
+          { start: 1, end: 3 },
+          { start: 4, end: 4.3 },
+        ],
+        cuts: [{ from: 2, to: 2, kind: 'ad', reason: 'sponsor read' }],
+      }),
+    );
+    expect(ranges(made.kept)).toEqual([
+      [0, 1.1],
+      [4.2, 6],
+    ]);
+    expect(
+      made.removed.map(({ start, end, kind }) => [
+        Number(start.toFixed(3)),
+        Number(end.toFixed(3)),
+        kind,
+      ]),
+    ).toEqual([
+      [1.1, 3, 'silence'],
+      [3, 4.2, 'ad'],
+    ]);
+  });
+
   it('joins a piece under 0.3 s to its nearer neighbour across a short pause', () => {
     const words = [word('one', 0, 1), word('x', 1.6, 1.62), word('two', 4, 5)];
     const made = plan(

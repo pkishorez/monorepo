@@ -59,7 +59,9 @@ videos/<id>/
   summary.md            the same as Markdown                    (summary)
   cuts.json             Cuts below                              (clean-up)
   work/                 info.json, original.mp4, audio.pcm, silences.json,
-                        pieces/NNNNN.json, words.json, sentences.json, plan.json
+                        pieces/NNNNN.json, words.json, sentences.json,
+                        claude.json, plan.json,
+                        clips/<n>.mp4 and <n>.json                (clip)
 ```
 
 ## The Video record (`video.json`, and `status --json`)
@@ -152,7 +154,21 @@ on any error. Ids are the YouTube video id; `create` parses it from the link
 | `logs <id> [-f]`                                  | every Event so far; `-f` keeps streaming until the Video is no longer queued or running                                                  | one Event per line (NDJSON) |
 | `stop <id>`                                       | stops its worker; finished steps stay                                                                                                    | the Video                   |
 | `resume <id>`                                     | starts a worker again from the first step not done. Refused while one runs: "<id> is already running. Stop it first: ke-video stop <id>" | the Video                   |
+| `clip <id> <n>`                                   | makes, or finds made, a clip of removed part `n` (its index in `cuts.json` `removed`, from 0) → `work/clips/<n>.mp4`; prints its path    | `{ file, removed }`         |
 | `delete <id>`                                     | stops its worker if running, then removes its folder                                                                                     | `{ id, freed }` (bytes)     |
+
+`clip` shows a removed part with what comes around it, for the web app's
+cut player: from 2 s before the cut to 1.5 s after it, within the video. A
+cut over 30 s shows 2 s before it, its first 20 s, then its last 5 s and
+1.5 s after it, the two ranges joined. It is H.264 (`h264_videotoolbox`
+when listed, else libx264) and AAC, at most 720p, `+faststart`, written as
+`.part` and renamed, so it plays in every browser whatever the original's
+codec. `work/clips/<n>.json` records the cut it was made for; a clip is
+made again only when cut `n` has changed, and clean-up removes them all.
+`removed` is the cut's seconds in the clip (two touching spans for a long
+cut), for the player to mark. It loads the pipeline lazily, so the other
+commands do not. Refused, one line: no such video, no cuts yet (clean-up
+not done), no cut `n`, the original not downloaded.
 
 `create` on an existing id is refused: "<id> already exists: resume it with
 ke-video resume <id>, or remove it with ke-video delete <id>". Default
@@ -188,8 +204,19 @@ exists is not heard again).
 
 1. **info**: `yt-dlp -J --no-playlist <url>` → `work/info.json`; sets
    title, channel, duration. Keeps chapters and description for Claude.
-2. **download**: `yt-dlp` best mp4 video ≤1080p + m4a audio merged to
-   `work/original.mp4`, `--newline` progress parsed into Events.
+2. **download**: `yt-dlp -f` the best H.264 video (`vcodec^=avc1`) ≤1080p
+   with m4a audio, else the best mp4 video ≤1080p with m4a audio (often
+   VP9), else the best single mp4 ≤1080p, else the best there is, merged to
+   `work/original.mp4`. H.264 first so the original plays in every
+   browser, iPhone Safari included. `info` asks with the same `-f` and
+   keeps the formats it picked (`format`, e.g. `137+140`); the download
+   asks for those first (`-f 137+140/<the selector>`), since YouTube's list
+   of formats can change between two runs, so the size `info` estimated
+   (each format's `filesize`, else `filesize_approx`, else `tbr` ×
+   duration) is the download's. `--newline` progress is parsed into
+   Events covering every file, picture then sound, each weighed by the
+   size yt-dlp prints once it starts (the estimate before that); each file
+   is announced as it starts, e.g. `sound: 104 MB`.
 3. **audio**: `ffmpeg` → `work/audio.pcm`, 16 kHz mono s16le; then
    `silencedetect` (‑35 dB, 0.25 s) → `work/silences.json`.
 4. **transcribe**: cut the audio into pieces of at most 20 s, each cut in
@@ -205,10 +232,14 @@ exists is not heard again).
      the strength, title, channel, description, chapters, and the numbered
      sentences with their start times. It answers JSON only:
      `{ cuts: [{ from: n, to: n, kind: 'ad' | 'ask' | 'filler-talk', reason }], learnings: string[] }`.
-     Decoded with Schema; ids must exist, from ≤ to, ranges are merged. One
-     retry with the decode error appended; a second failure logs a warning
-     and goes on with no Claude cuts. Transcripts over ~2,500 sentences go in
-     chunks with 20 sentences of overlap.
+     Decoded with Schema; ids must exist, from ≤ to, overlapping ranges are
+     merged. One retry with the decode error appended; a second failure logs
+     a warning and goes on with no Claude cuts. Transcripts over ~2,500
+     sentences go in chunks with 20 sentences of overlap. Once every part
+     is answered, the decoded answer goes to `work/claude.json`
+     (`{ sentences, strength, cuts, learnings }`, `sentences` a hash of the
+     numbered sentences); clean-up run again reads it instead of asking,
+     while the sentences and strength are the same.
    - the plan: keep every word not in a cut sentence and not a filler word
      (um, uh, umm, uhm, er, erm, ah, hmm, mm), each widened by 0.12 s.
      Between two kept words: a silent gap (inside `silences.json`) up to the
@@ -241,9 +272,21 @@ exists is not heard again).
 Failures: Claude out of reach fails the step (resume retries it); a
 clean-up answer unreadable twice goes on with no Claude cuts; a summary
 unreadable twice fails, as there is nothing to write. `light` keeps filler
-talk even if Claude marks some. A removed range takes one kind, the one
-covering most of it, Claude's kinds first, so per-kind totals are close, not
-exact.
+talk even if Claude marks some.
+
+`cuts.json` lists what the plan removes, and only lists it: `kept` and the
+render do not depend on it. The removed ranges (between kept ranges) are
+listed in order and cover exactly what is removed, so the per-kind totals
+in `result.removed` are exact sums of the entries. A range no Claude cut
+touches is one entry, `silence` or `fillers`, whichever covers most of
+it. A range Claude cuts touch is split: each Claude cut is its own entry
+with its own kind, reason and text, from its first word to its last, even
+where it touches the next one; the silences and fillers inside it are part
+of it. A stretch between two Claude cuts, or between one and the kept
+video, is its own `silence` or `fillers` entry when the plan would cut it
+between two kept words (silent over the pause limit, else with sound over
+0.3 s); a shorter one goes to its Claude neighbour, split in the middle
+between two.
 
 Learnings: any `learnings` Claude returns are appended to
 `skill/learnings.md` as `- <text> (<id>, <date>)`, skipping exact repeats,
@@ -307,6 +350,10 @@ files or processes except through two server-side doors: running the CLI
 - `GET /api/videos/:id/logs` → `logs <id> -f --json`, streamed as NDJSON.
 - `GET /api/videos/:id/file/:name` (`video`, `original`, `transcriptJson`,
   `summaryJson`, `cuts`) → the file, with HTTP Range for mp4.
+- `GET /api/videos/:id/cuts/:n` → `clip <id> <n> --json`, so the player
+  can mark the removed spans; `GET /api/videos/:id/cuts/:n/clip` runs the
+  same, then serves its `file` with HTTP Range. Asks that come while a clip
+  is being made share one run.
 - `POST /api/videos` `{ url, strength }`, `POST /api/videos/:id/stop`,
   `POST /api/videos/:id/resume`, `DELETE /api/videos/:id` → the commands.
 
@@ -314,5 +361,8 @@ Pages: the list (title, length old → new, status with step and %, a create
 box), and a video page: while working, its status and the streamed log in
 the CLI's text form; when done, the player with chapters, the summary with
 times that seek, the trimmed transcript following playback (click a line to
-seek), and the cuts (each with kind, reason and original time; plays that
-part of the original).
+seek), and the cuts (each with kind, reason and original time). Playing a
+cut shows "Preparing clip…" while `clip` makes it, then plays the clip from
+its start, so the lead-in is heard; a thin bar under it marks the removed
+span(s) and where playback is, and "Removed" shows over the picture while
+playback is inside them.

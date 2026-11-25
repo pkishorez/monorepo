@@ -4,6 +4,7 @@ import { Page, Router } from '@kestack/kabuki/routing';
 import {
   CutKind,
   Event,
+  Range,
   Video as VideoRecord,
 } from '../../../video/library/schema.ts';
 import { Api, Outputs } from '../api/index.ts';
@@ -14,13 +15,21 @@ import { Api, Outputs } from '../api/index.ts';
  * from the first Event, each time the Video starts or stops working, so
  * one that is resumed picks up live. Once done, its transcript, summary
  * and cuts are read once, and the page shows which panel is open, which
- * kind of cut the list shows, and which cut of the original is playing.
+ * kind of cut the list shows, and which cut is playing: its clip is made
+ * when it is asked for, which can take a few seconds.
  * After a delete it goes back to the list.
  */
 
 const Panel = Schema.Literals(['transcript', 'summary', 'cuts']);
 const Filter = Schema.Union([CutKind, Schema.Literal('all')]);
 export type Filter = typeof Filter.Type;
+
+/** The clip of the cut playing: made, with the seconds of it removed, or why not. */
+const Clip = Schema.Struct({
+  cut: Schema.Number,
+  removed: Schema.NullOr(Schema.Array(Range)),
+  error: Schema.NullOr(Schema.String),
+});
 
 const working = (video: VideoRecord | null) =>
   video !== null && (video.state === 'queued' || video.state === 'running');
@@ -78,6 +87,8 @@ export const Video = Page.define({
     filter: Filter,
     /** The cut whose part of the original plays, by its place in `cuts.removed`. */
     playing: Schema.NullOr(Schema.Number),
+    /** Its clip, `null` while it is being made. */
+    clip: Schema.NullOr(Clip),
   },
   message: {
     Read: { video: VideoRecord },
@@ -95,6 +106,7 @@ export const Video = Page.define({
     Show: { panel: Panel },
     Pick: { filter: Filter },
     Play: { cut: Schema.NullOr(Schema.Number) },
+    Clipped: { clip: Clip },
   },
 });
 
@@ -112,6 +124,7 @@ export const VideoLive = Video.build({
       panel: 'transcript',
       filter: 'all',
       playing: null,
+      clip: null,
     },
   }),
   workers: {
@@ -158,6 +171,24 @@ export const VideoLive = Video.build({
               self.send({ _tag: 'Unread', error: message }),
             ),
           );
+        }),
+    },
+    clip: {
+      each: ({ model }) =>
+        model.playing === null ? [] : [String(model.playing)],
+      run: (self, key) =>
+        Effect.gen(function* () {
+          const api = yield* Api;
+          const { props } = yield* self.get;
+          const cut = Number(key);
+          const made = yield* Effect.result(api.clip(props.params.id, cut));
+          yield* self.send({
+            _tag: 'Clipped',
+            clip:
+              made._tag === 'Success'
+                ? { cut, removed: made.success, error: null }
+                : { cut, removed: null, error: made.failure.message },
+          });
         }),
     },
     outputs: {
@@ -209,7 +240,9 @@ export const VideoLive = Video.build({
       command: Router.replace({ _tag: 'List' }),
     }),
     Show: ({ panel }) => ({ model: { panel } }),
-    Pick: ({ filter }) => ({ model: { filter, playing: null } }),
-    Play: ({ cut }) => ({ model: { playing: cut } }),
+    Pick: ({ filter }) => ({ model: { filter, playing: null, clip: null } }),
+    Play: ({ cut }) => ({ model: { playing: cut, clip: null } }),
+    Clipped: ({ clip }, { model }) =>
+      clip.cut === model.playing ? { model: { clip } } : {},
   },
 });

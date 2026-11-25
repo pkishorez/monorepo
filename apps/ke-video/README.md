@@ -24,12 +24,14 @@ pnpm ke-video status xAt1xcC6qfM                    # steps done, the one runnin
 pnpm ke-video logs xAt1xcC6qfM -f                   # every line so far, then new ones as they come
 pnpm ke-video stop xAt1xcC6qfM                      # stops it; finished steps are kept
 pnpm ke-video resume xAt1xcC6qfM                    # carries on from the first step not done
+pnpm ke-video clip xAt1xcC6qfM 3                    # a short clip of removed part 3, with 2 s before it; prints its path
 pnpm ke-video delete xAt1xcC6qfM                    # stops it and removes all its files
 ```
 
 - Every command takes `--json`; `logs --json` prints one Event per line. The id is the YouTube video id.
 - The steps are info, download, audio, transcribe, clean-up, render, transcripts and summary. Each writes its files whole before it counts as done, so `resume` after a stop, a failure or a reboot redoes at most one step (transcribe resumes piece by piece).
-- A finished video's folder holds `video.mp4`, `transcript.md`, `transcript-full.md`, `transcript.json`, `summary.md`, `summary.json` and `cuts.json` (every removed part, its kind and why). `status` prints their paths.
+- A finished video's folder holds `video.mp4`, `transcript.md`, `transcript-full.md`, `transcript.json`, `summary.md`, `summary.json` and `cuts.json` (every removed part, its kind and why; each of Claude's cuts on its own). `status` prints their paths.
+- `clip <id> <n>` makes a small H.264 clip of removed part `n` (its place in `cuts.json`, from 0), from 2 s before it to 1.5 s after it, and keeps it for next time. A cut over 30 s shows its first 20 s and last 5 s.
 - Files live under `$KE_VIDEO_HOME`, or `ke-video` in kestack's shared data folder (`~/.local/share/kestack/ke-video` by default).
 
 ### Watch and read in the browser, on a laptop or a phone
@@ -39,7 +41,7 @@ pnpm --filter ke-video web       # this computer only; prints the address
 pnpm --filter ke-video web:lan   # also reachable from a phone on the same Wi-Fi
 ```
 
-- The list refreshes every two seconds and has a box to paste a link. A video still working shows its steps and its log as it is written; a finished one shows the player, chapters, the summary, the transcript following playback (tap a line to jump there) and the cuts, each of which plays that part of the original.
+- The list refreshes every two seconds and has a box to paste a link. A video still working shows its steps and its log as it is written; a finished one shows the player, chapters, the summary, the transcript following playback (tap a line to jump there) and the cuts. Playing a cut plays its clip, with a bar that marks what was removed.
 - On a phone the player stays at the top while the transcript and summary scroll under it.
 - `web:lan` has no sign-in: anyone on the network can add and delete videos. Use it only on a network you trust.
 

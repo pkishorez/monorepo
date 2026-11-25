@@ -26,7 +26,8 @@ import * as text from './text.ts';
 
 /*
  * What each command does: it reads and changes the library, starts and
- * stops workers, and prints text for people or JSON for tools.
+ * stops workers, and prints text for people or JSON for tools. `clip`
+ * loads the pipeline for its ffmpeg, only when it runs.
  */
 
 /** A command that cannot do what it was asked; its message says why. */
@@ -204,4 +205,14 @@ export const remove = (id: string, json: boolean) =>
     yield* json
       ? printJson({ id, freed })
       : print(`Deleted ${title} (${text.size(freed)} freed).\n`);
+  });
+
+export const clip = (id: string, n: number, json: boolean) =>
+  Effect.gen(function* () {
+    const video = yield* readVideo(id);
+    const pipeline = yield* Effect.promise(
+      () => import('../video/pipeline/index.ts'),
+    );
+    const made = yield* pipeline.clip(id, video.files, n);
+    yield* json ? printJson(made) : print(`${made.file}\n`);
   });

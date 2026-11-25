@@ -19,11 +19,14 @@ import { sendFile } from './files.server.ts';
  *   POST   /api/videos/:id/resume       resume
  *   GET    /api/videos/:id/logs         logs -f, streamed as NDJSON
  *   GET    /api/videos/:id/file/:name   video, original, transcriptJson, summaryJson or cuts
+ *   GET    /api/videos/:id/cuts/:n      clip <id> <n>: the clip's file and the seconds of it removed
+ *   GET    /api/videos/:id/cuts/:n/clip clip <id> <n>, then the clip itself
  */
 
 const FILES = ['video', 'original', 'transcriptJson', 'summaryJson', 'cuts'];
 const STRENGTHS = ['light', 'normal', 'heavy'];
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
+const N = /^\d{1,6}$/;
 
 type Response = ServerResponse<IncomingMessage>;
 
@@ -39,7 +42,7 @@ const json = (response: Response, status: number, body: unknown) => {
 const statusOf = (error: string) =>
   /already (exists|running)|not running|nothing to resume|is done/i.test(error)
     ? 409
-    : /^no video|not found|no such/i.test(error)
+    : /^no video|not found|no such|has no cut|not downloaded/i.test(error)
       ? 404
       : /^could not run|printed no JSON|exited with/i.test(error)
         ? 500
@@ -125,6 +128,37 @@ const file = async (
     json(response, 404, { error: `${id} has no ${name} yet.` });
 };
 
+/**
+ * `clip <id> <n>`, run once for every ask that comes while it runs: a
+ * player asks for the clip in several Ranges, and the first may have to
+ * wait while ffmpeg makes it.
+ */
+const making = new Map<string, ReturnType<typeof run>>();
+const clipOf = (id: string, n: string) => {
+  const key = `${id}/${n}`;
+  const running = making.get(key);
+  if (running !== undefined) return running;
+  const started = run(['clip', id, n]).finally(() => making.delete(key));
+  making.set(key, started);
+  return started;
+};
+
+const clip = async (
+  request: IncomingMessage,
+  response: Response,
+  id: string,
+  n: string,
+  play: boolean,
+) => {
+  const made = await clipOf(id, n);
+  if (!made.ok)
+    return json(response, statusOf(made.error), { error: made.error });
+  if (!play) return json(response, 200, made.json);
+  const path = (made.json as { file?: unknown }).file;
+  if (typeof path !== 'string' || !(await sendFile(request, response, path)))
+    json(response, 404, { error: `The clip of cut ${n} of ${id} is gone.` });
+};
+
 /** Whether a browser sent it from this app's own pages: one that is not says where from. */
 const fromHere = (request: IncomingMessage) => {
   const origin = request.headers.origin;
@@ -146,8 +180,13 @@ const route = async (request: IncomingMessage, response: Response) => {
     return json(response, 403, { error: 'Refused: asked from another site.' });
   const parts = pathname.split('/').filter(Boolean).slice(1);
   const method = request.method ?? 'GET';
-  const [videos, id, action, name, ...rest] = parts;
-  if (videos !== 'videos' || rest.length > 0 || (id && !ID.test(id)))
+  const [videos, id, action, name, part, ...rest] = parts;
+  if (
+    videos !== 'videos' ||
+    rest.length > 0 ||
+    (id && !ID.test(id)) ||
+    (part !== undefined && (action !== 'cuts' || part !== 'clip'))
+  )
     return json(response, 404, { error: `Nothing at ${pathname}.` });
   if (id === undefined) {
     if (method === 'GET') return answer(response, ['list']);
@@ -163,6 +202,9 @@ const route = async (request: IncomingMessage, response: Response) => {
   } else if (action === 'file' && name !== undefined) {
     if (method === 'GET' || method === 'HEAD')
       return file(request, response, id, name);
+  } else if (action === 'cuts' && name !== undefined && N.test(name)) {
+    if (method === 'GET' || method === 'HEAD')
+      return clip(request, response, id, name, part === 'clip');
   } else return json(response, 404, { error: `Nothing at ${pathname}.` });
   json(response, 405, { error: `${method} is not allowed at ${pathname}.` });
 };

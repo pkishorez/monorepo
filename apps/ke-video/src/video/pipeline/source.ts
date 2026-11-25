@@ -14,8 +14,7 @@ import {
 import {
   capture,
   downloadArgs,
-  downloaded,
-  downloadLine,
+  downloadProgress,
   Ears,
   exists,
   folder,
@@ -92,22 +91,19 @@ export const download = (job: Job) =>
     );
     const started = Date.now();
     const report = progress(job, 'download');
-    let part = -1;
-    let furthest = 0;
+    const follow = downloadProgress(details.parts);
     const ran = yield* lines(
       'yt-dlp',
-      downloadArgs(job.url, files.work),
+      downloadArgs(job.url, files.work, details.format ?? null),
       (text) => {
-        const line = downloadLine(text);
-        if (line._tag === 'Part') part++;
-        return line._tag === 'Percent'
-          ? report(
-              (furthest = Math.max(
-                furthest,
-                downloaded(details.parts, Math.max(0, part), line.percent),
-              )),
-            )
-          : Effect.void;
+        const step = follow(text);
+        if (step.progress === null) return Effect.void;
+        return step.started === null
+          ? report(step.progress)
+          : report(
+              step.progress,
+              `${step.started.what}${step.started.bytes === null ? '' : `: ${size(step.started.bytes)}`}`,
+            );
       },
     );
     if (ran.code !== 0)

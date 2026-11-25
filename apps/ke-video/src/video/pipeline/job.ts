@@ -48,6 +48,8 @@ export const workFiles = (job: Job) => {
     words: join(work, 'words.json'),
     sentences: join(work, 'sentences.json'),
     plan: join(work, 'plan.json'),
+    claude: join(work, 'claude.json'),
+    clips: join(work, 'clips'),
     render: join(work, 'render'),
   };
 };

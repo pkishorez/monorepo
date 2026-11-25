@@ -2,6 +2,7 @@ import { Context, Data, Effect, Layer, Schema, Stream } from 'effect';
 import {
   Cuts,
   Event,
+  Range,
   type Strength,
   Summary,
   Transcript,
@@ -10,7 +11,8 @@ import {
 
 /*
  * The web app's `/api` as the browser calls it: every Video, one Video,
- * its log as it grows, the JSON files of a finished one, and the commands.
+ * its log as it grows, the JSON files of a finished one, a clip of one of
+ * its cuts, and the commands.
  * A refusal is the CLI's own line, as `ApiError`'s message.
  */
 
@@ -120,6 +122,12 @@ const make = {
       },
       { concurrency: 'unbounded' },
     ),
+  /** Makes the clip of cut `n`, if not made yet; the seconds of it the cut removed. */
+  clip: (id: string, n: number) =>
+    call(
+      Schema.Struct({ removed: Schema.Array(Range) }),
+      `${at(id)}/cuts/${n}`,
+    ).pipe(Effect.map(({ removed }) => removed)),
   create: (url: string, strength: Strength) =>
     call(Video, '/api/videos', post({ url, strength })),
   stop: (id: string) => call(Video, `${at(id)}/stop`, post(undefined)),
@@ -133,6 +141,9 @@ const make = {
 /** Where a player reads a Video's mp4 from: the short video, or the original. */
 export const mediaOf = (id: string, name: 'video' | 'original') =>
   `${at(id)}/file/${name}`;
+
+/** Where a player reads the clip of cut `n` from, once `clip` has made it. */
+export const clipOf = (id: string, n: number) => `${at(id)}/cuts/${n}/clip`;
 
 export class Api extends Context.Service<Api, typeof make>()('ke-video/Api') {
   static readonly layer = Layer.succeed(Api, make);

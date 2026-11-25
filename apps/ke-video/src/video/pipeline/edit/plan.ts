@@ -63,8 +63,6 @@ export const SMALLEST_CUT = 0.1;
 /** A short piece joins a neighbour across a pause or filler at most this long. */
 const JOIN_ACROSS = 1;
 
-const CLAUDE_KINDS = ['ad', 'ask', 'filler-talk'] as const;
-
 const covered = (
   silences: ReadonlyArray<Range>,
   start: number,
@@ -86,13 +84,9 @@ interface Mark {
   text?: string;
 }
 
-/**
- * Every stretch to remove, in order, before snapping: around words Claude
- * cut or that are fillers, and gaps between kept words that are too long.
- */
-const marks = (input: PlanInput): Array<Mark> => {
-  const { words, duration } = input;
-  const removedBy: Array<Cut | 'filler' | null> = words.map((word) =>
+/** What removes each word: the Claude cut whose sentence holds it, `filler` for a filler word, or nothing. */
+const ownersOf = (input: PlanInput): Array<Cut | 'filler' | null> => {
+  const removedBy: Array<Cut | 'filler' | null> = input.words.map((word) =>
     isFiller(word.text) ? 'filler' : null,
   );
   for (const cut of input.cuts)
@@ -101,6 +95,18 @@ const marks = (input: PlanInput): Array<Mark> => {
       if (sentence === undefined) continue;
       for (let i = sentence.from; i <= sentence.to; i++) removedBy[i] = cut;
     }
+  return removedBy;
+};
+
+/**
+ * Every stretch to remove, in order, before snapping: around words Claude
+ * cut or that are fillers, and gaps between kept words that are too long.
+ */
+const marks = (
+  input: PlanInput,
+  removedBy: ReadonlyArray<Cut | 'filler' | null>,
+): Array<Mark> => {
+  const { words, duration } = input;
   const found: Array<Mark> = [];
   const add = (mark: Mark) => {
     if (mark.end - mark.start >= SMALLEST_CUT) found.push(mark);
@@ -225,40 +231,130 @@ export const snap = (
   }));
 };
 
-/** Each removed range of the snapped plan, with the kind that removed most of it. */
+/** A removed range no Claude cut touches: the kind of the marks covering most of it. */
+const byMarks = (gap: Range, gone: ReadonlyArray<Mark>): Gone => {
+  const overlap = new Map<CutKind, { seconds: number; marks: Array<Mark> }>();
+  for (const mark of gone) {
+    const seconds =
+      Math.min(gap.end, mark.end) - Math.max(gap.start, mark.start);
+    if (seconds <= 0) continue;
+    const entry = overlap.get(mark.kind) ?? { seconds: 0, marks: [] };
+    entry.seconds += seconds;
+    entry.marks.push(mark);
+    overlap.set(mark.kind, entry);
+  }
+  const top = [...overlap].sort((a, b) => b[1].seconds - a[1].seconds)[0];
+  if (top === undefined) return { ...gap, kind: 'fillers' };
+  const [kind, { marks: by }] = top;
+  const text = by
+    .map((mark) => mark.text)
+    .filter((t) => t !== undefined && t !== '')
+    .join(' ');
+  return { ...gap, kind, ...(text === '' ? {} : { text }) };
+};
+
+/** One Claude cut's words inside a removed range. */
+interface Stretch {
+  readonly cut: Cut;
+  start: number;
+  end: number;
+  readonly words: Array<string>;
+}
+
+const textOf = (words: ReadonlyArray<string>) =>
+  words.length === 0 ? {} : { text: words.join(' ') };
+
+/**
+ * A removed range Claude cuts touch, listed in parts: each Claude cut its
+ * own entry, from its first word to its last, with the silences and
+ * fillers between them. A stretch between two of them, or between one and
+ * the range's edge, is its own `silence` or `fillers` entry when the plan
+ * would cut it between two kept words (silent over the pause limit, else
+ * over SHORTEST); otherwise it goes to its Claude neighbour, split in the
+ * middle between two. The parts cover the range exactly.
+ */
+const byClaude = (
+  gap: Range,
+  stretches: ReadonlyArray<Stretch>,
+  input: PlanInput,
+): Array<Gone> => {
+  const limit = PAUSE_LIMITS[input.strength];
+  const between = (start: number, end: number): Gone | null => {
+    const length = end - start;
+    if (length <= 0) return null;
+    const silent = covered(input.silences, start, end) >= length / 2;
+    if (length <= (silent ? limit : SHORTEST)) return null;
+    const words = input.words
+      .filter((word) => {
+        const middle = (word.start + word.end) / 2;
+        return middle >= start && middle < end;
+      })
+      .map((word) => word.text);
+    return {
+      start,
+      end,
+      kind: silent ? 'silence' : 'fillers',
+      ...textOf(words),
+    };
+  };
+  const found: Array<Gone> = [];
+  const parts = stretches.map((stretch) => ({ ...stretch }));
+  const lead = between(gap.start, parts[0]!.start);
+  if (lead === null) parts[0]!.start = gap.start;
+  else found.push(lead);
+  for (const [index, part] of parts.entries()) {
+    const next = parts[index + 1];
+    const rest = between(part.end, next?.start ?? gap.end);
+    if (rest === null && next === undefined) part.end = gap.end;
+    else if (rest === null && next !== undefined) {
+      const at = Math.min(
+        next.end,
+        Math.max(part.start, (part.end + next.start) / 2),
+      );
+      part.end = at;
+      next.start = at;
+    }
+    const { start, end, cut, words } = part;
+    found.push({
+      start,
+      end,
+      kind: cut.kind,
+      reason: cut.reason,
+      ...textOf(words),
+    });
+    if (rest !== null) found.push(rest);
+  }
+  return found;
+};
+
+/**
+ * The removed ranges of the snapped plan, listed: a range no Claude cut
+ * touches is one entry of the kind covering most of it; one they touch is
+ * split so that each Claude cut is an entry of its own.
+ */
 const label = (
   gaps: ReadonlyArray<Range>,
   gone: ReadonlyArray<Mark>,
+  input: PlanInput,
+  owners: ReadonlyArray<Cut | 'filler' | null>,
 ): Array<Gone> =>
-  gaps.map((gap) => {
-    const overlap = new Map<CutKind, { seconds: number; marks: Array<Mark> }>();
-    for (const mark of gone) {
-      const seconds =
-        Math.min(gap.end, mark.end) - Math.max(gap.start, mark.start);
-      if (seconds <= 0) continue;
-      const entry = overlap.get(mark.kind) ?? { seconds: 0, marks: [] };
-      entry.seconds += seconds;
-      entry.marks.push(mark);
-      overlap.set(mark.kind, entry);
+  gaps.flatMap((gap) => {
+    const stretches: Array<Stretch> = [];
+    for (const [i, word] of input.words.entries()) {
+      const owner = owners[i];
+      if (owner === null || owner === 'filler' || owner === undefined) continue;
+      if (word.end <= gap.start || word.start >= gap.end) continue;
+      const start = Math.max(gap.start, word.start);
+      const end = Math.min(gap.end, word.end);
+      const last = stretches[stretches.length - 1];
+      if (last?.cut === owner) {
+        last.end = Math.max(last.end, end);
+        last.words.push(word.text);
+      } else stretches.push({ cut: owner, start, end, words: [word.text] });
     }
-    const ranked = [...overlap].sort((a, b) => b[1].seconds - a[1].seconds);
-    const top =
-      ranked.find(([kind]) =>
-        (CLAUDE_KINDS as ReadonlyArray<string>).includes(kind),
-      ) ?? ranked[0];
-    if (top === undefined) return { ...gap, kind: 'fillers' };
-    const [kind, { marks: by }] = top;
-    const reason = by.find((mark) => mark.reason !== undefined)?.reason;
-    const text = by
-      .map((mark) => mark.text)
-      .filter((t) => t !== undefined && t !== '')
-      .join(' ');
-    return {
-      ...gap,
-      kind,
-      ...(reason === undefined ? {} : { reason }),
-      ...(text === '' ? {} : { text }),
-    };
+    return stretches.length === 0
+      ? [byMarks(gap, gone)]
+      : byClaude(gap, stretches, input);
   });
 
 /**
@@ -271,7 +367,8 @@ const label = (
  */
 export const plan = (input: PlanInput): Plan => {
   const { duration, fps, origin } = input;
-  const gone = joinShort(marks(input), duration);
+  const owners = ownersOf(input);
+  const gone = joinShort(marks(input, owners), duration);
   const kept = snap(complement(gone, 0, duration), fps, origin, duration);
   const gaps = complement(kept, 0, duration).filter(
     (gap) => gap.end - gap.start >= 0.5 / fps,
@@ -282,7 +379,7 @@ export const plan = (input: PlanInput): Plan => {
     duration,
     length: kept.reduce((sum, range) => sum + range.end - range.start, 0),
     kept,
-    removed: label(gaps, gone),
+    removed: label(gaps, gone, input, owners),
     cuts: input.cuts,
   };
 };

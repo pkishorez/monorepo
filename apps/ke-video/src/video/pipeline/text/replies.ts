@@ -1,17 +1,25 @@
+import { createHash } from 'node:crypto';
 import { Effect, Result, Schema } from 'effect';
 import { retryPrompt } from './prompts.ts';
 
 const Learnings = Schema.Array(Schema.String);
 
-const CutsReply = Schema.Struct({
-  cuts: Schema.Array(
-    Schema.Struct({
-      from: Schema.Int,
-      to: Schema.Int,
-      kind: Schema.Literals(['ad', 'ask', 'filler-talk']),
-      reason: Schema.String,
-    }),
-  ),
+const ReplyCuts = Schema.Array(
+  Schema.Struct({
+    from: Schema.Int,
+    to: Schema.Int,
+    kind: Schema.Literals(['ad', 'ask', 'filler-talk']),
+    reason: Schema.String,
+  }),
+);
+
+const CutsReply = Schema.Struct({ cuts: ReplyCuts, learnings: Learnings });
+
+/** `work/claude.json`: Claude's decoded clean-up answer, and which sentences and strength it answered. */
+const SavedCuts = Schema.Struct({
+  sentences: Schema.String,
+  strength: Schema.String,
+  cuts: ReplyCuts,
   learnings: Learnings,
 });
 
@@ -27,6 +35,7 @@ const SummaryReply = Schema.Struct({
 });
 
 export type CutsReply = typeof CutsReply.Type;
+export type SavedCuts = typeof SavedCuts.Type;
 export type SummaryReply = typeof SummaryReply.Type;
 type ReplyCut = CutsReply['cuts'][number];
 
@@ -106,6 +115,32 @@ export const decodeCuts =
         return Result.succeed({ ...answer, cuts: mergeCuts(answer.cuts) });
       },
     );
+
+/** What a saved answer is for: a hash of the numbered sentences, their times and words. */
+export const sentencesKey = (
+  sentences: ReadonlyArray<{ readonly start: number; readonly text: string }>,
+) =>
+  createHash('sha256')
+    .update(JSON.stringify(sentences.map(({ start, text }) => [start, text])))
+    .digest('hex')
+    .slice(0, 16);
+
+/**
+ * The cuts in `work/claude.json`, when it is whole and was answered for
+ * these `sentences` at this `strength`; else null, and Claude is asked.
+ */
+export const savedCuts = (
+  json: unknown,
+  sentences: string,
+  strength: string,
+): SavedCuts | null => {
+  const saved = Schema.decodeUnknownResult(SavedCuts)(json);
+  return Result.isSuccess(saved) &&
+    saved.success.sentences === sentences &&
+    saved.success.strength === strength
+    ? saved.success
+    : null;
+};
 
 /** Claude's summary, its sentence numbers checked against 1 to `count`. */
 export const decodeSummary =

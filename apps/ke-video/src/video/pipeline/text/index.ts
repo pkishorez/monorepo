@@ -13,4 +13,7 @@ export {
   decodeSummary,
   learn,
   mergeCuts,
+  savedCuts,
+  sentencesKey,
+  type SavedCuts,
 } from './replies.ts';
