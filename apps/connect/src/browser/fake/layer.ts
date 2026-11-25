@@ -65,7 +65,7 @@ const changeIn = (
     const computers = now.computers.map((each) =>
       each.id === id ? change(each) : each,
     );
-    return [true, { computers }];
+    return [true, { ...now, computers }];
   });
 
 /** Computer `id`'s disk in the state: as it last was once the computer is gone, and no longer changed. */

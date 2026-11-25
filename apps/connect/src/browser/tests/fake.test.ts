@@ -236,19 +236,19 @@ describe(
         }),
       ));
 
-    it('drops a computer removed, and names the next one past the highest left', () =>
+    it('drops a computer removed, and never gives its id again', () =>
       run(
         Effect.gen(function* () {
           const { fakes, control, state, listed, add } = yield* world();
           yield* add('laptop');
           yield* add('desktop');
           yield* eventually(async () => expect(await listed()).toHaveLength(2));
-          yield* control('Remove', { computer: 'computer-1' });
+          yield* control('Remove', { computer: 'computer-2' });
           const ids = () =>
             Effect.map(state, ({ computers }) => computers.map(({ id }) => id));
-          expect(yield* ids()).toEqual(['computer-2']);
+          expect(yield* ids()).toEqual(['computer-1']);
           yield* add('server');
-          expect(yield* ids()).toEqual(['computer-2', 'computer-3']);
+          expect(yield* ids()).toEqual(['computer-1', 'computer-3']);
           expect(
             yield* Effect.flip(
               fakes.control('computers', 'Remove', { computer: 'computer-9' }),

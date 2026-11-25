@@ -131,6 +131,9 @@ describe('the Devtools Dialog', () => {
   });
 
   it('on a phone with onPhones off, draws no button and keeps the devtools closed', () => {
+    // Kept open, read on mount: a fresh root reads it.
+    act(() => root.unmount());
+    root = createRoot(host);
     localStorage.setItem('devtools-dialog', JSON.stringify({ open: true }));
     phone = true;
     act(() =>

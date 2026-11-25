@@ -257,7 +257,9 @@ export function Canvas({
   useEffect(() => {
     if (!shared) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setShare(null);
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      setShare(null);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);

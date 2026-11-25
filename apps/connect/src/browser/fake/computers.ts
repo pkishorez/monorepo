@@ -19,8 +19,9 @@ import { computersOver } from './layer.js';
  * tab reads, `Computers`.
  *
  * - Add     a computer added comes up online, its tunnel up and reached at
- *           once, with an empty home; its id is `computer-<n>`, one past
- *           the highest there, so none there is ever named twice.
+ *           once, with an empty home; its id is `computer-<n>`, counting
+ *           every computer added, so no id is ever given twice, even one
+ *           whose computer was removed.
  * - Each    a computer goes offline, comes back online, which clears why
  *           it last stopped, or is removed; its disk gets a sample project,
  *           a folder or a file. Each names the computer by its id.
@@ -68,13 +69,12 @@ export type ComputerState = typeof Computer.Type;
 export const ComputersState = Schema.Struct({
   /** Every computer, in the order added. */
   computers: Schema.Array(Computer),
+  /** How many computers were ever added: the next one's number, less one. */
+  added: Schema.Int,
 });
 export type ComputersState = typeof ComputersState.Type;
 
 type State = SubscriptionRef.SubscriptionRef<ComputersState>;
-
-/** The number in a `computer-<n>` id; 0 for any other. */
-const numberOf = (id: string) => Number(/^computer-(\d+)$/.exec(id)?.[1] ?? 0);
 
 /** `id` changed by `change`, or why not: no computer has it. */
 const changeComputer = (
@@ -82,9 +82,10 @@ const changeComputer = (
   id: string,
   change: (computer: ComputerState) => ComputerState,
 ) =>
-  SubscriptionRef.updateEffect(state, ({ computers }) =>
+  SubscriptionRef.updateEffect(state, ({ computers, added }) =>
     computers.some((each) => each.id === id)
       ? Effect.succeed({
+          added,
           computers: computers.map((each) =>
             each.id === id ? change(each) : each,
           ),
@@ -115,7 +116,7 @@ const onDisk = <P extends { readonly computer: string }>(
 export const computers = Fake.make({
   name: 'computers',
   state: ComputersState,
-  initial: { computers: [] },
+  initial: { computers: [], added: 0 },
   controls: {
     /** A computer running `ke-connect`, online, its tunnel up and reached; blank fields take a plain default. */
     AddComputer: Fake.control(
@@ -126,13 +127,10 @@ export const computers = Fake.make({
         signedInAs: Schema.String,
       }),
       ({ name, keConnectVersion, signedInAs }, state) =>
-        SubscriptionRef.update(state, ({ computers }) => {
-          const highest = Math.max(
-            0,
-            ...computers.map(({ id }) => numberOf(id)),
-          );
-          const id = `computer-${highest + 1}`;
+        SubscriptionRef.update(state, ({ computers, added }) => {
+          const id = `computer-${added + 1}`;
           return {
+            added: added + 1,
             computers: [
               ...computers,
               {
@@ -174,9 +172,10 @@ export const computers = Fake.make({
       ComputersState,
       Schema.Struct({ computer: Schema.String }),
       ({ computer }, state) =>
-        SubscriptionRef.updateEffect(state, ({ computers }) =>
+        SubscriptionRef.updateEffect(state, ({ computers, added }) =>
           computers.some(({ id }) => id === computer)
             ? Effect.succeed({
+                added,
                 computers: computers.filter(({ id }) => id !== computer),
               })
             : Effect.fail(`No computer is ${computer}.`),
