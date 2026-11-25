@@ -27,9 +27,7 @@
     "src/speech/takes": ["src/speech/contract"],
     "src/harness/fake": [
       "src/harness/claude/project",
-      "src/harness/codex/app-server",
-      "src/harness/codex/project",
-      "src/harness/codex/record-kinds"
+      "src/harness/codex/project"
     ],
     "src/speech/front": [
       "src/speech/actor-speech-model",

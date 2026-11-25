@@ -90,17 +90,17 @@ Claude Code and Codex are not dependencies: install the ones you use, and sign i
 
 ### `@kestack/ai-toolkit/harness/fake`
 
-| Export            | What it does                                                                                                                                    |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `agent`           | The Agent fake, a Fake the Fake World runs: Claude Code and Codex installed and signed in, each reply played from the Script its Control picks. |
-| `agentOver`       | Layer of `Harnesses`, `OneShotPrompt`, `HarnessHost` and `Models` over the running Agent fake, with the home and the pace a caller names.       |
-| `AgentFake`       | The Agent fake's Kabuki Actor: the Script replies play, the Agents open, the replies running and their Background Jobs.                         |
-| `AGENT_CONTROLS`  | The Message tags the bubble offers as the Agent fake's Controls.                                                                                |
-| `blank`           | The Agent fake's Model as it starts: nothing open, every reply an echo.                                                                         |
-| `SCRIPTS`         | The Script library: words, every tool kind, a plan, subagents, questions, Background Jobs, compaction, a long reply, failing and cut off.       |
-| `SCRIPT_NAMES`    | The names `ReplyWith` picks a Script by, `echo` first.                                                                                          |
-| `makeFakeHarness` | A fake `claude` harness for tests, scripted Turn by Turn, with a fake One-shot Prompt.                                                          |
-| `FAKE_SKILLS`     | The Skills the fake harness offers.                                                                                                             |
+| Export            | What it does                                                                                                                              |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `agent`           | The Agent fake, a Fake the Fake World runs: Claude Code and Codex installed and signed in, each reply replaying a recorded Turn.          |
+| `agentOver`       | Layer of `Harnesses`, `OneShotPrompt`, `HarnessHost` and `Models` over the running Agent fake, with the home and the pace a caller names. |
+| `AgentFake`       | The Agent fake's Kabuki Actor: the recording replies replay, the Agents open and the replies running.                                     |
+| `AGENT_CONTROLS`  | The Message tags the bubble offers as the Agent fake's Controls.                                                                          |
+| `blank`           | The Agent fake's Model as it starts: nothing open, every reply a random recording.                                                        |
+| `RECORDINGS`      | The Turns recorded from the real Claude Code and Codex that replies replay.                                                               |
+| `RECORDING_NAMES` | The names `ReplyWith` pins a recording by, `random` first.                                                                                |
+| `makeFakeHarness` | A fake `claude` harness for tests, driven Turn by Turn, with a fake One-shot Prompt.                                                      |
+| `FAKE_SKILLS`     | The Skills the fake harness offers.                                                                                                       |
 
 ### `@kestack/ai-toolkit/speech`
 
