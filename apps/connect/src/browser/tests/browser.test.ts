@@ -201,7 +201,7 @@ describe('Connect in a tab', () => {
           });
         });
 
-        const echo = yield* on(
+        const reply = yield* on(
           'laptop',
           Effect.gen(function* () {
             const api = yield* CodeClient;
@@ -228,14 +228,13 @@ describe('Connect in a tab', () => {
               .pipe(
                 Stream.flattenIterable,
                 Stream.map(({ value }) => JSON.stringify(value)),
-                Stream.filter((each) =>
-                  each.includes('echo: hello from the tab'),
-                ),
+                // The Agent fake replays a recorded Turn, picked at random.
+                Stream.filter((each) => each.includes('"role":"assistant"')),
                 Stream.runHead,
               );
           }),
         );
-        expect(Option.isSome(echo)).toBe(true);
+        expect(Option.isSome(reply)).toBe(true);
       }),
     ));
 
