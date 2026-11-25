@@ -18,10 +18,12 @@ export type {
   Single,
 } from './actor/index.ts';
 export type {
+  Asked,
   Entry,
   From,
   Instance,
   SavedSnapshot,
+  Tried,
   WantedWorker,
 } from './snapshot/index.ts';
 export type {

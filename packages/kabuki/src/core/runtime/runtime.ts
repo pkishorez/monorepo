@@ -337,6 +337,7 @@ const open = <A extends AnyActor>(
   /** What reaching an Instance needs of this Runtime. */
   const reachable = {
     root: () => snapshot.root,
+    now: () => time.now(),
     gone: () => disposing !== undefined,
     send: (to: Address, message: Tagged, from: From): Sent =>
       tree ? post(to, message, from) : 'refused',

@@ -9,9 +9,11 @@ import type { ActorDefinition, QuerySchemas } from './definition/index.ts';
  * reads it, never how the engine holds it.
  */
 
-/** What an Actor is and does: its name, its Schemas, its Requires, and its levels, the top and each State. */
+/** What an Actor is and does: its name, what it is about, its Schemas, its Requires, and its levels, the top and each State. */
 export interface Blueprint {
   readonly name: string;
+  /** What it is about, as `define` was given it. */
+  readonly description?: string;
   readonly schemas: BlueprintSchemas;
   /** The keys of the Capabilities its own code may use. */
   readonly requires: ReadonlyArray<string>;
@@ -85,6 +87,9 @@ export const blueprintOf = (definition: ActorDefinition): Blueprint => {
   const { schemas } = definition;
   const blueprint: { -readonly [K in keyof Blueprint]: Blueprint[K] } = {
     name: definition.name,
+    ...(definition.description === undefined
+      ? {}
+      : { description: definition.description }),
     schemas: {
       ...(schemas.input ? { input: schemas.input } : {}),
       model: schemas.model ?? EMPTY,
@@ -194,5 +199,20 @@ const tagOf = (ast: SchemaAST.AST): string | undefined => {
     : undefined;
 };
 
-/** Reading an Actor's Blueprint: the one at a place in its tree. */
-export const Blueprint = { at };
+/**
+ * The Messages an Actor has an Update for in a State, by tag: the top's,
+ * then the State's own. Any other is ignored there. An unknown State has
+ * only the top's.
+ */
+const handles = (
+  blueprint: Blueprint,
+  state: string,
+): ReadonlyArray<string> => [
+  ...new Set([
+    ...Object.keys(blueprint.top.on),
+    ...Object.keys(own(blueprint.state, state)?.on ?? {}),
+  ]),
+];
+
+/** Reading an Actor's Blueprint: the one at a place in its tree, and the Messages it handles in a State. */
+export const Blueprint = { at, handles };

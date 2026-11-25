@@ -14,8 +14,8 @@ import type {
 import { Stopped } from './live/index.ts';
 import type { WorkerStatus } from './live/index.ts';
 import type { Sent } from './mailbox.ts';
-import { instanceAt, isMany, pathTo } from '../snapshot/index.ts';
-import type { Address, From, Instance } from '../snapshot/index.ts';
+import { instanceAt, isMany, pathTo, tryMessage } from '../snapshot/index.ts';
+import type { Address, From, Instance, Tried } from '../snapshot/index.ts';
 
 /*
  * Reaching the app from outside its tree: the root Instance, typed by its
@@ -26,7 +26,8 @@ import type { Address, From, Instance } from '../snapshot/index.ts';
  * reads what it held when last read. While the Runtime runs, it can Send,
  * from outside unless said otherwise, and ask the Queries its Actor answers
  * in its current State; it can wait `until` its data passes a test, and
- * change nothing else.
+ * `try` a Message, which says what it would do from the Snapshot alone,
+ * and change nothing else.
  */
 
 /**
@@ -79,6 +80,15 @@ type Typed<A> = {
      */
     send(message: Types<A>['message'], from?: From): Sent;
     /**
+     * What a Message would do if it were Sent now, worked out from the
+     * Snapshot alone: nothing is Sent and nothing runs. `InstanceNotFound`
+     * once it is gone from the tree; `Refused`, with the reason, when the
+     * Message does not match its Schema or its Update gives what its
+     * Schemas refuse; `Unhandled` with no rule for it in this State;
+     * `NoChange`; or the `Changes` it makes.
+     */
+    try(message: Types<A>['message']): Tried<Types<A>['model']>;
+    /**
      * Wait until its data passes `test`, read now and after every Message:
      * the Instance, narrowed as the test narrows it, or `Stopped` once it
      * has stopped first. Send, then wait `until` what the Message started is
@@ -108,6 +118,7 @@ interface Untyped {
   >;
   readonly stopped: boolean;
   send(message: Tagged, from?: From): Sent;
+  try(message: Tagged): Tried;
   until(test: (instance: Untyped) => boolean): Effect.Effect<Untyped, Stopped>;
 }
 
@@ -115,6 +126,8 @@ interface Untyped {
 export interface Reachable {
   /** The root Instance now. */
   readonly root: () => Instance;
+  /** The app's Time now: what a Message Sent now would be stamped with. */
+  readonly now: () => number;
   /** Whether the Runtime has been let go. */
   readonly gone: () => boolean;
   readonly send: (address: Address, message: Tagged, from: From) => Sent;
@@ -137,13 +150,14 @@ export const reach = (
   address: Address,
 ): Untyped | undefined => {
   const found = pathTo(root, app.root(), address)?.at(-1);
-  return found && live(app, found.definition, found.instance);
+  return found && live(app, root, found.definition, found.instance);
 };
 
 const OUTSIDE: From = { kind: 'outside' };
 
 const live = (
   app: Reachable,
+  root: ActorDefinition,
   definition: ActorDefinition,
   first: Instance,
 ): Untyped => {
@@ -174,7 +188,7 @@ const live = (
       return Object.fromEntries(
         Object.entries(children).map(([slot, held]) => {
           const child = (instance: Instance) =>
-            live(app, slots[slot]!.definition, instance);
+            live(app, root, slots[slot]!.definition, instance);
           return [slot, isMany(held) ? held.map(child) : child(held)];
         }),
       );
@@ -214,6 +228,10 @@ const live = (
         return 'refused';
       }
       return app.send(address, message, from);
+    },
+    try: (message: Tagged) => {
+      const at = app.now();
+      return tryMessage(root, { root: app.root(), at }, address, message, at);
     },
     until: (test) =>
       Effect.callback<Untyped, Stopped>((resume) => {
