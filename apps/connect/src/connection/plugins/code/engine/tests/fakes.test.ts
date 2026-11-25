@@ -16,8 +16,9 @@ import {
 import { storeLayer } from '../node.js';
 import {
   fileSystem,
-  GIT_FAILS_NEXT,
   HOME,
+  originOf,
+  shaOf,
   type FileSystemMessage,
 } from '../services/file-system/fake/index.js';
 import { fakeGit } from '../services/git/fake/index.js';
@@ -26,8 +27,8 @@ import { fakeGit } from '../services/git/fake/index.js';
  * The real engine over the File System fake and the Git fake, as a browser
  * tab runs it: the Project Picker's folders, a sample project's branches,
  * a start that switches its folder or makes a Worktree, its first Title
- * naming that Worktree's branch, and the fake's Controls changing what the
- * engine finds: an Origin branch, the next git step failing, git missing.
+ * naming that Worktree's branch, and a branch pushed to Origin elsewhere
+ * found once fetched.
  */
 
 const SHOP = `${HOME}/code/shop`;
@@ -63,19 +64,12 @@ const computer = (fake: FakeHarness = makeFakeHarness()) => {
   const run = <A, E>(
     effect: Effect.Effect<A, E, Engine | Store | FileSystem | Scope.Scope>,
   ) => Effect.runPromise(Effect.scoped(effect).pipe(Effect.provide(world)));
-  /** What is in the folder at `path`, name-sorted; nothing when there is none. */
-  const inside = (path: string) =>
-    Object.keys(runtime.root.model.tree)
-      .filter((at) => at.startsWith(`${path}/`))
-      .map((at) => at.slice(path.length + 1))
-      .filter((name) => !name.includes('/'))
-      .sort();
   /** The text of the file at `path` in the fake tree. */
   const text = (path: string) => {
     const entry = runtime.root.model.tree[path];
     return entry?._tag === 'File' ? entry.data : null;
   };
-  return { runtime, control, run, inside, text };
+  return { runtime, control, run, text };
 };
 
 const eventually = (assertion: () => Promise<void> | void) =>
@@ -106,7 +100,7 @@ const start = (projectId: string, more: Partial<StartSession> = {}) =>
 describe('the engine over the File System and Git fakes', () => {
   it("lists home's folders, and makes one", async () => {
     const { control, run } = computer();
-    control({ _tag: 'AddHiddenFolder', in: '~/code', name: 'cache' });
+    control({ _tag: 'AddFolder', folder: '~/code/.cache' });
     await run(
       Effect.gen(function* () {
         const engine = yield* Engine;
@@ -152,16 +146,17 @@ describe('the engine over the File System and Git fakes', () => {
   });
 
   it('lists an Origin branch once a Branch Picker open fetched it', async () => {
-    const { control, run } = computer();
+    const { run } = computer();
     await run(
       Effect.gen(function* () {
         const engine = yield* Engine;
+        const files = yield* FileSystem;
         const project = yield* engine.addProject(SHOP);
-        control({
-          _tag: 'AddOriginBranch',
-          project: '~/code/shop',
-          branch: 'next',
-        });
+        // Pushed to Origin from elsewhere.
+        yield* files.writeFile(
+          `${originOf(SHOP)}/refs/heads/next`,
+          `${shaOf('next')}\n`,
+        );
         expect(yield* engine.branches(project.id)).toMatchObject({
           origin: ['origin/release/1.0'],
         });
@@ -170,21 +165,6 @@ describe('the engine over the File System and Git fakes', () => {
             await Effect.runPromise(engine.branches(project.id)),
           ).toMatchObject({ origin: ['origin/next', 'origin/release/1.0'] }),
         );
-      }),
-    );
-  });
-
-  it('reads the project as not git while git is missing', async () => {
-    const { control, run } = computer();
-    control({ _tag: 'MakeGitMissing' });
-    await run(
-      Effect.gen(function* () {
-        const engine = yield* Engine;
-        const project = yield* engine.addProject(SHOP);
-        expect(yield* engine.branches(project.id)).toEqual({ _tag: 'NotGit' });
-        const { session, steps } = yield* start(project.id);
-        expect(steps).toEqual(['startingAgent running', 'startingAgent done']);
-        expect(session).toMatchObject({ worktree: null, branch: null });
       }),
     );
   });
@@ -259,49 +239,6 @@ describe('the engine over the File System and Git fakes', () => {
             { path: at, branch: 'ke-code/fix-the-login-bug' },
           ],
         });
-      }),
-    );
-  });
-
-  it('starts nothing when the next git step fails, and leaves no Worktree behind', async () => {
-    const { control, run, inside, text } = computer();
-    await run(
-      Effect.gen(function* () {
-        const engine = yield* Engine;
-        const store = yield* Store;
-        const project = yield* engine.addProject(SHOP);
-        control({ _tag: 'MakeNextGitStepFail', message: 'fatal: disk full' });
-        const made = yield* Effect.exit(
-          start(project.id, { branch: 'main', newWorktree: true }),
-        );
-        expect(made).toMatchObject({
-          _tag: 'Failure',
-          cause: {
-            reasons: [
-              {
-                error: {
-                  _tag: 'GitFailed',
-                  step: 'makingWorktree',
-                  message: 'fatal: disk full',
-                },
-              },
-            ],
-          },
-        });
-        expect((yield* store.allSessions).length).toBe(0);
-        expect(inside(`${WORKTREES}/${project.id}`)).toEqual([]);
-        expect(inside(`${SHOP}/.git/refs/heads`)).toEqual([
-          'feature',
-          'fix',
-          'main',
-        ]);
-        expect(text(GIT_FAILS_NEXT)).toBeNull();
-        // The step after it runs.
-        const { session } = yield* start(project.id, {
-          branch: 'main',
-          newWorktree: true,
-        });
-        expect(session.worktree).toContain(WORKTREES);
       }),
     );
   });

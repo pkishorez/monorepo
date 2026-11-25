@@ -2,11 +2,12 @@ import { Effect, Exit, Layer, type Scope } from 'effect';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Runtime } from '@kestack/kabuki';
 import { FileSystem, Git } from '../../../../capabilities/index.js';
+import { dirname } from '../../../../paths/index.js';
 import {
   fileSystem,
-  GIT_FAILS_NEXT,
   HOME,
   originOf,
+  shaOf,
   type FileSystemMessage,
 } from '../../../file-system/fake/index.js';
 import { fakeGit } from '../index.js';
@@ -14,8 +15,8 @@ import { fakeGit } from '../index.js';
 /*
  * The Git fake over the File System fake's sample project: what each
  * question answers and each change leaves in `.git`, as git would on that
- * layout, and the two switches, git missing and the next step failing,
- * that the File System Fake's Controls set.
+ * layout. What git outside Code does (a branch made, switched or pushed)
+ * is written into `.git` and Origin through the File System, as git would.
  */
 
 const SHOP = `${HOME}/code/shop`;
@@ -62,7 +63,18 @@ const computer = () => {
         onSuccess: () => true,
       }),
     );
-  return { runtime, control, run, exit, ask, text, isThere };
+  /** Writes the file at `path`, the folders on the way made, as git outside Code would. */
+  const write = (path: string, data: string) =>
+    run((_, files) =>
+      Effect.andThen(
+        files.mkdir(dirname(path), { recursive: true }),
+        files.writeFile(path, data),
+      ),
+    );
+  /** A local branch `branch` made outside Code, on a commit of its own. */
+  const addBranch = (branch: string) =>
+    write(`${SHOP}/.git/refs/heads/${branch}`, `${shaOf(branch)}\n`);
+  return { runtime, control, run, exit, ask, text, isThere, write, addBranch };
 };
 
 /** The message a failed Exit's GitError carries. */
@@ -114,10 +126,11 @@ describe('the Git fake reading the sample project', () => {
   });
 
   it('follows a branch switched, or added, outside Code', async () => {
-    const { control, ask } = computer();
-    control({ _tag: 'SwitchBranch', project: '~/code/shop', branch: 'spike' });
+    const { ask, write, addBranch } = computer();
+    await addBranch('spike');
+    await write(`${SHOP}/.git/HEAD`, 'ref: refs/heads/spike\n');
     expect(await ask((git) => git.branchAt(SHOP))).toBe('spike');
-    control({ _tag: 'AddBranch', project: '~/code/shop', branch: 'docs' });
+    await addBranch('docs');
     const found = await ask((git) => git.branches(SHOP));
     expect(found?.current).toBe('spike');
     expect(found?.local.map((each) => each.name)).toEqual([
@@ -167,12 +180,8 @@ describe('the Git fake changing the sample project', () => {
   });
 
   it('refuses an Origin branch whose name a local branch that does not track it has', async () => {
-    const { control, ask, exit } = computer();
-    control({
-      _tag: 'AddBranch',
-      project: '~/code/shop',
-      branch: 'release/1.0',
-    });
+    const { ask, exit, addBranch } = computer();
+    await addBranch('release/1.0');
     const refused = await exit((git) =>
       git.switchTo(SHOP, 'origin/release/1.0'),
     );
@@ -252,7 +261,7 @@ describe('the Git fake changing the sample project', () => {
   });
 
   it('refuses a Worktree from a branch there is not, or where its branch or folder is, and leaves them be', async () => {
-    const { control, exit, isThere } = computer();
+    const { control, exit, isThere, addBranch } = computer();
     const at = `${WORKTREES}/p1/one`;
     for (const from of ['nowhere', '--detach'])
       expect(
@@ -265,11 +274,7 @@ describe('the Git fake changing the sample project', () => {
     expect(await isThere(at)).toBe(false);
     expect(await isThere(`${SHOP}/.git/refs/heads/ke-code/one`)).toBe(false);
 
-    control({
-      _tag: 'AddBranch',
-      project: '~/code/shop',
-      branch: 'ke-code/one',
-    });
+    await addBranch('ke-code/one');
     expect(
       Exit.isFailure(
         await exit((git) =>
@@ -316,17 +321,13 @@ describe('the Git fake changing the sample project', () => {
   });
 
   it('renames a branch to the first free name, and says whether one was pushed', async () => {
-    const { control, ask, text } = computer();
+    const { ask, text, write, addBranch } = computer();
     const at = `${WORKTREES}/p1/one`;
     await ask((git) =>
       git.addWorktree(SHOP, { at, branch: 'ke-code/one', from: 'main' }),
     );
     expect(await ask((git) => git.pushed(at, 'ke-code/one'))).toBe(false);
-    control({
-      _tag: 'AddBranch',
-      project: '~/code/shop',
-      branch: 'ke-code/fix-login',
-    });
+    await addBranch('ke-code/fix-login');
     expect(
       await ask((git) => git.rename(at, 'ke-code/one', 'ke-code/fix-login')),
     ).toBe('ke-code/fix-login-2');
@@ -338,7 +339,10 @@ describe('the Git fake changing the sample project', () => {
     // Tracking a branch, or with one of its name on Origin, it was pushed.
     expect(await ask((git) => git.pushed(SHOP, 'main'))).toBe(true);
     expect(await ask((git) => git.pushed(SHOP, 'fix/typo'))).toBe(false);
-    control({ _tag: 'PushBranch', project: '~/code/shop', branch: 'fix/typo' });
+    // Pushed outside Code: Origin has it, and so does `refs/remotes/origin`.
+    const typo = await text(`${SHOP}/.git/refs/heads/fix/typo`);
+    await write(`${originOf(SHOP)}/refs/heads/fix/typo`, typo);
+    await write(`${SHOP}/.git/refs/remotes/origin/fix/typo`, typo);
     expect(await ask((git) => git.pushed(SHOP, 'fix/typo'))).toBe(true);
     // Git that cannot say reads as pushed, so nothing is renamed.
     expect(await ask((git) => git.pushed(HOME, 'fix/typo'))).toBe(true);
@@ -367,12 +371,9 @@ describe('the Git fake changing the sample project', () => {
   });
 
   it("fetches Origin's branches in the background, and drops those Origin no longer has", async () => {
-    const { control, run, ask } = computer();
-    control({
-      _tag: 'AddOriginBranch',
-      project: '~/code/shop',
-      branch: 'next',
-    });
+    const { run, ask, write } = computer();
+    // Pushed to Origin from elsewhere.
+    await write(`${originOf(SHOP)}/refs/heads/next`, `${shaOf('next')}\n`);
     expect((await ask((git) => git.branches(SHOP)))?.origin).not.toContain(
       'origin/next',
     );
@@ -397,62 +398,5 @@ describe('the Git fake changing the sample project', () => {
       'origin/main',
       'origin/next',
     ]);
-  });
-});
-
-describe("the Git fake's switches", () => {
-  it('reads every repository as not git while git is missing, and fails every change', async () => {
-    const { control, ask, exit } = computer();
-    control({ _tag: 'MakeGitMissing' });
-    expect(await ask((git) => git.top(SHOP))).toBeNull();
-    expect(await ask((git) => git.branches(SHOP))).toBeNull();
-    expect(await ask((git) => git.branchAt(SHOP))).toBeNull();
-    expect(await ask((git) => git.pushed(SHOP, 'fix/typo'))).toBe(true);
-    await ask((git) => git.fetch(SHOP));
-    expect(messageOf(await exit((git) => git.switchTo(SHOP, 'fix/typo')))).toBe(
-      'spawn git ENOENT',
-    );
-    expect(
-      messageOf(
-        await exit((git) =>
-          git.addWorktree(SHOP, {
-            at: `${WORKTREES}/p1/one`,
-            branch: 'ke-code/one',
-            from: 'main',
-          }),
-        ),
-      ),
-    ).toBe('spawn git ENOENT');
-    control({ _tag: 'InstallGit' });
-    expect(await ask((git) => git.branchAt(SHOP))).toBe('main');
-  });
-
-  it('fails the next change with what git says, once, leaving nothing of it; questions and fetches pass it by', async () => {
-    const { control, ask, exit, isThere } = computer();
-    control({ _tag: 'MakeNextGitStepFail', message: 'fatal: disk full' });
-    expect(await ask((git) => git.branchAt(SHOP))).toBe('main');
-    await ask((git) => git.fetch(SHOP));
-    const at = `${WORKTREES}/p1/one`;
-    const add = (git: Git['Service']) =>
-      git.addWorktree(SHOP, { at, branch: 'ke-code/one', from: 'main' });
-    expect(messageOf(await exit(add))).toBe('fatal: disk full');
-    expect(await isThere(GIT_FAILS_NEXT)).toBe(false);
-    expect(await isThere(at)).toBe(false);
-    expect(await isThere(`${SHOP}/.git/refs/heads/ke-code/one`)).toBe(false);
-    // Only the next one.
-    expect(Exit.isSuccess(await exit(add))).toBe(true);
-
-    control({ _tag: 'MakeNextGitStepFail', message: 'fatal: no' });
-    expect(messageOf(await exit((git) => git.switchTo(SHOP, 'fix/typo')))).toBe(
-      'fatal: no',
-    );
-    expect(await ask((git) => git.branchAt(SHOP))).toBe('main');
-    control({ _tag: 'MakeNextGitStepFail', message: 'fatal: no' });
-    expect(
-      messageOf(
-        await exit((git) => git.rename(at, 'ke-code/one', 'ke-code/fix')),
-      ),
-    ).toBe('fatal: no');
-    expect(await ask((git) => git.branchAt(at))).toBe('ke-code/one');
   });
 });

@@ -1,49 +1,24 @@
-import type { Runtime, Snapshot } from '@kestack/kabuki';
+import type { Runtime } from '@kestack/kabuki';
 import { fileSystem } from '../../connection/plugins/code/engine/services/file-system/fake/index.js';
-import { blank, ComputersFake, ROOT_CONTROLS } from './actor.js';
+import { ComputersFake, ROOT_CONTROLS } from './actor.js';
 import { COMPUTER_CONTROLS } from './computer.js';
 import { serveComputers } from './serve.js';
 
 /*
  * The Computers Fake: the computers a person has, each running
- * `ke-connect` with its own disk, and Connect Cloud's own conditions, in a
- * browser tab. Its Actor starts blank, no computer and Connect Cloud as
- * deployed; its Controls make the world; `serve` gives `Computers` and
- * `ConnectCloud`, what `inTab` (`@kestack/connect/browser`) runs against.
- * Browser-safe: nothing here imports Node.
+ * `ke-connect` with its own disk, in a browser tab. Its Actor starts
+ * blank, no computer; its Controls make the world: a computer added comes
+ * up online, its tunnel up and reached at once, and goes offline, comes
+ * back or is removed; its disk has its File System's. `serve` gives
+ * `Computers`, what `inTab` (`@kestack/connect/browser`) runs against,
+ * over a Connect Cloud that always answers. Browser-safe: nothing here
+ * imports Node.
  *
- * - `controls` are Message tags, each of the one Actor in the tree that
- *   has it: the Computers root's own (add a computer, Connect Cloud's
- *   conditions), each computer's, and each computer's File System's.
- * - `kept` is the Snapshot a reload keeps: the same, but for each Model's
- *   `untilReload`, set back blank, and each computer's sockets, none. It
- *   holds what makes the App the older side (a computer on another
- *   Release, Connect Cloud naming a newer one), which an App ends by
- *   moving to its newest build, a reload; kept, it would reload forever.
- *   A reload closes every socket.
+ * `controls` are Message tags, each of the one Actor in the tree that has
+ * it: the Computers root's own, each computer's, and each computer's File
+ * System's. A reload keeps the whole Snapshot: nothing in it dies with the
+ * page.
  */
-
-/** The Snapshot a reload keeps: `untilReload` set back blank, in the root and each computer, and no socket open. */
-const kept = (
-  snapshot: Snapshot<typeof ComputersFake>,
-): Snapshot<typeof ComputersFake> => ({
-  ...snapshot,
-  root: {
-    ...snapshot.root,
-    model: { ...snapshot.root.model, untilReload: blank().untilReload },
-    children: {
-      ...snapshot.root.children,
-      computers: snapshot.root.children.computers.map((computer) => ({
-        ...computer,
-        model: {
-          ...computer.model,
-          untilReload: { runsAnotherRelease: false },
-          sockets: 0,
-        },
-      })),
-    },
-  },
-});
 
 export const computers = {
   name: 'Computers',
@@ -54,7 +29,6 @@ export const computers = {
     ...fileSystem.controls,
   ] as const,
   serve: (runtime: Runtime<typeof ComputersFake>) => serveComputers(runtime),
-  kept,
 };
 
 export {

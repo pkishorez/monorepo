@@ -5,11 +5,10 @@ import { fileSystemOver, handleOf } from './serve.js';
 /*
  * The File System Fake: one computer's disk, in a browser tab. Its Actor
  * starts blank, an empty home; its Controls make the world (a sample
- * project, folders, files, symlinks, folders that cannot be read, git's
- * state); `serve` gives the File System key over the running Actor. A
- * computer's File System inside another Fake is served with
- * `fileSystemOver(handleOf(instance))`. Browser-safe: nothing here imports
- * Node.
+ * project with its git repository, folders, files); `serve` gives the File
+ * System key over the running Actor. A computer's File System inside
+ * another Fake is served with `fileSystemOver(handleOf(instance))`.
+ * Browser-safe: nothing here imports Node.
  */
 
 export const fileSystem = {
@@ -32,8 +31,6 @@ export { fileSystemOver, handleOf, type FileSystemHandle } from './serve.js';
 export {
   branchOfHead,
   configText,
-  GIT_FAILS_NEXT,
-  GIT_MISSING,
   originOf,
   parseConfig,
   shaOf,

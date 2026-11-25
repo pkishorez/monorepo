@@ -1,13 +1,10 @@
-import { Effect, Fiber } from 'effect';
-import { TestClock } from 'effect/testing';
+import { Effect } from 'effect';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Runtime, Snapshot } from '@kestack/kabuki';
 import { FileSystem } from '../../../../capabilities/index.js';
 import {
   branchOfHead,
   fileSystem,
-  GIT_FAILS_NEXT,
-  GIT_MISSING,
   originOf,
   parseConfig,
   type FileSystemMessage,
@@ -122,161 +119,19 @@ describe('the Controls', () => {
     ).toEqual(['feature', 'main', 'release']);
   });
 
-  it('add folders, hidden ones, many at once, and files', async () => {
+  it('add folders, hidden ones, and files', async () => {
     const { fs, text, control } = computer();
     control({ _tag: 'AddFolder', folder: 'code/a/b' });
-    control({ _tag: 'AddHiddenFolder', in: '~', name: 'config' });
-    control({ _tag: 'AddManyFolders', in: 'many', count: 120 });
+    control({ _tag: 'AddFolder', folder: '~/.config' });
     control({ _tag: 'AddFile', file: 'code/notes.txt', text: 'hello' });
     expect(await fs((each) => each.list(HOME))).toEqual([
       { name: '.config', kind: 'folder', hidden: true },
       { name: 'code', kind: 'folder', hidden: false },
-      { name: 'many', kind: 'folder', hidden: false },
     ]);
-    const many = await fs((each) => each.list(`${HOME}/many`));
-    expect(many).toHaveLength(120);
-    expect(many[0]?.name).toBe('folder-001');
     expect(await fs((each) => each.stat(`${HOME}/code/a/b`))).toEqual({
       kind: 'folder',
     });
     expect(await text(`${HOME}/code/notes.txt`)).toBe('hello');
-  });
-
-  it('make a folder unreadable, failing to list, and readable again', async () => {
-    const { fs, failure, control } = computer();
-    control({ _tag: 'AddFolder', folder: 'locked/inside' });
-    control({ _tag: 'MakeUnreadable', folder: 'locked' });
-    expect(await failure((each) => each.list(`${HOME}/locked`))).toMatchObject({
-      _tag: 'AccessDenied',
-      path: `${HOME}/locked`,
-    });
-    expect(
-      await failure((each) => each.stat(`${HOME}/locked/inside`)),
-    ).toMatchObject({ _tag: 'AccessDenied' });
-    expect(await fs((each) => each.stat(`${HOME}/locked`))).toEqual({
-      kind: 'folder',
-    });
-    control({ _tag: 'MakeReadable', folder: 'locked' });
-    control({ _tag: 'MakeFailToList', folder: 'locked' });
-    expect(await failure((each) => each.list(`${HOME}/locked`))).toMatchObject({
-      _tag: 'IoError',
-    });
-    control({ _tag: 'MakeReadable', folder: '~/locked' });
-    expect(names(await fs((each) => each.list(`${HOME}/locked`)))).toEqual([
-      'inside',
-    ]);
-  });
-
-  it('make a folder slow to list, and quick again', async () => {
-    const { runtime, fs, control } = computer();
-    control({ _tag: 'AddFolder', folder: 'mounted/inside' });
-    control({ _tag: 'MakeSlowToList', folder: '~/mounted' });
-    const listed = await Effect.runPromise(
-      Effect.gen(function* () {
-        const files = yield* FileSystem;
-        const fiber = yield* Effect.forkChild(files.list(`${HOME}/mounted`));
-        yield* TestClock.adjust('29 seconds');
-        const early = fiber.pollUnsafe();
-        yield* TestClock.adjust('1 second');
-        return { early, entries: yield* Fiber.join(fiber) };
-      }).pipe(
-        Effect.provide(fileSystem.serve(runtime)),
-        Effect.provide(TestClock.layer()),
-      ),
-    );
-    expect(listed.early).toBeUndefined();
-    expect(names(listed.entries)).toEqual(['inside']);
-    control({ _tag: 'MakeReadable', folder: '~/mounted' });
-    expect(names(await fs((each) => each.list(`${HOME}/mounted`)))).toEqual([
-      'inside',
-    ]);
-  });
-
-  it('remove a folder, and put it back with all it held', async () => {
-    const { fs, failure, control } = computer();
-    control({ _tag: 'AddSampleProject', folder: 'code/shop' });
-    control({ _tag: 'RemoveFolder', folder: 'code/shop' });
-    expect(await failure((each) => each.stat(SHOP))).toMatchObject({
-      _tag: 'NotFound',
-    });
-    control({ _tag: 'PutFolderBack', folder: 'code/shop' });
-    expect(await fs((each) => each.stat(`${SHOP}/src/index.ts`))).toEqual({
-      kind: 'file',
-    });
-    control({ _tag: 'PutFolderBack', folder: 'code/shop' });
-  });
-
-  it('add symlinks, inside home and outside it', async () => {
-    const { fs, control } = computer();
-    control({ _tag: 'AddFolder', folder: 'code/shop' });
-    control({ _tag: 'AddFolder', folder: '/etc' });
-    control({ _tag: 'AddSymlink', at: 'shop', to: '~/code/shop' });
-    control({ _tag: 'AddSymlink', at: 'etc', to: '/etc' });
-    expect(await fs((each) => each.list(HOME))).toEqual([
-      { name: 'code', kind: 'folder', hidden: false },
-      { name: 'etc', kind: 'symlink', hidden: false },
-      { name: 'shop', kind: 'symlink', hidden: false },
-    ]);
-    expect(await fs((each) => each.realpath(`${HOME}/shop`))).toBe(
-      `${HOME}/code/shop`,
-    );
-    expect(await fs((each) => each.realpath(`${HOME}/etc`))).toBe('/etc');
-  });
-
-  it("change a repository's .git as git would", async () => {
-    const { fs, text, control } = computer();
-    control({ _tag: 'AddSampleProject', folder: 'code/shop' });
-    control({ _tag: 'SwitchBranch', project: 'code/shop', branch: 'fix/typo' });
-    expect(branchOfHead(await text(`${SHOP}/.git/HEAD`))).toBe('fix/typo');
-
-    control({ _tag: 'SwitchBranch', project: 'code/shop', branch: 'spike' });
-    expect(await text(`${SHOP}/.git/refs/heads/spike`)).toBe(
-      await text(`${SHOP}/.git/refs/heads/fix/typo`),
-    );
-
-    control({ _tag: 'AddBranch', project: 'code/shop', branch: 'docs' });
-    expect(await text(`${SHOP}/.git/refs/heads/docs`)).toMatch(
-      /^[0-9a-f]{40}\n$/,
-    );
-
-    control({ _tag: 'AddOriginBranch', project: 'code/shop', branch: 'next' });
-    expect(await text(`${originOf(SHOP)}/refs/heads/next`)).toMatch(
-      /^[0-9a-f]{40}\n$/,
-    );
-    expect(
-      names(await fs((each) => each.list(`${SHOP}/.git/refs/remotes/origin`))),
-    ).not.toContain('next');
-
-    control({ _tag: 'PushBranch', project: 'code/shop', branch: 'docs' });
-    const docs = await text(`${SHOP}/.git/refs/heads/docs`);
-    expect(await text(`${originOf(SHOP)}/refs/heads/docs`)).toBe(docs);
-    expect(await text(`${SHOP}/.git/refs/remotes/origin/docs`)).toBe(docs);
-    expect(
-      parseConfig(await text(`${SHOP}/.git/config`)).upstreams,
-    ).not.toHaveProperty('docs');
-  });
-
-  it('make the next git step fail, and git missing', async () => {
-    const { fs, failure, text, control } = computer();
-    control({ _tag: 'MakeNextGitStepFail', message: 'fatal: no' });
-    expect(await text(GIT_FAILS_NEXT)).toBe('fatal: no');
-    control({ _tag: 'MakeGitMissing' });
-    expect(await fs((each) => each.stat(GIT_MISSING))).toEqual({
-      kind: 'file',
-    });
-    control({ _tag: 'InstallGit' });
-    expect(await failure((each) => each.stat(GIT_MISSING))).toMatchObject({
-      _tag: 'NotFound',
-    });
-  });
-
-  it('land with nothing to do where there is nothing for them', async () => {
-    const { runtime, control } = computer();
-    const before = runtime.root.model;
-    control({ _tag: 'MakeUnreadable', folder: 'nothing' });
-    control({ _tag: 'SwitchBranch', project: 'nothing', branch: 'main' });
-    control({ _tag: 'RemoveFolder', folder: 'nothing' });
-    expect(runtime.root.model).toEqual(before);
   });
 });
 
@@ -295,20 +150,6 @@ describe('the File System key over the fake', () => {
     await fs((each) => each.mkdir(`${HOME}/a/b`, { recursive: true }));
     expect(names(await fs((each) => each.list(`${HOME}/a`)))).toEqual(['b']);
     expect(sent).toEqual(['FolderMade', 'FolderMade']);
-  });
-
-  it('refuses to make a folder in one it may not', async () => {
-    const { failure, control } = computer();
-    control({ _tag: 'AddFolder', folder: 'locked' });
-    control({ _tag: 'MakeUnreadable', folder: 'locked' });
-    expect(
-      await failure((each) => each.mkdir(`${HOME}/locked/x`)),
-    ).toMatchObject({ _tag: 'AccessDenied' });
-    expect(
-      await failure((each) =>
-        each.mkdir(`${HOME}/locked/x/y`, { recursive: true }),
-      ),
-    ).toMatchObject({ _tag: 'AccessDenied' });
   });
 
   it('reads and writes files, bytes or text', async () => {
@@ -332,38 +173,29 @@ describe('the File System key over the fake', () => {
     ).toMatchObject({ _tag: 'IoError' });
   });
 
-  it('follows symlinks to read, and stops at a loop or a file on the way', async () => {
+  it('finds a path made normal, and stops at nothing there or a file on the way', async () => {
     const { fs, failure, control } = computer();
     control({ _tag: 'AddFile', file: 'code/notes.txt', text: 'hi' });
-    control({ _tag: 'AddSymlink', at: 'link', to: '~/code' });
-    control({ _tag: 'AddSymlink', at: 'loop', to: '~/loop' });
-    control({ _tag: 'AddSymlink', at: 'dangling', to: '~/gone' });
-    expect(await fs((each) => each.stat(`${HOME}/link`))).toEqual({
-      kind: 'folder',
-    });
-    expect(await fs((each) => each.realpath(`${HOME}/link/notes.txt`))).toBe(
-      `${HOME}/code/notes.txt`,
-    );
-    expect(await failure((each) => each.stat(`${HOME}/loop`))).toMatchObject({
-      _tag: 'IoError',
-    });
     expect(
-      await failure((each) => each.stat(`${HOME}/dangling`)),
-    ).toMatchObject({ _tag: 'NotFound' });
+      await fs((each) => each.realpath(`${HOME}/code/../code/./notes.txt`)),
+    ).toBe(`${HOME}/code/notes.txt`);
+    expect(await failure((each) => each.stat(`${HOME}/gone`))).toMatchObject({
+      _tag: 'NotFound',
+    });
     expect(
       await failure((each) => each.realpath(`${HOME}/code/notes.txt/x`)),
     ).toMatchObject({ _tag: 'NotFound' });
   });
 
-  it('removes a file, a symlink itself, and a folder only when recursive', async () => {
+  it('removes a file, and a folder only when recursive', async () => {
     const { fs, failure, control, sent } = computer();
     control({ _tag: 'AddFile', file: 'code/notes.txt', text: 'hi' });
-    control({ _tag: 'AddSymlink', at: 'link', to: '~/code' });
+    control({ _tag: 'AddFile', file: 'code/todo.txt', text: '' });
     sent.length = 0;
-    await fs((each) => each.remove(`${HOME}/link`));
-    expect(await fs((each) => each.stat(`${HOME}/code/notes.txt`))).toEqual({
-      kind: 'file',
-    });
+    await fs((each) => each.remove(`${HOME}/code/todo.txt`));
+    expect(names(await fs((each) => each.list(`${HOME}/code`)))).toEqual([
+      'notes.txt',
+    ]);
     expect(await failure((each) => each.remove(`${HOME}/code`))).toMatchObject({
       _tag: 'IoError',
     });

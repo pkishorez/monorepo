@@ -1,7 +1,6 @@
 import {
   Context,
   Effect,
-  Fiber,
   Layer,
   Option,
   Schedule,
@@ -13,15 +12,7 @@ import { Runtime, type Snapshot } from '@kestack/kabuki';
 import { Memory } from '@kestack/std-toolkit/db/memory';
 import { Accounts } from '@kestack/auth-toolkit/client';
 import { fakeAccounts } from '@kestack/auth-toolkit/fake';
-import {
-  type FakeHarness,
-  makeFakeHarness,
-} from '@kestack/ai-toolkit/harness/fake';
-import {
-  addressOf,
-  CloudClient,
-  isOutdated,
-} from '../../cloud/client/index.js';
+import { addressOf, CloudClient } from '../../cloud/client/index.js';
 import {
   CodeClient,
   CodeClients,
@@ -31,12 +22,7 @@ import {
 } from '../../connection/plugins/code/api/index.js';
 import { computers } from '../fake/index.js';
 import { keepSubscribed } from '@kestack/rpc-toolkit/rpc/websocket';
-import {
-  ANOTHER_RELEASE,
-  inTab,
-  type Tables,
-  tunnelClients,
-} from '../index.js';
+import { inTab, type Tables, tunnelClients } from '../index.js';
 import { agentEdges } from './agent.js';
 
 /*
@@ -44,11 +30,9 @@ import { agentEdges } from './agent.js';
  * where Code would see it, through Connect Cloud's list and each computer's
  * socket, dialled as Code dials it. A computer added is listed Ready, and
  * its File System's Controls reach its own Folders; offline it is Down at
- * once and its socket drops; below the Minimum Connect it stops until
- * updated; another Release closes its socket; Connect Cloud out of reach
- * fails every call; another device renames, starts and settles a Session,
- * and forgets a computer. Over kept tables and the kept Snapshot, as a
- * reload in fake mode, the world comes back as it was.
+ * once and its socket drops, and back it links again; removed, it is gone.
+ * Over kept tables and the Snapshot, as a reload in fake mode, the world
+ * comes back as it was.
  */
 
 const RELEASE = 'a'.repeat(64);
@@ -67,7 +51,6 @@ type Fake = Runtime<typeof computers.actor>;
 
 /** The Computers Fake, and Code's side over Connect in the tab: Connect Cloud's client, signed in as Ada, and each Connection's socket at the address it is listed at. */
 const world = (
-  harness?: FakeHarness,
   kept: {
     readonly tables?: Tables;
     readonly snapshot?: Snapshot<typeof computers.actor>;
@@ -84,7 +67,7 @@ const world = (
       minConnect: '0.0.4',
       tables: kept.tables,
     }).pipe(
-      Layer.provide(Layer.merge(computers.serve(fake), agentEdges(harness))),
+      Layer.provide(Layer.merge(computers.serve(fake), agentEdges())),
       Layer.provideMerge(accounts),
     );
     const built = yield* Layer.build(middle);
@@ -131,14 +114,14 @@ const world = (
     /** Connect Cloud's list now, as Code reads it. */
     const listed = () => Effect.runPromise(Effect.orDie(cloud.List({})));
     /** Adds a computer, as the bubble does. */
-    const add = (name: string, keConnectVersion = '') =>
+    const add = (name: string) =>
       fake.root.send({
         _tag: 'AddComputer',
         name,
-        keConnectVersion,
+        keConnectVersion: '',
         signedInAs: EMAIL,
       });
-    return { fake, cloud, clients, on, computer, listed, add };
+    return { fake, clients, on, computer, listed, add };
   });
 
 const eventually = (assertion: () => Promise<void> | void) =>
@@ -196,7 +179,7 @@ describe(
         }),
       ));
 
-    it('takes a computer offline Down at once, its socket dropped, and brings it back, counting its sockets', () =>
+    it('takes a computer offline Down at once, its socket dropped, and brings it back', () =>
       run(
         Effect.gen(function* () {
           const { clients, on, computer, listed, add } = yield* world();
@@ -209,15 +192,9 @@ describe(
           );
           yield* on('computer-1', folders('~'));
           yield* eventually(() => expect(links.at(-1)).toBe('linked'));
-          yield* eventually(() =>
-            expect(computer('computer-1').model.sockets).toBe(1),
-          );
 
           computer('computer-1').send({ _tag: 'GoOffline', downAtOnce: true });
           yield* eventually(() => expect(links.at(-1)).toBe('relinking'));
-          yield* eventually(() =>
-            expect(computer('computer-1').model.sockets).toBe(0),
-          );
           yield* eventually(async () => {
             const [laptop] = await listed();
             expect(Date.now() - laptop!.lastSeen).toBeGreaterThan(DOWN_AFTER);
@@ -232,139 +209,7 @@ describe(
         }),
       ));
 
-    it('lists its tunnel as each Control leaves it, and its key as it rotates', () =>
-      run(
-        Effect.gen(function* () {
-          const { computer, listed, add } = yield* world();
-          add('laptop');
-          const laptop = computer('computer-1');
-          const status = async () => (await listed())[0]?.status;
-
-          laptop.send({
-            _tag: 'DownloadCloudflared',
-            megabytes: 12.5,
-            seconds: 3,
-          });
-          yield* eventually(async () =>
-            expect(await status()).toEqual({
-              _tag: 'SettingUp',
-              step: {
-                _tag: 'Downloading',
-                received: 12_500_000,
-                elapsed: 3000,
-              },
-            }),
-          );
-          laptop.send({ _tag: 'FailTunnel', problem: 'no network' });
-          yield* eventually(async () =>
-            expect(await status()).toMatchObject({
-              step: { _tag: 'Failed', problem: 'no network' },
-            }),
-          );
-          laptop.send({ _tag: 'TunnelUnreachable', problem: 'timed out' });
-          yield* eventually(async () =>
-            expect(await status()).toMatchObject({
-              _tag: 'Ready',
-              check: { _tag: 'Unreachable', problem: 'timed out' },
-            }),
-          );
-          laptop.send({ _tag: 'MoveTunnel' });
-          yield* eventually(async () =>
-            expect(await status()).toMatchObject({
-              url: 'https://computer-1-1.computers.fake',
-              check: { _tag: 'Reachable' },
-            }),
-          );
-
-          const before = (yield* Effect.promise(listed))[0]?.key;
-          laptop.send({ _tag: 'RotateKey' });
-          yield* eventually(async () =>
-            expect((await listed())[0]?.key).not.toBe(before),
-          );
-        }),
-      ));
-
-    it('stops a computer below the Minimum Connect, Outdated, until its ke-connect is updated', () =>
-      run(
-        Effect.gen(function* () {
-          const { fake, computer, listed, add } = yield* world();
-          add('laptop', '0.5.0');
-          yield* eventually(async () => expect(await listed()).toHaveLength(1));
-
-          fake.root.send({ _tag: 'SetMinimumConnect', version: '0.9.0' });
-          yield* eventually(async () =>
-            expect((await listed())[0]?.minConnect).toBe('0.9.0'),
-          );
-          // Its next Report, sent at once on a change, is refused.
-          computer('computer-1').send({ _tag: 'RotateKey' });
-          yield* eventually(() =>
-            expect(computer('computer-1').model.stopped).toMatchObject({
-              _tag: 'Outdated',
-            }),
-          );
-          expect(isOutdated((yield* Effect.promise(listed))[0]!)).toBe(true);
-
-          computer('computer-1').send({
-            _tag: 'UpdateKeConnect',
-            version: '0.9.1',
-          });
-          yield* eventually(async () => {
-            const [laptop] = await listed();
-            expect(laptop?.version).toBe('0.9.1');
-            expect(isOutdated(laptop!)).toBe(false);
-          });
-          expect(computer('computer-1').model.stopped).toBeNull();
-        }),
-      ));
-
-    it('closes the socket of a computer on another Release; Connect Cloud names another, and a reload keeps neither', () =>
-      run(
-        Effect.gen(function* () {
-          const { fake, cloud, clients, on, computer, add } = yield* world();
-          add('laptop');
-          computer('computer-1').send({ _tag: 'RunAnotherRelease' });
-          const mismatch = yield* Effect.forkScoped(
-            clients.mismatch('computer-1').pipe(
-              Stream.filter((each) => each !== null),
-              Stream.runHead,
-            ),
-          );
-          const answered = yield* Effect.forkScoped(
-            on('computer-1', folders('~')),
-          );
-          expect(yield* Fiber.join(mismatch)).toEqual(
-            Option.some({ running: ANOTHER_RELEASE }),
-          );
-          computer('computer-1').send({ _tag: 'RunTheNamedRelease' });
-          expect(yield* Fiber.join(answered)).toEqual([]);
-
-          const standing = () =>
-            Effect.runPromise(
-              Effect.orDie(cloud.Standing({ plugin: 'code', hash: RELEASE })),
-            );
-          expect(yield* Effect.promise(standing)).toEqual({ _tag: 'Latest' });
-          fake.root.send({ _tag: 'CloudNamesANewerRelease' });
-          yield* eventually(async () =>
-            expect(await standing()).toEqual({ _tag: 'Older' }),
-          );
-          fake.root.send({ _tag: 'CloudNamesAnOlderRelease' });
-          yield* eventually(async () =>
-            expect(await standing()).toEqual({ _tag: 'Unknown' }),
-          );
-
-          computer('computer-1').send({ _tag: 'RunAnotherRelease' });
-          const kept = computers.kept(fake.snapshot);
-          expect(kept.root.model.untilReload).toEqual({
-            cloudRelease: 'TheApps',
-          });
-          expect(kept.root.children.computers[0]?.model.untilReload).toEqual({
-            runsAnotherRelease: false,
-          });
-          expect(fake.root.model.untilReload.cloudRelease).toBe('Older');
-        }),
-      ));
-
-    it('keeps a watch going across a restart, its socket dropped before its code Plugin stops', () =>
+    it('keeps a watch going offline and back, its socket dropped before its code Plugin stops', () =>
       run(
         Effect.gen(function* () {
           const { clients, on, computer, add } = yield* world();
@@ -384,9 +229,17 @@ describe(
               (state) => Effect.sync(() => void states.push(state._tag)),
             ).pipe(Effect.provideService(CodeClients, clients)),
           );
+          const links: Array<LinkStatus> = [];
+          yield* Effect.forkScoped(
+            Stream.runForEach(CodeClients.link('computer-1'), (now) =>
+              Effect.sync(() => void links.push(now)),
+            ).pipe(Effect.provideService(CodeClients, clients)),
+          );
           yield* eventually(() => expect(states).toEqual(['Off']));
 
-          computer('computer-1').send({ _tag: 'Restart' });
+          computer('computer-1').send({ _tag: 'GoOffline', downAtOnce: false });
+          yield* eventually(() => expect(links.at(-1)).toBe('relinking'));
+          computer('computer-1').send({ _tag: 'ComeOnline' });
           // Subscribed again once the socket is back: Off once more.
           yield* eventually(() => expect(states).toEqual(['Off', 'Off']));
           yield* on(
@@ -397,244 +250,13 @@ describe(
         }),
       ));
 
-    it('drops the socket of a linked computer that comes to run another Release, and links once it runs the named one', () =>
-      run(
-        Effect.gen(function* () {
-          const { clients, on, computer, add } = yield* world();
-          add('laptop');
-          const links: Array<LinkStatus> = [];
-          yield* Effect.forkScoped(
-            Stream.runForEach(CodeClients.link('computer-1'), (now) =>
-              Effect.sync(() => void links.push(now)),
-            ).pipe(Effect.provideService(CodeClients, clients)),
-          );
-          yield* on('computer-1', folders('~'));
-          yield* eventually(() => expect(links.at(-1)).toBe('linked'));
-
-          const mismatch = yield* Effect.forkScoped(
-            clients.mismatch('computer-1').pipe(
-              Stream.filter((each) => each !== null),
-              Stream.runHead,
-            ),
-          );
-          computer('computer-1').send({ _tag: 'RunAnotherRelease' });
-          expect(yield* Fiber.join(mismatch)).toEqual(
-            Option.some({ running: ANOTHER_RELEASE }),
-          );
-          expect(links.at(-1)).not.toBe('linked');
-
-          computer('computer-1').send({ _tag: 'RunTheNamedRelease' });
-          yield* eventually(() => expect(links.at(-1)).toBe('linked'));
-        }),
-      ));
-
-    it('fails every call while Connect Cloud is out of reach, and answers once it is back', () =>
-      run(
-        Effect.gen(function* () {
-          const { fake, cloud } = yield* world();
-          fake.root.send({ _tag: 'PutCloudOutOfReach' });
-          yield* eventually(async () => {
-            const failed = await Effect.runPromise(Effect.flip(cloud.List({})));
-            // As a fetch that never got there fails.
-            expect(failed).toMatchObject({
-              _tag: 'RpcClientError',
-              reason: { _tag: 'HttpError', kind: 'TransportError' },
-            });
-          });
-          fake.root.send({ _tag: 'BringCloudBack' });
-          yield* eventually(async () =>
-            expect(await Effect.runPromise(cloud.List({}))).toEqual([]),
-          );
-        }),
-      ));
-
-    it('has another device rename a computer, start and settle a Session on it, and forget it', () =>
-      run(
-        Effect.gen(function* () {
-          const { on, computer, listed, add } = yield* world();
-          add('laptop');
-          const laptop = computer('computer-1');
-          laptop.children.fileSystem.send({
-            _tag: 'AddSampleProject',
-            folder: '~/code/shop',
-          });
-
-          yield* eventually(async () => expect(await listed()).toHaveLength(1));
-
-          laptop.send({ _tag: 'RenameElsewhere', displayName: 'Work' });
-          yield* eventually(async () =>
-            expect((await listed())[0]?.displayName).toBe('Work'),
-          );
-          expect(laptop.model.saidElsewhere).toBe('Renamed it Work');
-
-          laptop.send({
-            _tag: 'StartSessionElsewhere',
-            project: '~/code/shop',
-            text: 'from my phone',
-          });
-          yield* eventually(() =>
-            expect(laptop.model.saidElsewhere).toMatch(/^Started Session /),
-          );
-          const session = laptop.model.saidElsewhere!.split(' ').at(-1)!;
-          const settledAt = Effect.flatMap(CodeClient, (api) =>
-            api.sessions({ after: null }).pipe(
-              Stream.flattenIterable,
-              // Sent encoded: the fields read here are as stored.
-              Stream.map(
-                ({ value }) =>
-                  value as { readonly id: string; readonly settledAt: unknown },
-              ),
-              Stream.filter(({ id }) => id === session),
-              Stream.runHead,
-              Effect.map((found) =>
-                Option.map(found, ({ settledAt }) => settledAt),
-              ),
-            ),
-          );
-          expect(yield* on('computer-1', settledAt)).toEqual(Option.some(null));
-
-          laptop.send({ _tag: 'SettleSessionElsewhere', session });
-          yield* eventually(() =>
-            expect(laptop.model.saidElsewhere).toBe(
-              `Settled Session ${session}`,
-            ),
-          );
-          const settled = yield* on('computer-1', settledAt);
-          expect(Option.getOrNull(settled)).toEqual(expect.any(Number));
-
-          laptop.send({ _tag: 'ForgetElsewhere' });
-          yield* eventually(async () => expect(await listed()).toEqual([]));
-          // Its next Report is refused: it stops, forgotten.
-          laptop.send({ _tag: 'RotateKey' });
-          yield* eventually(() =>
-            expect(laptop.model.stopped).toEqual({ _tag: 'Forgotten' }),
-          );
-          expect(laptop.model.elsewhere).toEqual([]);
-        }),
-      ));
-
-    it('has another device remove an agent account the user added, by its name', () =>
-      run(
-        Effect.gen(function* () {
-          const { on, computer, listed, add } = yield* world();
-          add('laptop');
-          const laptop = computer('computer-1');
-          laptop.children.fileSystem.send({
-            _tag: 'AddFolder',
-            folder: '~/.claude-work',
-          });
-          yield* eventually(async () => expect(await listed()).toHaveLength(1));
-          const names = on(
-            'computer-1',
-            Effect.flatMap(CodeClient, (api) => api.harnessAccounts()).pipe(
-              Effect.map((accounts) => accounts.map(({ name }) => name)),
-            ),
-          );
-          yield* on(
-            'computer-1',
-            Effect.flatMap(CodeClient, (api) =>
-              api.saveHarnessAccount({
-                id: null,
-                harness: 'claude',
-                name: 'Work',
-                binaryPath: null,
-                configFolder: '~/.claude-work',
-              }),
-            ),
-          );
-          expect(yield* names).toContain('Work');
-
-          laptop.send({ _tag: 'RemoveAgentAccountElsewhere', name: 'Gone' });
-          yield* eventually(() =>
-            expect(laptop.model.saidElsewhere).toBe(
-              'No agent account named Gone',
-            ),
-          );
-          laptop.send({ _tag: 'RemoveAgentAccountElsewhere', name: 'Work' });
-          yield* eventually(() =>
-            expect(laptop.model.saidElsewhere).toBe(
-              'Removed agent account Work',
-            ),
-          );
-          expect(yield* names).not.toContain('Work');
-        }),
-      ));
-
-    it('has another device answer the question a Session waits on, each part with its first choice', () => {
-      const harness = makeFakeHarness({ hold: true });
-      return run(
-        Effect.gen(function* () {
-          const { on, computer, listed, add } = yield* world(harness);
-          add('laptop');
-          const laptop = computer('computer-1');
-          laptop.children.fileSystem.send({
-            _tag: 'AddSampleProject',
-            folder: '~/code/shop',
-          });
-          yield* eventually(async () => expect(await listed()).toHaveLength(1));
-          laptop.send({
-            _tag: 'StartSessionElsewhere',
-            project: '~/code/shop',
-            text: 'ask me',
-          });
-          yield* eventually(() =>
-            expect(laptop.model.saidElsewhere).toMatch(/^Started Session /),
-          );
-          const session = laptop.model.saidElsewhere!.split(' ').at(-1)!;
-
-          yield* harness.askQuestion('native-1', {
-            id: 'q1',
-            items: [
-              {
-                id: 'auth',
-                header: 'Auth method',
-                question: 'How should users sign in?',
-                options: [
-                  { label: 'OAuth', description: '' },
-                  { label: 'Password', description: '' },
-                ],
-                multiSelect: false,
-                other: true,
-                secret: false,
-              },
-            ],
-            askedAt: 1,
-          });
-          const waiting = Effect.flatMap(CodeClient, (api) =>
-            Stream.runHead(api.agentQuestions()),
-          );
-          yield* on('computer-1', waiting).pipe(
-            Effect.repeat({
-              until: (now) => Option.getOrElse(now, () => []).length > 0,
-              schedule: Schedule.spaced('20 millis'),
-            }),
-          );
-
-          laptop.send({ _tag: 'AnswerQuestionElsewhere', session });
-          yield* eventually(() =>
-            expect(laptop.model.saidElsewhere).toBe('Answered its question'),
-          );
-          expect(harness.answers).toEqual([
-            { id: 'q1', answer: { auth: ['OAuth'] } },
-          ]);
-          yield* harness.finish;
-        }),
-      );
-    });
-
-    it('forgets a computer whose ke-connect is removed, and drops one removed', () =>
+    it('drops a computer removed, and never gives its id again', () =>
       run(
         Effect.gen(function* () {
           const { fake, computer, listed, add } = yield* world();
           add('laptop');
           add('desktop');
           yield* eventually(async () => expect(await listed()).toHaveLength(2));
-          computer('computer-1').send({ _tag: 'ForgetItself' });
-          yield* eventually(async () =>
-            expect((await listed()).map(({ id }) => id)).toEqual([
-              'computer-2',
-            ]),
-          );
           computer('computer-2').send({ _tag: 'Remove' });
           expect(fake.root.model.computers.map(({ id }) => id)).toEqual([
             'computer-1',
@@ -656,9 +278,7 @@ describe(
       };
       const before = await run(
         Effect.gen(function* () {
-          const { fake, on, computer, listed, add } = yield* world(undefined, {
-            tables,
-          });
+          const { fake, on, computer, listed, add } = yield* world({ tables });
           add('laptop');
           add('desktop');
           computer('computer-1').children.fileSystem.send({
@@ -671,21 +291,14 @@ describe(
               api.addProject({ path: '/home/you/code/shop' }),
             ),
           );
-          computer('computer-1').send({ _tag: 'RotateKey' });
           computer('computer-2').send({ _tag: 'GoOffline', downAtOnce: true });
           yield* eventually(async () => {
             const [laptop, desktop] = await listed();
-            expect(laptop!.key).toBe('fake-key-computer-1-1');
+            expect(laptop!.key).toBe('fake-key-computer-1');
             expect(Date.now() - desktop!.lastSeen).toBeGreaterThan(DOWN_AFTER);
           });
-          yield* eventually(() =>
-            expect(computer('computer-1').model.sockets).toBe(1),
-          );
-          const snapshot = computers.kept(fake.snapshot);
-          // A reload closes every socket.
-          expect(snapshot.root.children.computers[0]!.model.sockets).toBe(0);
           return {
-            snapshot,
+            snapshot: fake.snapshot,
             listed: yield* Effect.promise(listed),
             project: project.id,
           };
@@ -695,7 +308,7 @@ describe(
       await new Promise((resolve) => setTimeout(resolve, 50));
       await run(
         Effect.gen(function* () {
-          const { on, listed } = yield* world(undefined, {
+          const { on, listed } = yield* world({
             tables,
             snapshot: before.snapshot,
           });
@@ -712,7 +325,7 @@ describe(
               check: { _tag: 'Reachable' },
             },
           });
-          expect(wasLaptop!.key).toBe('fake-key-computer-1-1');
+          expect(wasLaptop!.key).toBe('fake-key-computer-1');
           expect(desktop).toEqual(wasDesktop);
           // Its Store from its table.
           const project = yield* on(

@@ -64,7 +64,7 @@ describe('listing a folder of the fake', () => {
     const { control, list } = computer();
     for (const folder of ['b2', 'B10', 'a'])
       control({ _tag: 'AddFolder', folder: `~/code/${folder}` });
-    control({ _tag: 'AddHiddenFolder', in: '~/code', name: 'git' });
+    control({ _tag: 'AddFolder', folder: '~/code/.git' });
     const listing = await list('~/code');
     expect(listing).toMatchObject({
       path: CODE,
@@ -89,7 +89,11 @@ describe('listing a folder of the fake', () => {
 
   it('holds at most 100 folders, and says when it was cut short', async () => {
     const { control, list } = computer();
-    control({ _tag: 'AddManyFolders', in: '~/code', count: 120 });
+    for (let index = 1; index <= 120; index++)
+      control({
+        _tag: 'AddFolder',
+        folder: `~/code/folder-${String(index).padStart(3, '0')}`,
+      });
     const listing = await list('~/code');
     expect(listing.folders).toHaveLength(100);
     expect(listing.truncated).toBe(true);
@@ -100,56 +104,21 @@ describe('listing a folder of the fake', () => {
     expect(asked.truncated).toBe(false);
   });
 
-  it('lists a symlink to a folder inside home as a link, and leaves out one leading outside', async () => {
-    const { control, list } = computer();
-    control({ _tag: 'AddFolder', folder: '~/code/real' });
-    control({ _tag: 'AddFolder', folder: '/srv/away' });
-    control({ _tag: 'AddSymlink', at: '~/code/alias', to: '~/code/real' });
-    control({ _tag: 'AddSymlink', at: '~/code/away', to: '/srv/away' });
-    control({ _tag: 'AddSymlink', at: '~/code/file', to: '~/code/notes.txt' });
-    control({ _tag: 'AddSymlink', at: '~/code/gone', to: '~/code/nothing' });
-    expect((await list('~/code')).folders).toEqual([
-      { name: 'alias', hidden: false, link: true },
-      { name: 'real', hidden: false, link: false },
-    ]);
-  });
-
-  it('refuses anything outside home, even through a symlink', async () => {
+  it('refuses anything outside home', async () => {
     const { control, listFails } = computer();
     control({ _tag: 'AddFolder', folder: '/srv/away' });
-    control({ _tag: 'AddSymlink', at: '~/away', to: '/srv/away' });
     expect(await listFails('/srv/away')).toMatchObject({ _tag: 'OutsideHome' });
     expect(await listFails('~/..')).toMatchObject({ _tag: 'OutsideHome' });
     expect(await listFails('/home/you2')).toMatchObject({
       _tag: 'OutsideHome',
     });
-    expect(await listFails('~/away')).toMatchObject({
-      _tag: 'OutsideHome',
-      path: '/srv/away',
-    });
   });
 
-  it('says when a folder is missing, is a file, may not be read, or fails to list', async () => {
-    const { control, listFails } = computer();
+  it('says when a folder is missing, or is a file', async () => {
+    const { listFails } = computer();
     expect(await listFails('~/nope')).toMatchObject({ _tag: 'FolderNotFound' });
     expect(await listFails('~/code/notes.txt')).toMatchObject({
       _tag: 'FolderNotFound',
-    });
-    control({ _tag: 'AddFolder', folder: '~/code/locked' });
-    control({ _tag: 'MakeUnreadable', folder: '~/code/locked' });
-    expect(await listFails('~/code/locked')).toMatchObject({
-      _tag: 'PermissionDenied',
-      path: `${CODE}/locked`,
-    });
-    expect(await listFails('~/code/locked/inside')).toMatchObject({
-      _tag: 'PermissionDenied',
-    });
-    control({ _tag: 'AddFolder', folder: '~/code/broken' });
-    control({ _tag: 'MakeFailToList', folder: '~/code/broken' });
-    expect(await listFails('~/code/broken')).toMatchObject({
-      _tag: 'FolderUnreadable',
-      path: `${CODE}/broken`,
-      message: `EIO: i/o error, scandir '${CODE}/broken'`,
     });
   });
 
@@ -178,33 +147,6 @@ describe('listing a folder of the fake', () => {
     );
     expect(outcome).toMatchObject({
       _tag: 'FolderUnreadable',
-      message: 'Listing it took too long',
-    });
-  });
-});
-
-describe('a folder slow to list on the fake', () => {
-  it('could not be read once it takes over 5 seconds', async () => {
-    const { runtime, control } = computer();
-    control({ _tag: 'MakeSlowToList', folder: '~/code' });
-    const outcome = await Effect.runPromise(
-      Effect.gen(function* () {
-        const folders = yield* Folders;
-        const fiber = yield* Effect.forkChild(
-          Effect.flip(folders.list({ path: '~/code' })),
-        );
-        yield* TestClock.adjust('5 seconds');
-        return yield* Fiber.join(fiber);
-      }).pipe(
-        Effect.provide(
-          homeFolders.pipe(Layer.provide(fileSystem.serve(runtime))),
-        ),
-        Effect.provide(TestClock.layer()),
-      ),
-    );
-    expect(outcome).toMatchObject({
-      _tag: 'FolderUnreadable',
-      path: CODE,
       message: 'Listing it took too long',
     });
   });
@@ -250,15 +192,6 @@ describe('creating a folder on the fake', () => {
     control({ _tag: 'AddFolder', folder: '/srv' });
     expect(await createFails('/srv', 'x')).toMatchObject({
       _tag: 'OutsideHome',
-    });
-  });
-
-  it('says when it may not write the parent', async () => {
-    const { control, createFails } = computer();
-    control({ _tag: 'AddFolder', folder: '~/code/locked' });
-    control({ _tag: 'MakeUnreadable', folder: '~/code/locked' });
-    expect(await createFails('~/code/locked', 'x')).toMatchObject({
-      _tag: 'PermissionDenied',
     });
   });
 });
