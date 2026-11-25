@@ -23,10 +23,9 @@ import type { AgentEdges } from '../index.js';
 const fakes = Layer.unwrap(
   Effect.gen(function* () {
     const agentRuntime = yield* Runtime.scoped(agent.actor);
-    agentRuntime.root.send({ _tag: 'SetPace', ms: 0 });
     const speechRuntime = yield* Runtime.scoped(speech.actor);
     return Layer.merge(
-      agentOver(agentRuntime, { home: HOME }),
+      agentOver(agentRuntime, { home: HOME, paceMs: 0 }),
       speech.serve(speechRuntime),
     );
   }),

@@ -1,4 +1,4 @@
-import { basename, join, partsOf } from './paths.js';
+import { basename, join } from './paths.js';
 import { ensureFolders, put, remove, textFile, type Tree } from './tree.js';
 
 /*
@@ -20,24 +20,13 @@ import { ensureFolders, put, remove, textFile, type Tree } from './tree.js';
  *
  * Origin is a bare repository on the same computer, outside home, at
  * `originOf(repo)` (`/srv/origin<repo>.git`): its own `HEAD` and
- * `refs/heads/<b>`. A branch added there is seen once a fetch copies its
- * `refs/heads` into the repository's `refs/remotes/origin`; a push writes
- * both. A linked Worktree, which only Code makes, is as git makes one:
+ * `refs/heads/<b>`. A branch there is seen once a fetch copies its
+ * `refs/heads` into the repository's `refs/remotes/origin`. A linked
+ * Worktree, which only Code makes, is as git makes one:
  * `<repo>/.git/worktrees/<id>/` with `HEAD`, `gitdir` (`<at>/.git\n`) and
  * `commondir` (`../..\n`), and a file `<at>/.git` reading
  * `gitdir: <repo>/.git/worktrees/<id>\n`.
- *
- * Git itself, for the whole computer: while `/.fake/git/missing` is there,
- * git is not installed; while `/.fake/git/fail-next` is there, the next
- * git step that changes something fails with its text, and the fake Git
- * removes it.
  */
-
-/** There while git is not installed. */
-export const GIT_MISSING = '/.fake/git/missing';
-
-/** There while the next git change fails; its text is what git says. */
-export const GIT_FAILS_NEXT = '/.fake/git/fail-next';
 
 /** Where the Origin of the repository at `repo` is. */
 export const originOf = (repo: string) => `/srv/origin${repo}.git`;
@@ -54,14 +43,6 @@ export const shaOf = (seed: string) => {
     out += (hash >>> 0).toString(16).padStart(8, '0');
   }
   return out.slice(0, 40);
-};
-
-/** What a git file holds as text; null when nothing is there. */
-const textAt = (tree: Tree, path: string) => {
-  const found = tree[path];
-  return found?._tag === 'File' && found.encoding === 'utf8'
-    ? found.data
-    : null;
 };
 
 /** The branch a `HEAD` file names; null for a detached one. */
@@ -119,26 +100,8 @@ export const parseConfig = (text: string): GitConfig => {
   return { origin, upstreams };
 };
 
-/** Whether `repo` is a repository the fake laid out: it has `.git/HEAD`. */
-const isRepository = (tree: Tree, repo: string) =>
-  textAt(tree, join(repo, '.git', 'HEAD')) !== null;
-
 const writeRef = (tree: Tree, file: string, sha: string) =>
   put(tree, file, textFile(`${sha}\n`));
-
-const shaAt = (tree: Tree, file: string) => textAt(tree, file)?.trim() ?? null;
-
-/** The commit HEAD is on, by its branch; a new one when it has none. */
-const headSha = (tree: Tree, repo: string) => {
-  const gitDir = join(repo, '.git');
-  const branch = branchOfHead(textAt(tree, join(gitDir, 'HEAD')) ?? '');
-  return (
-    (branch === null
-      ? null
-      : shaAt(tree, join(gitDir, 'refs/heads', branch))) ??
-    shaOf(`${repo}:HEAD`)
-  );
-};
 
 /** The branches a sample project has: local, what each tracks, and Origin's. */
 const SAMPLE = {
@@ -186,71 +149,4 @@ export const sampleProject = (tree: Tree, repo: string): Tree => {
     );
   }
   return next;
-};
-
-/** A branch name git would take, else null. */
-const branchName = (given: string) => {
-  const name = partsOf(given.trim()).join('/');
-  return name === '' || name.startsWith('-') ? null : name;
-};
-
-/**
- * `repo` switched to `branch` outside Code, as `git switch` would, the
- * branch made at HEAD's commit first if it is not there.
- */
-export const switchBranch = (tree: Tree, repo: string, given: string) => {
-  const branch = branchName(given);
-  if (branch === null || !isRepository(tree, repo)) return tree;
-  const gitDir = join(repo, '.git');
-  const file = join(gitDir, 'refs/heads', branch);
-  const made =
-    shaAt(tree, file) === null
-      ? writeRef(tree, file, headSha(tree, repo))
-      : tree;
-  return put(
-    made,
-    join(gitDir, 'HEAD'),
-    textFile(`ref: refs/heads/${branch}\n`),
-  );
-};
-
-/** `repo` with a new local branch `branch`, on a commit of its own. */
-export const addBranch = (tree: Tree, repo: string, given: string) => {
-  const branch = branchName(given);
-  if (branch === null || !isRepository(tree, repo)) return tree;
-  const file = join(repo, '.git/refs/heads', branch);
-  if (shaAt(tree, file) !== null) return tree;
-  return writeRef(tree, file, shaOf(`${repo}:${branch}`));
-};
-
-/** `tree` with the Origin of `repo` there, bare, with its `HEAD`. */
-const withOrigin = (tree: Tree, repo: string) => {
-  const head = join(originOf(repo), 'HEAD');
-  return tree[head] === undefined
-    ? put(tree, head, textFile('ref: refs/heads/main\n'))
-    : tree;
-};
-
-/** The Origin of `repo` with the branch `branch`, seen after the next fetch. */
-export const addOriginBranch = (tree: Tree, repo: string, given: string) => {
-  const branch = branchName(given);
-  if (branch === null || !isRepository(tree, repo)) return tree;
-  const file = join(originOf(repo), 'refs/heads', branch);
-  if (shaAt(tree, file) !== null) return tree;
-  return writeRef(withOrigin(tree, repo), file, shaOf(file));
-};
-
-/**
- * The local branch `branch` of `repo` pushed to Origin, as `git push origin
- * <branch>` does: Origin has it, and so does `refs/remotes/origin`. It
- * tracks nothing more than it did. A branch not there is made first.
- */
-export const pushBranch = (tree: Tree, repo: string, given: string) => {
-  const branch = branchName(given);
-  if (branch === null || !isRepository(tree, repo)) return tree;
-  const local = join(repo, '.git/refs/heads', branch);
-  const sha = shaAt(tree, local) ?? shaOf(`${repo}:${branch}`);
-  let next = writeRef(withOrigin(tree, repo), local, sha);
-  next = writeRef(next, join(originOf(repo), 'refs/heads', branch), sha);
-  return writeRef(next, join(repo, '.git/refs/remotes/origin', branch), sha);
 };

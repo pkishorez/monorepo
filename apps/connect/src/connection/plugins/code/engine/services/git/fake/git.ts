@@ -15,8 +15,6 @@ import { basename, dirname, join } from '../../../paths/index.js';
 import {
   branchOfHead,
   configText,
-  GIT_FAILS_NEXT,
-  GIT_MISSING,
   parseConfig,
   type GitConfig,
 } from '../../file-system/fake/index.js';
@@ -26,14 +24,8 @@ import {
  * the tree, laid out as file-system/fake/git.ts says, read and written
  * through the File System key as git reads and writes its own files. Every
  * answer is what git would give on that layout. Its state is the File
- * System's, so it has no Actor of its own: the File System Fake's Controls
- * change it (switch a branch, add one, add an Origin branch, push one,
- * fail the next step, git missing).
- *
- * While `/.fake/git/missing` is there, git is not installed: a question
- * answers null, a fetch is dropped, and a change fails. While
- * `/.fake/git/fail-next` is there, the next change (a switch, a new
- * Worktree, a rename) fails with its text, and it goes. A fetch copies
+ * System's, so it has no Actor of its own: the File System Fake's sample
+ * project lays it out, and Code's own steps change it. A fetch copies
  * Origin's `refs/heads` into `refs/remotes/origin`, dropping what Origin
  * no longer has. A new Worktree is made as git makes one, with the
  * repository's files copied from its main Worktree: the fake keeps no
@@ -54,9 +46,6 @@ interface Repo {
 interface Listed extends Worktree {
   readonly gitDir: string;
 }
-
-/** What Node says when there is no `git` to run. */
-const NOT_INSTALLED = 'spawn git ENOENT';
 
 const NOT_A_REPOSITORY =
   'fatal: not a git repository (or any of the parent directories): .git';
@@ -150,23 +139,6 @@ const make = Effect.gen(function* () {
       .remove(path, { recursive: true, force: true })
       .pipe(Effect.mapError(gitFailed));
 
-  /** Fails while git is not installed. */
-  const installed = Effect.flatMap(there(GIT_MISSING), (missing) =>
-    missing
-      ? Effect.fail(new GitError({ message: NOT_INSTALLED }))
-      : Effect.void,
-  );
-
-  /** Fails, once, while the next change is to fail; the switch goes. */
-  const nextStep = Effect.gen(function* () {
-    const text = yield* textAt(GIT_FAILS_NEXT);
-    if (text === null) return;
-    yield* Effect.ignore(removed(GIT_FAILS_NEXT));
-    return yield* new GitError({
-      message: text.trim() || 'fatal: the git step failed',
-    });
-  });
-
   /** The git folders `.git` at `dotGit` stands for: a folder, or a linked Worktree's file. */
   const gitDirsOf = (dotGit: string) =>
     Effect.gen(function* () {
@@ -197,7 +169,6 @@ const make = Effect.gen(function* () {
   /** The Worktree the folder `path` is in, as `git rev-parse` finds it. */
   const repoAt = (path: string) =>
     Effect.gen(function* () {
-      yield* installed;
       const real = yield* files.realpath(path).pipe(
         Effect.mapError(
           () =>
@@ -423,7 +394,6 @@ const make = Effect.gen(function* () {
             return yield* new GitError({
               message: `fatal: '${name}' is already used by worktree at '${elsewhere.path}'`,
             });
-          yield* nextStep;
           yield* write(join(repo.gitDir, 'HEAD'), `ref: refs/heads/${name}\n`);
         });
       if (heads.has(branch)) {
@@ -439,7 +409,6 @@ const make = Effect.gen(function* () {
           return yield* new GitError({
             message: `fatal: '${branch}' is not a commit and a branch '${name}' cannot be created from it`,
           });
-        yield* nextStep;
         yield* write(join(repo.common, 'refs/heads', name), `${at}\n`);
         yield* writeConfig(repo, {
           ...config,
@@ -522,7 +491,6 @@ const make = Effect.gen(function* () {
       if (yield* there(at))
         return yield* new GitError({ message: `${at} is there already` });
       const commit = yield* commitOf(repo, heads, from);
-      yield* nextStep;
       const linked = join(repo.common, 'worktrees');
       let id = basename(at);
       for (let suffix = 1; yield* there(join(linked, id)); suffix++)
@@ -592,7 +560,6 @@ const make = Effect.gen(function* () {
       for (let suffix = 1; suffix <= MOST_SUFFIX; suffix++) {
         const name = suffix === 1 ? to : `${to}-${suffix}`;
         if (heads.has(name)) continue;
-        yield* nextStep;
         yield* write(join(repo.common, 'refs/heads', name), `${at}\n`);
         yield* removed(join(repo.common, 'refs/heads', from));
         for (const each of yield* worktreesOf(repo))

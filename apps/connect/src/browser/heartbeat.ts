@@ -1,5 +1,4 @@
 import { type Duration, Effect, Semaphore, Stream } from 'effect';
-import type { Release } from '../contracts/heartbeat/index.js';
 import {
   cloud,
   type HeartbeatClient,
@@ -12,8 +11,8 @@ import type { Computer, Stopped } from './computers/index.js';
  * starts, every `every` after, and at once whenever one of those changes;
  * one at a time. Each is sent through `ke-connect`'s own Connect Cloud
  * client (connection/cli/identity/cloud), so it is answered as `ke-connect`
- * reads it: the Releases to run, or why the computer must stop, forgotten,
- * signed out, Outdated, or its id taken, which ends the Heartbeat. A Report
+ * reads it: taken, or why the computer must stop, forgotten, signed out,
+ * Outdated, or its id taken, which ends the Heartbeat. A Report
  * Connect Cloud could not take is sent again with the next.
  */
 
@@ -26,10 +25,6 @@ export interface HeartbeatOptions {
   readonly user: { readonly id: string; readonly email: string };
   /** How long between Reports. */
   readonly every: Duration.Input;
-  /** Told the Releases Connect Cloud named in answer to each Report. */
-  readonly answered: (
-    wanted: Readonly<Record<string, Release>>,
-  ) => Effect.Effect<void>;
 }
 
 /** What a Report says of a computer, so a change to it is reported at once. */
@@ -54,8 +49,6 @@ export const heartbeat = (options: HeartbeatOptions): Effect.Effect<Stopped> =>
         .pipe(
           Effect.flatMap((outcome): Effect.Effect<void, Stopped> => {
             switch (outcome._tag) {
-              case 'Reported':
-                return options.answered(outcome.wanted);
               case 'Forgotten':
                 return Effect.fail({ _tag: 'Forgotten' });
               case 'SignedOut':
@@ -64,6 +57,7 @@ export const heartbeat = (options: HeartbeatOptions): Effect.Effect<Stopped> =>
                 return Effect.fail({ _tag: 'Outdated', line: outcome.line });
               case 'Refused':
                 return Effect.fail({ _tag: 'Taken' });
+              case 'Reported':
               case 'Unsent':
                 return Effect.void;
             }

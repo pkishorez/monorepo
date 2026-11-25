@@ -1,7 +1,6 @@
-import { Duration, Effect, Layer } from 'effect';
+import { Effect, Layer } from 'effect';
 import type { LiveInstance, Sent } from '@kestack/kabuki/types';
 import {
-  AccessDenied,
   AlreadyExists,
   FileSystem,
   IoError,
@@ -15,23 +14,14 @@ import type {
   FileSystemModel,
 } from './actor.js';
 import { join, partsOf } from './paths.js';
-import {
-  childrenOf,
-  resolve,
-  subtree,
-  type Entry,
-  type Resolved,
-  type Tree,
-} from './tree.js';
+import { childrenOf, resolve, type Entry, type Tree } from './tree.js';
 
 /*
  * The File System key over a fake File System's Model. It reads the tree
  * as it is at each call, answers as `node.ts` would on a disk like it, and
- * picks the same errors: nothing there, or a file on the way, NotFound; an
- * unreadable folder listed or gone into, AccessDenied; a folder that fails
- * to list, a folder read or removed as a file, or a symlink loop, IoError;
- * a slow folder lists only after `SLOW`, longer than anyone waits.
- * A change it would make is a Message, Sent only once nothing is in the
+ * picks the same errors: nothing there, or a file on the way, NotFound; a
+ * folder there already, AlreadyExists; a folder read, written or removed
+ * as a file, IoError. A change it would make is a Message, Sent only once nothing is in the
  * way, so it lands as asked. The handle is all it holds of the fake: a
  * running Fake's root, or a computer's File System inside another Fake.
  */
@@ -51,14 +41,7 @@ export const handleOf = (
 });
 
 const kindOf = (entry: Entry): EntryKind =>
-  entry._tag === 'Folder'
-    ? 'folder'
-    : entry._tag === 'File'
-      ? 'file'
-      : 'symlink';
-
-/** How long listing a slow folder takes. */
-export const SLOW = Duration.seconds(30);
+  entry._tag === 'Folder' ? 'folder' : 'file';
 
 const byName = (a: { name: string }, b: { name: string }) =>
   a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
@@ -83,46 +66,13 @@ const keptOf = (data: Uint8Array | string) => {
   }
 };
 
-type Failure = NotFound | AccessDenied | IoError;
-
-/** Why a walk to `path` stopped, as the key says it. */
-const failureOf = (path: string, found: Resolved, call: string): Failure => {
-  switch (found._tag) {
-    case 'AccessDenied':
-      return new AccessDenied({ path });
-    case 'Loop':
-      return new IoError({
-        path,
-        message: `ELOOP: too many symbolic links encountered, ${call} '${path}'`,
-      });
-    default:
-      return new NotFound({ path });
-  }
-};
-
-/** What a call reads, found with its symlinks followed. */
-const found = (
-  tree: Tree,
-  path: string,
-  call: string,
-): Effect.Effect<Extract<Resolved, { _tag: 'Found' }>, Failure> => {
-  const at = resolve(tree, path, true);
+/** What a call reads; NotFound when nothing is there. */
+const found = (tree: Tree, path: string) => {
+  const at = resolve(tree, path);
   return at._tag === 'Found'
     ? Effect.succeed(at)
-    : Effect.fail(failureOf(path, at, call));
+    : Effect.fail(new NotFound({ path }));
 };
-
-/**
- * Whether removing `path` and all in it meets a folder it may not list: an
- * unreadable one with anything in it.
- */
-const lockedIn = (tree: Tree, path: string) =>
-  Object.entries(subtree(tree, path)).some(
-    ([at, entry]) =>
-      entry._tag === 'Folder' &&
-      entry.unreadable &&
-      childrenOf(tree, at).length > 0,
-  );
 
 /** The File System of a fake computer, as its handle shows it. */
 export const fileSystemOver = (
@@ -144,16 +94,8 @@ export const fileSystemOver = (
     home: handle.read().home,
     list: (path) =>
       Effect.gen(function* () {
-        const at = yield* found(tree(), path, 'scandir');
-        const entry = at.entry;
-        if (entry._tag !== 'Folder') return yield* new NotFound({ path });
-        if (entry.unreadable) return yield* new AccessDenied({ path });
-        if (entry.failing)
-          return yield* new IoError({
-            path,
-            message: `EIO: i/o error, scandir '${path}'`,
-          });
-        if (entry.slow) yield* Effect.sleep(SLOW);
+        const at = yield* found(tree(), path);
+        if (at.entry._tag !== 'Folder') return yield* new NotFound({ path });
         return childrenOf(tree(), at.path)
           .map(({ name, entry: child }): DirEntry => ({
             name,
@@ -164,36 +106,34 @@ export const fileSystemOver = (
       }),
     stat: (path) =>
       Effect.gen(function* () {
-        const { entry } = yield* found(tree(), path, 'stat');
+        const { entry } = yield* found(tree(), path);
         return { kind: entry._tag === 'Folder' ? 'folder' : 'file' } as const;
       }),
     realpath: (path) =>
       Effect.map(
-        Effect.suspend(() => found(tree(), path, 'realpath')),
+        Effect.suspend(() => found(tree(), path)),
         (at) => at.path,
       ),
     mkdir: (path, options) =>
       Effect.gen(function* () {
         const now = tree();
         if (!options?.recursive) {
-          const at = resolve(now, path, false);
+          const at = resolve(now, path);
           if (at._tag === 'Found') return yield* new AlreadyExists({ path });
-          if (at._tag !== 'Missing') return yield* failureOf(path, at, 'mkdir');
+          if (at._tag !== 'Missing') return yield* new NotFound({ path });
           return yield* change(path, { _tag: 'FolderMade', path: at.path });
         }
         // The deepest folder there on the way; every folder after it is new.
         const parts = partsOf(path);
         for (let depth = parts.length; depth >= 0; depth--) {
-          const at = resolve(now, join('/', ...parts.slice(0, depth)), true);
-          if (at._tag === 'Missing' || at._tag === 'NotFound') continue;
-          if (at._tag !== 'Found') return yield* failureOf(path, at, 'mkdir');
+          const at = resolve(now, join('/', ...parts.slice(0, depth)));
+          if (at._tag !== 'Found') continue;
           const whole = depth === parts.length;
           if (at.entry._tag !== 'Folder')
             return yield* whole
               ? new AlreadyExists({ path })
               : new NotFound({ path });
           if (whole) return;
-          if (at.entry.unreadable) return yield* new AccessDenied({ path });
           return yield* change(path, {
             _tag: 'FolderMade',
             path: join(at.path, ...parts.slice(depth)),
@@ -203,7 +143,7 @@ export const fileSystemOver = (
       }),
     readFile: (path) =>
       Effect.gen(function* () {
-        const { entry } = yield* found(tree(), path, 'open');
+        const { entry } = yield* found(tree(), path);
         if (entry._tag !== 'File')
           return yield* new IoError({
             path,
@@ -213,14 +153,13 @@ export const fileSystemOver = (
       }),
     writeFile: (path, data) =>
       Effect.gen(function* () {
-        const at = resolve(tree(), path, true);
+        const at = resolve(tree(), path);
         if (at._tag === 'Found' && at.entry._tag === 'Folder')
           return yield* new IoError({
             path,
             message: `EISDIR: illegal operation on a directory, open '${path}'`,
           });
-        if (at._tag !== 'Found' && at._tag !== 'Missing')
-          return yield* failureOf(path, at, 'open');
+        if (at._tag === 'NotFound') return yield* new NotFound({ path });
         yield* change(path, {
           _tag: 'FileWritten',
           path: at.path,
@@ -229,21 +168,16 @@ export const fileSystemOver = (
       }),
     remove: (path, options) =>
       Effect.gen(function* () {
-        const now = tree();
-        const at = resolve(now, path, false);
-        if (at._tag === 'Missing' || at._tag === 'NotFound') {
+        const at = resolve(tree(), path);
+        if (at._tag !== 'Found') {
           if (options?.force) return;
           return yield* new NotFound({ path });
         }
-        if (at._tag !== 'Found') return yield* failureOf(path, at, 'rm');
-        if (at.entry._tag === 'Folder') {
-          if (!options?.recursive)
-            return yield* new IoError({
-              path,
-              message: `Path is a directory: rm returned EISDIR (is a directory) ${path}`,
-            });
-          if (lockedIn(now, at.path)) return yield* new AccessDenied({ path });
-        }
+        if (at.entry._tag === 'Folder' && !options?.recursive)
+          return yield* new IoError({
+            path,
+            message: `Path is a directory: rm returned EISDIR (is a directory) ${path}`,
+          });
         yield* change(path, { _tag: 'PathRemoved', path: at.path });
       }),
   };

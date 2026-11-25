@@ -2,12 +2,10 @@ import {
   Clock,
   Context,
   Effect,
-  Exit,
-  Fiber,
   Layer,
   Option,
   Schedule,
-  Scope,
+  type Scope,
   Stream,
   SubscriptionRef,
 } from 'effect';
@@ -33,7 +31,6 @@ import { agentEdges } from './agent.js';
 import {
   type Computer,
   Computers,
-  ConnectCloud,
   inTab,
   type Stopped,
   tunnelClients,
@@ -45,13 +42,11 @@ import {
  * sharing the fake harness, and a Harness Host, Models and Speech that
  * answer plainly: a computer that comes online is listed Ready through Connect
  * Cloud's handlers; its code Plugin answers through `tunnelClients`, as Code
- * dials it, with the Release and the Connection Key checked as its tunnel
- * checks them; and once it goes offline its socket drops, and its Last
- * Seen stays, so it is Down after three Heartbeats.
+ * dials it; and once it goes offline its socket drops, and its Last Seen
+ * stays, so it is Down after three Heartbeats.
  */
 
 const RELEASE = 'a'.repeat(64);
-const ANOTHER = 'b'.repeat(64);
 const WANTED = {
   code: {
     hash: RELEASE,
@@ -82,30 +77,24 @@ const computer = (id: string, more: Partial<Computer> = {}): Computer => {
     version: '0.0.9',
     online: true,
     silentFor: null,
-    removed: false,
-    startedAt: 1,
     key: KEY,
     status: {
       _tag: 'Ready',
       url: tunnelOf(id),
       check: { _tag: 'Reachable', at: 1 },
     },
-    release: null,
     edges: Layer.merge(files, fakeGit.pipe(Layer.provide(files))),
     ...more,
   };
 };
 
-/** Computers a test changes, every stop it was told of, and the sockets each tunnel holds. */
+/** Computers a test changes, and every stop it was told of. */
 const world = Effect.gen(function* () {
   const list = yield* SubscriptionRef.make<ReadonlyArray<Computer>>([]);
   const stops: Array<readonly [string, Stopped]> = [];
-  const held = new Map<string, number>();
   const layer = Layer.succeed(Computers, {
     changes: SubscriptionRef.changes(list),
     stopped: (id, why) => Effect.sync(() => void stops.push([id, why])),
-    sockets: (id, open) => Effect.sync(() => void held.set(id, open)),
-    anotherDevice: () => Effect.void,
   });
   const set = (...computers: ReadonlyArray<Computer>) =>
     SubscriptionRef.set(list, computers);
@@ -113,7 +102,7 @@ const world = Effect.gen(function* () {
     SubscriptionRef.update(list, (all) =>
       all.map((each) => (each.id === id ? { ...each, ...more } : each)),
     );
-  return { layer, set, change, stops, held };
+  return { layer, set, change, stops };
 });
 
 /** Code's side: Connect Cloud's client, signed in as Ada, and each Connection's socket at the address it is listed at. */
@@ -121,9 +110,7 @@ const app = (computers: Layer.Layer<Computers>) =>
   Effect.gen(function* () {
     const accounts = fakeAccounts({ choose: Effect.succeed({ email: EMAIL }) });
     const middle = inTab({ wanted: WANTED }).pipe(
-      Layer.provide(
-        Layer.mergeAll(computers, ConnectCloud.deployed, agentEdges()),
-      ),
+      Layer.provide(Layer.merge(computers, agentEdges())),
       Layer.provideMerge(accounts),
     );
     const built = yield* Layer.build(middle);
@@ -252,67 +239,6 @@ describe('Connect in a tab', () => {
       }),
     ));
 
-  it("closes a socket asking for a Release the computer doesn't run, or offering another key, as its tunnel does", () =>
-    run(
-      Effect.gen(function* () {
-        const { layer, set, change } = yield* world;
-        const { cloud, clients, on, built } = yield* app(layer);
-        yield* set(computer('laptop', { release: ANOTHER }));
-        const mismatch = yield* Effect.forkScoped(
-          clients.mismatch('laptop').pipe(
-            Stream.filter((each) => each !== null),
-            Stream.runHead,
-          ),
-        );
-        const harnesses = Effect.flatMap(CodeClient, (api) => api.harnesses());
-        const answered = yield* Effect.forkScoped(on('laptop', harnesses));
-        expect(yield* Fiber.join(mismatch)).toEqual(
-          Option.some({ running: ANOTHER }),
-        );
-
-        // Once it runs the Release Connect Cloud names, the call waiting is answered.
-        yield* change('laptop', { release: null });
-        expect(
-          (yield* Fiber.join(answered)).map(({ account }) => account),
-        ).toEqual(['claude', 'codex']);
-
-        // Its key rotated: the socket open stays open, and a new one
-        // offering the old key is closed KEY_EXPIRED.
-        yield* change('laptop', { key: 'n'.repeat(32) });
-        yield* eventually(async () => {
-          const [laptop] = await Effect.runPromise(cloud.List({}));
-          expect(laptop?.key).toBe('n'.repeat(32));
-        });
-        expect(yield* on('laptop', harnesses)).toHaveLength(2);
-        const stale = Context.get(
-          yield* Layer.build(
-            tunnelClients.pipe(
-              Layer.provide(
-                Layer.succeed(ConnectionAddress, {
-                  of: () =>
-                    Effect.succeed({
-                      url: `wss://laptop.computers.fake${pluginPath('code', RELEASE)}`,
-                      key: KEY,
-                    }),
-                }),
-              ),
-              Layer.provide(Layer.succeedContext(built)),
-            ),
-          ),
-          CodeClients,
-        );
-        const expired = yield* Effect.forkScoped(
-          stale.expired('laptop').pipe(Stream.filter(Boolean), Stream.runHead),
-        );
-        yield* Effect.forkScoped(
-          CodeClients.on('laptop', harnesses).pipe(
-            Effect.provideService(CodeClients, stale),
-          ),
-        );
-        expect(yield* Fiber.join(expired)).toEqual(Option.some(true));
-      }),
-    ));
-
   it('drops its socket once it goes offline, and links again once it is back', () =>
     run(
       Effect.gen(function* () {
@@ -339,47 +265,6 @@ describe('Connect in a tab', () => {
       }),
     ));
 
-  it('tells how many sockets each tunnel holds: one per client open, none once closed or offline', () =>
-    run(
-      Effect.gen(function* () {
-        const { layer, set, change, held } = yield* world;
-        const { on, built } = yield* app(layer);
-        yield* set(computer('laptop'));
-        const harnesses = Effect.flatMap(CodeClient, (api) => api.harnesses());
-        yield* on('laptop', harnesses);
-        yield* eventually(() => expect(held.get('laptop')).toBe(1));
-
-        // A second client's socket, closed with its Scope.
-        const second = yield* Scope.make();
-        const clients = Context.get(
-          yield* Layer.build(
-            tunnelClients.pipe(
-              Layer.provide(
-                Layer.succeed(ConnectionAddress, {
-                  of: () =>
-                    Effect.succeed({
-                      url: `wss://laptop.computers.fake${pluginPath('code', RELEASE)}`,
-                      key: KEY,
-                    }),
-                }),
-              ),
-              Layer.provide(Layer.succeedContext(built)),
-            ),
-          ).pipe(Scope.provide(second)),
-          CodeClients,
-        );
-        yield* CodeClients.on('laptop', harnesses).pipe(
-          Effect.provideService(CodeClients, clients),
-        );
-        yield* eventually(() => expect(held.get('laptop')).toBe(2));
-        yield* Scope.close(second, Exit.void);
-        yield* eventually(() => expect(held.get('laptop')).toBe(1));
-
-        yield* change('laptop', { online: false });
-        yield* eventually(() => expect(held.get('laptop')).toBe(0));
-      }),
-    ));
-
   it('keeps a computer reporting while nobody is signed in in the tab: its ke-connect signs as itself', () =>
     run(
       Effect.gen(function* () {
@@ -387,9 +272,7 @@ describe('Connect in a tab', () => {
         // The tab starts with nobody signed in.
         const built = yield* Layer.build(
           inTab({ wanted: WANTED }).pipe(
-            Layer.provide(
-              Layer.mergeAll(layer, ConnectCloud.deployed, agentEdges()),
-            ),
+            Layer.provide(Layer.merge(layer, agentEdges())),
             Layer.provideMerge(
               fakeAccounts({ choose: Effect.succeed({ email: EMAIL }) }),
             ),
@@ -450,7 +333,7 @@ describe('Connect in a tab', () => {
       }).pipe(Effect.provide(TestClock.layer())),
     ));
 
-  it('stops a computer Connect Cloud forgot, until it starts again, and says so', () =>
+  it('stops a computer Connect Cloud forgot, until it comes online again, and says so', () =>
     run(
       Effect.gen(function* () {
         const { layer, set, change, stops } = yield* world;
@@ -461,16 +344,17 @@ describe('Connect in a tab', () => {
         });
         yield* cloud.Forget({ id: 'laptop' });
         expect(yield* cloud.List({})).toEqual([]);
-        // Its next Report is refused: it signs out and stops.
-        yield* change('laptop', { key: 'n'.repeat(32) });
+        // Its next Report, sent at once on a change, is refused: it signs out and stops.
+        yield* change('laptop', { name: 'laptop (renamed)' });
         yield* eventually(() =>
           expect(stops).toEqual([['laptop', { _tag: 'Forgotten' }]]),
         );
         expect(yield* cloud.List({})).toEqual([]);
 
-        // Started again, it reports again, and is refused again: a
+        // Offline and back, it reports again, and is refused again: a
         // forgotten Connection stays forgotten.
-        yield* change('laptop', { startedAt: 2 });
+        yield* change('laptop', { online: false });
+        yield* change('laptop', { online: true });
         yield* eventually(() => expect(stops).toHaveLength(2));
         expect(yield* cloud.List({})).toEqual([]);
       }),
