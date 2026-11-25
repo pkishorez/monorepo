@@ -80,6 +80,10 @@
     {
       "hash": "38d33eea888a92f3a2100a5d1ba161a6242e15c77a4d2192a2d634d9b081216c",
       "summary": "The code Plugin on std-toolkit keeping each table's snapshot inside the table: checked at setup against the table itself, an unchanged table on one read"
+    },
+    {
+      "hash": "f244b609d273f3e2b30c9ed376cf47631825d83cfeaea2063992168a39e2fbcc",
+      "summary": "Built with vite-plus 1.8.0"
     }
   ]
 }
