@@ -8,9 +8,8 @@ import { browserOver } from './serve.js';
  * The Sign-in fake: the Auth Worker and the identity provider behind it,
  * as one browser sees them, as a Fake the Fake World runs. Its Actor
  * starts blank, nobody signed in; its Controls answer a sign-in (as
- * someone, or nobody), make the next one fail, act from another tab (sign
- * out, switch, add an Account), and take the Auth Worker out of reach and
- * back; `serve` gives the browser's Accounts, the real client over it.
+ * someone, or nobody); `serve` gives the browser's Accounts, the real
+ * client over it.
  *
  * `serve` takes no options: an app that keeps its Accounts last signed in
  * (`cache`), or names where a sign-in comes back to (`returnTo`), serves it
@@ -43,7 +42,6 @@ export {
   SIGN_IN_CONTROLS,
   SIGNED_IN_AS,
   SignInFake,
-  type Reach,
   type SignInAnswer,
   type SignInMessage,
   type SignInModel,

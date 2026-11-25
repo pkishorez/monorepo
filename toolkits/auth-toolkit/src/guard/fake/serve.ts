@@ -1,4 +1,4 @@
-import { Effect, Layer, Stream } from 'effect';
+import { Effect, Layer } from 'effect';
 import type { Runtime } from '@kestack/kabuki';
 import { bearer } from '../authz/middleware/index.js';
 import {
@@ -7,14 +7,12 @@ import {
   type AccountsLayer,
   type AccountsState,
   AuthWorkerRejected,
-  AuthWorkerUnavailable,
   type SignInOptions,
 } from '../client/accounts/index.js';
 import { type CacheStorage, makeCache } from '../client/browser/index.js';
 import {
   acting,
   makeAccounts,
-  type Peers,
   type Snapshot,
   signing,
   type Source,
@@ -28,16 +26,11 @@ import { fakeToken } from './token.js';
  * (auth-toolkit's engine, its cache, its signing) with the fake as its
  * Auth Worker, as `client/browser`'s `browser` runs over the real one.
  *
- * 1. Reach    every call to the Auth Worker waits while it is slow and
- *             fails AuthWorkerUnavailable while it is out of reach.
- * 2. Source   who is signed in is the fake's Model; a switch or sign-out
- *             asked here is a Message to it. A sign-in is a `SignInAsked`
- *             that waits for its answer in the Model: signed in, it comes
- *             back where the real one would (the page leaves for its
- *             `returnTo`, unless it is there already); nobody leaves it as
- *             it was; a failure fails AuthWorkerRejected, saying why.
- * 3. Tabs     a change the fake counts as from another tab is handed to
- *             the engine as another tab's BroadcastChannel would.
+ * Who is signed in is the fake's Model; a switch or sign-out asked here is
+ * a Message to it. A sign-in is a `SignInAsked` that waits for its answer
+ * in the Model: signed in, it comes back where the real one would (the
+ * page leaves for its `returnTo`, unless it is there already); nobody
+ * leaves it as it was; a failure fails AuthWorkerRejected, saying why.
  *
  * Every guarded call carries the Active Account's fake token, which
  * `fakeGuard` reads.
@@ -96,33 +89,15 @@ export const browserOver = (
       const send = (message: SignInMessage) =>
         Effect.sync(() => void root.send(message));
 
-      // 1. Reach
-      const reach = Effect.orDie(
-        root.until(({ model }) => model.authWorker !== 'Slow'),
-      ).pipe(
-        Effect.flatMap(({ model }) =>
-          model.authWorker === 'OutOfReach'
-            ? Effect.fail(
-                new AuthWorkerUnavailable({
-                  url: FAKE_AUTH_WORKER,
-                  kind: 'unreachable',
-                }),
-              )
-            : Effect.void,
-        ),
-      );
-
-      // 2. Source
-      const read = Effect.map(reach, () => snapshotOf(root.model));
+      const read = Effect.sync(() => snapshotOf(root.model));
       const told = (message: SignInMessage) =>
-        reach.pipe(Effect.andThen(send(message)), Effect.andThen(read));
+        send(message).pipe(Effect.andThen(read));
 
       const signIn = (options: SignInOptions, state: AccountsState) =>
         Effect.suspend(() => {
           const id = `sign-in-${page}-${++asked}`;
           const adding = state._tag === 'SignedIn';
           return Effect.gen(function* () {
-            yield* reach;
             if (adding && state.accounts.length >= maxAccounts)
               return yield* new AccountLimitReached({ limit: maxAccounts });
             yield* send({ _tag: 'SignInAsked', id, adding });
@@ -170,23 +145,6 @@ export const browserOver = (
         signOutAll: told({ _tag: 'SignedOutAllHere' }),
       };
 
-      // 3. Tabs
-      const connect = (peers: Peers) =>
-        Effect.gen(function* () {
-          let seen = root.model.elsewhere;
-          yield* Effect.forkScoped(
-            Stream.runForEach(runtime.changes, () =>
-              Effect.suspend(() => {
-                const { model } = root;
-                if (model.elsewhere === seen) return Effect.void;
-                seen = model.elsewhere;
-                return peers.apply(snapshotOf(model));
-              }),
-            ),
-          );
-          return { announce: () => Effect.void };
-        });
-
       const remembered = cache
         ? yield* makeCache.pipe(Effect.provide(cache))
         : { last: Effect.succeed(null), keep: () => Effect.void };
@@ -195,7 +153,6 @@ export const browserOver = (
         last: yield* remembered.last,
         checkOnStart: true,
         keep: remembered.keep,
-        connect,
       });
 
       const signature = made.accounts.current.pipe(
