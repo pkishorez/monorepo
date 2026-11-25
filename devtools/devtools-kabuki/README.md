@@ -334,7 +334,7 @@ await FakeWorld.beforeStart();
 const fakes = [computers] satisfies ReadonlyArray<Fake>;
 export const world = FakeWorld.make(fakes, { saved: FakeWorld.indexedDb() });
 
-// Layer<Computers | ConnectCloud>
+// Layer<Computers>
 export const edges = world.layer;
 
 // Anywhere in the app's React tree, once.

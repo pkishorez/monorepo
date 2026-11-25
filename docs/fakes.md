@@ -1,9 +1,8 @@
 # Fakes
 
 How an app runs whole in a browser tab, its outside world faked. Code
-(`apps/code`) is the first app to do so; the plan it was built from is
-[`apps/code/docs/fake-mode-plan.md`](../apps/code/docs/fake-mode-plan.md),
-and why there are only two modes is [ADR 0015](adr/0015-two-modes-real-and-fake.md).
+(`apps/code`) is the first app to do so; why there are only two modes is
+[ADR 0015](adr/0015-two-modes-real-and-fake.md).
 
 ## The model
 
@@ -60,19 +59,18 @@ export const microphone = {
 - `serve` takes the running Actor (`root`, `snapshot`, `changes`, `send`)
   and is built in the Fake World's Scope.
 - `kept` drops what dies with the page, as it dies with a computer's
-  restart: running replies, open recordings, a Release that would make the
-  app reload again.
+  restart: running replies, open recordings, a download under way.
 
 ## Where the Fakes live
 
-| Fake       | Export                             | Edges                                                                    |
-| ---------- | ---------------------------------- | ------------------------------------------------------------------------ |
-| Sign-in    | `@kestack/auth-toolkit/fake`       | `Accounts` (a Fake Account per email)                                    |
-| Computers  | `@kestack/connect/fake`            | `Computers`, `ConnectCloud` (each computer with its File System and Git) |
-| Agent      | `@kestack/ai-toolkit/harness/fake` | `Harnesses`, `OneShotPrompt`, `HarnessHost`, `Models`                    |
-| Speech     | `@kestack/ai-toolkit/speech/fake`  | `Speech`                                                                 |
-| New build  | `@kestack/web-platform/pwa/fake`   | `OnOutdated`                                                             |
-| Microphone | Code's `voice/recorder/fake/`      | `Recorder`                                                               |
+| Fake       | Export                             | Edges                                                    |
+| ---------- | ---------------------------------- | -------------------------------------------------------- |
+| Sign-in    | `@kestack/auth-toolkit/fake`       | `Accounts` (a Fake Account per email)                    |
+| Computers  | `@kestack/connect/fake`            | `Computers` (each computer with its File System and Git) |
+| Agent      | `@kestack/ai-toolkit/harness/fake` | `Harnesses`, `OneShotPrompt`, `HarnessHost`, `Models`    |
+| Speech     | `@kestack/ai-toolkit/speech/fake`  | `Speech`                                                 |
+| New build  | `@kestack/web-platform/pwa/fake`   | `OnOutdated`                                             |
+| Microphone | Code's `voice/recorder/fake/`      | `Recorder`                                               |
 
 The Fake World and the bubble are `@kestack/devtools-kabuki/fake`;
 `@kestack/connect/browser` runs the Middle in the tab (`inTab`) over them.
@@ -119,7 +117,15 @@ pnpm --filter code dev:connect   # real mode: this branch's Connect, signed in t
 ```
 
 In fake mode, sign in with the bubble's Sign-in "Sign in as", then add a
-computer with Computers "Add computer", signed in as the same email. The
-walk in `apps/code/scripts/fake-walk/` drives the app and the bubble in
-headless Chromium; what fake mode cannot reach is listed under Limits in
-[`apps/code/docs/fake-mode-checklist.md`](../apps/code/docs/fake-mode-checklist.md).
+computer with Computers "Add computer", signed in as the same email.
+
+## Limits
+
+- **One tab.** Each tab runs its own Middle over the same IndexedDB, so
+  fake mode is one tab at a time.
+- **A reload restarts every computer.** The tab is every computer's
+  `ke-connect`, so a reload starts each one again.
+- **No install or offline App Shell.** A dev build has no service worker;
+  the New build fake stands in for the update flow only.
+- **One Release.** Both sides run the same build, so version gaps between
+  Code and a Connection cannot be shown.
