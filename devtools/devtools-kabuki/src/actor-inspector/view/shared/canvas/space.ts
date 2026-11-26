@@ -28,6 +28,48 @@ export const CARD_SPRING = {
   bounce: 0,
 } as const;
 
+const HELD_BY_ITSELF =
+  'input, textarea, select, [contenteditable="true"], [data-space-ignore]';
+
+const scrolls = (style: string) => style === 'auto' || style === 'scroll';
+
+const scrollerOf = (
+  from: Element,
+  until: Element,
+  event: {
+    readonly deltaX: number;
+    readonly deltaY: number;
+    readonly shiftKey: boolean;
+  },
+): boolean => {
+  const sideways = event.shiftKey && event.deltaX === 0;
+  const wheel = sideways
+    ? { deltaX: event.deltaY, deltaY: 0 }
+    : { deltaX: event.deltaX, deltaY: event.deltaY };
+  for (
+    let box: Element | null = from;
+    box !== null && box !== until;
+    box = box.parentElement
+  ) {
+    if (!(box instanceof HTMLElement)) continue;
+    const style = getComputedStyle(box);
+    const down =
+      wheel.deltaY !== 0 &&
+      scrolls(style.overflowY) &&
+      (wheel.deltaY < 0
+        ? box.scrollTop > 0
+        : box.scrollTop + box.clientHeight < box.scrollHeight - 1);
+    const across =
+      wheel.deltaX !== 0 &&
+      scrolls(style.overflowX) &&
+      (wheel.deltaX < 0
+        ? box.scrollLeft > 0
+        : box.scrollLeft + box.clientWidth < box.scrollWidth - 1);
+    if (down || across) return true;
+  }
+  return false;
+};
+
 const clampZoom = (zoom: number) =>
   Math.min(LIMITS.max, Math.max(LIMITS.min, zoom));
 
@@ -142,33 +184,25 @@ export function useSpace(): Space {
     observer.observe(element);
 
     const onWheel = (event: WheelEvent) => {
-      const inner = (event.target as Element).closest<HTMLElement>(
-        '[data-space-scroll]',
-      );
-      if (
-        inner &&
-        !event.ctrlKey &&
-        !event.metaKey &&
-        (event.deltaY < 0
-          ? inner.scrollTop > 0
-          : inner.scrollTop + inner.clientHeight < inner.scrollHeight - 1)
-      )
+      const zooming = event.ctrlKey || event.metaKey;
+      if (!zooming && scrollerOf(event.target as Element, element, event))
         return;
       event.preventDefault();
+      if (!zooming) return;
       const lines = event.deltaMode === 1 ? 16 : 1;
-      const at = local(event.clientX, event.clientY);
-      if (event.shiftKey) {
-        const camera = now();
-        byHand({
-          ...camera,
-          x: camera.x - (event.deltaX || event.deltaY) * lines,
-        });
-        return;
-      }
-
-      const pinch = event.ctrlKey || event.metaKey;
+      const pinch =
+        event.ctrlKey &&
+        !event.metaKey &&
+        event.deltaMode === 0 &&
+        Math.abs(event.deltaY) < 50;
       const delta = Math.max(-60, Math.min(60, event.deltaY * lines));
-      byHand(zoomAt(now(), at, Math.exp(-delta * (pinch ? 0.01 : 0.0025))));
+      byHand(
+        zoomAt(
+          now(),
+          local(event.clientX, event.clientY),
+          Math.exp(-delta * (pinch ? 0.01 : 0.0025)),
+        ),
+      );
     };
     let scale = 1;
     const onGestureStart = (event: Event) => {
@@ -208,7 +242,7 @@ export function useSpace(): Space {
     };
     const onDown = (event: PointerEvent) => {
       if (event.pointerType === 'mouse' && event.button !== 0) return;
-      if ((event.target as Element).closest('[data-space-ignore]')) return;
+      if ((event.target as Element).closest(HELD_BY_ITSELF)) return;
       down.set(event.pointerId, { x: event.clientX, y: event.clientY });
       if (down.size === 1) moved = false;
       last = spread();

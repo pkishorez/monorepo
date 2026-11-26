@@ -4,7 +4,6 @@ import type { Card, Mode, Part, Use } from '../../../logic/shared/index.ts';
 export interface Carded {
   readonly card: Card;
   readonly mode: Mode;
-  readonly services: boolean;
   readonly focus: Part | undefined;
   readonly uses: ReadonlyArray<Use>;
   readonly onChild: (slot: string) => void;

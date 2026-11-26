@@ -1,4 +1,4 @@
-import type { Card, Part, Use } from '../index.ts';
+import type { Card, Use } from '../index.ts';
 
 export const allOf = (card: Card): ReadonlyArray<Card> => [
   card,
@@ -82,18 +82,8 @@ export const givesOf = (card: Card): ReadonlyArray<string> => [
 export const needsOf = (uses: ReadonlyArray<Use>): ReadonlyArray<string> =>
   uses.filter((use) => use.from !== null).map(({ name }) => name);
 
-export const shownServicesOf = (
-  uses: ReadonlyArray<Use>,
-  services: boolean,
-  focus: Part | undefined,
-): ReadonlyArray<string> =>
-  uses
-    .filter(
-      (use) =>
-        use.from === null &&
-        (services || (focus?.kind === 'requires' && focus.name === use.name)),
-    )
-    .map(({ name }) => name);
+export const servicesOf = (uses: ReadonlyArray<Use>): ReadonlyArray<string> =>
+  uses.filter((use) => use.from === null).map(({ name }) => name);
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

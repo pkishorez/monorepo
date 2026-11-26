@@ -5,7 +5,7 @@ export {
   pathTo,
   providerOf,
   readableKey,
-  shownServicesOf,
+  servicesOf,
   usersOf,
   usesOf,
   wayOf,

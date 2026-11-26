@@ -64,7 +64,7 @@ export interface CardLevel {
 
 export type Kind = 'added' | 'changed';
 
-export type Mode = 'blueprint' | 'active' | 'all';
+export type Mode = 'blueprint' | 'live';
 
 export type Part =
   | { readonly kind: 'state'; readonly name: string }

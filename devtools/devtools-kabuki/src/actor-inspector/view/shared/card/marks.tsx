@@ -124,12 +124,9 @@ export function Json({
   readonly lines?: number;
 }) {
   if (typeof value !== 'object' || value === null)
-    return <span className="font-mono text-xs">{brief(value)}</span>;
+    return <span className="font-mono text-[13px]">{brief(value)}</span>;
   return (
-    <div
-      data-space-scroll
-      className="max-h-72 overflow-auto pr-1 [&_.w-rjv]:!text-[12px] [&_.w-rjv]:!leading-[1.55]"
-    >
+    <div className="max-h-72 overflow-auto overscroll-contain pr-1 [&_.w-rjv]:!text-[13px] [&_.w-rjv]:!leading-[1.6]">
       <JsonTree
         value={value}
         collapsed={depthFor(value, lines)}

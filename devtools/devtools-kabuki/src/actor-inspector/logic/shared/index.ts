@@ -39,7 +39,7 @@ export {
   readableKey,
   schemaJson,
   sectionOfPart,
-  shownServicesOf,
+  servicesOf,
   tabsOf,
   textOf,
   tookChanged,

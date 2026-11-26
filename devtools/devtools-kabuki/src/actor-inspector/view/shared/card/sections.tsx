@@ -15,7 +15,7 @@ import {
   needsOf,
   schemaJson,
   sectionOfPart,
-  shownServicesOf,
+  servicesOf,
   textOf,
   tookChanged,
 } from '../../../logic/shared/index.ts';
@@ -140,14 +140,25 @@ function StateFields({
     <section className="flex flex-col gap-1">
       <Label>Holds</Label>
       <ul className="flex flex-col font-mono text-[11px]">
-        {fields.map(({ name, shape }) => (
-          <li key={name} className="flex min-w-0 gap-2 px-1 py-0.5">
-            <span className="shrink-0">{name}</span>
-            <span className="truncate text-muted-foreground">
-              {now ? brief(now[name]) : textOf(shape)}
-            </span>
-          </li>
-        ))}
+        {fields.map(({ name, shape }) => {
+          const value = now?.[name];
+          return now && typeof value === 'object' && value !== null ? (
+            <li
+              key={name}
+              className="flex min-w-0 flex-col gap-0.5 px-1 py-0.5"
+            >
+              <span className="shrink-0">{name}</span>
+              <Json value={value} lines={6} />
+            </li>
+          ) : (
+            <li key={name} className="flex min-w-0 gap-2 px-1 py-0.5">
+              <span className="shrink-0">{name}</span>
+              <span className="truncate text-muted-foreground">
+                {now ? brief(value) : textOf(shape)}
+              </span>
+            </li>
+          );
+        })}
       </ul>
     </section>
   );
@@ -365,9 +376,21 @@ const firstOpen = (card: Card, mode: Mode, focus: Part | undefined) => {
   return new Set(first === undefined ? [] : [first]);
 };
 
-export function Sections({ opened }: { readonly opened?: Data }) {
-  const { card, mode, services, focus, uses, onChild, onCapability } =
-    useCard();
+export interface MoreSection {
+  readonly key: string;
+  readonly title: string;
+  readonly folded: ReactNode;
+  readonly body: ReactNode;
+}
+
+export function Sections({
+  opened,
+  more = [],
+}: {
+  readonly opened?: Data;
+  readonly more?: ReadonlyArray<MoreSection>;
+}) {
+  const { card, mode, focus, uses, onChild, onCapability } = useCard();
   const levels = levelsOf(card);
   const current = card.state;
   const [open, setOpen] = useState<ReadonlySet<string>>(() =>
@@ -394,11 +417,8 @@ export function Sections({ opened }: { readonly opened?: Data }) {
   const { model, props } = card.print;
   const gives = givesOf(card);
   const needs = needsOf(uses);
-  const shownServices = shownServicesOf(uses, services, focus);
-  const states =
-    mode === 'active' && current
-      ? levels.states.filter((level) => level.key === current)
-      : levels.states;
+  const shownServices = servicesOf(uses);
+  const states = levels.states;
   const live = mode !== 'blueprint';
 
   const fold = (
@@ -411,6 +431,7 @@ export function Sections({ opened }: { readonly opened?: Data }) {
       readonly kind?: Kind | undefined;
       readonly active?: boolean;
       readonly empty?: boolean;
+      readonly kept?: boolean;
     } = {},
   ) => {
     const shown = open.has(key) && !options.empty;
@@ -445,7 +466,7 @@ export function Sections({ opened }: { readonly opened?: Data }) {
             {folded}
           </span>
         </button>
-        {shown && body}
+        {options.kept ? <div hidden={!shown}>{body}</div> : shown && body}
       </li>
     );
   };
@@ -534,7 +555,7 @@ export function Sections({ opened }: { readonly opened?: Data }) {
                   onChild={onChild}
                 />,
                 {
-                  dim: mode === 'all' && level.key !== current,
+                  dim: live && level.key !== current,
                   kind: here ? kindsOf(level, card, live).all : undefined,
                   active: here,
                   empty: isEmpty(level, card),
@@ -605,6 +626,15 @@ export function Sections({ opened }: { readonly opened?: Data }) {
             )}
           </div>,
         )}
+      {more.map((section) =>
+        fold(
+          `more:${section.key}`,
+          <span className="shrink-0 text-xs font-medium">{section.title}</span>,
+          section.folded,
+          <div className="pt-1 pb-2 pl-5">{section.body}</div>,
+          { kept: true },
+        ),
+      )}
     </ul>
   );
 }

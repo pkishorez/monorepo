@@ -1,7 +1,7 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { flushSync } from 'react-dom';
-import { LayersIcon, MailIcon, PlugIcon, XIcon } from 'lucide-react';
+import { MailIcon, XIcon } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import {
@@ -42,36 +42,6 @@ export const DASH: Record<Condition, string | undefined> = {
 export const smallOf = (card: Card) =>
   card.key === undefined ? SMALL : SMALL_KEYED;
 
-function Switch({
-  on,
-  onChange,
-  name,
-  children,
-}: {
-  readonly on: boolean;
-  readonly onChange: (on: boolean) => void;
-  readonly name: string;
-  readonly children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={on}
-      aria-label={name}
-      title={name}
-      onClick={() => onChange(!on)}
-      className={cn(
-        'flex size-7 shrink-0 items-center justify-center rounded-md border outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none [&_svg]:size-3.5',
-        on
-          ? 'border-foreground/20 bg-background text-foreground'
-          : 'border-transparent text-muted-foreground hover:bg-background/70 hover:text-foreground',
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
 const placeOf = (card: Card) =>
   [
     card.print.actor !== card.name ? card.print.actor : undefined,
@@ -83,21 +53,11 @@ const placeOf = (card: Card) =>
 
 function Head({
   card,
-  all,
-  onAll,
-  services,
-  onServices,
   onClose,
 }: {
   readonly card: Card;
-  readonly all: boolean;
-  readonly onAll: (all: boolean) => void;
-  readonly services: boolean | undefined;
-  readonly onServices: (services: boolean) => void;
   readonly onClose: () => void;
 }) {
-  const others =
-    card.state !== null && Object.keys(card.print.states).length > 1;
   const where = placeOf(card);
   return (
     <div
@@ -128,24 +88,6 @@ function Head({
         <span title={`In the State ${card.state}`} className="flex shrink-0">
           <Tag>{card.state}</Tag>
         </span>
-      )}
-      {(others || services !== undefined) && (
-        <div className="flex shrink-0 items-center gap-0.5">
-          {others && (
-            <Switch on={all} onChange={onAll} name="Show all its States">
-              <LayersIcon aria-hidden />
-            </Switch>
-          )}
-          {services !== undefined && (
-            <Switch
-              on={services}
-              onChange={onServices}
-              name="Show its Services"
-            >
-              <PlugIcon aria-hidden />
-            </Switch>
-          )}
-        </div>
       )}
       <button
         type="button"
@@ -243,9 +185,7 @@ export function CardNode({
   readonly onMeasure: (id: string, height: number) => void;
 }) {
   const { card } = placed;
-  const [all, setAll] = useState(false);
-  const [services, setServices] = useState(false);
-  const mode: Mode = card.state === null ? 'blueprint' : all ? 'all' : 'active';
+  const mode: Mode = card.state === null ? 'blueprint' : 'live';
   const box = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     if (open && box.current) onMeasure(card.id, box.current.offsetHeight);
@@ -264,13 +204,12 @@ export function CardNode({
     (): Carded => ({
       card,
       mode,
-      services,
       focus,
       uses,
       onChild: (slot) => onChild(card.id, slot),
       onCapability: (name, side) => onCapability(card.id, name, side),
     }),
-    [card, mode, services, focus, uses, onChild, onCapability],
+    [card, mode, focus, uses, onChild, onCapability],
   );
   return (
     <motion.div
@@ -345,16 +284,7 @@ export function CardNode({
         <div ref={box}>
           {open ? (
             <>
-              <Head
-                card={card}
-                all={all}
-                onAll={setAll}
-                services={
-                  uses.some((use) => use.from === null) ? services : undefined
-                }
-                onServices={setServices}
-                onClose={() => onOpen(card.id, false)}
-              />
+              <Head card={card} onClose={() => onOpen(card.id, false)} />
               <div className="px-2 pt-2 pb-1">
                 <CardContext.Provider value={carded}>
                   {body ?? <Sections />}

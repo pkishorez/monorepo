@@ -20,8 +20,9 @@ function Said({ outcome }: { readonly outcome: Outcome }) {
   return (
     <p
       role="status"
+      data-space-ignore
       className={cn(
-        'text-[11px]',
+        'select-text text-[11px]',
         outcome.said === 'handled' || outcome.said === 'queued'
           ? 'text-running'
           : outcome.said === 'ignored'
@@ -62,7 +63,10 @@ function Form({
       className="flex flex-col gap-2 pt-1 pb-3 pl-5"
     >
       {action.description && (
-        <p className="text-[11px] text-muted-foreground">
+        <p
+          data-space-ignore
+          className="select-text text-[11px] text-muted-foreground"
+        >
           {action.description}
         </p>
       )}
@@ -96,91 +100,87 @@ function Form({
   );
 }
 
+export const foldedOf = (
+  actions: ReadonlyArray<Action>,
+  outcome: Outcome | null,
+) =>
+  outcome
+    ? `${outcome.tag} ${outcome.said}`
+    : `${actions.length} ${actions.length === 1 ? 'message' : 'messages'}`;
+
+export function PastStep({ onNow }: { readonly onNow: () => void }) {
+  return (
+    <div className="flex items-center gap-2 px-1 pb-2">
+      <p className="text-[11px] text-muted-foreground">
+        The app shows a past Step.
+      </p>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={onNow}
+        className="ml-auto h-7 rounded-full text-xs"
+      >
+        Go back to now
+      </Button>
+    </div>
+  );
+}
+
 export function Actions({
   actions,
-  past,
   sending,
   outcome,
   onSend,
   onEdit,
-  onNow,
 }: {
   readonly actions: ReadonlyArray<Action>;
-  readonly past: boolean;
   readonly sending: string | null;
   readonly outcome: Outcome | null;
   readonly onSend: (tag: string, message: unknown) => void;
   readonly onEdit: (tag: string) => void;
-  readonly onNow: () => void;
 }) {
   const [open, setOpen] = useState<string | null>(null);
-  if (actions.length === 0) return null;
   return (
-    <section
-      data-space-ignore
-      aria-label="Actions"
-      className="mt-1 flex cursor-auto flex-col gap-0.5 border-t border-border pt-2 pb-1 select-text"
-    >
-      <h4 className="px-1 pb-0.5 text-[10px] font-medium tracking-wider text-muted-foreground uppercase">
-        Actions
-      </h4>
-      {past ? (
-        <div className="flex items-center gap-2 px-1 pb-2">
-          <p className="text-[11px] text-muted-foreground">
-            The app shows a past Step.
-          </p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onNow}
-            className="ml-auto h-7 rounded-full text-xs"
-          >
-            Go back to now
-          </Button>
-        </div>
-      ) : (
-        <ul className="flex flex-col gap-0.5">
-          {actions.map((action) => {
-            const shown = open === action.tag;
-            return (
-              <li key={action.tag}>
-                <button
-                  type="button"
-                  aria-expanded={shown}
-                  onClick={() => setOpen(shown ? null : action.tag)}
-                  className="flex min-h-8 w-full min-w-0 items-center gap-2 rounded-md py-1 pr-2 pl-1 text-left outline-none transition-colors duration-150 hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
-                >
-                  <ChevronRightIcon
-                    aria-hidden
-                    className={cn(
-                      'size-3.5 shrink-0 text-muted-foreground transition-transform duration-150 motion-reduce:transition-none',
-                      shown && 'rotate-90',
-                    )}
-                  />
-                  <span className="min-w-0 truncate font-mono text-xs">
-                    {action.tag}
-                  </span>
-                  {outcome?.tag === action.tag && !shown && (
-                    <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">
-                      {outcome.said}
-                    </span>
-                  )}
-                </button>
-                {shown && (
-                  <Form
-                    action={action}
-                    sending={sending !== null}
-                    outcome={outcome?.tag === action.tag ? outcome : undefined}
-                    onSend={(message) => onSend(action.tag, message)}
-                    onEdit={() => onEdit(action.tag)}
-                  />
+    <ul aria-label="Actions" className="flex flex-col gap-0.5">
+      {actions.map((action) => {
+        const shown = open === action.tag;
+        return (
+          <li key={action.tag}>
+            <button
+              type="button"
+              aria-expanded={shown}
+              onClick={() => setOpen(shown ? null : action.tag)}
+              className="flex min-h-8 w-full min-w-0 items-center gap-2 rounded-md py-1 pr-2 pl-1 text-left outline-none transition-colors duration-150 hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
+            >
+              <ChevronRightIcon
+                aria-hidden
+                className={cn(
+                  'size-3.5 shrink-0 text-muted-foreground transition-transform duration-150 motion-reduce:transition-none',
+                  shown && 'rotate-90',
                 )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </section>
+              />
+              <span className="min-w-0 truncate font-mono text-xs">
+                {action.tag}
+              </span>
+              {outcome?.tag === action.tag && !shown && (
+                <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">
+                  {outcome.said}
+                </span>
+              )}
+            </button>
+            {shown && (
+              <Form
+                action={action}
+                sending={sending !== null}
+                outcome={outcome?.tag === action.tag ? outcome : undefined}
+                onSend={(message) => onSend(action.tag, message)}
+                onEdit={() => onEdit(action.tag)}
+              />
+            )}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
