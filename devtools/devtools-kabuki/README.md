@@ -56,7 +56,7 @@ pnpm add @kestack/devtools-kabuki
 Peer dependencies:
 
 - `@kestack/kabuki`: the app whose History, Snapshots and FakeWorld are answered.
-- `effect` (`^4.0.0`): the calls are Effects and Streams, served as an
+- `effect` (`^4.1.5`): the calls are Effects and Streams, served as an
   Effect RPC group with Effect's socket protocol.
 - `@kestack/web-platform`, `react`, `react-dom`: what the Inspector is
   drawn with, the Dock or Dialog `KabukiDevtools` puts it in, and the Theme whose

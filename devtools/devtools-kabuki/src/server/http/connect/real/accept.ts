@@ -36,6 +36,7 @@ const clientOver = (socket: Socket.Socket) =>
   });
 
 const goingDown = (exit: Exit.Exit<unknown, unknown>) =>
+  Exit.isFailure(exit) &&
   Exit.hasInterrupts(exit) &&
   !exit.cause.reasons.some(
     (reason) =>

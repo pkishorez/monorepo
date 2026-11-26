@@ -9,7 +9,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Effect, Layer, Schema } from 'effect';
 import { RpcClient, RpcSerialization } from 'effect/rpc';
 import { Socket } from 'effect/socket';
-import { NodeSocket } from '@effect/platform-node';
+import { NodeWS } from '@effect/platform-node';
 import { Actor, Runtime } from '@kestack/kabuki';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
@@ -140,7 +140,7 @@ const pingAt = (socket: string) =>
         Layer.provide(
           Socket.layerWebSocket(`ws+unix://${socket}:${PluginPaths.rpc}`),
         ),
-        Layer.provide(NodeSocket.layerWebSocketConstructorWS),
+        Layer.provide(NodeWS.layerWebSocketConstructor),
         Layer.provide(RpcSerialization.layerJson),
       ),
     );
@@ -154,7 +154,7 @@ const controlAt = (socket: string) =>
         Layer.provide(
           Socket.layerWebSocket(`ws+unix://${socket}:${PluginPaths.control}`),
         ),
-        Layer.provide(NodeSocket.layerWebSocketConstructorWS),
+        Layer.provide(NodeWS.layerWebSocketConstructor),
         Layer.provide(RpcSerialization.layerJson),
       ),
     );

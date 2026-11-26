@@ -151,7 +151,7 @@ imports Node.
 
 ## Code rules
 
-- Effect 4 (`effect` 4.1.0 here). Child processes through
+- Effect 4 (`effect` 4.1 here). Child processes through
   `effect/unstable/process` with `@effect/platform-node`'s layer, or the
   harness's own SDK.
 - No comments (`monoverse/no-comments`). A limit set by the harness goes in

@@ -37,10 +37,10 @@
       "policy": "catalog"
     },
     {
-      "label": "Effect peers accept any Effect 4 release",
+      "label": "Effect peers accept the Effect 4.1 releases the shipped @effect packages need",
       "dependencies": ["effect"],
       "dependencyTypes": ["peer"],
-      "pinVersion": "^4.0.0"
+      "pinVersion": "^4.1.5"
     },
     {
       "label": "Vite peers accept any Vite 8 release",

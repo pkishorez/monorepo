@@ -169,11 +169,11 @@
     "vitest": "catalog:"
   },
   "peerDependencies": {
-    "@alchemy.run/cloudflare": "2.0.0-beta.84",
+    "@alchemy.run/cloudflare": "2.0.0-beta.87",
     "@kestack/auth-toolkit": "workspace:*",
     "@kestack/use-gesture": "workspace:*",
     "@kestack/use-keys": "workspace:*",
-    "effect": "^4.0.0",
+    "effect": "^4.1.5",
     "@kestack/kabuki": "workspace:*",
     "@kestack/std-toolkit": "workspace:*",
     "laymos": "workspace:*",
@@ -183,7 +183,7 @@
     "vite": "^8.0.0",
     "@tailwindcss/vite": "4.3.3",
     "@vitejs/plugin-react": "6.1.2",
-    "alchemy": "2.0.0-beta.84"
+    "alchemy": "2.0.0-beta.87"
   },
   "peerDependenciesMeta": {
     "@alchemy.run/cloudflare": {

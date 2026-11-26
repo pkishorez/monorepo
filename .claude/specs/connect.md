@@ -380,7 +380,7 @@ apps/connect/
     "@kestack/rpc-toolkit": "workspace:*",
     "@kestack/std-toolkit": "workspace:*",
     "@tanstack/db": "0.15.2",
-    "effect": "^4.0.0",
+    "effect": "^4.1.5",
   },
   "devDependencies": {
     "@alchemy.run/cloudflare": "catalog:",

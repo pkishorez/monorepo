@@ -84,13 +84,13 @@
     "drizzle-orm": "catalog:"
   },
   "peerDependencies": {
-    "@alchemy.run/cloudflare": "2.0.0-beta.84",
+    "@alchemy.run/cloudflare": "2.0.0-beta.87",
     "@kestack/kabuki": "workspace:*",
     "@kestack/rpc-toolkit": "workspace:*",
     "@kestack/std-toolkit": "workspace:*",
-    "alchemy": "2.0.0-beta.84",
+    "alchemy": "2.0.0-beta.87",
     "better-sqlite3": "13.0.3",
-    "effect": "^4.0.0",
+    "effect": "^4.1.5",
     "react": "^19.0.0"
   },
   "peerDependenciesMeta": {

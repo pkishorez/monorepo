@@ -47,7 +47,7 @@ pnpm add -D laymos
 
 Peer dependencies:
 
-- `effect` (`^4.0.0`): every library function returns an Effect, and
+- `effect` (`^4.1.5`): every library function returns an Effect, and
   Proofs are written as Effects.
 - `playwright-core` (`1.63.0`, optional): drives Chromium for browser Proofs.
   Install the browser once with `npx playwright install chromium`.

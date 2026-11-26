@@ -7,14 +7,6 @@ packages:
 
 # Hold new releases for 24 hours (in minutes) so compromised versions have time to be reported.
 minimumReleaseAge: 1440
-# TEMPORARY: alchemy 2.0.0-beta.84 is taken before it clears the hold, by
-# choice, with its provider packages (the last, @alchemy.run/sql, at
-# 2026-10-24 04:02 UTC) and the distilled 1.0.0-rc.17 they pin. Remove after
-# 2026-10-25 04:03 UTC.
-minimumReleaseAgeExclude:
-  - alchemy
-  - '@alchemy.run/*'
-  - '@distilled.cloud/*'
 
 # Refuse a version published with weaker trust than earlier versions (for
 # example without provenance): the usual sign of a stolen publish token.
@@ -32,13 +24,14 @@ trustPolicyExclude:
 overrides:
   vite: 'catalog:'
   vitest: 'catalog:'
-  # alchemy's Effect peers stay on the default catalog: @opencode/sdk brings
-  # 4.1 copies, which pnpm would otherwise pick beside effect 4.0.6.
-  'alchemy>@effect/platform-node': 'catalog:'
-  'alchemy>@effect/vitest': 'catalog:'
-  '@alchemy.run/aws>@effect/platform-node': 'catalog:'
-  '@alchemy.run/cloudflare>@effect/platform-node': 'catalog:'
-  '@alchemy.run/sql>@effect/platform-node': 'catalog:'
+  # One copy of Effect: @opencode/sdk pins effect 4.1.0 and its platform
+  # packages, which would otherwise sit beside the catalog's own.
+  effect: 'catalog:'
+  '@effect/platform-node': 'catalog:'
+  '@effect/platform-node-shared': 'catalog:'
+  # One OpenTelemetry API, so every package shares one vitest: @opencode/sdk
+  # pins 1.9.0, and peers left open resolve to the newest.
+  '@opentelemetry/api': 'catalog:'
 
 peerDependencyRules:
   allowedVersions:
@@ -46,6 +39,9 @@ peerDependencyRules:
     'bun-ffi-structs>typescript': '7'
     # capnp-es, through alchemy's Cloudflare runtime, works with TypeScript 7 too.
     'capnp-es>typescript': '7'
+    # OpenCode's core pins the Claude Agent SDK it was built with; the newer
+    # one the catalog keeps for ai-toolkit-v2's Claude Service works with it.
+    '@opencode/core>@anthropic-ai/claude-agent-sdk': '0.3.309'
 
 # pnpm 11 requires an explicit decision for every detected dependency build script.
 # Only better-sqlite3 needs its native install step; keep every other script denied.
@@ -71,9 +67,9 @@ catalog:
   '@better-auth/oauth-provider': 1.7.12
   '@better-auth/infra': 0.4.22
   jose: 6.2.13
-  '@alchemy.run/aws': 2.0.0-beta.84
-  '@alchemy.run/cloudflare': 2.0.0-beta.84
-  '@alchemy.run/sql': 2.0.0-beta.84
+  '@alchemy.run/aws': 2.0.0-beta.87
+  '@alchemy.run/cloudflare': 2.0.0-beta.87
+  '@alchemy.run/sql': 2.0.0-beta.87
   '@base-ui/react': 1.9.0
   '@changesets/changelog-github': 1.0.1
   '@changesets/cli': 3.0.3
@@ -82,15 +78,16 @@ catalog:
   '@codemirror/lang-json': 6.0.2
   '@codemirror/state': 6.7.6
   '@codemirror/view': 6.43.15
-  '@effect/opentelemetry': 4.0.6
-  '@effect/vitest': 4.0.6
-  '@effect/platform-node': 4.0.6
-  '@effect/platform-node-shared': 4.0.6
+  '@effect/opentelemetry': 4.1.5
+  '@effect/vitest': 4.1.5
+  '@effect/platform-node': 4.1.5
+  '@effect/platform-node-shared': 4.1.5
   '@agentclientprotocol/sdk': 2.12.0
   '@fontsource-variable/inter': 5.3.0
   '@fontsource-variable/jetbrains-mono': 5.3.0
   '@fontsource/google-sans': 5.3.2
   '@mdx-js/rollup': 3.1.1
+  '@opencode/sdk': 2.4.1
   '@opentelemetry/api': 1.9.1
   '@opentelemetry/api-logs': 0.223.0
   '@opentelemetry/exporter-logs-otlp-http': 0.223.0
@@ -133,7 +130,7 @@ catalog:
   '@uiw/react-codemirror': 4.25.12
   '@uiw/react-json-view': 2.0.0-alpha.44
   '@vitejs/plugin-react': 6.1.2
-  alchemy: 2.0.0-beta.84
+  alchemy: 2.0.0-beta.87
   auth: 1.7.12
   aws4fetch: 1.0.20
   better-auth: 1.7.12
@@ -145,7 +142,7 @@ catalog:
   del-cli: 8.0.1
   drizzle-kit: 1.0.0-rc.5
   drizzle-orm: 1.0.0-rc.5
-  effect: 4.0.6
+  effect: 4.1.5
   embla-carousel-react: 8.6.0
   env-paths: 4.0.0
   fake-indexeddb: 6.2.6
@@ -187,10 +184,5 @@ catalog:
   zustand: 5.0.16
 
 catalogs:
-  effect41:
-    effect: 4.1.0
-    '@effect/platform-node': 4.1.0
-    '@effect/vitest': 4.1.0
-    '@opencode/sdk': 2.4.1
   typescript6:
     typescript: npm:@typescript/typescript6@6.0.2

@@ -28,7 +28,7 @@ pnpm add @kestack/effect-tracer
 
 Peer dependencies:
 
-- `effect` (`^4.0.0`): the recorder installs an Effect Tracer and
+- `effect` (`^4.1.5`): the recorder installs an Effect Tracer and
   Logger, and the layers are Effect Layers.
 
 ## Exports

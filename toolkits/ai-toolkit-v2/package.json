@@ -77,18 +77,18 @@
   "dependencies": {
     "@agentclientprotocol/sdk": "catalog:",
     "@anthropic-ai/claude-agent-sdk": "catalog:",
-    "@effect/platform-node": "catalog:effect41",
-    "@opencode/sdk": "catalog:effect41"
+    "@effect/platform-node": "catalog:",
+    "@opencode/sdk": "catalog:"
   },
   "peerDependencies": {
-    "effect": "^4.0.0"
+    "effect": "^4.1.5"
   },
   "devDependencies": {
-    "@effect/vitest": "catalog:effect41",
+    "@effect/vitest": "catalog:",
     "@kestack/monoverse": "workspace:*",
     "@tsconfig/node22": "catalog:",
     "@types/node": "catalog:",
-    "effect": "catalog:effect41",
+    "effect": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"
