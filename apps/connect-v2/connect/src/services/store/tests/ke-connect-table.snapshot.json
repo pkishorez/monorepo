@@ -1,0 +1,674 @@
+{
+  "logicalName": "ke-connect",
+  "topology": {
+    "primary": {
+      "pk": "pk",
+      "sk": "sk"
+    },
+    "localSecondaryIndexes": [],
+    "globalSecondaryIndexes": []
+  },
+  "entities": [
+    {
+      "name": "AuthWorker",
+      "kind": "single",
+      "schema": "AuthWorker",
+      "idField": null,
+      "primary": {
+        "pk": [],
+        "sk": []
+      },
+      "accessPatterns": []
+    },
+    {
+      "name": "Connection",
+      "kind": "single",
+      "schema": "Connection",
+      "idField": null,
+      "primary": {
+        "pk": [],
+        "sk": []
+      },
+      "accessPatterns": []
+    },
+    {
+      "name": "__snapshot",
+      "kind": "single",
+      "schema": "__snapshot",
+      "idField": null,
+      "primary": {
+        "pk": [],
+        "sk": []
+      },
+      "accessPatterns": []
+    },
+    {
+      "name": "__snapshot_entity",
+      "kind": "keyed",
+      "schema": "__snapshot_entity",
+      "idField": "name",
+      "primary": {
+        "pk": [],
+        "sk": ["name"]
+      },
+      "accessPatterns": [
+        {
+          "name": "primary",
+          "kind": "primary",
+          "pk": [],
+          "sk": ["name"]
+        }
+      ]
+    },
+    {
+      "name": "__snapshot_version",
+      "kind": "keyed",
+      "schema": "__snapshot_version",
+      "idField": "id",
+      "primary": {
+        "pk": [],
+        "sk": ["id"]
+      },
+      "accessPatterns": [
+        {
+          "name": "primary",
+          "kind": "primary",
+          "pk": [],
+          "sk": ["id"]
+        }
+      ]
+    }
+  ],
+  "schemas": [
+    {
+      "identity": "AuthWorker",
+      "kind": "struct",
+      "idField": null,
+      "versions": [
+        {
+          "version": "v1",
+          "shape": {
+            "type": "struct",
+            "fields": [
+              {
+                "name": "authWorker",
+                "type": {
+                  "type": "union",
+                  "members": [
+                    {
+                      "type": "struct",
+                      "fields": [
+                        {
+                          "name": "cloud",
+                          "type": {
+                            "type": "string"
+                          }
+                        },
+                        {
+                          "name": "url",
+                          "type": {
+                            "type": "string"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "identity": "Connection",
+      "kind": "struct",
+      "idField": null,
+      "versions": [
+        {
+          "version": "v1",
+          "shape": {
+            "type": "struct",
+            "fields": [
+              {
+                "name": "connection",
+                "type": {
+                  "type": "union",
+                  "members": [
+                    {
+                      "type": "struct",
+                      "fields": [
+                        {
+                          "name": "cloud",
+                          "type": {
+                            "type": "string"
+                          }
+                        },
+                        {
+                          "name": "id",
+                          "type": {
+                            "type": "string"
+                          }
+                        },
+                        {
+                          "name": "name",
+                          "type": {
+                            "type": "string"
+                          }
+                        },
+                        {
+                          "name": "owner",
+                          "type": {
+                            "type": "struct",
+                            "fields": [
+                              {
+                                "name": "email",
+                                "type": {
+                                  "type": "string"
+                                }
+                              },
+                              {
+                                "name": "id",
+                                "type": {
+                                  "type": "string"
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "name": "startedAt",
+                          "type": {
+                            "type": "number",
+                            "checks": [
+                              {
+                                "check": "finite"
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "identity": "__snapshot",
+      "kind": "struct",
+      "idField": null,
+      "versions": [
+        {
+          "version": "v1",
+          "shape": {
+            "type": "struct",
+            "fields": [
+              {
+                "name": "globalSecondaryIndexes",
+                "type": {
+                  "type": "array",
+                  "element": {
+                    "type": "struct",
+                    "fields": [
+                      {
+                        "name": "name",
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      {
+                        "name": "pk",
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      {
+                        "name": "sk",
+                        "type": {
+                          "type": "string"
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "name": "localSecondaryIndexes",
+                "type": {
+                  "type": "array",
+                  "element": {
+                    "type": "struct",
+                    "fields": [
+                      {
+                        "name": "name",
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      {
+                        "name": "pk",
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      {
+                        "name": "sk",
+                        "type": {
+                          "type": "string"
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "name": "logicalName",
+                "type": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "mode",
+                "type": {
+                  "type": "union",
+                  "members": [
+                    {
+                      "type": "literal",
+                      "value": "persistent"
+                    },
+                    {
+                      "type": "literal",
+                      "value": "disposable"
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "primary",
+                "type": {
+                  "type": "struct",
+                  "fields": [
+                    {
+                      "name": "pk",
+                      "type": {
+                        "type": "string"
+                      }
+                    },
+                    {
+                      "name": "sk",
+                      "type": {
+                        "type": "string"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "version": "v2",
+          "shape": {
+            "type": "struct",
+            "fields": [
+              {
+                "name": "globalSecondaryIndexes",
+                "type": {
+                  "type": "array",
+                  "element": {
+                    "type": "struct",
+                    "fields": [
+                      {
+                        "name": "name",
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      {
+                        "name": "pk",
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      {
+                        "name": "sk",
+                        "type": {
+                          "type": "string"
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "name": "hash",
+                "type": {
+                  "type": "union",
+                  "members": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "localSecondaryIndexes",
+                "type": {
+                  "type": "array",
+                  "element": {
+                    "type": "struct",
+                    "fields": [
+                      {
+                        "name": "name",
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      {
+                        "name": "pk",
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      {
+                        "name": "sk",
+                        "type": {
+                          "type": "string"
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "name": "logicalName",
+                "type": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "mode",
+                "type": {
+                  "type": "union",
+                  "members": [
+                    {
+                      "type": "literal",
+                      "value": "persistent"
+                    },
+                    {
+                      "type": "literal",
+                      "value": "disposable"
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "primary",
+                "type": {
+                  "type": "struct",
+                  "fields": [
+                    {
+                      "name": "pk",
+                      "type": {
+                        "type": "string"
+                      }
+                    },
+                    {
+                      "name": "sk",
+                      "type": {
+                        "type": "string"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "identity": "__snapshot_entity",
+      "kind": "entity",
+      "idField": "name",
+      "versions": [
+        {
+          "version": "v1",
+          "shape": {
+            "type": "struct",
+            "fields": [
+              {
+                "name": "accessPatterns",
+                "type": {
+                  "type": "array",
+                  "element": {
+                    "type": "struct",
+                    "fields": [
+                      {
+                        "name": "index",
+                        "optional": true,
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      {
+                        "name": "kind",
+                        "type": {
+                          "type": "union",
+                          "members": [
+                            {
+                              "type": "literal",
+                              "value": "primary"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "lsi"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "gsi"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "name": "name",
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      {
+                        "name": "pk",
+                        "type": {
+                          "type": "array",
+                          "element": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "name": "sk",
+                        "type": {
+                          "type": "array",
+                          "element": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "name": "idField",
+                "type": {
+                  "type": "union",
+                  "members": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "kind",
+                "type": {
+                  "type": "union",
+                  "members": [
+                    {
+                      "type": "literal",
+                      "value": "keyed"
+                    },
+                    {
+                      "type": "literal",
+                      "value": "single"
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "name",
+                "type": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "primary",
+                "type": {
+                  "type": "struct",
+                  "fields": [
+                    {
+                      "name": "pk",
+                      "type": {
+                        "type": "array",
+                        "element": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "name": "sk",
+                      "type": {
+                        "type": "array",
+                        "element": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "schema",
+                "type": {
+                  "type": "string"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "identity": "__snapshot_version",
+      "kind": "entity",
+      "idField": "id",
+      "versions": [
+        {
+          "version": "v1",
+          "shape": {
+            "type": "struct",
+            "fields": [
+              {
+                "name": "id",
+                "type": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "idField",
+                "type": {
+                  "type": "union",
+                  "members": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "kind",
+                "type": {
+                  "type": "union",
+                  "members": [
+                    {
+                      "type": "literal",
+                      "value": "struct"
+                    },
+                    {
+                      "type": "literal",
+                      "value": "value"
+                    },
+                    {
+                      "type": "literal",
+                      "value": "entity"
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "position",
+                "type": {
+                  "type": "number",
+                  "checks": [
+                    {
+                      "check": "int"
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "schema",
+                "type": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "shape",
+                "type": {
+                  "type": "unknown"
+                }
+              },
+              {
+                "name": "version",
+                "type": {
+                  "type": "string"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "_v": "v1"
+}

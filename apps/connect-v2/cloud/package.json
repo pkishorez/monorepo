@@ -1,0 +1,54 @@
+{
+  "name": "@kestack/connect-v2-cloud",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Connect Cloud v2 on a Cloudflare Worker: where each Connection reports its Heartbeat, the list of a User's Connections, and which Plugins each one runs",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    "./heartbeat": {
+      "types": "./dist/server/rpc/heartbeat/contract/index.d.ts",
+      "default": "./dist/server/rpc/heartbeat/contract/index.js"
+    },
+    "./app": {
+      "types": "./dist/server/rpc/app/contract/index.d.ts",
+      "default": "./dist/server/rpc/app/contract/index.js"
+    },
+    "./server": {
+      "types": "./dist/server/index.d.ts",
+      "default": "./dist/server/index.js"
+    },
+    "./client": {
+      "types": "./dist/client/index.d.ts",
+      "default": "./dist/client/index.js"
+    }
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "deploy": "alchemy deploy",
+    "fmt": "vp fmt",
+    "lint": "vp check && tsc --noEmit && node ../../../devtools/monoverse/src/cli/main.ts lint",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@kestack/auth-toolkit": "workspace:*",
+    "@kestack/rpc-toolkit": "workspace:*",
+    "@kestack/std-toolkit": "workspace:*",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@alchemy.run/cloudflare": "catalog:",
+    "@cloudflare/workers-types": "catalog:",
+    "@kestack/monoverse": "workspace:*",
+    "@kestack/web-platform": "workspace:*",
+    "@tsconfig/node22": "catalog:",
+    "@types/node": "catalog:",
+    "alchemy": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}
