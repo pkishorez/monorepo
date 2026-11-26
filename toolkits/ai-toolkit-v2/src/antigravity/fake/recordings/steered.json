@@ -1,0 +1,59 @@
+{
+  "steps": [
+    {
+      "update": {
+        "toolCallId": "call_1967639658102736308",
+        "kind": "execute",
+        "status": "completed",
+        "title": "sleep 5",
+        "name": "run_command",
+        "content": [
+          {
+            "content": {
+              "text": "Created At: 2026-11-26T13:49:30+05:30\nCompleted At: 2026-11-26T13:49:35+05:30\nCommand exited with code 0.\n\nNo output from the command.",
+              "type": "text"
+            },
+            "type": "content"
+          }
+        ],
+        "rawInput": {
+          "CommandLine": "sleep 5",
+          "WaitMsBeforeAsync": 6000,
+          "toolSummary": "Sleep 5 seconds"
+        },
+        "rawOutput": {
+          "output": "Created At: 2026-11-26T13:49:30+05:30\nCompleted At: 2026-11-26T13:49:35+05:30\nCommand exited with code 0.\n\nNo output from the command.",
+          "exit_code": 0
+        },
+        "sessionUpdate": "tool_call_update"
+      }
+    },
+    {
+      "update": {
+        "content": {
+          "text": "steered",
+          "type": "text"
+        },
+        "sessionUpdate": "agent_message_chunk"
+      }
+    },
+    {
+      "update": {
+        "used": 16214,
+        "size": 1048576,
+        "sessionUpdate": "usage_update"
+      }
+    }
+  ],
+  "response": {
+    "stopReason": "end_turn",
+    "usage": {
+      "inputTokens": 2248,
+      "outputTokens": 2,
+      "cachedReadTokens": 13964,
+      "cachedWriteTokens": 0,
+      "thoughtTokens": 0,
+      "totalTokens": 16214
+    }
+  }
+}

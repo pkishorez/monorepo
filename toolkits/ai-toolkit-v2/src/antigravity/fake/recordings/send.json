@@ -1,0 +1,31 @@
+{
+  "steps": [
+    {
+      "update": {
+        "content": {
+          "text": "two",
+          "type": "text"
+        },
+        "sessionUpdate": "agent_message_chunk"
+      }
+    },
+    {
+      "update": {
+        "used": 15713,
+        "size": 1048576,
+        "sessionUpdate": "usage_update"
+      }
+    }
+  ],
+  "response": {
+    "stopReason": "end_turn",
+    "usage": {
+      "inputTokens": 2127,
+      "outputTokens": 1,
+      "cachedReadTokens": 13585,
+      "cachedWriteTokens": 0,
+      "thoughtTokens": 0,
+      "totalTokens": 15713
+    }
+  }
+}

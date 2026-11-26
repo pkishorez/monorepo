@@ -1,0 +1,140 @@
+{
+  "steps": [
+    {
+      "update": {
+        "used": 15838,
+        "size": 1048576,
+        "sessionUpdate": "usage_update"
+      }
+    },
+    {
+      "update": {
+        "toolCallId": "call_13724537466547543441",
+        "title": "touch made.txt",
+        "name": "run_command",
+        "kind": "execute",
+        "status": "in_progress",
+        "rawInput": {
+          "CommandLine": "touch made.txt",
+          "WaitMsBeforeAsync": 5000,
+          "toolSummary": "Touch made.txt"
+        },
+        "sessionUpdate": "tool_call"
+      }
+    },
+    {
+      "update": {
+        "toolCallId": "call_13724537466547543441",
+        "kind": "execute",
+        "status": "pending",
+        "title": "touch made.txt",
+        "name": "run_command",
+        "rawInput": {
+          "CommandLine": "touch made.txt",
+          "WaitMsBeforeAsync": 5000,
+          "toolSummary": "Touch made.txt"
+        },
+        "sessionUpdate": "tool_call_update"
+      }
+    },
+    {
+      "permission": {
+        "sessionId": "8c7e6640-fe32-44c5-8221-955b2fcc402d",
+        "toolCall": {
+          "toolCallId": "call_13724537466547543441",
+          "kind": "execute",
+          "status": "pending",
+          "title": "touch made.txt",
+          "name": "run_command",
+          "rawInput": {
+            "CommandLine": "touch made.txt",
+            "WaitMsBeforeAsync": 5000,
+            "toolSummary": "Touch made.txt"
+          }
+        },
+        "options": [
+          {
+            "optionId": "allow",
+            "name": "Allow",
+            "kind": "allow_once"
+          },
+          {
+            "optionId": "deny",
+            "name": "Deny",
+            "kind": "reject_once"
+          }
+        ]
+      }
+    },
+    {
+      "update": {
+        "toolCallId": "call_13724537466547543441",
+        "kind": "execute",
+        "status": "in_progress",
+        "title": "touch made.txt",
+        "name": "run_command",
+        "rawInput": {
+          "CommandLine": "touch made.txt",
+          "WaitMsBeforeAsync": 5000,
+          "toolSummary": "Touch made.txt"
+        },
+        "sessionUpdate": "tool_call_update"
+      }
+    },
+    {
+      "update": {
+        "toolCallId": "call_13724537466547543441",
+        "kind": "execute",
+        "status": "completed",
+        "title": "touch made.txt",
+        "name": "run_command",
+        "content": [
+          {
+            "content": {
+              "text": "Created At: 2026-11-26T13:49:10+05:30\nCompleted At: 2026-11-26T13:49:10+05:30\nCommand exited with code 0.\n\nNo output from the command.",
+              "type": "text"
+            },
+            "type": "content"
+          }
+        ],
+        "rawInput": {
+          "CommandLine": "touch made.txt",
+          "WaitMsBeforeAsync": 5000,
+          "toolSummary": "Touch made.txt"
+        },
+        "rawOutput": {
+          "output": "Created At: 2026-11-26T13:49:10+05:30\nCompleted At: 2026-11-26T13:49:10+05:30\nCommand exited with code 0.\n\nNo output from the command.",
+          "exit_code": 0
+        },
+        "sessionUpdate": "tool_call_update"
+      }
+    },
+    {
+      "update": {
+        "content": {
+          "text": "ok",
+          "type": "text"
+        },
+        "sessionUpdate": "agent_message_chunk"
+      }
+    },
+    {
+      "update": {
+        "used": 15926,
+        "size": 1048576,
+        "sessionUpdate": "usage_update"
+      }
+    }
+  ],
+  "response": {
+    "stopReason": "end_turn",
+    "usage": {
+      "inputTokens": 4302,
+      "outputTokens": 40,
+      "cachedReadTokens": 27422,
+      "cachedWriteTokens": 0,
+      "thoughtTokens": 0,
+      "totalTokens": 31764
+    }
+  }
+}

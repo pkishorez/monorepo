@@ -1,0 +1,9 @@
+{
+  "$schema": "./node_modules/@kestack/monoverse/schema.json",
+  "sourceRoots": ["src"],
+  "ignore": ["**/tests/**", "**/*.test.ts"],
+  "rules": {
+    "imports": { "doors": ["contract", "shared"] },
+    "contracts": { "folders": ["contract"] }
+  }
+}

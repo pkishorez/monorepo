@@ -1,0 +1,1580 @@
+{
+  "model/list": {
+    "data": [
+      {
+        "id": "gpt-6.1-terra",
+        "model": "gpt-6.1-terra",
+        "upgrade": null,
+        "upgradeInfo": null,
+        "availabilityNux": null,
+        "displayName": "GPT-6.1 Terra",
+        "description": "Efficient model that excels at visual understanding and computer use.",
+        "modelSpecialty": null,
+        "hidden": false,
+        "supportedReasoningEfforts": [
+          {
+            "reasoningEffort": "low",
+            "description": "Fast responses with lighter reasoning"
+          },
+          {
+            "reasoningEffort": "medium",
+            "description": "Balances speed and reasoning depth for everyday tasks"
+          },
+          {
+            "reasoningEffort": "high",
+            "description": "Greater reasoning depth for complex problems"
+          },
+          {
+            "reasoningEffort": "xhigh",
+            "description": "Extra high reasoning depth for complex problems"
+          },
+          {
+            "reasoningEffort": "max",
+            "description": "Maximum reasoning depth for the hardest problems"
+          },
+          {
+            "reasoningEffort": "ultra",
+            "description": "Maximum reasoning with automatic task delegation"
+          }
+        ],
+        "defaultReasoningEffort": "low",
+        "inputModalities": ["text", "image"],
+        "supportsPersonality": false,
+        "multiAgentVersion": "v2",
+        "additionalSpeedTiers": ["fast"],
+        "serviceTiers": [
+          {
+            "id": "priority",
+            "name": "Fast",
+            "description": "1.5x speed"
+          }
+        ],
+        "defaultServiceTier": null,
+        "availableAccessPrograms": {
+          "cyber": ["standard"]
+        },
+        "isDefault": true
+      },
+      {
+        "id": "gpt-6.1-sol",
+        "model": "gpt-6.1-sol",
+        "upgrade": null,
+        "upgradeInfo": null,
+        "availabilityNux": {
+          "message": "Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost."
+        },
+        "displayName": "GPT-6.1-Sol",
+        "description": "Previous generation model for coding and everyday work.",
+        "modelSpecialty": null,
+        "hidden": false,
+        "supportedReasoningEfforts": [
+          {
+            "reasoningEffort": "low",
+            "description": "Fast responses with lighter reasoning"
+          },
+          {
+            "reasoningEffort": "medium",
+            "description": "Balances speed and reasoning depth for everyday tasks"
+          },
+          {
+            "reasoningEffort": "high",
+            "description": "Greater reasoning depth for complex problems"
+          },
+          {
+            "reasoningEffort": "xhigh",
+            "description": "Extra high reasoning depth for complex problems"
+          },
+          {
+            "reasoningEffort": "max",
+            "description": "Maximum reasoning depth for the hardest problems"
+          },
+          {
+            "reasoningEffort": "ultra",
+            "description": "Maximum reasoning with automatic task delegation"
+          }
+        ],
+        "defaultReasoningEffort": "low",
+        "inputModalities": ["text", "image"],
+        "supportsPersonality": false,
+        "multiAgentVersion": "v2",
+        "additionalSpeedTiers": ["fast"],
+        "serviceTiers": [
+          {
+            "id": "priority",
+            "name": "Fast",
+            "description": "2x speed, increased usage"
+          }
+        ],
+        "defaultServiceTier": null,
+        "availableAccessPrograms": {
+          "cyber": ["standard"]
+        },
+        "isDefault": false
+      },
+      {
+        "id": "gpt-6-astra",
+        "model": "gpt-6-astra",
+        "upgrade": null,
+        "upgradeInfo": null,
+        "availabilityNux": null,
+        "displayName": "GPT-6-Astra",
+        "description": "Previous generation model for complex coding and professional work.",
+        "modelSpecialty": null,
+        "hidden": false,
+        "supportedReasoningEfforts": [
+          {
+            "reasoningEffort": "low",
+            "description": "Fast responses with lighter reasoning"
+          },
+          {
+            "reasoningEffort": "medium",
+            "description": "Balances speed and reasoning depth for everyday tasks"
+          },
+          {
+            "reasoningEffort": "high",
+            "description": "Greater reasoning depth for complex problems"
+          },
+          {
+            "reasoningEffort": "xhigh",
+            "description": "Extra high reasoning depth for complex problems"
+          },
+          {
+            "reasoningEffort": "max",
+            "description": "Maximum reasoning depth for the hardest problems"
+          },
+          {
+            "reasoningEffort": "ultra",
+            "description": "Maximum reasoning with automatic task delegation"
+          }
+        ],
+        "defaultReasoningEffort": "low",
+        "inputModalities": ["text", "image"],
+        "supportsPersonality": false,
+        "multiAgentVersion": "v2",
+        "additionalSpeedTiers": ["fast"],
+        "serviceTiers": [
+          {
+            "id": "priority",
+            "name": "Fast",
+            "description": "2x speed, increased usage"
+          }
+        ],
+        "defaultServiceTier": null,
+        "availableAccessPrograms": {
+          "cyber": ["standard"]
+        },
+        "isDefault": false
+      },
+      {
+        "id": "gpt-6-sol",
+        "model": "gpt-6-sol",
+        "upgrade": null,
+        "upgradeInfo": null,
+        "availabilityNux": null,
+        "displayName": "GPT-6-Sol",
+        "description": "Legacy model for coding and everyday work.",
+        "modelSpecialty": null,
+        "hidden": false,
+        "supportedReasoningEfforts": [
+          {
+            "reasoningEffort": "low",
+            "description": "Fast responses with lighter reasoning"
+          },
+          {
+            "reasoningEffort": "medium",
+            "description": "Balances speed and reasoning depth for everyday tasks"
+          },
+          {
+            "reasoningEffort": "high",
+            "description": "Greater reasoning depth for complex problems"
+          },
+          {
+            "reasoningEffort": "xhigh",
+            "description": "Extra high reasoning depth for complex problems"
+          },
+          {
+            "reasoningEffort": "max",
+            "description": "Maximum reasoning depth for the hardest problems"
+          },
+          {
+            "reasoningEffort": "ultra",
+            "description": "Maximum reasoning with automatic task delegation"
+          }
+        ],
+        "defaultReasoningEffort": "medium",
+        "inputModalities": ["text", "image"],
+        "supportsPersonality": false,
+        "multiAgentVersion": "v2",
+        "additionalSpeedTiers": ["fast"],
+        "serviceTiers": [
+          {
+            "id": "priority",
+            "name": "Fast",
+            "description": "1.5x speed"
+          }
+        ],
+        "defaultServiceTier": null,
+        "availableAccessPrograms": {
+          "cyber": ["standard"]
+        },
+        "isDefault": false
+      },
+      {
+        "id": "gpt-6-luna",
+        "model": "gpt-6-luna",
+        "upgrade": null,
+        "upgradeInfo": null,
+        "availabilityNux": null,
+        "displayName": "GPT-6-Luna",
+        "description": "Fast and affordable model for easier tasks.",
+        "modelSpecialty": null,
+        "hidden": false,
+        "supportedReasoningEfforts": [
+          {
+            "reasoningEffort": "low",
+            "description": "Fast responses with lighter reasoning"
+          },
+          {
+            "reasoningEffort": "medium",
+            "description": "Balances speed and reasoning depth for everyday tasks"
+          },
+          {
+            "reasoningEffort": "high",
+            "description": "Greater reasoning depth for complex problems"
+          },
+          {
+            "reasoningEffort": "xhigh",
+            "description": "Extra high reasoning depth for complex problems"
+          },
+          {
+            "reasoningEffort": "max",
+            "description": "Maximum reasoning depth for the hardest problems"
+          }
+        ],
+        "defaultReasoningEffort": "medium",
+        "inputModalities": ["text", "image"],
+        "supportsPersonality": false,
+        "multiAgentVersion": "v2",
+        "additionalSpeedTiers": ["fast"],
+        "serviceTiers": [
+          {
+            "id": "priority",
+            "name": "Fast",
+            "description": "1.5x speed"
+          }
+        ],
+        "defaultServiceTier": null,
+        "availableAccessPrograms": {
+          "cyber": ["standard"]
+        },
+        "isDefault": false
+      },
+      {
+        "id": "gpt-5.6-sol",
+        "model": "gpt-5.6-sol",
+        "upgrade": null,
+        "upgradeInfo": null,
+        "availabilityNux": null,
+        "displayName": "GPT-5.6-Sol",
+        "description": "Legacy model for coding and everyday work.",
+        "modelSpecialty": null,
+        "hidden": false,
+        "supportedReasoningEfforts": [
+          {
+            "reasoningEffort": "low",
+            "description": "Fast responses with lighter reasoning"
+          },
+          {
+            "reasoningEffort": "medium",
+            "description": "Balances speed and reasoning depth for everyday tasks"
+          },
+          {
+            "reasoningEffort": "high",
+            "description": "Greater reasoning depth for complex problems"
+          },
+          {
+            "reasoningEffort": "xhigh",
+            "description": "Extra high reasoning depth for complex problems"
+          },
+          {
+            "reasoningEffort": "max",
+            "description": "Maximum reasoning depth for the hardest problems"
+          },
+          {
+            "reasoningEffort": "ultra",
+            "description": "Maximum reasoning with automatic task delegation"
+          }
+        ],
+        "defaultReasoningEffort": "low",
+        "inputModalities": ["text", "image"],
+        "supportsPersonality": false,
+        "multiAgentVersion": "v2",
+        "additionalSpeedTiers": ["fast"],
+        "serviceTiers": [
+          {
+            "id": "priority",
+            "name": "Fast",
+            "description": "1.5x speed, increased usage"
+          }
+        ],
+        "defaultServiceTier": null,
+        "availableAccessPrograms": {
+          "cyber": ["standard"]
+        },
+        "isDefault": false
+      },
+      {
+        "id": "gpt-5.6-terra",
+        "model": "gpt-5.6-terra",
+        "upgrade": "gpt-6.1-terra",
+        "upgradeInfo": {
+          "model": "gpt-6.1-terra",
+          "upgradeCopy": null,
+          "modelLink": null,
+          "migrationMarkdown": "GPT-5.6 Terra retires on December 23, 2026.\n\nSwitch to GPT-6.1 Terra to continue working in Codex.",
+          "retirementAt": 1798056000
+        },
+        "availabilityNux": null,
+        "displayName": "GPT-5.6-Terra",
+        "description": "Legacy balanced model for agentic coding.",
+        "modelSpecialty": null,
+        "hidden": false,
+        "supportedReasoningEfforts": [
+          {
+            "reasoningEffort": "low",
+            "description": "Fast responses with lighter reasoning"
+          },
+          {
+            "reasoningEffort": "medium",
+            "description": "Balances speed and reasoning depth for everyday tasks"
+          },
+          {
+            "reasoningEffort": "high",
+            "description": "Greater reasoning depth for complex problems"
+          },
+          {
+            "reasoningEffort": "xhigh",
+            "description": "Extra high reasoning depth for complex problems"
+          },
+          {
+            "reasoningEffort": "max",
+            "description": "Maximum reasoning depth for the hardest problems"
+          },
+          {
+            "reasoningEffort": "ultra",
+            "description": "Maximum reasoning with automatic task delegation"
+          }
+        ],
+        "defaultReasoningEffort": "medium",
+        "inputModalities": ["text", "image"],
+        "supportsPersonality": false,
+        "multiAgentVersion": "v2",
+        "additionalSpeedTiers": ["fast"],
+        "serviceTiers": [
+          {
+            "id": "priority",
+            "name": "Fast",
+            "description": "1.5x speed, increased usage"
+          }
+        ],
+        "defaultServiceTier": null,
+        "availableAccessPrograms": {
+          "cyber": ["standard"]
+        },
+        "isDefault": false
+      },
+      {
+        "id": "gpt-5.6-luna",
+        "model": "gpt-5.6-luna",
+        "upgrade": null,
+        "upgradeInfo": null,
+        "availabilityNux": null,
+        "displayName": "GPT-5.6-Luna",
+        "description": "Legacy fast model for simpler tasks.",
+        "modelSpecialty": null,
+        "hidden": false,
+        "supportedReasoningEfforts": [
+          {
+            "reasoningEffort": "low",
+            "description": "Fast responses with lighter reasoning"
+          },
+          {
+            "reasoningEffort": "medium",
+            "description": "Balances speed and reasoning depth for everyday tasks"
+          },
+          {
+            "reasoningEffort": "high",
+            "description": "Greater reasoning depth for complex problems"
+          },
+          {
+            "reasoningEffort": "xhigh",
+            "description": "Extra high reasoning depth for complex problems"
+          },
+          {
+            "reasoningEffort": "max",
+            "description": "Maximum reasoning depth for the hardest problems"
+          }
+        ],
+        "defaultReasoningEffort": "medium",
+        "inputModalities": ["text", "image"],
+        "supportsPersonality": false,
+        "multiAgentVersion": "v1",
+        "additionalSpeedTiers": ["fast"],
+        "serviceTiers": [
+          {
+            "id": "priority",
+            "name": "Fast",
+            "description": "1.5x speed, increased usage"
+          }
+        ],
+        "defaultServiceTier": null,
+        "availableAccessPrograms": {
+          "cyber": ["standard"]
+        },
+        "isDefault": false
+      }
+    ],
+    "nextCursor": null
+  },
+  "thread/start": {
+    "thread": {
+      "id": "01a216f7-549c-7f40-81cc-631a85ada85e",
+      "environments": [
+        {
+          "environmentId": "local",
+          "cwd": "/tmp/codex-e2e",
+          "runtimeWorkspaceRoots": ["/tmp/codex-e2e"]
+        }
+      ],
+      "extra": null,
+      "sessionId": "01a216f7-549c-7f40-81cc-631a85ada85e",
+      "forkedFromId": null,
+      "parentThreadId": null,
+      "preview": "",
+      "ephemeral": true,
+      "section": null,
+      "sectionEnteredAt": null,
+      "projectId": null,
+      "historyMode": "paginated",
+      "modelProvider": "openai",
+      "model": "gpt-6-astra",
+      "reasoningEffort": "xhigh",
+      "createdAt": 1795681637,
+      "updatedAt": 1795681637,
+      "recencyAt": 1795681637,
+      "status": {
+        "type": "idle"
+      },
+      "path": null,
+      "cwd": "/tmp/codex-e2e",
+      "cliVersion": "0.164.0",
+      "originator": "ai-toolkit-v2",
+      "source": "vscode",
+      "canAcceptDirectInput": true,
+      "threadSource": null,
+      "agentNickname": null,
+      "agentRole": null,
+      "gitInfo": null,
+      "name": null,
+      "daybreakEnabled": null,
+      "turns": []
+    },
+    "model": "gpt-6-astra",
+    "modelProvider": "openai",
+    "serviceTier": "default",
+    "disabledPluginIds": [],
+    "cwd": "/tmp/codex-e2e",
+    "runtimeWorkspaceRoots": ["/tmp/codex-e2e"],
+    "instructionSources": ["/home/user/.codex/AGENTS.md"],
+    "approvalPolicy": "on-request",
+    "approvalsReviewer": "auto_review",
+    "sandbox": {
+      "type": "workspaceWrite",
+      "writableRoots": [],
+      "networkAccess": false,
+      "excludeTmpdirEnvVar": false,
+      "excludeSlashTmp": false
+    },
+    "activePermissionProfile": null,
+    "reasoningEffort": "xhigh",
+    "multiAgentMode": "explicitRequestOnly"
+  },
+  "account/read": {
+    "account": {
+      "type": "chatgpt",
+      "email": "user@example.com",
+      "planType": "plus"
+    },
+    "requiresOpenaiAuth": true,
+    "workspaceRouting": null
+  },
+  "account/rateLimits/read": {
+    "ordinaryUsageAllowed": true,
+    "rateLimits": {
+      "limitId": "codex",
+      "limitName": null,
+      "normalModelSlug": null,
+      "primary": {
+        "usedPercent": 0,
+        "windowDurationMins": 300,
+        "resetsAt": 1795698577
+      },
+      "secondary": {
+        "usedPercent": 2,
+        "windowDurationMins": 10080,
+        "resetsAt": 1796218099
+      },
+      "credits": {
+        "hasCredits": false,
+        "unlimited": false,
+        "balance": "0"
+      },
+      "individualLimit": null,
+      "spendControlReached": false,
+      "planType": "plus",
+      "rateLimitReachedType": null
+    },
+    "rateLimitsByLimitId": {
+      "codex": {
+        "limitId": "codex",
+        "limitName": null,
+        "normalModelSlug": null,
+        "primary": {
+          "usedPercent": 0,
+          "windowDurationMins": 300,
+          "resetsAt": 1795698577
+        },
+        "secondary": {
+          "usedPercent": 2,
+          "windowDurationMins": 10080,
+          "resetsAt": 1796218099
+        },
+        "credits": {
+          "hasCredits": false,
+          "unlimited": false,
+          "balance": "0"
+        },
+        "individualLimit": null,
+        "spendControlReached": false,
+        "planType": "plus",
+        "rateLimitReachedType": null
+      }
+    },
+    "rateLimitResetCredits": {
+      "availableCount": 4,
+      "credits": [
+        {
+          "id": "RateLimitResetCredit_797ce19d6b848191a07c4f17d515a4b8",
+          "resetType": "codexRateLimits",
+          "status": "available",
+          "grantedAt": 1793476479,
+          "expiresAt": 1796068479,
+          "title": "Full reset (Weekly + 5 hr)",
+          "description": "Thanks for using Codex! You've been granted one free rate limit reset."
+        },
+        {
+          "id": "RateLimitResetCredit_f24a7cc3bee88191aee77132e662c3b9",
+          "resetType": "codexRateLimits",
+          "status": "available",
+          "grantedAt": 1793572169,
+          "expiresAt": 1796164169,
+          "title": "Full reset (Weekly + 5 hr)",
+          "description": "Thanks for using Codex! You've been granted one free rate limit reset."
+        },
+        {
+          "id": "RateLimitResetCredit_2dd8150bfaec8191be81e99ca4a933e3",
+          "resetType": "codexRateLimits",
+          "status": "available",
+          "grantedAt": 1794522329,
+          "expiresAt": 1797114329,
+          "title": "Full reset (Weekly + 5 hr)",
+          "description": "Thanks for using Codex! You've been granted one free rate limit reset."
+        },
+        {
+          "id": "RateLimitResetCredit_a956efee40588191b73e690bb4c77785",
+          "resetType": "codexRateLimits",
+          "status": "available",
+          "grantedAt": 1795672262,
+          "expiresAt": 1798264262,
+          "title": "Full reset (Weekly + 5 hr)",
+          "description": "Thanks for using Codex! You've been granted one free rate limit reset."
+        }
+      ]
+    },
+    "accountId": "00000000-0000-0000-0000-000000000000",
+    "rateLimitUpsell": null
+  },
+  "account/usage/read": {
+    "summary": {
+      "lifetimeTokens": 7905629629,
+      "peakDailyTokens": 475265719,
+      "longestRunningTurnSec": 60892,
+      "currentStreakDays": 10,
+      "longestStreakDays": 68
+    },
+    "dailyUsageBuckets": [
+      {
+        "startDate": "2026-04-26",
+        "tokens": 967353
+      },
+      {
+        "startDate": "2026-04-27",
+        "tokens": 4547401
+      },
+      {
+        "startDate": "2026-04-28",
+        "tokens": 38235523
+      },
+      {
+        "startDate": "2026-04-29",
+        "tokens": 2294208
+      },
+      {
+        "startDate": "2026-04-30",
+        "tokens": 20710698
+      },
+      {
+        "startDate": "2026-05-01",
+        "tokens": 13512940
+      },
+      {
+        "startDate": "2026-05-02",
+        "tokens": 1690174
+      },
+      {
+        "startDate": "2026-05-03",
+        "tokens": 10032336
+      },
+      {
+        "startDate": "2026-05-05",
+        "tokens": 8919960
+      },
+      {
+        "startDate": "2026-05-06",
+        "tokens": 20605620
+      },
+      {
+        "startDate": "2026-05-07",
+        "tokens": 30365711
+      },
+      {
+        "startDate": "2026-05-08",
+        "tokens": 1457902
+      },
+      {
+        "startDate": "2026-05-09",
+        "tokens": 2342941
+      },
+      {
+        "startDate": "2026-05-10",
+        "tokens": 76988241
+      },
+      {
+        "startDate": "2026-05-15",
+        "tokens": 586583
+      },
+      {
+        "startDate": "2026-05-16",
+        "tokens": 3666669
+      },
+      {
+        "startDate": "2026-05-17",
+        "tokens": 17415019
+      },
+      {
+        "startDate": "2026-05-18",
+        "tokens": 7124933
+      },
+      {
+        "startDate": "2026-05-19",
+        "tokens": 84361218
+      },
+      {
+        "startDate": "2026-05-20",
+        "tokens": 5440717
+      },
+      {
+        "startDate": "2026-05-21",
+        "tokens": 22926573
+      },
+      {
+        "startDate": "2026-05-22",
+        "tokens": 10852935
+      },
+      {
+        "startDate": "2026-05-23",
+        "tokens": 10765791
+      },
+      {
+        "startDate": "2026-05-24",
+        "tokens": 58014142
+      },
+      {
+        "startDate": "2026-05-25",
+        "tokens": 67108508
+      },
+      {
+        "startDate": "2026-05-26",
+        "tokens": 35476479
+      },
+      {
+        "startDate": "2026-05-28",
+        "tokens": 3373325
+      },
+      {
+        "startDate": "2026-05-29",
+        "tokens": 54928
+      },
+      {
+        "startDate": "2026-05-31",
+        "tokens": 7108736
+      },
+      {
+        "startDate": "2026-06-01",
+        "tokens": 1079129
+      },
+      {
+        "startDate": "2026-06-03",
+        "tokens": 2818602
+      },
+      {
+        "startDate": "2026-06-04",
+        "tokens": 390036
+      },
+      {
+        "startDate": "2026-06-05",
+        "tokens": 35142561
+      },
+      {
+        "startDate": "2026-06-06",
+        "tokens": 92723
+      },
+      {
+        "startDate": "2026-06-10",
+        "tokens": 3673144
+      },
+      {
+        "startDate": "2026-06-12",
+        "tokens": 29146
+      },
+      {
+        "startDate": "2026-06-14",
+        "tokens": 16463696
+      },
+      {
+        "startDate": "2026-06-15",
+        "tokens": 11741901
+      },
+      {
+        "startDate": "2026-06-16",
+        "tokens": 1900196
+      },
+      {
+        "startDate": "2026-06-17",
+        "tokens": 15734183
+      },
+      {
+        "startDate": "2026-06-18",
+        "tokens": 22956587
+      },
+      {
+        "startDate": "2026-06-19",
+        "tokens": 27137761
+      },
+      {
+        "startDate": "2026-06-20",
+        "tokens": 35295636
+      },
+      {
+        "startDate": "2026-06-21",
+        "tokens": 11135993
+      },
+      {
+        "startDate": "2026-06-22",
+        "tokens": 21210955
+      },
+      {
+        "startDate": "2026-06-23",
+        "tokens": 509834
+      },
+      {
+        "startDate": "2026-06-24",
+        "tokens": 14054655
+      },
+      {
+        "startDate": "2026-06-25",
+        "tokens": 3292644
+      },
+      {
+        "startDate": "2026-06-26",
+        "tokens": 4310925
+      },
+      {
+        "startDate": "2026-06-27",
+        "tokens": 3341937
+      },
+      {
+        "startDate": "2026-06-29",
+        "tokens": 79999
+      },
+      {
+        "startDate": "2026-06-30",
+        "tokens": 1550712
+      },
+      {
+        "startDate": "2026-07-02",
+        "tokens": 8573895
+      },
+      {
+        "startDate": "2026-07-06",
+        "tokens": 11030993
+      },
+      {
+        "startDate": "2026-07-07",
+        "tokens": 15937710
+      },
+      {
+        "startDate": "2026-07-08",
+        "tokens": 17486940
+      },
+      {
+        "startDate": "2026-07-09",
+        "tokens": 14318640
+      },
+      {
+        "startDate": "2026-07-10",
+        "tokens": 27981109
+      },
+      {
+        "startDate": "2026-07-11",
+        "tokens": 257199272
+      },
+      {
+        "startDate": "2026-07-12",
+        "tokens": 203271495
+      },
+      {
+        "startDate": "2026-07-13",
+        "tokens": 3437660
+      },
+      {
+        "startDate": "2026-07-19",
+        "tokens": 32652337
+      },
+      {
+        "startDate": "2026-07-20",
+        "tokens": 257169183
+      },
+      {
+        "startDate": "2026-07-21",
+        "tokens": 218519056
+      },
+      {
+        "startDate": "2026-07-22",
+        "tokens": 475265719
+      },
+      {
+        "startDate": "2026-07-23",
+        "tokens": 415470811
+      },
+      {
+        "startDate": "2026-07-24",
+        "tokens": 405549742
+      },
+      {
+        "startDate": "2026-07-25",
+        "tokens": 7341376
+      },
+      {
+        "startDate": "2026-07-26",
+        "tokens": 114476150
+      },
+      {
+        "startDate": "2026-07-27",
+        "tokens": 22335289
+      },
+      {
+        "startDate": "2026-07-28",
+        "tokens": 65752342
+      },
+      {
+        "startDate": "2026-07-29",
+        "tokens": 66777942
+      },
+      {
+        "startDate": "2026-07-30",
+        "tokens": 97689597
+      },
+      {
+        "startDate": "2026-07-31",
+        "tokens": 89078363
+      },
+      {
+        "startDate": "2026-08-01",
+        "tokens": 71883419
+      },
+      {
+        "startDate": "2026-08-02",
+        "tokens": 3601823
+      },
+      {
+        "startDate": "2026-08-03",
+        "tokens": 6146819
+      },
+      {
+        "startDate": "2026-08-04",
+        "tokens": 20369409
+      },
+      {
+        "startDate": "2026-08-05",
+        "tokens": 31982704
+      },
+      {
+        "startDate": "2026-08-06",
+        "tokens": 109979747
+      },
+      {
+        "startDate": "2026-08-07",
+        "tokens": 190212719
+      },
+      {
+        "startDate": "2026-08-08",
+        "tokens": 172677551
+      },
+      {
+        "startDate": "2026-08-09",
+        "tokens": 68671582
+      },
+      {
+        "startDate": "2026-08-10",
+        "tokens": 265397770
+      },
+      {
+        "startDate": "2026-08-11",
+        "tokens": 140833413
+      },
+      {
+        "startDate": "2026-08-12",
+        "tokens": 302841671
+      },
+      {
+        "startDate": "2026-08-13",
+        "tokens": 127930915
+      },
+      {
+        "startDate": "2026-08-14",
+        "tokens": 50270890
+      },
+      {
+        "startDate": "2026-08-15",
+        "tokens": 106503138
+      },
+      {
+        "startDate": "2026-08-16",
+        "tokens": 180975400
+      },
+      {
+        "startDate": "2026-08-17",
+        "tokens": 49275459
+      },
+      {
+        "startDate": "2026-08-18",
+        "tokens": 112051825
+      },
+      {
+        "startDate": "2026-08-19",
+        "tokens": 57155970
+      },
+      {
+        "startDate": "2026-08-20",
+        "tokens": 35427946
+      },
+      {
+        "startDate": "2026-08-21",
+        "tokens": 6201940
+      },
+      {
+        "startDate": "2026-08-22",
+        "tokens": 1688772
+      },
+      {
+        "startDate": "2026-08-23",
+        "tokens": 173252
+      },
+      {
+        "startDate": "2026-08-24",
+        "tokens": 94721
+      },
+      {
+        "startDate": "2026-08-25",
+        "tokens": 2664294
+      },
+      {
+        "startDate": "2026-08-26",
+        "tokens": 23815914
+      },
+      {
+        "startDate": "2026-08-27",
+        "tokens": 174503904
+      },
+      {
+        "startDate": "2026-08-28",
+        "tokens": 14099323
+      },
+      {
+        "startDate": "2026-08-29",
+        "tokens": 9814635
+      },
+      {
+        "startDate": "2026-08-31",
+        "tokens": 661008
+      },
+      {
+        "startDate": "2026-09-01",
+        "tokens": 3687663
+      },
+      {
+        "startDate": "2026-09-02",
+        "tokens": 85578489
+      },
+      {
+        "startDate": "2026-09-03",
+        "tokens": 21128572
+      },
+      {
+        "startDate": "2026-09-04",
+        "tokens": 109703895
+      },
+      {
+        "startDate": "2026-09-05",
+        "tokens": 75859485
+      },
+      {
+        "startDate": "2026-09-06",
+        "tokens": 151764522
+      },
+      {
+        "startDate": "2026-09-07",
+        "tokens": 9628083
+      },
+      {
+        "startDate": "2026-09-08",
+        "tokens": 7250496
+      },
+      {
+        "startDate": "2026-09-09",
+        "tokens": 18949880
+      },
+      {
+        "startDate": "2026-09-10",
+        "tokens": 53110972
+      },
+      {
+        "startDate": "2026-09-11",
+        "tokens": 13257399
+      },
+      {
+        "startDate": "2026-09-12",
+        "tokens": 133930803
+      },
+      {
+        "startDate": "2026-09-13",
+        "tokens": 3748228
+      },
+      {
+        "startDate": "2026-09-14",
+        "tokens": 65709754
+      },
+      {
+        "startDate": "2026-09-15",
+        "tokens": 69041143
+      },
+      {
+        "startDate": "2026-09-16",
+        "tokens": 149817158
+      },
+      {
+        "startDate": "2026-09-17",
+        "tokens": 117736370
+      },
+      {
+        "startDate": "2026-09-18",
+        "tokens": 1321051
+      },
+      {
+        "startDate": "2026-09-19",
+        "tokens": 16063380
+      },
+      {
+        "startDate": "2026-09-20",
+        "tokens": 4446748
+      },
+      {
+        "startDate": "2026-09-21",
+        "tokens": 49177676
+      },
+      {
+        "startDate": "2026-09-22",
+        "tokens": 17252
+      },
+      {
+        "startDate": "2026-09-23",
+        "tokens": 136619
+      },
+      {
+        "startDate": "2026-09-24",
+        "tokens": 7263533
+      },
+      {
+        "startDate": "2026-09-25",
+        "tokens": 44012789
+      },
+      {
+        "startDate": "2026-09-26",
+        "tokens": 46257376
+      },
+      {
+        "startDate": "2026-09-27",
+        "tokens": 54484606
+      },
+      {
+        "startDate": "2026-09-28",
+        "tokens": 34621217
+      },
+      {
+        "startDate": "2026-09-29",
+        "tokens": 17799652
+      },
+      {
+        "startDate": "2026-09-30",
+        "tokens": 3651491
+      },
+      {
+        "startDate": "2026-10-01",
+        "tokens": 4522206
+      },
+      {
+        "startDate": "2026-10-02",
+        "tokens": 7499281
+      },
+      {
+        "startDate": "2026-10-03",
+        "tokens": 135
+      },
+      {
+        "startDate": "2026-10-04",
+        "tokens": 374005
+      },
+      {
+        "startDate": "2026-10-05",
+        "tokens": 2665511
+      },
+      {
+        "startDate": "2026-10-06",
+        "tokens": 3126032
+      },
+      {
+        "startDate": "2026-10-07",
+        "tokens": 177095
+      },
+      {
+        "startDate": "2026-10-08",
+        "tokens": 4358347
+      },
+      {
+        "startDate": "2026-10-09",
+        "tokens": 138959
+      },
+      {
+        "startDate": "2026-10-10",
+        "tokens": 98979
+      },
+      {
+        "startDate": "2026-10-11",
+        "tokens": 866194
+      },
+      {
+        "startDate": "2026-10-12",
+        "tokens": 4557200
+      },
+      {
+        "startDate": "2026-10-13",
+        "tokens": 2024970
+      },
+      {
+        "startDate": "2026-10-14",
+        "tokens": 3774919
+      },
+      {
+        "startDate": "2026-10-15",
+        "tokens": 19386
+      },
+      {
+        "startDate": "2026-10-16",
+        "tokens": 1469711
+      },
+      {
+        "startDate": "2026-10-17",
+        "tokens": 179660
+      },
+      {
+        "startDate": "2026-10-18",
+        "tokens": 920477
+      },
+      {
+        "startDate": "2026-10-19",
+        "tokens": 112298429
+      },
+      {
+        "startDate": "2026-10-20",
+        "tokens": 29855455
+      },
+      {
+        "startDate": "2026-10-21",
+        "tokens": 39296845
+      },
+      {
+        "startDate": "2026-10-22",
+        "tokens": 7308297
+      },
+      {
+        "startDate": "2026-10-23",
+        "tokens": 28888464
+      },
+      {
+        "startDate": "2026-10-24",
+        "tokens": 41793232
+      },
+      {
+        "startDate": "2026-10-25",
+        "tokens": 59615996
+      },
+      {
+        "startDate": "2026-10-26",
+        "tokens": 24264685
+      },
+      {
+        "startDate": "2026-10-27",
+        "tokens": 20541447
+      },
+      {
+        "startDate": "2026-10-28",
+        "tokens": 41605068
+      },
+      {
+        "startDate": "2026-10-29",
+        "tokens": 46240216
+      },
+      {
+        "startDate": "2026-10-30",
+        "tokens": 1358590
+      },
+      {
+        "startDate": "2026-10-31",
+        "tokens": 15183498
+      },
+      {
+        "startDate": "2026-11-01",
+        "tokens": 2551369
+      },
+      {
+        "startDate": "2026-11-02",
+        "tokens": 3649338
+      },
+      {
+        "startDate": "2026-11-03",
+        "tokens": 3562367
+      },
+      {
+        "startDate": "2026-11-04",
+        "tokens": 3245555
+      },
+      {
+        "startDate": "2026-11-05",
+        "tokens": 609807
+      },
+      {
+        "startDate": "2026-11-06",
+        "tokens": 209020
+      },
+      {
+        "startDate": "2026-11-08",
+        "tokens": 91245
+      },
+      {
+        "startDate": "2026-11-09",
+        "tokens": 905927
+      },
+      {
+        "startDate": "2026-11-10",
+        "tokens": 5542451
+      },
+      {
+        "startDate": "2026-11-11",
+        "tokens": 653755
+      },
+      {
+        "startDate": "2026-11-12",
+        "tokens": 2591124
+      },
+      {
+        "startDate": "2026-11-13",
+        "tokens": 168489
+      },
+      {
+        "startDate": "2026-11-14",
+        "tokens": 468139
+      },
+      {
+        "startDate": "2026-11-16",
+        "tokens": 1294458
+      },
+      {
+        "startDate": "2026-11-17",
+        "tokens": 682973
+      },
+      {
+        "startDate": "2026-11-18",
+        "tokens": 1428475
+      },
+      {
+        "startDate": "2026-11-19",
+        "tokens": 13078759
+      },
+      {
+        "startDate": "2026-11-20",
+        "tokens": 13286424
+      },
+      {
+        "startDate": "2026-11-21",
+        "tokens": 368111
+      },
+      {
+        "startDate": "2026-11-22",
+        "tokens": 1478070
+      },
+      {
+        "startDate": "2026-11-23",
+        "tokens": 5437085
+      },
+      {
+        "startDate": "2026-11-24",
+        "tokens": 685402
+      },
+      {
+        "startDate": "2026-11-25",
+        "tokens": 3347622
+      }
+    ],
+    "threadUsage": null
+  },
+  "thread/list": {
+    "data": [
+      {
+        "id": "01a216f8-62b2-7083-9a54-3e3c0cd4797d",
+        "environments": null,
+        "extra": null,
+        "sessionId": "01a216f8-62b2-7083-9a54-3e3c0cd4797d",
+        "forkedFromId": null,
+        "parentThreadId": null,
+        "preview": "Give the answer ok.",
+        "ephemeral": false,
+        "section": null,
+        "sectionEnteredAt": null,
+        "projectId": null,
+        "historyMode": "paginated",
+        "modelProvider": "openai",
+        "model": "gpt-6-luna",
+        "reasoningEffort": "low",
+        "createdAt": 1795681706,
+        "updatedAt": 1795681711,
+        "recencyAt": 1795681706,
+        "status": {
+          "type": "notLoaded"
+        },
+        "path": "/home/user/.codex/sessions/2026/11/26/rollout-2026-11-26T13-58-26-01a216f8-62b2-7083-9a54-3e3c0cd4797d.jsonl",
+        "cwd": "/tmp/codex-e2e",
+        "cliVersion": "0.164.0",
+        "originator": "ai-toolkit-v2",
+        "source": "vscode",
+        "canAcceptDirectInput": null,
+        "threadSource": null,
+        "agentNickname": null,
+        "agentRole": null,
+        "gitInfo": null,
+        "name": null,
+        "daybreakEnabled": null,
+        "turns": []
+      },
+      {
+        "id": "01a216f8-451a-74d0-9d04-1a71d29b899e",
+        "environments": null,
+        "extra": null,
+        "sessionId": "01a216f8-451a-74d0-9d04-1a71d29b899e",
+        "forkedFromId": null,
+        "parentThreadId": null,
+        "preview": "Run `sleep 30` in the shell, then reply done.",
+        "ephemeral": false,
+        "section": null,
+        "sectionEnteredAt": null,
+        "projectId": null,
+        "historyMode": "paginated",
+        "modelProvider": "openai",
+        "model": "gpt-6-luna",
+        "reasoningEffort": "low",
+        "createdAt": 1795681699,
+        "updatedAt": 1795681706,
+        "recencyAt": 1795681699,
+        "status": {
+          "type": "notLoaded"
+        },
+        "path": "/home/user/.codex/sessions/2026/11/26/rollout-2026-11-26T13-58-19-01a216f8-451a-74d0-9d04-1a71d29b899e.jsonl",
+        "cwd": "/tmp/codex-e2e",
+        "cliVersion": "0.164.0",
+        "originator": "ai-toolkit-v2",
+        "source": "vscode",
+        "canAcceptDirectInput": null,
+        "threadSource": null,
+        "agentNickname": null,
+        "agentRole": null,
+        "gitInfo": null,
+        "name": null,
+        "daybreakEnabled": null,
+        "turns": []
+      }
+    ],
+    "readStates": {
+      "01a216f8-62b2-7083-9a54-3e3c0cd4797d": {
+        "firstUnread": {
+          "type": "turn",
+          "turnId": "01a216f8-62d5-7141-ab29-080111a99b71"
+        },
+        "revision": "be33a879-0a99-4b6d-82fd-f728b2ccd700"
+      },
+      "01a216f8-451a-74d0-9d04-1a71d29b899e": {
+        "firstUnread": null,
+        "revision": "initial:01a216f8-451a-74d0-9d04-1a71d29b899e"
+      }
+    },
+    "nextCursor": "2026-11-26T13:58:19Z",
+    "backwardsCursor": "2026-11-26T08:28:26.675Z"
+  },
+  "thread/read": {
+    "thread": {
+      "id": "01a216f7-55e8-7f33-b37d-6e279dd5d84a",
+      "environments": null,
+      "extra": null,
+      "sessionId": "01a216f7-55e8-7f33-b37d-6e279dd5d84a",
+      "forkedFromId": null,
+      "parentThreadId": null,
+      "preview": "Reply with the single word: one",
+      "ephemeral": false,
+      "section": null,
+      "sectionEnteredAt": null,
+      "projectId": null,
+      "historyMode": "paginated",
+      "modelProvider": "openai",
+      "model": "gpt-6-luna",
+      "reasoningEffort": "low",
+      "createdAt": 1795681637,
+      "updatedAt": 1795681654,
+      "recencyAt": 1795681648,
+      "status": {
+        "type": "notLoaded"
+      },
+      "path": "/home/user/.codex/sessions/2026/11/26/rollout-2026-11-26T13-57-17-01a216f7-55e8-7f33-b37d-6e279dd5d84a.jsonl",
+      "cwd": "/tmp/codex-e2e",
+      "cliVersion": "0.164.0",
+      "originator": "ai-toolkit-v2",
+      "source": "vscode",
+      "canAcceptDirectInput": null,
+      "threadSource": null,
+      "agentNickname": null,
+      "agentRole": null,
+      "gitInfo": null,
+      "name": null,
+      "daybreakEnabled": null,
+      "turns": []
+    },
+    "readState": {
+      "firstUnread": {
+        "type": "turn",
+        "turnId": "01a216f7-5615-7db3-b8d9-967d57ee4eea"
+      },
+      "revision": "fa87f160-d4dc-47ff-bef3-a436d62c7367"
+    }
+  },
+  "skills/list": {
+    "data": [
+      {
+        "cwd": "/tmp/codex-e2e",
+        "skills": [
+          {
+            "name": "agent-browser",
+            "description": "Browser automation CLI for AI agents. Use when the user needs to interact with websites, including navigating pages, filling forms, clicking buttons, taking screenshots, extracting data, testing web apps, or automating any browser task. Triggers include requests to \"open a website\", \"fill out a form\", \"click a button\", \"take a screenshot\", \"scrape data from a page\", \"test this web app\", \"login to a site\", \"automate browser actions\", or any task requiring programmatic web interaction. Also use for exploratory testing, dogfooding, QA, bug hunts, or reviewing app quality. Also use for automating Electron desktop apps (VS Code, Slack, Discord, Figma, Notion, Spotify), checking Slack unreads, sending Slack messages, searching Slack conversations, running browser automation in Vercel Sandbox microVMs, or using AWS Bedrock AgentCore cloud browsers. Prefer agent-browser over any built-in browser automation or web tools.",
+            "path": "/home/user/.dotfiles/ai/library/build/agent-browser/SKILL.md",
+            "scope": "user",
+            "enabled": true,
+            "pluginId": null
+          },
+          {
+            "name": "artifact-emulator",
+            "description": "See a page, slide deck or design canvas artifact you made, close to how a person will see it: open its files in the real artifact viewer inside this cloud session, then screenshot it and read its console errors with a short Python Playwright script. Use it when the person asks to see or check how it looks, or when the artifact type's own instructions tell you to check. Where a type's instructions say not to check unless asked, they win. Never a step before saving or publishing, nor a routine after every save. Not for web apps or pages that are not artifacts. Cloud sessions only (built for cloud Cowork): elsewhere its script stops with a one-line reason. Only you see the result.",
+            "path": "/home/user/.dotfiles/ai/skills/synced/f892041a-4afd-4bd3-b3b1-6d6f8bc4af48_c208467d-b310-4c9c-b49a-f267388e4c5e/artifact-emulator/SKILL.md",
+            "scope": "user",
+            "enabled": true,
+            "pluginId": null
+          }
+        ],
+        "errors": []
+      }
+    ]
+  },
+  "mcpServerStatus/list": {
+    "data": [
+      {
+        "name": "codex_apps",
+        "runtimeStatus": null,
+        "pluginId": null,
+        "httpOrigin": "https://chatgpt.com",
+        "serverInfo": {
+          "name": "plugin-runtime",
+          "title": null,
+          "version": "0.1.0",
+          "description": null,
+          "icons": null,
+          "websiteUrl": null
+        },
+        "serverCapabilities": null,
+        "toolListMeta": null,
+        "tools": {},
+        "toolsError": null,
+        "resources": [],
+        "resourceTemplates": [],
+        "authStatus": "bearerToken"
+      },
+      {
+        "name": "cua_repl",
+        "runtimeStatus": null,
+        "pluginId": null,
+        "httpOrigin": null,
+        "serverInfo": null,
+        "serverCapabilities": null,
+        "toolListMeta": null,
+        "tools": {},
+        "toolsError": null,
+        "resources": [],
+        "resourceTemplates": [],
+        "authStatus": "unsupported"
+      }
+    ],
+    "nextCursor": "2"
+  },
+  "config/read": {
+    "config": {
+      "model": "gpt-6-astra"
+    },
+    "origins": {},
+    "layers": null
+  }
+}

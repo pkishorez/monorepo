@@ -1,0 +1,31 @@
+{
+  "id": "ses_de9104ce9ffe6Yr2IHNlNQRC5c",
+  "projectID": "573da1d77fcfb80d005d2e866e5995fe5e3754e1",
+  "model": {
+    "id": "gemini-3.5-flash-lite",
+    "providerID": "google",
+    "variant": "default"
+  },
+  "cost": 0.004824499999999999,
+  "tokens": {
+    "input": 16065,
+    "output": 2,
+    "reasoning": 0,
+    "cache": {
+      "read": 0,
+      "write": 0
+    }
+  },
+  "outcome": "succeeded",
+  "time": {
+    "created": "2026-11-26T08:18:57.435Z",
+    "updated": "2026-11-26T08:18:59.657Z",
+    "busy": "2026-11-26T08:18:58.119Z",
+    "idle": "2026-11-26T08:18:59.661Z"
+  },
+  "title": "Greeting",
+  "subpath": "../../../../../../../tmp/opencode-e2e",
+  "location": {
+    "directory": "/tmp/opencode-e2e"
+  }
+}

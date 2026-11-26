@@ -1,0 +1,2076 @@
+[
+  {
+    "name": "reply",
+    "initialize": {
+      "protocolVersion": 1,
+      "agentCapabilities": {
+        "loadSession": true,
+        "load_session": true,
+        "promptCapabilities": {
+          "image": true,
+          "audio": false,
+          "embeddedContext": true
+        },
+        "sessionCapabilities": {
+          "resume": {},
+          "close": {},
+          "load": {},
+          "list": {},
+          "additionalDirectories": {}
+        },
+        "session_capabilities": {
+          "resume": {},
+          "close": {},
+          "load": {},
+          "list": {},
+          "additionalDirectories": {}
+        },
+        "auth": {
+          "logout": {}
+        },
+        "_meta": {
+          "antigravity": {
+            "tier": true,
+            "systemPrompt": {
+              "append": true
+            }
+          }
+        }
+      },
+      "agentInfo": {
+        "name": "Antigravity ACP Server",
+        "version": "1.5.17"
+      },
+      "authMethods": [
+        {
+          "id": "oauth-personal",
+          "name": "Log in with Google",
+          "description": "Log in with your Google account"
+        },
+        {
+          "id": "oauth-business",
+          "name": "Log in with Gemini Enterprise",
+          "description": "Log in with your Gemini Enterprise account"
+        },
+        {
+          "id": "gemini-api-key",
+          "name": "Gemini API key",
+          "description": "Use an API key with Gemini Developer API"
+        },
+        {
+          "id": "agent-platform",
+          "name": "Gemini Enterprise Agent Platform",
+          "description": "Use Gemini Enterprise Agent Platform (formerly Vertex AI) with Application Default Credentials"
+        }
+      ]
+    },
+    "session": {
+      "modes": {
+        "currentModeId": "default",
+        "availableModes": [
+          {
+            "id": "default",
+            "name": "Default",
+            "description": "Ask before edits and commands, per your permission settings."
+          },
+          {
+            "id": "accept-edits",
+            "name": "Accept edits",
+            "description": "Approve file edits in the workspace without asking."
+          },
+          {
+            "id": "auto",
+            "name": "Auto",
+            "description": "Approve edits and safe commands; ask before irreversible actions."
+          },
+          {
+            "id": "plan",
+            "name": "Plan",
+            "description": "Plan carefully before executing a task."
+          }
+        ]
+      },
+      "configOptions": [
+        {
+          "currentValue": "gemini-3.8-flash",
+          "options": [
+            {
+              "value": "gemini-4-neon",
+              "name": "Gemini 4 Neon"
+            },
+            {
+              "value": "gemini-4-carbon",
+              "name": "Gemini 4 Carbon"
+            },
+            {
+              "value": "gemini-4-argon",
+              "name": "Gemini 4 Argon"
+            },
+            {
+              "value": "gemini-4-hydrogen",
+              "name": "Gemini 4 Hydrogen"
+            },
+            {
+              "value": "gemini-pro-orchestrator-neon",
+              "name": "Orchestrator (Neon)"
+            },
+            {
+              "value": "gemini-pro-orchestrator",
+              "name": "Orchestrator (Carbon)"
+            },
+            {
+              "value": "gemini-pro-orchestrator-argon",
+              "name": "Orchestrator (Argon)"
+            },
+            {
+              "value": "gemini-3.8-flash",
+              "name": "Gemini 3.8 Flash"
+            },
+            {
+              "value": "claude-opus-5-5",
+              "name": "Claude Opus 5.5"
+            },
+            {
+              "value": "claude-sonnet-5-5",
+              "name": "Claude Sonnet 5.5"
+            },
+            {
+              "value": "gpt-oss-120b-medium",
+              "name": "GPT-OSS 120B (Medium)"
+            }
+          ],
+          "type": "select",
+          "id": "model",
+          "name": "Model",
+          "category": "model"
+        },
+        {
+          "currentValue": "low",
+          "options": [
+            {
+              "value": "low",
+              "name": "Low"
+            },
+            {
+              "value": "medium",
+              "name": "Medium"
+            },
+            {
+              "value": "high",
+              "name": "High"
+            }
+          ],
+          "type": "select",
+          "id": "thought_level",
+          "name": "Thinking Level",
+          "category": "thought_level"
+        },
+        {
+          "currentValue": "default",
+          "options": [
+            {
+              "value": "default",
+              "name": "Default",
+              "description": "Ask before edits and commands, per your permission settings."
+            },
+            {
+              "value": "accept-edits",
+              "name": "Accept edits",
+              "description": "Approve file edits in the workspace without asking."
+            },
+            {
+              "value": "auto",
+              "name": "Auto",
+              "description": "Approve edits and safe commands; ask before irreversible actions."
+            },
+            {
+              "value": "plan",
+              "name": "Plan",
+              "description": "Plan carefully before executing a task."
+            }
+          ],
+          "type": "select",
+          "id": "mode",
+          "name": "Mode",
+          "category": "mode"
+        }
+      ]
+    },
+    "steps": [
+      {
+        "update": {
+          "configOptions": [
+            {
+              "currentValue": "gemini-3.8-flash",
+              "options": [
+                {
+                  "value": "gemini-4-neon",
+                  "name": "Gemini 4 Neon"
+                },
+                {
+                  "value": "gemini-4-carbon",
+                  "name": "Gemini 4 Carbon"
+                },
+                {
+                  "value": "gemini-4-argon",
+                  "name": "Gemini 4 Argon"
+                },
+                {
+                  "value": "gemini-4-hydrogen",
+                  "name": "Gemini 4 Hydrogen"
+                },
+                {
+                  "value": "gemini-pro-orchestrator-neon",
+                  "name": "Orchestrator (Neon)"
+                },
+                {
+                  "value": "gemini-pro-orchestrator",
+                  "name": "Orchestrator (Carbon)"
+                },
+                {
+                  "value": "gemini-pro-orchestrator-argon",
+                  "name": "Orchestrator (Argon)"
+                },
+                {
+                  "value": "gemini-3.8-flash",
+                  "name": "Gemini 3.8 Flash"
+                },
+                {
+                  "value": "claude-opus-5-5",
+                  "name": "Claude Opus 5.5"
+                },
+                {
+                  "value": "claude-sonnet-5-5",
+                  "name": "Claude Sonnet 5.5"
+                },
+                {
+                  "value": "gpt-oss-120b-medium",
+                  "name": "GPT-OSS 120B (Medium)"
+                }
+              ],
+              "type": "select",
+              "id": "model",
+              "name": "Model",
+              "category": "model"
+            },
+            {
+              "currentValue": "high",
+              "options": [
+                {
+                  "value": "low",
+                  "name": "Low"
+                },
+                {
+                  "value": "medium",
+                  "name": "Medium"
+                },
+                {
+                  "value": "high",
+                  "name": "High"
+                }
+              ],
+              "type": "select",
+              "id": "thought_level",
+              "name": "Thinking Level",
+              "category": "thought_level"
+            },
+            {
+              "currentValue": "default",
+              "options": [
+                {
+                  "value": "default",
+                  "name": "Default",
+                  "description": "Ask before edits and commands, per your permission settings."
+                },
+                {
+                  "value": "accept-edits",
+                  "name": "Accept edits",
+                  "description": "Approve file edits in the workspace without asking."
+                },
+                {
+                  "value": "auto",
+                  "name": "Auto",
+                  "description": "Approve edits and safe commands; ask before irreversible actions."
+                },
+                {
+                  "value": "plan",
+                  "name": "Plan",
+                  "description": "Plan carefully before executing a task."
+                }
+              ],
+              "type": "select",
+              "id": "mode",
+              "name": "Mode",
+              "category": "mode"
+            }
+          ],
+          "sessionUpdate": "config_option_update"
+        }
+      },
+      {
+        "update": {
+          "configOptions": [
+            {
+              "currentValue": "gemini-3.8-flash",
+              "options": [
+                {
+                  "value": "gemini-4-neon",
+                  "name": "Gemini 4 Neon"
+                },
+                {
+                  "value": "gemini-4-carbon",
+                  "name": "Gemini 4 Carbon"
+                },
+                {
+                  "value": "gemini-4-argon",
+                  "name": "Gemini 4 Argon"
+                },
+                {
+                  "value": "gemini-4-hydrogen",
+                  "name": "Gemini 4 Hydrogen"
+                },
+                {
+                  "value": "gemini-pro-orchestrator-neon",
+                  "name": "Orchestrator (Neon)"
+                },
+                {
+                  "value": "gemini-pro-orchestrator",
+                  "name": "Orchestrator (Carbon)"
+                },
+                {
+                  "value": "gemini-pro-orchestrator-argon",
+                  "name": "Orchestrator (Argon)"
+                },
+                {
+                  "value": "gemini-3.8-flash",
+                  "name": "Gemini 3.8 Flash"
+                },
+                {
+                  "value": "claude-opus-5-5",
+                  "name": "Claude Opus 5.5"
+                },
+                {
+                  "value": "claude-sonnet-5-5",
+                  "name": "Claude Sonnet 5.5"
+                },
+                {
+                  "value": "gpt-oss-120b-medium",
+                  "name": "GPT-OSS 120B (Medium)"
+                }
+              ],
+              "type": "select",
+              "id": "model",
+              "name": "Model",
+              "category": "model"
+            },
+            {
+              "currentValue": "low",
+              "options": [
+                {
+                  "value": "low",
+                  "name": "Low"
+                },
+                {
+                  "value": "medium",
+                  "name": "Medium"
+                },
+                {
+                  "value": "high",
+                  "name": "High"
+                }
+              ],
+              "type": "select",
+              "id": "thought_level",
+              "name": "Thinking Level",
+              "category": "thought_level"
+            },
+            {
+              "currentValue": "default",
+              "options": [
+                {
+                  "value": "default",
+                  "name": "Default",
+                  "description": "Ask before edits and commands, per your permission settings."
+                },
+                {
+                  "value": "accept-edits",
+                  "name": "Accept edits",
+                  "description": "Approve file edits in the workspace without asking."
+                },
+                {
+                  "value": "auto",
+                  "name": "Auto",
+                  "description": "Approve edits and safe commands; ask before irreversible actions."
+                },
+                {
+                  "value": "plan",
+                  "name": "Plan",
+                  "description": "Plan carefully before executing a task."
+                }
+              ],
+              "type": "select",
+              "id": "mode",
+              "name": "Mode",
+              "category": "mode"
+            }
+          ],
+          "sessionUpdate": "config_option_update"
+        }
+      },
+      {
+        "update": {
+          "availableCommands": [
+            {
+              "name": "goal",
+              "description": "Run until the specified goal is completely finished."
+            },
+            {
+              "name": "compact",
+              "description": "Compact the conversation now (summarize history to free up the context window)."
+            },
+            {
+              "name": "schedule",
+              "description": "Run an instruction on a recurring schedule or as a one-time timer."
+            }
+          ],
+          "sessionUpdate": "available_commands_update"
+        }
+      },
+      {
+        "update": {
+          "used": 0,
+          "size": 1048576,
+          "sessionUpdate": "usage_update"
+        }
+      },
+      {
+        "update": {
+          "availableCommands": [
+            {
+              "name": "goal",
+              "description": "Run until the specified goal is completely finished."
+            },
+            {
+              "name": "compact",
+              "description": "Compact the conversation now (summarize history to free up the context window)."
+            },
+            {
+              "name": "schedule",
+              "description": "Run an instruction on a recurring schedule or as a one-time timer."
+            }
+          ],
+          "sessionUpdate": "available_commands_update"
+        }
+      },
+      {
+        "update": {
+          "availableCommands": [
+            {
+              "name": "goal",
+              "description": "Run until the specified goal is completely finished."
+            },
+            {
+              "name": "compact",
+              "description": "Compact the conversation now (summarize history to free up the context window)."
+            },
+            {
+              "name": "schedule",
+              "description": "Run an instruction on a recurring schedule or as a one-time timer."
+            }
+          ],
+          "sessionUpdate": "available_commands_update"
+        }
+      },
+      {
+        "update": {
+          "title": "User Confirmation Request",
+          "sessionUpdate": "session_info_update"
+        }
+      },
+      {
+        "update": {
+          "content": {
+            "text": "OK",
+            "type": "text"
+          },
+          "sessionUpdate": "agent_message_chunk"
+        }
+      },
+      {
+        "update": {
+          "used": 15608,
+          "size": 1048576,
+          "sessionUpdate": "usage_update"
+        }
+      }
+    ],
+    "response": {
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 15607,
+        "outputTokens": 1,
+        "cachedReadTokens": 0,
+        "cachedWriteTokens": 0,
+        "thoughtTokens": 0,
+        "totalTokens": 15608
+      }
+    }
+  },
+  {
+    "name": "send",
+    "initialize": {
+      "protocolVersion": 1,
+      "agentCapabilities": {
+        "loadSession": true,
+        "load_session": true,
+        "promptCapabilities": {
+          "image": true,
+          "audio": false,
+          "embeddedContext": true
+        },
+        "sessionCapabilities": {
+          "resume": {},
+          "close": {},
+          "load": {},
+          "list": {},
+          "additionalDirectories": {}
+        },
+        "session_capabilities": {
+          "resume": {},
+          "close": {},
+          "load": {},
+          "list": {},
+          "additionalDirectories": {}
+        },
+        "auth": {
+          "logout": {}
+        },
+        "_meta": {
+          "antigravity": {
+            "tier": true,
+            "systemPrompt": {
+              "append": true
+            }
+          }
+        }
+      },
+      "agentInfo": {
+        "name": "Antigravity ACP Server",
+        "version": "1.5.17"
+      },
+      "authMethods": [
+        {
+          "id": "oauth-personal",
+          "name": "Log in with Google",
+          "description": "Log in with your Google account"
+        },
+        {
+          "id": "oauth-business",
+          "name": "Log in with Gemini Enterprise",
+          "description": "Log in with your Gemini Enterprise account"
+        },
+        {
+          "id": "gemini-api-key",
+          "name": "Gemini API key",
+          "description": "Use an API key with Gemini Developer API"
+        },
+        {
+          "id": "agent-platform",
+          "name": "Gemini Enterprise Agent Platform",
+          "description": "Use Gemini Enterprise Agent Platform (formerly Vertex AI) with Application Default Credentials"
+        }
+      ]
+    },
+    "session": {
+      "modes": {
+        "currentModeId": "default",
+        "availableModes": [
+          {
+            "id": "default",
+            "name": "Default",
+            "description": "Ask before edits and commands, per your permission settings."
+          },
+          {
+            "id": "accept-edits",
+            "name": "Accept edits",
+            "description": "Approve file edits in the workspace without asking."
+          },
+          {
+            "id": "auto",
+            "name": "Auto",
+            "description": "Approve edits and safe commands; ask before irreversible actions."
+          },
+          {
+            "id": "plan",
+            "name": "Plan",
+            "description": "Plan carefully before executing a task."
+          }
+        ]
+      },
+      "configOptions": [
+        {
+          "currentValue": "gemini-3.8-flash",
+          "options": [
+            {
+              "value": "gemini-4-neon",
+              "name": "Gemini 4 Neon"
+            },
+            {
+              "value": "gemini-4-carbon",
+              "name": "Gemini 4 Carbon"
+            },
+            {
+              "value": "gemini-4-argon",
+              "name": "Gemini 4 Argon"
+            },
+            {
+              "value": "gemini-4-hydrogen",
+              "name": "Gemini 4 Hydrogen"
+            },
+            {
+              "value": "gemini-pro-orchestrator-neon",
+              "name": "Orchestrator (Neon)"
+            },
+            {
+              "value": "gemini-pro-orchestrator",
+              "name": "Orchestrator (Carbon)"
+            },
+            {
+              "value": "gemini-pro-orchestrator-argon",
+              "name": "Orchestrator (Argon)"
+            },
+            {
+              "value": "gemini-3.8-flash",
+              "name": "Gemini 3.8 Flash"
+            },
+            {
+              "value": "claude-opus-5-5",
+              "name": "Claude Opus 5.5"
+            },
+            {
+              "value": "claude-sonnet-5-5",
+              "name": "Claude Sonnet 5.5"
+            },
+            {
+              "value": "gpt-oss-120b-medium",
+              "name": "GPT-OSS 120B (Medium)"
+            }
+          ],
+          "type": "select",
+          "id": "model",
+          "name": "Model",
+          "category": "model"
+        },
+        {
+          "currentValue": "low",
+          "options": [
+            {
+              "value": "low",
+              "name": "Low"
+            },
+            {
+              "value": "medium",
+              "name": "Medium"
+            },
+            {
+              "value": "high",
+              "name": "High"
+            }
+          ],
+          "type": "select",
+          "id": "thought_level",
+          "name": "Thinking Level",
+          "category": "thought_level"
+        },
+        {
+          "currentValue": "default",
+          "options": [
+            {
+              "value": "default",
+              "name": "Default",
+              "description": "Ask before edits and commands, per your permission settings."
+            },
+            {
+              "value": "accept-edits",
+              "name": "Accept edits",
+              "description": "Approve file edits in the workspace without asking."
+            },
+            {
+              "value": "auto",
+              "name": "Auto",
+              "description": "Approve edits and safe commands; ask before irreversible actions."
+            },
+            {
+              "value": "plan",
+              "name": "Plan",
+              "description": "Plan carefully before executing a task."
+            }
+          ],
+          "type": "select",
+          "id": "mode",
+          "name": "Mode",
+          "category": "mode"
+        }
+      ]
+    },
+    "steps": [
+      {
+        "update": {
+          "content": {
+            "text": "YES",
+            "type": "text"
+          },
+          "sessionUpdate": "agent_message_chunk"
+        }
+      },
+      {
+        "update": {
+          "used": 15682,
+          "size": 1048576,
+          "sessionUpdate": "usage_update"
+        }
+      }
+    ],
+    "response": {
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 2127,
+        "outputTokens": 1,
+        "cachedReadTokens": 13554,
+        "cachedWriteTokens": 0,
+        "thoughtTokens": 0,
+        "totalTokens": 15682
+      }
+    }
+  },
+  {
+    "name": "permission",
+    "initialize": {
+      "protocolVersion": 1,
+      "agentCapabilities": {
+        "loadSession": true,
+        "load_session": true,
+        "promptCapabilities": {
+          "image": true,
+          "audio": false,
+          "embeddedContext": true
+        },
+        "sessionCapabilities": {
+          "resume": {},
+          "close": {},
+          "load": {},
+          "list": {},
+          "additionalDirectories": {}
+        },
+        "session_capabilities": {
+          "resume": {},
+          "close": {},
+          "load": {},
+          "list": {},
+          "additionalDirectories": {}
+        },
+        "auth": {
+          "logout": {}
+        },
+        "_meta": {
+          "antigravity": {
+            "tier": true,
+            "systemPrompt": {
+              "append": true
+            }
+          }
+        }
+      },
+      "agentInfo": {
+        "name": "Antigravity ACP Server",
+        "version": "1.5.17"
+      },
+      "authMethods": [
+        {
+          "id": "oauth-personal",
+          "name": "Log in with Google",
+          "description": "Log in with your Google account"
+        },
+        {
+          "id": "oauth-business",
+          "name": "Log in with Gemini Enterprise",
+          "description": "Log in with your Gemini Enterprise account"
+        },
+        {
+          "id": "gemini-api-key",
+          "name": "Gemini API key",
+          "description": "Use an API key with Gemini Developer API"
+        },
+        {
+          "id": "agent-platform",
+          "name": "Gemini Enterprise Agent Platform",
+          "description": "Use Gemini Enterprise Agent Platform (formerly Vertex AI) with Application Default Credentials"
+        }
+      ]
+    },
+    "session": {
+      "modes": {
+        "currentModeId": "default",
+        "availableModes": [
+          {
+            "id": "default",
+            "name": "Default",
+            "description": "Ask before edits and commands, per your permission settings."
+          },
+          {
+            "id": "accept-edits",
+            "name": "Accept edits",
+            "description": "Approve file edits in the workspace without asking."
+          },
+          {
+            "id": "auto",
+            "name": "Auto",
+            "description": "Approve edits and safe commands; ask before irreversible actions."
+          },
+          {
+            "id": "plan",
+            "name": "Plan",
+            "description": "Plan carefully before executing a task."
+          }
+        ]
+      },
+      "configOptions": [
+        {
+          "currentValue": "gemini-3.8-flash",
+          "options": [
+            {
+              "value": "gemini-4-neon",
+              "name": "Gemini 4 Neon"
+            },
+            {
+              "value": "gemini-4-carbon",
+              "name": "Gemini 4 Carbon"
+            },
+            {
+              "value": "gemini-4-argon",
+              "name": "Gemini 4 Argon"
+            },
+            {
+              "value": "gemini-4-hydrogen",
+              "name": "Gemini 4 Hydrogen"
+            },
+            {
+              "value": "gemini-pro-orchestrator-neon",
+              "name": "Orchestrator (Neon)"
+            },
+            {
+              "value": "gemini-pro-orchestrator",
+              "name": "Orchestrator (Carbon)"
+            },
+            {
+              "value": "gemini-pro-orchestrator-argon",
+              "name": "Orchestrator (Argon)"
+            },
+            {
+              "value": "gemini-3.8-flash",
+              "name": "Gemini 3.8 Flash"
+            },
+            {
+              "value": "claude-opus-5-5",
+              "name": "Claude Opus 5.5"
+            },
+            {
+              "value": "claude-sonnet-5-5",
+              "name": "Claude Sonnet 5.5"
+            },
+            {
+              "value": "gpt-oss-120b-medium",
+              "name": "GPT-OSS 120B (Medium)"
+            }
+          ],
+          "type": "select",
+          "id": "model",
+          "name": "Model",
+          "category": "model"
+        },
+        {
+          "currentValue": "low",
+          "options": [
+            {
+              "value": "low",
+              "name": "Low"
+            },
+            {
+              "value": "medium",
+              "name": "Medium"
+            },
+            {
+              "value": "high",
+              "name": "High"
+            }
+          ],
+          "type": "select",
+          "id": "thought_level",
+          "name": "Thinking Level",
+          "category": "thought_level"
+        },
+        {
+          "currentValue": "default",
+          "options": [
+            {
+              "value": "default",
+              "name": "Default",
+              "description": "Ask before edits and commands, per your permission settings."
+            },
+            {
+              "value": "accept-edits",
+              "name": "Accept edits",
+              "description": "Approve file edits in the workspace without asking."
+            },
+            {
+              "value": "auto",
+              "name": "Auto",
+              "description": "Approve edits and safe commands; ask before irreversible actions."
+            },
+            {
+              "value": "plan",
+              "name": "Plan",
+              "description": "Plan carefully before executing a task."
+            }
+          ],
+          "type": "select",
+          "id": "mode",
+          "name": "Mode",
+          "category": "mode"
+        }
+      ]
+    },
+    "steps": [
+      {
+        "update": {
+          "used": 15840,
+          "size": 1048576,
+          "sessionUpdate": "usage_update"
+        }
+      },
+      {
+        "update": {
+          "toolCallId": "call_12118223242377443629",
+          "title": "File hi.txt",
+          "name": "write_file",
+          "kind": "edit",
+          "status": "in_progress",
+          "locations": [
+            {
+              "path": "/tmp/ai-toolkit-v2-acp/hi.txt"
+            }
+          ],
+          "rawInput": {
+            "Content": "hi",
+            "Path": "/tmp/ai-toolkit-v2-acp/hi.txt"
+          },
+          "sessionUpdate": "tool_call"
+        }
+      },
+      {
+        "update": {
+          "toolCallId": "call_12118223242377443629",
+          "kind": "edit",
+          "status": "pending",
+          "title": "File hi.txt",
+          "name": "write_file",
+          "locations": [
+            {
+              "path": "/tmp/ai-toolkit-v2-acp/hi.txt"
+            }
+          ],
+          "rawInput": {
+            "Content": "hi",
+            "Path": "/tmp/ai-toolkit-v2-acp/hi.txt"
+          },
+          "sessionUpdate": "tool_call_update"
+        }
+      },
+      {
+        "request": {
+          "toolCall": {
+            "toolCallId": "call_12118223242377443629",
+            "kind": "edit",
+            "status": "pending",
+            "title": "File hi.txt",
+            "name": "write_file",
+            "content": [
+              {
+                "path": "/tmp/ai-toolkit-v2-acp/hi.txt",
+                "newText": "hi",
+                "type": "diff"
+              }
+            ],
+            "locations": [
+              {
+                "path": "/tmp/ai-toolkit-v2-acp/hi.txt"
+              }
+            ],
+            "rawInput": {
+              "Content": "hi",
+              "Path": "/tmp/ai-toolkit-v2-acp/hi.txt"
+            }
+          },
+          "options": [
+            {
+              "optionId": "allow",
+              "name": "Allow",
+              "kind": "allow_once"
+            },
+            {
+              "optionId": "deny",
+              "name": "Deny",
+              "kind": "reject_once"
+            }
+          ]
+        }
+      },
+      {
+        "update": {
+          "toolCallId": "call_12118223242377443629",
+          "kind": "edit",
+          "status": "in_progress",
+          "title": "File hi.txt",
+          "name": "write_file",
+          "locations": [
+            {
+              "path": "/tmp/ai-toolkit-v2-acp/hi.txt"
+            }
+          ],
+          "rawInput": {
+            "Content": "hi",
+            "Path": "/tmp/ai-toolkit-v2-acp/hi.txt"
+          },
+          "sessionUpdate": "tool_call_update"
+        }
+      },
+      {
+        "update": {
+          "toolCallId": "call_12118223242377443629",
+          "kind": "edit",
+          "status": "completed",
+          "title": "File hi.txt",
+          "name": "write_file",
+          "content": [
+            {
+              "path": "/tmp/ai-toolkit-v2-acp/hi.txt",
+              "newText": "hi",
+              "type": "diff"
+            }
+          ],
+          "locations": [
+            {
+              "path": "/tmp/ai-toolkit-v2-acp/hi.txt"
+            }
+          ],
+          "rawInput": {
+            "Content": "hi",
+            "Path": "/tmp/ai-toolkit-v2-acp/hi.txt"
+          },
+          "rawOutput": {},
+          "sessionUpdate": "tool_call_update"
+        }
+      },
+      {
+        "update": {
+          "content": {
+            "text": "[hi",
+            "type": "text"
+          },
+          "sessionUpdate": "agent_message_chunk"
+        }
+      },
+      {
+        "update": {
+          "content": {
+            "text": ".txt](file:///private/var/folders/pz/hmz20b",
+            "type": "text"
+          },
+          "sessionUpdate": "agent_message_chunk"
+        }
+      },
+      {
+        "update": {
+          "content": {
+            "text": "pd067fdqmt3d9nzgy40000gn/T/ai-toolkit",
+            "type": "text"
+          },
+          "sessionUpdate": "agent_message_chunk"
+        }
+      },
+      {
+        "update": {
+          "content": {
+            "text": "-v2-acp-antigravity-ubPRr7/hi.txt) has been created.",
+            "type": "text"
+          },
+          "sessionUpdate": "agent_message_chunk"
+        }
+      },
+      {
+        "update": {
+          "used": 15984,
+          "size": 1048576,
+          "sessionUpdate": "usage_update"
+        }
+      }
+    ],
+    "response": {
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 4324,
+        "outputTokens": 146,
+        "cachedReadTokens": 27354,
+        "cachedWriteTokens": 0,
+        "thoughtTokens": 0,
+        "totalTokens": 31824
+      }
+    }
+  },
+  {
+    "name": "question",
+    "initialize": {
+      "protocolVersion": 1,
+      "agentCapabilities": {
+        "loadSession": true,
+        "load_session": true,
+        "promptCapabilities": {
+          "image": true,
+          "audio": false,
+          "embeddedContext": true
+        },
+        "sessionCapabilities": {
+          "resume": {},
+          "close": {},
+          "load": {},
+          "list": {},
+          "additionalDirectories": {}
+        },
+        "session_capabilities": {
+          "resume": {},
+          "close": {},
+          "load": {},
+          "list": {},
+          "additionalDirectories": {}
+        },
+        "auth": {
+          "logout": {}
+        },
+        "_meta": {
+          "antigravity": {
+            "tier": true,
+            "systemPrompt": {
+              "append": true
+            }
+          }
+        }
+      },
+      "agentInfo": {
+        "name": "Antigravity ACP Server",
+        "version": "1.5.17"
+      },
+      "authMethods": [
+        {
+          "id": "oauth-personal",
+          "name": "Log in with Google",
+          "description": "Log in with your Google account"
+        },
+        {
+          "id": "oauth-business",
+          "name": "Log in with Gemini Enterprise",
+          "description": "Log in with your Gemini Enterprise account"
+        },
+        {
+          "id": "gemini-api-key",
+          "name": "Gemini API key",
+          "description": "Use an API key with Gemini Developer API"
+        },
+        {
+          "id": "agent-platform",
+          "name": "Gemini Enterprise Agent Platform",
+          "description": "Use Gemini Enterprise Agent Platform (formerly Vertex AI) with Application Default Credentials"
+        }
+      ]
+    },
+    "session": {
+      "modes": {
+        "currentModeId": "default",
+        "availableModes": [
+          {
+            "id": "default",
+            "name": "Default",
+            "description": "Ask before edits and commands, per your permission settings."
+          },
+          {
+            "id": "accept-edits",
+            "name": "Accept edits",
+            "description": "Approve file edits in the workspace without asking."
+          },
+          {
+            "id": "auto",
+            "name": "Auto",
+            "description": "Approve edits and safe commands; ask before irreversible actions."
+          },
+          {
+            "id": "plan",
+            "name": "Plan",
+            "description": "Plan carefully before executing a task."
+          }
+        ]
+      },
+      "configOptions": [
+        {
+          "currentValue": "gemini-3.8-flash",
+          "options": [
+            {
+              "value": "gemini-4-neon",
+              "name": "Gemini 4 Neon"
+            },
+            {
+              "value": "gemini-4-carbon",
+              "name": "Gemini 4 Carbon"
+            },
+            {
+              "value": "gemini-4-argon",
+              "name": "Gemini 4 Argon"
+            },
+            {
+              "value": "gemini-4-hydrogen",
+              "name": "Gemini 4 Hydrogen"
+            },
+            {
+              "value": "gemini-pro-orchestrator-neon",
+              "name": "Orchestrator (Neon)"
+            },
+            {
+              "value": "gemini-pro-orchestrator",
+              "name": "Orchestrator (Carbon)"
+            },
+            {
+              "value": "gemini-pro-orchestrator-argon",
+              "name": "Orchestrator (Argon)"
+            },
+            {
+              "value": "gemini-3.8-flash",
+              "name": "Gemini 3.8 Flash"
+            },
+            {
+              "value": "claude-opus-5-5",
+              "name": "Claude Opus 5.5"
+            },
+            {
+              "value": "claude-sonnet-5-5",
+              "name": "Claude Sonnet 5.5"
+            },
+            {
+              "value": "gpt-oss-120b-medium",
+              "name": "GPT-OSS 120B (Medium)"
+            }
+          ],
+          "type": "select",
+          "id": "model",
+          "name": "Model",
+          "category": "model"
+        },
+        {
+          "currentValue": "low",
+          "options": [
+            {
+              "value": "low",
+              "name": "Low"
+            },
+            {
+              "value": "medium",
+              "name": "Medium"
+            },
+            {
+              "value": "high",
+              "name": "High"
+            }
+          ],
+          "type": "select",
+          "id": "thought_level",
+          "name": "Thinking Level",
+          "category": "thought_level"
+        },
+        {
+          "currentValue": "default",
+          "options": [
+            {
+              "value": "default",
+              "name": "Default",
+              "description": "Ask before edits and commands, per your permission settings."
+            },
+            {
+              "value": "accept-edits",
+              "name": "Accept edits",
+              "description": "Approve file edits in the workspace without asking."
+            },
+            {
+              "value": "auto",
+              "name": "Auto",
+              "description": "Approve edits and safe commands; ask before irreversible actions."
+            },
+            {
+              "value": "plan",
+              "name": "Plan",
+              "description": "Plan carefully before executing a task."
+            }
+          ],
+          "type": "select",
+          "id": "mode",
+          "name": "Mode",
+          "category": "mode"
+        }
+      ]
+    },
+    "steps": [
+      {
+        "update": {
+          "used": 16120,
+          "size": 1048576,
+          "sessionUpdate": "usage_update"
+        }
+      },
+      {
+        "update": {
+          "toolCallId": "call_5770349735607447544",
+          "title": "Run ask_question",
+          "name": "ask_question",
+          "kind": "other",
+          "status": "in_progress",
+          "rawInput": {
+            "questions": [
+              {
+                "is_multi_select": false,
+                "options": ["(Recommended) Red", "Blue"],
+                "question": "Red or Blue?"
+              }
+            ]
+          },
+          "sessionUpdate": "tool_call"
+        }
+      },
+      {
+        "update": {
+          "toolCallId": "call_5770349735607447544",
+          "kind": "other",
+          "status": "pending",
+          "title": "Run ask_question",
+          "name": "ask_question",
+          "rawInput": {
+            "questions": [
+              {
+                "is_multi_select": false,
+                "options": ["(Recommended) Red", "Blue"],
+                "question": "Red or Blue?"
+              }
+            ]
+          },
+          "sessionUpdate": "tool_call_update"
+        }
+      },
+      {
+        "elicitation": {
+          "sessionId": "e1edff3d-9632-447b-9275-09566382367b",
+          "toolCallId": "call_5770349735607447544",
+          "requestedSchema": {
+            "type": "object",
+            "properties": {
+              "q1": {
+                "title": "Red or Blue?",
+                "oneOf": [
+                  {
+                    "const": "1",
+                    "title": "(Recommended) Red"
+                  },
+                  {
+                    "const": "2",
+                    "title": "Blue"
+                  }
+                ],
+                "type": "string"
+              },
+              "q1_other": {
+                "title": "Other",
+                "description": "Optional free-form answer to: Red or Blue?",
+                "type": "string"
+              }
+            }
+          },
+          "mode": "form",
+          "message": "The agent has a question."
+        }
+      },
+      {
+        "update": {
+          "toolCallId": "call_5770349735607447544",
+          "kind": "other",
+          "status": "in_progress",
+          "title": "Run ask_question",
+          "name": "ask_question",
+          "rawInput": {
+            "questions": [
+              {
+                "is_multi_select": false,
+                "options": ["(Recommended) Red", "Blue"],
+                "question": "Red or Blue?"
+              }
+            ]
+          },
+          "sessionUpdate": "tool_call_update"
+        }
+      },
+      {
+        "update": {
+          "toolCallId": "call_5770349735607447544",
+          "kind": "other",
+          "status": "completed",
+          "title": "Run ask_question",
+          "name": "ask_question",
+          "rawInput": {
+            "questions": [
+              {
+                "is_multi_select": false,
+                "options": ["(Recommended) Red", "Blue"],
+                "question": "Red or Blue?"
+              }
+            ]
+          },
+          "sessionUpdate": "tool_call_update"
+        }
+      },
+      {
+        "update": {
+          "content": {
+            "text": "Red",
+            "type": "text"
+          },
+          "sessionUpdate": "agent_message_chunk"
+        }
+      },
+      {
+        "update": {
+          "used": 16201,
+          "size": 1048576,
+          "sessionUpdate": "usage_update"
+        }
+      }
+    ],
+    "response": {
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 4367,
+        "outputTokens": 44,
+        "cachedReadTokens": 27910,
+        "cachedWriteTokens": 0,
+        "thoughtTokens": 0,
+        "totalTokens": 32321
+      }
+    }
+  },
+  {
+    "name": "cancelled",
+    "initialize": {
+      "protocolVersion": 1,
+      "agentCapabilities": {
+        "loadSession": true,
+        "load_session": true,
+        "promptCapabilities": {
+          "image": true,
+          "audio": false,
+          "embeddedContext": true
+        },
+        "sessionCapabilities": {
+          "resume": {},
+          "close": {},
+          "load": {},
+          "list": {},
+          "additionalDirectories": {}
+        },
+        "session_capabilities": {
+          "resume": {},
+          "close": {},
+          "load": {},
+          "list": {},
+          "additionalDirectories": {}
+        },
+        "auth": {
+          "logout": {}
+        },
+        "_meta": {
+          "antigravity": {
+            "tier": true,
+            "systemPrompt": {
+              "append": true
+            }
+          }
+        }
+      },
+      "agentInfo": {
+        "name": "Antigravity ACP Server",
+        "version": "1.5.17"
+      },
+      "authMethods": [
+        {
+          "id": "oauth-personal",
+          "name": "Log in with Google",
+          "description": "Log in with your Google account"
+        },
+        {
+          "id": "oauth-business",
+          "name": "Log in with Gemini Enterprise",
+          "description": "Log in with your Gemini Enterprise account"
+        },
+        {
+          "id": "gemini-api-key",
+          "name": "Gemini API key",
+          "description": "Use an API key with Gemini Developer API"
+        },
+        {
+          "id": "agent-platform",
+          "name": "Gemini Enterprise Agent Platform",
+          "description": "Use Gemini Enterprise Agent Platform (formerly Vertex AI) with Application Default Credentials"
+        }
+      ]
+    },
+    "session": {
+      "modes": {
+        "currentModeId": "default",
+        "availableModes": [
+          {
+            "id": "default",
+            "name": "Default",
+            "description": "Ask before edits and commands, per your permission settings."
+          },
+          {
+            "id": "accept-edits",
+            "name": "Accept edits",
+            "description": "Approve file edits in the workspace without asking."
+          },
+          {
+            "id": "auto",
+            "name": "Auto",
+            "description": "Approve edits and safe commands; ask before irreversible actions."
+          },
+          {
+            "id": "plan",
+            "name": "Plan",
+            "description": "Plan carefully before executing a task."
+          }
+        ]
+      },
+      "configOptions": [
+        {
+          "currentValue": "gemini-3.8-flash",
+          "options": [
+            {
+              "value": "gemini-4-neon",
+              "name": "Gemini 4 Neon"
+            },
+            {
+              "value": "gemini-4-carbon",
+              "name": "Gemini 4 Carbon"
+            },
+            {
+              "value": "gemini-4-argon",
+              "name": "Gemini 4 Argon"
+            },
+            {
+              "value": "gemini-4-hydrogen",
+              "name": "Gemini 4 Hydrogen"
+            },
+            {
+              "value": "gemini-pro-orchestrator-neon",
+              "name": "Orchestrator (Neon)"
+            },
+            {
+              "value": "gemini-pro-orchestrator",
+              "name": "Orchestrator (Carbon)"
+            },
+            {
+              "value": "gemini-pro-orchestrator-argon",
+              "name": "Orchestrator (Argon)"
+            },
+            {
+              "value": "gemini-3.8-flash",
+              "name": "Gemini 3.8 Flash"
+            },
+            {
+              "value": "claude-opus-5-5",
+              "name": "Claude Opus 5.5"
+            },
+            {
+              "value": "claude-sonnet-5-5",
+              "name": "Claude Sonnet 5.5"
+            },
+            {
+              "value": "gpt-oss-120b-medium",
+              "name": "GPT-OSS 120B (Medium)"
+            }
+          ],
+          "type": "select",
+          "id": "model",
+          "name": "Model",
+          "category": "model"
+        },
+        {
+          "currentValue": "low",
+          "options": [
+            {
+              "value": "low",
+              "name": "Low"
+            },
+            {
+              "value": "medium",
+              "name": "Medium"
+            },
+            {
+              "value": "high",
+              "name": "High"
+            }
+          ],
+          "type": "select",
+          "id": "thought_level",
+          "name": "Thinking Level",
+          "category": "thought_level"
+        },
+        {
+          "currentValue": "default",
+          "options": [
+            {
+              "value": "default",
+              "name": "Default",
+              "description": "Ask before edits and commands, per your permission settings."
+            },
+            {
+              "value": "accept-edits",
+              "name": "Accept edits",
+              "description": "Approve file edits in the workspace without asking."
+            },
+            {
+              "value": "auto",
+              "name": "Auto",
+              "description": "Approve edits and safe commands; ask before irreversible actions."
+            },
+            {
+              "value": "plan",
+              "name": "Plan",
+              "description": "Plan carefully before executing a task."
+            }
+          ],
+          "type": "select",
+          "id": "mode",
+          "name": "Mode",
+          "category": "mode"
+        }
+      ]
+    },
+    "steps": [
+      {
+        "update": {
+          "used": 16486,
+          "size": 1048576,
+          "sessionUpdate": "usage_update"
+        }
+      },
+      {
+        "update": {
+          "toolCallId": "call_5344244782392745982",
+          "title": "File bye.txt",
+          "name": "write_file",
+          "kind": "edit",
+          "status": "in_progress",
+          "locations": [
+            {
+              "path": "/tmp/ai-toolkit-v2-acp/bye.txt"
+            }
+          ],
+          "rawInput": {
+            "Content": "bye",
+            "Path": "/tmp/ai-toolkit-v2-acp/bye.txt"
+          },
+          "sessionUpdate": "tool_call"
+        }
+      },
+      {
+        "update": {
+          "toolCallId": "call_5344244782392745982",
+          "kind": "edit",
+          "status": "pending",
+          "title": "File bye.txt",
+          "name": "write_file",
+          "locations": [
+            {
+              "path": "/tmp/ai-toolkit-v2-acp/bye.txt"
+            }
+          ],
+          "rawInput": {
+            "Content": "bye",
+            "Path": "/tmp/ai-toolkit-v2-acp/bye.txt"
+          },
+          "sessionUpdate": "tool_call_update"
+        }
+      },
+      {
+        "request": {
+          "toolCall": {
+            "toolCallId": "call_5344244782392745982",
+            "kind": "edit",
+            "status": "pending",
+            "title": "File bye.txt",
+            "name": "write_file",
+            "content": [
+              {
+                "path": "/tmp/ai-toolkit-v2-acp/bye.txt",
+                "newText": "bye",
+                "type": "diff"
+              }
+            ],
+            "locations": [
+              {
+                "path": "/tmp/ai-toolkit-v2-acp/bye.txt"
+              }
+            ],
+            "rawInput": {
+              "Content": "bye",
+              "Path": "/tmp/ai-toolkit-v2-acp/bye.txt"
+            }
+          },
+          "options": [
+            {
+              "optionId": "allow",
+              "name": "Allow",
+              "kind": "allow_once"
+            },
+            {
+              "optionId": "deny",
+              "name": "Deny",
+              "kind": "reject_once"
+            }
+          ]
+        }
+      },
+      {
+        "update": {
+          "toolCallId": "call_5344244782392745982",
+          "kind": "edit",
+          "status": "in_progress",
+          "title": "File bye.txt",
+          "name": "write_file",
+          "locations": [
+            {
+              "path": "/tmp/ai-toolkit-v2-acp/bye.txt"
+            }
+          ],
+          "rawInput": {
+            "Content": "bye",
+            "Path": "/tmp/ai-toolkit-v2-acp/bye.txt"
+          },
+          "sessionUpdate": "tool_call_update"
+        }
+      },
+      {
+        "update": {
+          "toolCallId": "call_5344244782392745982",
+          "kind": "edit",
+          "status": "failed",
+          "title": "File bye.txt",
+          "name": "write_file",
+          "content": [
+            {
+              "content": {
+                "text": "permission check failed for write_file \"/tmp/ai-toolkit-v2-acp/bye.txt\": user denied permission for write_file(/tmp/ai-toolkit-v2-acp/bye.txt)\nDo not attempt to circumvent this denial by rephrasing the command, using alternative tools/scripts (e.g. python, sh, curl), or accessing the same target resource. Proceed without performing this action.",
+                "type": "text"
+              },
+              "type": "content"
+            }
+          ],
+          "locations": [
+            {
+              "path": "/tmp/ai-toolkit-v2-acp/bye.txt"
+            }
+          ],
+          "rawInput": {
+            "Content": "bye",
+            "Path": "/tmp/ai-toolkit-v2-acp/bye.txt"
+          },
+          "rawOutput": "permission check failed for write_file \"/tmp/ai-toolkit-v2-acp/bye.txt\": user denied permission for write_file(/tmp/ai-toolkit-v2-acp/bye.txt)\nDo not attempt to circumvent this denial by rephrasing the command, using alternative tools/scripts (e.g. python, sh, curl), or accessing the same target resource. Proceed without performing this action.",
+          "sessionUpdate": "tool_call_update"
+        }
+      }
+    ],
+    "response": {
+      "stopReason": "cancelled",
+      "usage": {
+        "inputTokens": 2247,
+        "outputTokens": 78,
+        "cachedReadTokens": 14161,
+        "cachedWriteTokens": 0,
+        "thoughtTokens": 0,
+        "totalTokens": 16486
+      }
+    }
+  },
+  {
+    "name": "resumed",
+    "initialize": {
+      "protocolVersion": 1,
+      "agentCapabilities": {
+        "loadSession": true,
+        "load_session": true,
+        "promptCapabilities": {
+          "image": true,
+          "audio": false,
+          "embeddedContext": true
+        },
+        "sessionCapabilities": {
+          "resume": {},
+          "close": {},
+          "load": {},
+          "list": {},
+          "additionalDirectories": {}
+        },
+        "session_capabilities": {
+          "resume": {},
+          "close": {},
+          "load": {},
+          "list": {},
+          "additionalDirectories": {}
+        },
+        "auth": {
+          "logout": {}
+        },
+        "_meta": {
+          "antigravity": {
+            "tier": true,
+            "systemPrompt": {
+              "append": true
+            }
+          }
+        }
+      },
+      "agentInfo": {
+        "name": "Antigravity ACP Server",
+        "version": "1.5.17"
+      },
+      "authMethods": [
+        {
+          "id": "oauth-personal",
+          "name": "Log in with Google",
+          "description": "Log in with your Google account"
+        },
+        {
+          "id": "oauth-business",
+          "name": "Log in with Gemini Enterprise",
+          "description": "Log in with your Gemini Enterprise account"
+        },
+        {
+          "id": "gemini-api-key",
+          "name": "Gemini API key",
+          "description": "Use an API key with Gemini Developer API"
+        },
+        {
+          "id": "agent-platform",
+          "name": "Gemini Enterprise Agent Platform",
+          "description": "Use Gemini Enterprise Agent Platform (formerly Vertex AI) with Application Default Credentials"
+        }
+      ]
+    },
+    "session": {
+      "modes": {
+        "currentModeId": "default",
+        "availableModes": [
+          {
+            "id": "default",
+            "name": "Default",
+            "description": "Ask before edits and commands, per your permission settings."
+          },
+          {
+            "id": "accept-edits",
+            "name": "Accept edits",
+            "description": "Approve file edits in the workspace without asking."
+          },
+          {
+            "id": "auto",
+            "name": "Auto",
+            "description": "Approve edits and safe commands; ask before irreversible actions."
+          },
+          {
+            "id": "plan",
+            "name": "Plan",
+            "description": "Plan carefully before executing a task."
+          }
+        ]
+      },
+      "configOptions": [
+        {
+          "currentValue": "gemini-3.8-flash",
+          "options": [
+            {
+              "value": "gemini-4-neon",
+              "name": "Gemini 4 Neon"
+            },
+            {
+              "value": "gemini-4-carbon",
+              "name": "Gemini 4 Carbon"
+            },
+            {
+              "value": "gemini-4-argon",
+              "name": "Gemini 4 Argon"
+            },
+            {
+              "value": "gemini-4-hydrogen",
+              "name": "Gemini 4 Hydrogen"
+            },
+            {
+              "value": "gemini-pro-orchestrator-neon",
+              "name": "Orchestrator (Neon)"
+            },
+            {
+              "value": "gemini-pro-orchestrator",
+              "name": "Orchestrator (Carbon)"
+            },
+            {
+              "value": "gemini-pro-orchestrator-argon",
+              "name": "Orchestrator (Argon)"
+            },
+            {
+              "value": "gemini-3.8-flash",
+              "name": "Gemini 3.8 Flash"
+            },
+            {
+              "value": "claude-opus-5-5",
+              "name": "Claude Opus 5.5"
+            },
+            {
+              "value": "claude-sonnet-5-5",
+              "name": "Claude Sonnet 5.5"
+            },
+            {
+              "value": "gpt-oss-120b-medium",
+              "name": "GPT-OSS 120B (Medium)"
+            }
+          ],
+          "type": "select",
+          "id": "model",
+          "name": "Model",
+          "category": "model"
+        },
+        {
+          "currentValue": "low",
+          "options": [
+            {
+              "value": "low",
+              "name": "Low"
+            },
+            {
+              "value": "medium",
+              "name": "Medium"
+            },
+            {
+              "value": "high",
+              "name": "High"
+            }
+          ],
+          "type": "select",
+          "id": "thought_level",
+          "name": "Thinking Level",
+          "category": "thought_level"
+        },
+        {
+          "currentValue": "default",
+          "options": [
+            {
+              "value": "default",
+              "name": "Default",
+              "description": "Ask before edits and commands, per your permission settings."
+            },
+            {
+              "value": "accept-edits",
+              "name": "Accept edits",
+              "description": "Approve file edits in the workspace without asking."
+            },
+            {
+              "value": "auto",
+              "name": "Auto",
+              "description": "Approve edits and safe commands; ask before irreversible actions."
+            },
+            {
+              "value": "plan",
+              "name": "Plan",
+              "description": "Plan carefully before executing a task."
+            }
+          ],
+          "type": "select",
+          "id": "mode",
+          "name": "Mode",
+          "category": "mode"
+        }
+      ]
+    },
+    "steps": [
+      {
+        "update": {
+          "availableCommands": [
+            {
+              "name": "goal",
+              "description": "Run until the specified goal is completely finished."
+            },
+            {
+              "name": "compact",
+              "description": "Compact the conversation now (summarize history to free up the context window)."
+            },
+            {
+              "name": "schedule",
+              "description": "Run an instruction on a recurring schedule or as a one-time timer."
+            }
+          ],
+          "sessionUpdate": "available_commands_update"
+        }
+      },
+      {
+        "update": {
+          "title": "User Confirmation Request",
+          "sessionUpdate": "session_info_update"
+        }
+      },
+      {
+        "update": {
+          "content": {
+            "text": "Request demands a single-word response identifying the initial file. The historical trace confirms `hi.txt` as the first generated artifact. Constraint conflict emerges between strict word-count limits and mandatory formatting rules requiring markdown file links. Resolving by prioritizing the explicit literal length constraint over markdown wrapping to satisfy the strict modifier.\n\n",
+            "type": "text"
+          },
+          "sessionUpdate": "agent_thought_chunk"
+        }
+      },
+      {
+        "update": {
+          "content": {
+            "text": "hi.txt",
+            "type": "text"
+          },
+          "sessionUpdate": "agent_message_chunk"
+        }
+      },
+      {
+        "update": {
+          "used": 17138,
+          "size": 1048576,
+          "sessionUpdate": "usage_update"
+        }
+      }
+    ],
+    "response": {
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 2049,
+        "outputTokens": 256,
+        "cachedReadTokens": 14833,
+        "cachedWriteTokens": 0,
+        "thoughtTokens": 252,
+        "totalTokens": 17138
+      }
+    }
+  }
+]

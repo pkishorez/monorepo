@@ -1,0 +1,37 @@
+{
+  "steps": [
+    {
+      "update": {
+        "title": "Reply With Single Word Hi",
+        "sessionUpdate": "session_info_update"
+      }
+    },
+    {
+      "update": {
+        "content": {
+          "text": "three",
+          "type": "text"
+        },
+        "sessionUpdate": "agent_message_chunk"
+      }
+    },
+    {
+      "update": {
+        "used": 17020,
+        "size": 1048576,
+        "sessionUpdate": "usage_update"
+      }
+    }
+  ],
+  "response": {
+    "stopReason": "end_turn",
+    "usage": {
+      "inputTokens": 2174,
+      "outputTokens": 13,
+      "cachedReadTokens": 14833,
+      "cachedWriteTokens": 0,
+      "thoughtTokens": 11,
+      "totalTokens": 17020
+    }
+  }
+}

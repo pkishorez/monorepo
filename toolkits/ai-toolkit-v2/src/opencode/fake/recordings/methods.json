@@ -1,0 +1,660 @@
+{
+  "sessions": {
+    "data": [
+      {
+        "id": "ses_de9104ce9ffe6Yr2IHNlNQRC5c",
+        "projectID": "573da1d77fcfb80d005d2e866e5995fe5e3754e1",
+        "model": {
+          "id": "gemini-3.5-flash-lite",
+          "providerID": "google",
+          "variant": "default"
+        },
+        "cost": 0.0062152499999999986,
+        "tokens": {
+          "input": 19472,
+          "output": 3,
+          "reasoning": 0,
+          "cache": {
+            "read": 12205,
+            "write": 0
+          }
+        },
+        "outcome": "interrupted",
+        "time": {
+          "created": "2026-11-26T08:18:57.435Z",
+          "updated": "2026-11-26T08:19:05.547Z",
+          "busy": "2026-11-26T08:19:04.687Z",
+          "idle": "2026-11-26T08:19:05.549Z"
+        },
+        "title": "Greeting",
+        "subpath": "../../../../../../../tmp/opencode-e2e",
+        "location": {
+          "directory": "/tmp/opencode-e2e"
+        }
+      },
+      {
+        "id": "ses_de9103bc1ffe2cPZcgrcIa2Trd",
+        "projectID": "573da1d77fcfb80d005d2e866e5995fe5e3754e1",
+        "model": {
+          "id": "gemini-3.5-flash-lite",
+          "providerID": "google",
+          "variant": "default"
+        },
+        "cost": 0.007696929999999999,
+        "tokens": {
+          "input": 23009,
+          "output": 25,
+          "reasoning": 0,
+          "cache": {
+            "read": 24391,
+            "write": 0
+          }
+        },
+        "outcome": "succeeded",
+        "time": {
+          "created": "2026-11-26T08:19:01.824Z",
+          "updated": "2026-11-26T08:19:04.678Z",
+          "busy": "2026-11-26T08:19:03.860Z",
+          "idle": "2026-11-26T08:19:04.681Z"
+        },
+        "title": "Run echo hi shell command",
+        "subpath": "../../../../../../../tmp/opencode-e2e",
+        "permissions": [
+          {
+            "action": "shell",
+            "resource": "*",
+            "effect": "ask"
+          }
+        ],
+        "location": {
+          "directory": "/tmp/opencode-e2e"
+        }
+      },
+      {
+        "id": "ses_de91040a7ffeb00LM4M9Wq5Btg",
+        "fork": {
+          "sessionID": "ses_de9104ce9ffe6Yr2IHNlNQRC5c",
+          "boundary": {
+            "type": "before",
+            "messageID": "msg_216efbbef001QBY8wf1RtRt871"
+          }
+        },
+        "projectID": "573da1d77fcfb80d005d2e866e5995fe5e3754e1",
+        "model": {
+          "id": "gemini-3.5-flash-lite",
+          "providerID": "google",
+          "variant": "default"
+        },
+        "cost": 0.00146071,
+        "tokens": {
+          "input": 3640,
+          "output": 1,
+          "reasoning": 0,
+          "cache": {
+            "read": 12207,
+            "write": 0
+          }
+        },
+        "outcome": "succeeded",
+        "time": {
+          "created": "2026-11-26T08:19:00.569Z",
+          "updated": "2026-11-26T08:19:01.815Z",
+          "busy": "2026-11-26T08:19:00.585Z",
+          "idle": "2026-11-26T08:19:01.817Z"
+        },
+        "title": "Greeting (fork #1)",
+        "subpath": "../../../../../../../tmp/opencode-e2e",
+        "location": {
+          "directory": "/tmp/opencode-e2e"
+        }
+      }
+    ],
+    "cursor": {
+      "previous": "eyJhbmNob3IiOnsiaWQiOiJzZXNfZGU5MTA0Y2U5ZmZlNllyMklITmxOUVJDNWMiLCJ0aW1lIjoxNzk1NjgxMTQ1NTQ3LCJkaXJlY3Rpb24iOiJwcmV2aW91cyJ9fQ",
+      "next": "eyJhbmNob3IiOnsiaWQiOiJzZXNfZGU5MTA0MGE3ZmZlYjAwTE00TTlXcTVCdGciLCJ0aW1lIjoxNzk1NjgxMTQxODE1LCJkaXJlY3Rpb24iOiJuZXh0In19"
+    }
+  },
+  "session": {
+    "id": "ses_de9104ce9ffe6Yr2IHNlNQRC5c",
+    "projectID": "573da1d77fcfb80d005d2e866e5995fe5e3754e1",
+    "model": {
+      "id": "gemini-3.5-flash-lite",
+      "providerID": "google",
+      "variant": "default"
+    },
+    "cost": 0.0062152499999999986,
+    "tokens": {
+      "input": 19472,
+      "output": 3,
+      "reasoning": 0,
+      "cache": {
+        "read": 12205,
+        "write": 0
+      }
+    },
+    "outcome": "interrupted",
+    "time": {
+      "created": "2026-11-26T08:18:57.435Z",
+      "updated": "2026-11-26T08:19:05.547Z",
+      "busy": "2026-11-26T08:19:04.687Z",
+      "idle": "2026-11-26T08:19:05.549Z"
+    },
+    "title": "Greeting",
+    "subpath": "../../../../../../../tmp/opencode-e2e",
+    "location": {
+      "directory": "/tmp/opencode-e2e"
+    }
+  },
+  "messages": {
+    "data": [
+      {
+        "id": "msg_216efd2cd001shkcmd0UA6TNte",
+        "time": {
+          "created": "2026-11-26T08:19:05.549Z"
+        },
+        "type": "idle",
+        "outcome": "interrupted"
+      },
+      {
+        "id": "msg_216efcf7700101QDkCNLBC2Kif",
+        "time": {
+          "created": "2026-11-26T08:19:04.698Z",
+          "firstToken": "2026-11-26T08:19:05.534Z",
+          "streamed": "2026-11-26T08:19:05.545Z",
+          "completed": "2026-11-26T08:19:05.547Z"
+        },
+        "type": "assistant",
+        "agent": "build",
+        "model": {
+          "id": "gemini-3.5-flash-lite",
+          "providerID": "google",
+          "variant": "default"
+        },
+        "finish": "error",
+        "error": {
+          "type": "aborted",
+          "message": "Step interrupted"
+        }
+      },
+      {
+        "id": "msg_216efcf6d0014Juhh4aTt0Yi8k",
+        "time": {
+          "created": "2026-11-26T08:19:04.692Z"
+        },
+        "text": "Count from 1 to 300, one number per line.",
+        "type": "user"
+      }
+    ],
+    "cursor": {
+      "previous": "eyJpZCI6Im1zZ18yMTZlZmQyY2QwMDFzaGtjbWQwVUE2VE50ZSIsIm9yZGVyIjoiZGVzYyIsImRpcmVjdGlvbiI6InByZXZpb3VzIn0",
+      "next": "eyJpZCI6Im1zZ18yMTZlZmIzNzQwMDFEM0VQVHNZY0dsYUxTSCIsIm9yZGVyIjoiZGVzYyIsImRpcmVjdGlvbiI6Im5leHQifQ"
+    }
+  },
+  "message": {
+    "id": "msg_216efcf6d0014Juhh4aTt0Yi8k",
+    "time": {
+      "created": "2026-11-26T08:19:04.692Z"
+    },
+    "text": "Count from 1 to 300, one number per line.",
+    "type": "user"
+  },
+  "context": [
+    {
+      "id": "msg_216efb374001D3EPTsYcGlaLSH",
+      "time": {
+        "created": "2026-11-26T08:18:58.135Z"
+      },
+      "text": "Reply with just the word: hi",
+      "type": "user"
+    },
+    {
+      "id": "msg_216efb61f001CPaEdPfgWCRFlO",
+      "time": {
+        "created": "2026-11-26T08:18:58.213Z",
+        "firstToken": "2026-11-26T08:18:59.644Z",
+        "streamed": "2026-11-26T08:18:59.655Z",
+        "completed": "2026-11-26T08:18:59.657Z"
+      },
+      "type": "assistant",
+      "agent": "build",
+      "model": {
+        "id": "gemini-3.5-flash-lite",
+        "providerID": "google",
+        "variant": "default"
+      },
+      "finish": "stop",
+      "rawFinish": "STOP",
+      "cost": 0.004683099999999999,
+      "tokens": {
+        "input": 15602,
+        "output": 1,
+        "reasoning": 0,
+        "cache": {
+          "read": 0,
+          "write": 0
+        }
+      }
+    },
+    {
+      "id": "msg_216efbbcd001Ed4t0fBXH00hY4",
+      "time": {
+        "created": "2026-11-26T08:18:59.661Z"
+      },
+      "type": "idle",
+      "outcome": "succeeded"
+    }
+  ],
+  "diff": [],
+  "revert": {
+    "messageID": "msg_216efcf6d0014Juhh4aTt0Yi8k",
+    "files": []
+  },
+  "unrevert": null,
+  "commitRevert": null,
+  "update": null,
+  "switchModel": null,
+  "switchAgent": null,
+  "permissions": [],
+  "forms": [],
+  "providers": {
+    "location": {
+      "directory": "/tmp/opencode-e2e"
+    },
+    "data": [
+      {
+        "id": "opencode",
+        "integrationID": "opencode",
+        "name": "OpenCode",
+        "activation": "enabled",
+        "package": "@opencode/ai/providers/openai-compatible"
+      },
+      {
+        "id": "google",
+        "integrationID": "google",
+        "name": "Google",
+        "activation": "auto",
+        "package": "@opencode/ai/providers/google"
+      },
+      {
+        "id": "anthropic",
+        "integrationID": "anthropic",
+        "name": "Anthropic",
+        "activation": "auto",
+        "package": "@opencode/ai/providers/anthropic"
+      }
+    ]
+  },
+  "models": {
+    "location": {
+      "directory": "/tmp/opencode-e2e"
+    },
+    "data": [
+      {
+        "id": "seaglass-alpha-free",
+        "modelID": "seaglass-alpha-free",
+        "providerID": "opencode",
+        "type": "chat",
+        "name": "Seaglass Alpha Free",
+        "compatibility": {
+          "reasoningField": "reasoning_content"
+        },
+        "package": "@opencode/ai/providers/openai-compatible",
+        "capabilities": {
+          "tools": true,
+          "input": ["text"],
+          "output": ["text"],
+          "temperature": true
+        },
+        "variants": [
+          {
+            "id": "minimal"
+          },
+          {
+            "id": "low"
+          },
+          {
+            "id": "medium"
+          }
+        ],
+        "time": {
+          "released": 1795651200000
+        },
+        "cost": [
+          {
+            "input": 0,
+            "output": 0,
+            "cache": {
+              "read": 0,
+              "write": 0
+            }
+          }
+        ],
+        "status": "active",
+        "enabled": true,
+        "limit": {
+          "context": 1048576,
+          "output": 131072
+        }
+      },
+      {
+        "id": "upstage/solar-mini-4-5",
+        "modelID": "upstage/solar-mini-4-5",
+        "providerID": "openrouter",
+        "type": "chat",
+        "family": "solar-mini",
+        "name": "Solar Mini 4.5 (Preview)",
+        "package": "@opencode/ai/providers/openrouter",
+        "headers": {
+          "HTTP-Referer": "https://opencode.ai/",
+          "X-Title": "opencode"
+        },
+        "capabilities": {
+          "tools": true,
+          "input": ["text"],
+          "output": ["text"],
+          "temperature": true
+        },
+        "variants": [
+          {
+            "id": "none"
+          },
+          {
+            "id": "minimal"
+          },
+          {
+            "id": "low"
+          }
+        ],
+        "time": {
+          "released": 1795478400000
+        },
+        "cost": [
+          {
+            "input": 0.01,
+            "output": 0.04,
+            "cache": {
+              "read": 0.001,
+              "write": 0
+            }
+          }
+        ],
+        "status": "active",
+        "enabled": true,
+        "limit": {
+          "context": 524288,
+          "output": 131072
+        }
+      },
+      {
+        "id": "upstage/solar-pro-4-contributor",
+        "modelID": "upstage/solar-pro-4-contributor",
+        "providerID": "openrouter",
+        "type": "chat",
+        "family": "solar-pro",
+        "name": "Solar Pro 4 Contributor",
+        "package": "@opencode/ai/providers/openrouter",
+        "headers": {
+          "HTTP-Referer": "https://opencode.ai/",
+          "X-Title": "opencode"
+        },
+        "capabilities": {
+          "tools": true,
+          "input": ["text"],
+          "output": ["text"],
+          "temperature": true
+        },
+        "variants": [
+          {
+            "id": "none"
+          },
+          {
+            "id": "minimal"
+          },
+          {
+            "id": "low"
+          }
+        ],
+        "time": {
+          "released": 1795478400000
+        },
+        "cost": [
+          {
+            "input": 0.09,
+            "output": 0.36,
+            "cache": {
+              "read": 0.018,
+              "write": 0
+            }
+          }
+        ],
+        "status": "active",
+        "enabled": true,
+        "limit": {
+          "context": 524288,
+          "output": 131072
+        }
+      }
+    ]
+  },
+  "defaultModel": {
+    "location": {
+      "directory": "/tmp/opencode-e2e"
+    },
+    "data": {
+      "id": "seaglass-alpha-free",
+      "modelID": "seaglass-alpha-free",
+      "providerID": "opencode",
+      "type": "chat",
+      "name": "Seaglass Alpha Free",
+      "compatibility": {
+        "reasoningField": "reasoning_content"
+      },
+      "package": "@opencode/ai/providers/openai-compatible",
+      "capabilities": {
+        "tools": true,
+        "input": ["text"],
+        "output": ["text"],
+        "temperature": true
+      },
+      "variants": [
+        {
+          "id": "minimal"
+        },
+        {
+          "id": "low"
+        },
+        {
+          "id": "medium"
+        }
+      ],
+      "time": {
+        "released": 1795651200000
+      },
+      "cost": [
+        {
+          "input": 0,
+          "output": 0,
+          "cache": {
+            "read": 0,
+            "write": 0
+          }
+        }
+      ],
+      "status": "active",
+      "enabled": true,
+      "limit": {
+        "context": 1048576,
+        "output": 131072
+      }
+    }
+  },
+  "agents": {
+    "location": {
+      "directory": "/tmp/opencode-e2e"
+    },
+    "data": [
+      {
+        "id": "build",
+        "name": "Build",
+        "request": {
+          "headers": {},
+          "body": {}
+        },
+        "description": "The default agent. Executes tools based on configured permissions.",
+        "mode": "primary",
+        "hidden": false,
+        "permissions": [
+          {
+            "action": "*",
+            "resource": "*",
+            "effect": "allow"
+          },
+          {
+            "action": "read",
+            "resource": "*.env",
+            "effect": "ask"
+          },
+          {
+            "action": "read",
+            "resource": "*.env.*",
+            "effect": "ask"
+          }
+        ]
+      },
+      {
+        "id": "general",
+        "name": "General",
+        "request": {
+          "headers": {},
+          "body": {}
+        },
+        "description": "General-purpose agent for researching complex questions and executing multi-step tasks. Use this agent to execute multiple units of work in parallel.",
+        "mode": "subagent",
+        "hidden": false,
+        "permissions": [
+          {
+            "action": "*",
+            "resource": "*",
+            "effect": "allow"
+          },
+          {
+            "action": "read",
+            "resource": "*.env",
+            "effect": "ask"
+          },
+          {
+            "action": "read",
+            "resource": "*.env.*",
+            "effect": "ask"
+          }
+        ]
+      },
+      {
+        "id": "explore",
+        "name": "Explore",
+        "request": {
+          "headers": {},
+          "body": {}
+        },
+        "system": "You are a file search specialist. You excel at thoroughly navigating and exploring codebases.\n\nGuidelines:\n- Your role is EXCLUSIVELY to search and analyze\n- Parallelize independent tool calls for searches and reads whenever possible\n- Adapt your search approach based on the thoroughness level speci…",
+        "description": "Fast agent specialized for exploring codebases. Use this when you need to quickly find files by patterns (eg. \"src/components/**/*.tsx\"), search code for keywords (eg. \"API endpoints\"), or answer questions about the codebase (eg. \"how do API endpoints work?\"). When calling this agent, specify the de…",
+        "mode": "subagent",
+        "hidden": false,
+        "permissions": [
+          {
+            "action": "*",
+            "resource": "*",
+            "effect": "allow"
+          },
+          {
+            "action": "read",
+            "resource": "*.env",
+            "effect": "ask"
+          },
+          {
+            "action": "read",
+            "resource": "*.env.*",
+            "effect": "ask"
+          }
+        ]
+      }
+    ]
+  },
+  "commands": {
+    "location": {
+      "directory": "/tmp/opencode-e2e"
+    },
+    "data": [
+      {
+        "name": "init",
+        "description": "guided AGENTS.md setup"
+      },
+      {
+        "name": "review",
+        "description": "review changes [commit|branch|pr], defaults to uncommitted"
+      },
+      {
+        "name": "goal",
+        "description": "keep working until an objective is met [pause|resume|clear]"
+      }
+    ]
+  },
+  "skills": {
+    "location": {
+      "directory": "/tmp/opencode-e2e"
+    },
+    "data": [
+      {
+        "id": "opencode",
+        "name": "OpenCode",
+        "description": "Use this skill for any question about OpenCode itself, including how OpenCode works, using or configuring it, migrating from V1 to V2, troubleshooting it, developing plugins or integrations, using the OpenCode SDK, clients, server, or API, and contributing to the OpenCode codebase. Also use it for O…",
+        "path": "skill://opencode/SKILL.md"
+      },
+      {
+        "id": "report",
+        "name": "Report",
+        "description": "Use when the user wants to report an opencode issue or bug. Collect standard diagnostics, add user-specific reproduction context, and publish the issue with GitHub CLI.",
+        "path": "skill://report/SKILL.md"
+      },
+      {
+        "id": "browser",
+        "name": "Browser",
+        "description": "Use the in-app browser: open and read pages, click and fill forms, take screenshots, check console and network logs, and profile performance and memory. Load it before your first browser tool call.",
+        "path": "skill://browser/SKILL.md"
+      }
+    ]
+  },
+  "config": [
+    {
+      "type": "document",
+      "path": "~/.config/opencode/opencode.jsonc"
+    },
+    {
+      "type": "directory",
+      "path": "~/.config/opencode"
+    }
+  ],
+  "mcp": {
+    "location": {
+      "directory": "/tmp/opencode-e2e"
+    },
+    "data": []
+  },
+  "usageLimits": {
+    "location": {
+      "directory": "/tmp/opencode-e2e"
+    },
+    "data": null
+  },
+  "compact": {
+    "id": "msg_216efd3150015jmKXDMEtd3Yf4",
+    "sessionID": "ses_de9103bc1ffe2cPZcgrcIa2Trd",
+    "time": {
+      "created": "2026-11-26T08:19:05.621Z"
+    },
+    "type": "compaction",
+    "payload": {},
+    "delivery": "steer"
+  },
+  "remove": null
+}

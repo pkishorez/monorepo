@@ -1,0 +1,88 @@
+{
+  "steps": [
+    {
+      "update": {
+        "used": 16049,
+        "size": 1048576,
+        "sessionUpdate": "usage_update"
+      }
+    },
+    {
+      "update": {
+        "toolCallId": "call_1967639658102736308",
+        "title": "sleep 5",
+        "name": "run_command",
+        "kind": "execute",
+        "status": "in_progress",
+        "rawInput": {
+          "CommandLine": "sleep 5",
+          "WaitMsBeforeAsync": 6000,
+          "toolSummary": "Sleep 5 seconds"
+        },
+        "sessionUpdate": "tool_call"
+      }
+    },
+    {
+      "update": {
+        "toolCallId": "call_1967639658102736308",
+        "kind": "execute",
+        "status": "pending",
+        "title": "sleep 5",
+        "name": "run_command",
+        "rawInput": {
+          "CommandLine": "sleep 5",
+          "WaitMsBeforeAsync": 6000,
+          "toolSummary": "Sleep 5 seconds"
+        },
+        "sessionUpdate": "tool_call_update"
+      }
+    },
+    {
+      "permission": {
+        "sessionId": "8c7e6640-fe32-44c5-8221-955b2fcc402d",
+        "toolCall": {
+          "toolCallId": "call_1967639658102736308",
+          "kind": "execute",
+          "status": "pending",
+          "title": "sleep 5",
+          "name": "run_command",
+          "rawInput": {
+            "CommandLine": "sleep 5",
+            "WaitMsBeforeAsync": 6000,
+            "toolSummary": "Sleep 5 seconds"
+          }
+        },
+        "options": [
+          {
+            "optionId": "allow",
+            "name": "Allow",
+            "kind": "allow_once"
+          },
+          {
+            "optionId": "deny",
+            "name": "Deny",
+            "kind": "reject_once"
+          }
+        ]
+      }
+    },
+    {
+      "update": {
+        "toolCallId": "call_1967639658102736308",
+        "kind": "execute",
+        "status": "in_progress",
+        "title": "sleep 5",
+        "name": "run_command",
+        "rawInput": {
+          "CommandLine": "sleep 5",
+          "WaitMsBeforeAsync": 6000,
+          "toolSummary": "Sleep 5 seconds"
+        },
+        "sessionUpdate": "tool_call_update"
+      }
+    }
+  ],
+  "response": {
+    "stopReason": "end_turn"
+  }
+}

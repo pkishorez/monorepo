@@ -1,0 +1,609 @@
+{
+  "name": "question",
+  "entries": [
+    {
+      "message": {
+        "type": "command_lifecycle",
+        "command_uuid": "7b4d3727-40e8-4562-8502-6f3d95118d84",
+        "state": "queued",
+        "uuid": "1dc4ecba-f2c2-4bb1-9fc8-06c54bfbcb59",
+        "session_id": "dd8e8296-e9ed-41a8-acac-26c2ada82f0e"
+      }
+    },
+    {
+      "message": {
+        "type": "command_lifecycle",
+        "command_uuid": "7b4d3727-40e8-4562-8502-6f3d95118d84",
+        "state": "started",
+        "uuid": "6ad5e658-aff4-4622-9121-ef3cc1632609",
+        "session_id": "dd8e8296-e9ed-41a8-acac-26c2ada82f0e"
+      }
+    },
+    {
+      "message": {
+        "type": "system",
+        "subtype": "init",
+        "cwd": "/tmp/ai-toolkit-v2-claude",
+        "session_id": "dd8e8296-e9ed-41a8-acac-26c2ada82f0e",
+        "tools": [
+          "Task",
+          "AskUserQuestion",
+          "Bash",
+          "CronCreate",
+          "CronDelete",
+          "CronList",
+          "DesignSync",
+          "Edit",
+          "EnterPlanMode",
+          "EnterWorktree",
+          "ExitPlanMode",
+          "ExitWorktree",
+          "ListAgents",
+          "McpTaskCheck",
+          "Monitor",
+          "NotebookEdit",
+          "PushNotification",
+          "Read",
+          "RemoteTrigger",
+          "ReportFindings",
+          "ScheduleWakeup",
+          "SendMessage",
+          "SendToProject",
+          "SendToProjectContext",
+          "Skill",
+          "TaskStop",
+          "ToolSearch",
+          "WebSearch",
+          "Workflow",
+          "Write"
+        ],
+        "mcp_servers": [],
+        "model": "claude-haiku-5-5",
+        "permissionMode": "default",
+        "slash_commands": [
+          "deep-research",
+          "design",
+          "design-sync",
+          "dataviz",
+          "update-config",
+          "verify",
+          "debug",
+          "code-review",
+          "simplify",
+          "batch",
+          "fewer-permission-prompts",
+          "doctor",
+          "claude-approvals",
+          "loop",
+          "schedule",
+          "send-to-project",
+          "claude-api",
+          "workflow-authoring",
+          "run",
+          "run-skill-generator",
+          "plugin-authoring",
+          "advisor",
+          "agents",
+          "auto-mode-setup",
+          "autocompact",
+          "clear",
+          "color",
+          "compact",
+          "config",
+          "output-style",
+          "context",
+          "effort",
+          "fast",
+          "focus",
+          "heapdump",
+          "init",
+          "mcp",
+          "import",
+          "model",
+          "__remote-workflow",
+          "workflow-launch-exec",
+          "reload-plugins",
+          "reload-skills",
+          "rename",
+          "ultrareview",
+          "security-review",
+          "usage-credits",
+          "extra-usage",
+          "usage",
+          "insights",
+          "recap",
+          "skill-doctor",
+          "goal",
+          "design-consent",
+          "design-revoke",
+          "list-agents",
+          "team-onboarding"
+        ],
+        "terminal_slash_commands": [
+          "doctor",
+          "send-to-project",
+          "color",
+          "focus",
+          "reload-plugins"
+        ],
+        "apiKeySource": "none",
+        "claude_code_version": "2.1.332",
+        "output_style": "default",
+        "agents": [
+          "claude",
+          "Explore",
+          "general-purpose",
+          "Plan",
+          "statusline-setup",
+          "web-fetch"
+        ],
+        "skills": [
+          "deep-research",
+          "design",
+          "design-sync",
+          "dataviz",
+          "update-config",
+          "verify",
+          "debug",
+          "code-review",
+          "simplify",
+          "batch",
+          "fewer-permission-prompts",
+          "doctor",
+          "claude-approvals",
+          "loop",
+          "schedule",
+          "send-to-project",
+          "claude-api",
+          "workflow-authoring",
+          "run",
+          "run-skill-generator",
+          "plugin-authoring"
+        ],
+        "plugins": [
+          {
+            "name": "cc-plugin-agents-md",
+            "path": "builtin",
+            "source": "cc-plugin-agents-md@builtin"
+          },
+          {
+            "name": "cc-plugin-telemetry",
+            "path": "builtin",
+            "source": "cc-plugin-telemetry@builtin"
+          },
+          {
+            "name": "cc-plugin-privacy",
+            "path": "builtin",
+            "source": "cc-plugin-privacy@builtin"
+          },
+          {
+            "name": "cc-plugin-plugin-authoring",
+            "path": "builtin",
+            "source": "cc-plugin-plugin-authoring@builtin"
+          }
+        ],
+        "capabilities": [
+          "interrupt_receipt_v1",
+          "interrupt_cancel_queued_v1",
+          "interrupt_send_now_v1",
+          "interrupt_requeue_taken_v1",
+          "msg_lifecycle_v1",
+          "request_marker_lists_v1",
+          "ask_user_question_unanswered_v1",
+          "lifecycle_wakeup_source_v1",
+          "sdk_mcp_tools_list_changed",
+          "sdk_mcp_manifests",
+          "mcp_read_resource_v1",
+          "mcp_tool_ui_meta_v1",
+          "ui_surface_v1",
+          "mcp_call_result_not_for_model_v1",
+          "mcp_call_soft_error_result_v1",
+          "mcp_call_check_permissions_v1",
+          "voice_call_talk_line_v1",
+          "withdrawn_files_note_v2",
+          "withdrawn_tools_v1",
+          "ui_pane_widget_v1",
+          "reload_plugins_refuse_if_busy_v1",
+          "get_usage_detached_v1",
+          "silent_resend_files_v1"
+        ],
+        "analytics_disabled": false,
+        "product_feedback_disabled": false,
+        "served_by_anthropic": true,
+        "uuid": "e4ff4df5-f1a6-4522-8217-d634788a7959",
+        "sandbox_enabled": false,
+        "memory_paths": {
+          "auto": "/Users/me/.claude/projects/-private-var-folders-pz-hmz20bpd067fdqmt3d9nzgy40000gn-T-ai-toolkit-v2-claude-AtHm82/memory/"
+        },
+        "original_cwd": "/tmp/ai-toolkit-v2-claude",
+        "additional_directories": [],
+        "messaging_socket_path": "/tmp/cc-socks/33632.sock",
+        "fast_mode_state": "off",
+        "fast_mode_disabled_reason": "sdk_opt_in_required",
+        "per_turn_effort_active": true,
+        "ultrathink_available": false,
+        "ultrathink_typed_raises": false,
+        "view_mode": "default",
+        "user_message_uuids": ["7b4d3727-40e8-4562-8502-6f3d95118d84"]
+      }
+    },
+    {
+      "message": {
+        "type": "rate_limit_event",
+        "rate_limit_info": {
+          "status": "allowed",
+          "resetsAt": 1795695000,
+          "rateLimitType": "five_hour",
+          "overageStatus": "rejected",
+          "overageDisabledReason": "org_level_disabled",
+          "isUsingOverage": false,
+          "unifiedWindows": {
+            "five_hour": {
+              "utilization": 0.1,
+              "resetsAt": 1795695000,
+              "status": "allowed"
+            },
+            "seven_day": {
+              "utilization": 0.44,
+              "resetsAt": 1795878000,
+              "status": "allowed"
+            }
+          }
+        },
+        "uuid": "e9f24a1a-c873-4d99-8a9e-f0c28d260f3e",
+        "session_id": "dd8e8296-e9ed-41a8-acac-26c2ada82f0e"
+      }
+    },
+    {
+      "message": {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": "Use the AskUserQuestion tool once to ask me to pick red or blue. Then reply with only my pick."
+        },
+        "session_id": "dd8e8296-e9ed-41a8-acac-26c2ada82f0e",
+        "parent_tool_use_id": null,
+        "uuid": "7b4d3727-40e8-4562-8502-6f3d95118d84",
+        "timestamp": "2026-11-26T08:19:12.420Z",
+        "isReplay": true
+      }
+    },
+    {
+      "message": {
+        "type": "assistant",
+        "message": {
+          "model": "claude-haiku-5-5",
+          "id": "msg_011ChRDFNG8AU39XpsBsnC7i",
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_018Cu4qMRpuLMLYUZ8ez2jQB",
+              "name": "AskUserQuestion",
+              "input": {
+                "questions": [
+                  {
+                    "question": "Pick a color: red or blue?",
+                    "header": "Color pick",
+                    "multiSelect": false,
+                    "options": [
+                      {
+                        "label": "Red",
+                        "description": "Choose red"
+                      },
+                      {
+                        "label": "Blue",
+                        "description": "Choose blue"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "caller": {
+                "type": "direct"
+              }
+            }
+          ],
+          "container": null,
+          "stop_reason": null,
+          "stop_sequence": null,
+          "stop_details": null,
+          "usage": {
+            "input_tokens": 2,
+            "cache_creation_input_tokens": 4539,
+            "cache_read_input_tokens": 12988,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 4539
+            },
+            "output_tokens": 24,
+            "service_tier": "standard",
+            "inference_geo": "global",
+            "speed": "standard"
+          },
+          "input_transformations": [],
+          "diagnostics": null,
+          "context_management": null
+        },
+        "parent_tool_use_id": null,
+        "session_id": "dd8e8296-e9ed-41a8-acac-26c2ada82f0e",
+        "uuid": "56d0a7c9-3688-4547-8eac-c2d0232121b3",
+        "timestamp": "2026-11-26T08:19:14.152Z",
+        "request_id": "req_011ChRDFN6hRWoSCLbuCgpcC",
+        "wire_tool_inputs": {
+          "toolu_018Cu4qMRpuLMLYUZ8ez2jQB": {
+            "questions": [
+              {
+                "question": "Pick a color: red or blue?",
+                "header": "Color pick",
+                "multiSelect": false,
+                "options": [
+                  {
+                    "label": "Red",
+                    "description": "Choose red"
+                  },
+                  {
+                    "label": "Blue",
+                    "description": "Choose blue"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "user_message_uuid": "7b4d3727-40e8-4562-8502-6f3d95118d84",
+        "user_message_uuids": ["7b4d3727-40e8-4562-8502-6f3d95118d84"]
+      }
+    },
+    {
+      "request": {
+        "toolName": "AskUserQuestion",
+        "input": {
+          "questions": [
+            {
+              "question": "Pick a color: red or blue?",
+              "header": "Color pick",
+              "options": [
+                {
+                  "label": "Red",
+                  "description": "Choose red"
+                },
+                {
+                  "label": "Blue",
+                  "description": "Choose blue"
+                }
+              ],
+              "multiSelect": false
+            }
+          ]
+        },
+        "options": {
+          "displayName": "AskUserQuestion",
+          "toolUseID": "toolu_018Cu4qMRpuLMLYUZ8ez2jQB",
+          "requestId": "2c867e01-4ba3-46bc-9d17-236ca7534d8b",
+          "requiresUserInteraction": true
+        }
+      }
+    },
+    {
+      "message": {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "content": "The user answered: \"Pick a color: red or blue?\"=\"blue\". Read the answers carefully — they may request clarification, changes, or that you not proceed — and follow what they actually say.",
+              "tool_use_id": "toolu_018Cu4qMRpuLMLYUZ8ez2jQB"
+            }
+          ]
+        },
+        "parent_tool_use_id": null,
+        "session_id": "dd8e8296-e9ed-41a8-acac-26c2ada82f0e",
+        "uuid": "40ce10d5-065f-4d54-8b00-30fcbc7129fa",
+        "timestamp": "2026-11-26T08:19:14.200Z",
+        "tool_use_result": {
+          "questions": [
+            {
+              "question": "Pick a color: red or blue?",
+              "header": "Color pick",
+              "options": [
+                {
+                  "label": "Red",
+                  "description": "Choose red"
+                },
+                {
+                  "label": "Blue",
+                  "description": "Choose blue"
+                }
+              ],
+              "multiSelect": false
+            }
+          ],
+          "answers": {
+            "Pick a color: red or blue?": "blue"
+          }
+        },
+        "tool_result_meta": [
+          {
+            "id": "toolu_018Cu4qMRpuLMLYUZ8ez2jQB",
+            "permission_decision": {
+              "decision": "accept",
+              "source": "user_temporary"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "message": {
+        "type": "assistant",
+        "message": {
+          "model": "claude-haiku-5-5",
+          "id": "msg_011ChRDFUPUHSe2sackeETuT",
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Blue"
+            }
+          ],
+          "container": null,
+          "stop_reason": null,
+          "stop_sequence": null,
+          "stop_details": null,
+          "usage": {
+            "input_tokens": 2,
+            "cache_creation_input_tokens": 221,
+            "cache_read_input_tokens": 17527,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 221
+            },
+            "output_tokens": 4,
+            "service_tier": "standard",
+            "inference_geo": "global",
+            "speed": "standard"
+          },
+          "input_transformations": [],
+          "diagnostics": null,
+          "context_management": null
+        },
+        "parent_tool_use_id": null,
+        "session_id": "dd8e8296-e9ed-41a8-acac-26c2ada82f0e",
+        "uuid": "dfc22162-4a3e-4d26-99a8-48d581c0fbf4",
+        "timestamp": "2026-11-26T08:19:15.045Z",
+        "request_id": "req_011ChRDFUCJzWPqy2NZk2CAd"
+      }
+    },
+    {
+      "message": {
+        "duration_api_ms": 3435,
+        "stop_reason": "end_turn",
+        "session_id": "dd8e8296-e9ed-41a8-acac-26c2ada82f0e",
+        "total_cost_usd": 0.00145505,
+        "usage": {
+          "input_tokens": 4,
+          "cache_creation_input_tokens": 4760,
+          "cache_read_input_tokens": 30515,
+          "output_tokens": 139,
+          "output_tokens_details": {
+            "thinking_tokens": 0
+          },
+          "server_tool_use": {
+            "web_search_requests": 0,
+            "web_fetch_requests": 0
+          },
+          "service_tier": "standard",
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 4760,
+            "ephemeral_5m_input_tokens": 0
+          },
+          "inference_geo": "global",
+          "iterations": [
+            {
+              "input_tokens": 2,
+              "output_tokens": 5,
+              "cache_read_input_tokens": 17527,
+              "cache_creation_input_tokens": 221,
+              "cache_creation": {
+                "ephemeral_5m_input_tokens": 0,
+                "ephemeral_1h_input_tokens": 221
+              },
+              "type": "message"
+            }
+          ],
+          "speed": "standard",
+          "fallback_credit": null
+        },
+        "modelUsage": {
+          "claude-haiku-5-5": {
+            "inputTokens": 1204,
+            "outputTokens": 155,
+            "cacheReadInputTokens": 30515,
+            "cacheCreationInputTokens": 4760,
+            "webSearchRequests": 0,
+            "costUSD": 0.00145505,
+            "contextWindow": 1000000,
+            "maxOutputTokens": 128000,
+            "thinkingTokens": 0,
+            "cacheCreationEphemeral5mInputTokens": 0,
+            "cacheCreationEphemeral1hInputTokens": 4760,
+            "canonicalModel": "claude-haiku-5-5",
+            "provider": "firstParty",
+            "costBasis": "list"
+          }
+        },
+        "permission_denials": [],
+        "terminal_reason": "completed",
+        "fast_mode_state": "off",
+        "fast_mode_disabled_reason": "sdk_opt_in_required",
+        "subagent_stats": {
+          "spawned": 0,
+          "requested": {
+            "background": 0,
+            "foreground": 0,
+            "unset": 0
+          },
+          "started_in_background": 0,
+          "max_depth": 0,
+          "spawned_by_subagents": 0,
+          "completed": 0,
+          "failed": 0,
+          "killed": {
+            "parent": 0,
+            "user": 0,
+            "system": 0
+          },
+          "refused": {
+            "depth_limit": 0,
+            "concurrency_limit": 0,
+            "budget": 0
+          },
+          "by_type": {}
+        },
+        "safety_stops": 0,
+        "is_error": false,
+        "num_turns": 2,
+        "subtype": "success",
+        "api_error_status": null,
+        "result": "Blue",
+        "ttft_ms": 1746,
+        "type": "result",
+        "duration_ms": 2658,
+        "uuid": "c0eac77b-2169-4f5f-9526-7a71f78767d3",
+        "ttft_stream_ms": 1306,
+        "time_to_request_ms": 312,
+        "first_content_frame_ms": 1306,
+        "user_message_uuid": "7b4d3727-40e8-4562-8502-6f3d95118d84",
+        "user_message_uuids": ["7b4d3727-40e8-4562-8502-6f3d95118d84"],
+        "request_sent_wall_ms": 1795681152721,
+        "first_request_input_tokens": 17529,
+        "first_request_cache_read_input_tokens": 12988,
+        "queued_turn_count": 0,
+        "result_index": 0,
+        "model_usage_since_last_result": {
+          "claude-haiku-5-5": {
+            "inputTokens": 1204,
+            "outputTokens": 155,
+            "cacheReadInputTokens": 30515,
+            "cacheCreationInputTokens": 4760,
+            "webSearchRequests": 0,
+            "costUSD": 0.00145505,
+            "contextWindow": 1000000,
+            "maxOutputTokens": 128000,
+            "thinkingTokens": 0,
+            "cacheCreationEphemeral5mInputTokens": 0,
+            "cacheCreationEphemeral1hInputTokens": 4760,
+            "canonicalModel": "claude-haiku-5-5",
+            "provider": "firstParty",
+            "costBasis": "list"
+          }
+        },
+        "credential_expires_at": "2026-11-30T15:23:52.375Z"
+      }
+    }
+  ]
+}

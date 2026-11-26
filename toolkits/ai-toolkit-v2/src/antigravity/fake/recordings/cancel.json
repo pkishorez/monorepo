@@ -1,0 +1,123 @@
+{
+  "steps": [
+    {
+      "update": {
+        "used": 16687,
+        "size": 1048576,
+        "sessionUpdate": "usage_update"
+      }
+    },
+    {
+      "update": {
+        "toolCallId": "call_18284208479453688421",
+        "title": "sleep 20",
+        "name": "run_command",
+        "kind": "execute",
+        "status": "in_progress",
+        "rawInput": {
+          "CommandLine": "sleep 20",
+          "WaitMsBeforeAsync": 10000,
+          "toolSummary": "Sleep 20 seconds"
+        },
+        "sessionUpdate": "tool_call"
+      }
+    },
+    {
+      "update": {
+        "toolCallId": "call_18284208479453688421",
+        "kind": "execute",
+        "status": "pending",
+        "title": "sleep 20",
+        "name": "run_command",
+        "rawInput": {
+          "CommandLine": "sleep 20",
+          "WaitMsBeforeAsync": 10000,
+          "toolSummary": "Sleep 20 seconds"
+        },
+        "sessionUpdate": "tool_call_update"
+      }
+    },
+    {
+      "permission": {
+        "sessionId": "8c7e6640-fe32-44c5-8221-955b2fcc402d",
+        "toolCall": {
+          "toolCallId": "call_18284208479453688421",
+          "kind": "execute",
+          "status": "pending",
+          "title": "sleep 20",
+          "name": "run_command",
+          "rawInput": {
+            "CommandLine": "sleep 20",
+            "WaitMsBeforeAsync": 10000,
+            "toolSummary": "Sleep 20 seconds"
+          }
+        },
+        "options": [
+          {
+            "optionId": "allow",
+            "name": "Allow",
+            "kind": "allow_once"
+          },
+          {
+            "optionId": "deny",
+            "name": "Deny",
+            "kind": "reject_once"
+          }
+        ]
+      }
+    },
+    {
+      "update": {
+        "toolCallId": "call_18284208479453688421",
+        "kind": "execute",
+        "status": "in_progress",
+        "title": "sleep 20",
+        "name": "run_command",
+        "rawInput": {
+          "CommandLine": "sleep 20",
+          "WaitMsBeforeAsync": 10000,
+          "toolSummary": "Sleep 20 seconds"
+        },
+        "sessionUpdate": "tool_call_update"
+      }
+    },
+    {
+      "update": {
+        "toolCallId": "call_18284208479453688421",
+        "kind": "execute",
+        "status": "failed",
+        "title": "sleep 20",
+        "name": "run_command",
+        "content": [
+          {
+            "content": {
+              "text": "",
+              "type": "text"
+            },
+            "type": "content"
+          }
+        ],
+        "rawInput": {
+          "CommandLine": "sleep 20",
+          "WaitMsBeforeAsync": 10000,
+          "toolSummary": "Sleep 20 seconds"
+        },
+        "rawOutput": {
+          "output": ""
+        },
+        "sessionUpdate": "tool_call_update"
+      }
+    }
+  ],
+  "response": {
+    "stopReason": "cancelled",
+    "usage": {
+      "inputTokens": 2125,
+      "outputTokens": 41,
+      "cachedReadTokens": 14521,
+      "cachedWriteTokens": 0,
+      "thoughtTokens": 0,
+      "totalTokens": 16687
+    }
+  }
+}

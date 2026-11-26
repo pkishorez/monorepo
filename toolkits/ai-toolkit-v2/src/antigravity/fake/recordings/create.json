@@ -1,0 +1,44 @@
+{
+  "steps": [
+    {
+      "update": {
+        "used": 0,
+        "size": 1048576,
+        "sessionUpdate": "usage_update"
+      }
+    },
+    {
+      "update": {
+        "title": "Reply With Single Word Hi",
+        "sessionUpdate": "session_info_update"
+      }
+    },
+    {
+      "update": {
+        "content": {
+          "text": "hi",
+          "type": "text"
+        },
+        "sessionUpdate": "agent_message_chunk"
+      }
+    },
+    {
+      "update": {
+        "used": 15639,
+        "size": 1048576,
+        "sessionUpdate": "usage_update"
+      }
+    }
+  ],
+  "response": {
+    "stopReason": "end_turn",
+    "usage": {
+      "inputTokens": 15638,
+      "outputTokens": 1,
+      "cachedReadTokens": 0,
+      "cachedWriteTokens": 0,
+      "thoughtTokens": 0,
+      "totalTokens": 15639
+    }
+  }
+}

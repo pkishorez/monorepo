@@ -1,0 +1,247 @@
+{
+  "initialize": {
+    "protocolVersion": 1,
+    "agentCapabilities": {
+      "loadSession": true,
+      "load_session": true,
+      "promptCapabilities": {
+        "image": true,
+        "audio": false,
+        "embeddedContext": true
+      },
+      "sessionCapabilities": {
+        "resume": {},
+        "close": {},
+        "load": {},
+        "list": {},
+        "additionalDirectories": {}
+      },
+      "session_capabilities": {
+        "resume": {},
+        "close": {},
+        "load": {},
+        "list": {},
+        "additionalDirectories": {}
+      },
+      "auth": {
+        "logout": {}
+      },
+      "_meta": {
+        "antigravity": {
+          "tier": true,
+          "systemPrompt": {
+            "append": true
+          }
+        }
+      }
+    },
+    "agentInfo": {
+      "name": "Antigravity ACP Server",
+      "version": "1.5.17"
+    },
+    "authMethods": [
+      {
+        "id": "oauth-personal",
+        "name": "Log in with Google",
+        "description": "Log in with your Google account"
+      },
+      {
+        "id": "oauth-business",
+        "name": "Log in with Gemini Enterprise",
+        "description": "Log in with your Gemini Enterprise account"
+      },
+      {
+        "id": "gemini-api-key",
+        "name": "Gemini API key",
+        "description": "Use an API key with Gemini Developer API"
+      },
+      {
+        "id": "agent-platform",
+        "name": "Gemini Enterprise Agent Platform",
+        "description": "Use Gemini Enterprise Agent Platform (formerly Vertex AI) with Application Default Credentials"
+      }
+    ]
+  },
+  "session": {
+    "modes": {
+      "currentModeId": "default",
+      "availableModes": [
+        {
+          "id": "default",
+          "name": "Default",
+          "description": "Ask before edits and commands, per your permission settings."
+        },
+        {
+          "id": "accept-edits",
+          "name": "Accept edits",
+          "description": "Approve file edits in the workspace without asking."
+        },
+        {
+          "id": "auto",
+          "name": "Auto",
+          "description": "Approve edits and safe commands; ask before irreversible actions."
+        },
+        {
+          "id": "plan",
+          "name": "Plan",
+          "description": "Plan carefully before executing a task."
+        }
+      ]
+    },
+    "configOptions": [
+      {
+        "currentValue": "gemini-3.8-flash",
+        "options": [
+          {
+            "value": "gemini-4-neon",
+            "name": "Gemini 4 Neon"
+          },
+          {
+            "value": "gemini-4-carbon",
+            "name": "Gemini 4 Carbon"
+          },
+          {
+            "value": "gemini-4-argon",
+            "name": "Gemini 4 Argon"
+          },
+          {
+            "value": "gemini-4-hydrogen",
+            "name": "Gemini 4 Hydrogen"
+          },
+          {
+            "value": "gemini-pro-orchestrator-neon",
+            "name": "Orchestrator (Neon)"
+          },
+          {
+            "value": "gemini-pro-orchestrator",
+            "name": "Orchestrator (Carbon)"
+          },
+          {
+            "value": "gemini-pro-orchestrator-argon",
+            "name": "Orchestrator (Argon)"
+          },
+          {
+            "value": "gemini-3.8-flash",
+            "name": "Gemini 3.8 Flash"
+          },
+          {
+            "value": "claude-opus-5-5",
+            "name": "Claude Opus 5.5"
+          },
+          {
+            "value": "claude-sonnet-5-5",
+            "name": "Claude Sonnet 5.5"
+          },
+          {
+            "value": "gpt-oss-120b-medium",
+            "name": "GPT-OSS 120B (Medium)"
+          }
+        ],
+        "type": "select",
+        "id": "model",
+        "name": "Model",
+        "category": "model"
+      },
+      {
+        "currentValue": "low",
+        "options": [
+          {
+            "value": "low",
+            "name": "Low"
+          },
+          {
+            "value": "medium",
+            "name": "Medium"
+          },
+          {
+            "value": "high",
+            "name": "High"
+          }
+        ],
+        "type": "select",
+        "id": "thought_level",
+        "name": "Thinking Level",
+        "category": "thought_level"
+      },
+      {
+        "currentValue": "default",
+        "options": [
+          {
+            "value": "default",
+            "name": "Default",
+            "description": "Ask before edits and commands, per your permission settings."
+          },
+          {
+            "value": "accept-edits",
+            "name": "Accept edits",
+            "description": "Approve file edits in the workspace without asking."
+          },
+          {
+            "value": "auto",
+            "name": "Auto",
+            "description": "Approve edits and safe commands; ask before irreversible actions."
+          },
+          {
+            "value": "plan",
+            "name": "Plan",
+            "description": "Plan carefully before executing a task."
+          }
+        ],
+        "type": "select",
+        "id": "mode",
+        "name": "Mode",
+        "category": "mode"
+      }
+    ]
+  },
+  "commands": [
+    {
+      "name": "goal",
+      "description": "Run until the specified goal is completely finished."
+    },
+    {
+      "name": "compact",
+      "description": "Compact the conversation now (summarize history to free up the context window)."
+    },
+    {
+      "name": "schedule",
+      "description": "Run an instruction on a recurring schedule or as a one-time timer."
+    }
+  ],
+  "sessions": {
+    "sessions": [
+      {
+        "sessionId": "8c7e6640-fe32-44c5-8221-955b2fcc402d",
+        "cwd": "/var/folders/pz/hmz20bpd067fdqmt3d9nzgy40000gn/T/agy-e2e-BAA0gA",
+        "title": "Reply With Single Word Hi",
+        "updatedAt": "2026-11-26T08:19:53Z"
+      }
+    ]
+  },
+  "print": {
+    "conversation_id": "4f3b11c5-1d11-480c-af19-a4aabce60b1a",
+    "status": "SUCCESS",
+    "response": "{\"word\":\"hi\"}\n",
+    "duration_seconds": 7.23132,
+    "num_turns": 1,
+    "structured_output": {
+      "word": "hi"
+    },
+    "json_schema": {
+      "type": "object",
+      "properties": {
+        "word": {
+          "type": "string"
+        }
+      },
+      "required": ["word"]
+    },
+    "usage": {
+      "input_tokens": 16401,
+      "output_tokens": 407,
+      "thinking_tokens": 393,
+      "cache_read_tokens": 0,
+      "total_tokens": 16808
+    }
+  }
+}

@@ -26,6 +26,7 @@ export default defineConfig({
           'devtools/devtools/**',
           'devtools/monoverse/**',
           'devtools/devtools-kabuki/**',
+          'toolkits/ai-toolkit-v2/**',
         ],
         rules: monoverseRules,
       },

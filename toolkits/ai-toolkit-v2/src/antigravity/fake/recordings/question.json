@@ -1,0 +1,146 @@
+{
+  "steps": [
+    {
+      "update": {
+        "used": 16482,
+        "size": 1048576,
+        "sessionUpdate": "usage_update"
+      }
+    },
+    {
+      "update": {
+        "toolCallId": "call_4561930390651753899",
+        "title": "Run ask_question",
+        "name": "ask_question",
+        "kind": "other",
+        "status": "in_progress",
+        "rawInput": {
+          "questions": [
+            {
+              "is_multi_select": false,
+              "options": ["(Recommended) Red", "Blue"],
+              "question": "What is your favourite colour?"
+            }
+          ]
+        },
+        "sessionUpdate": "tool_call"
+      }
+    },
+    {
+      "update": {
+        "toolCallId": "call_4561930390651753899",
+        "kind": "other",
+        "status": "pending",
+        "title": "Run ask_question",
+        "name": "ask_question",
+        "rawInput": {
+          "questions": [
+            {
+              "is_multi_select": false,
+              "options": ["(Recommended) Red", "Blue"],
+              "question": "What is your favourite colour?"
+            }
+          ]
+        },
+        "sessionUpdate": "tool_call_update"
+      }
+    },
+    {
+      "elicitation": {
+        "sessionId": "8c7e6640-fe32-44c5-8221-955b2fcc402d",
+        "toolCallId": "call_4561930390651753899",
+        "requestedSchema": {
+          "type": "object",
+          "properties": {
+            "q1": {
+              "title": "What is your favourite colour?",
+              "oneOf": [
+                {
+                  "const": "1",
+                  "title": "(Recommended) Red"
+                },
+                {
+                  "const": "2",
+                  "title": "Blue"
+                }
+              ],
+              "type": "string"
+            },
+            "q1_other": {
+              "title": "Other",
+              "description": "Optional free-form answer to: What is your favourite colour?",
+              "type": "string"
+            }
+          }
+        },
+        "mode": "form",
+        "message": "The agent has a question."
+      }
+    },
+    {
+      "update": {
+        "toolCallId": "call_4561930390651753899",
+        "kind": "other",
+        "status": "in_progress",
+        "title": "Run ask_question",
+        "name": "ask_question",
+        "rawInput": {
+          "questions": [
+            {
+              "is_multi_select": false,
+              "options": ["(Recommended) Red", "Blue"],
+              "question": "What is your favourite colour?"
+            }
+          ]
+        },
+        "sessionUpdate": "tool_call_update"
+      }
+    },
+    {
+      "update": {
+        "toolCallId": "call_4561930390651753899",
+        "kind": "other",
+        "status": "completed",
+        "title": "Run ask_question",
+        "name": "ask_question",
+        "rawInput": {
+          "questions": [
+            {
+              "is_multi_select": false,
+              "options": ["(Recommended) Red", "Blue"],
+              "question": "What is your favourite colour?"
+            }
+          ]
+        },
+        "sessionUpdate": "tool_call_update"
+      }
+    },
+    {
+      "update": {
+        "content": {
+          "text": "Blue",
+          "type": "text"
+        },
+        "sessionUpdate": "agent_message_chunk"
+      }
+    },
+    {
+      "update": {
+        "used": 16560,
+        "size": 1048576,
+        "sessionUpdate": "usage_update"
+      }
+    }
+  ],
+  "response": {
+    "stopReason": "end_turn",
+    "usage": {
+      "inputTokens": 4422,
+      "outputTokens": 46,
+      "cachedReadTokens": 28574,
+      "cachedWriteTokens": 0,
+      "thoughtTokens": 0,
+      "totalTokens": 33042
+    }
+  }
+}

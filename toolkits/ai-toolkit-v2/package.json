@@ -1,0 +1,99 @@
+{
+  "name": "@kestack/ai-toolkit-v2",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Coding agent harnesses as Effect Services, each true to its own harness: Claude Code, Codex, OpenCode, Antigravity and any ACP agent, with one live instance per session and a fake for each",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    "./claude": {
+      "types": "./dist/claude/contract/index.d.ts",
+      "default": "./dist/claude/contract/index.js"
+    },
+    "./claude/real": {
+      "types": "./dist/claude/real/index.d.ts",
+      "default": "./dist/claude/real/index.js"
+    },
+    "./claude/fake": {
+      "types": "./dist/claude/fake/index.d.ts",
+      "default": "./dist/claude/fake/index.js"
+    },
+    "./codex": {
+      "types": "./dist/codex/contract/index.d.ts",
+      "default": "./dist/codex/contract/index.js"
+    },
+    "./codex/real": {
+      "types": "./dist/codex/real/index.d.ts",
+      "default": "./dist/codex/real/index.js"
+    },
+    "./codex/fake": {
+      "types": "./dist/codex/fake/index.d.ts",
+      "default": "./dist/codex/fake/index.js"
+    },
+    "./opencode": {
+      "types": "./dist/opencode/contract/index.d.ts",
+      "default": "./dist/opencode/contract/index.js"
+    },
+    "./opencode/real": {
+      "types": "./dist/opencode/real/index.d.ts",
+      "default": "./dist/opencode/real/index.js"
+    },
+    "./opencode/fake": {
+      "types": "./dist/opencode/fake/index.d.ts",
+      "default": "./dist/opencode/fake/index.js"
+    },
+    "./antigravity": {
+      "types": "./dist/antigravity/contract/index.d.ts",
+      "default": "./dist/antigravity/contract/index.js"
+    },
+    "./antigravity/real": {
+      "types": "./dist/antigravity/real/index.d.ts",
+      "default": "./dist/antigravity/real/index.js"
+    },
+    "./antigravity/fake": {
+      "types": "./dist/antigravity/fake/index.d.ts",
+      "default": "./dist/antigravity/fake/index.js"
+    },
+    "./acp": {
+      "types": "./dist/acp/contract/index.d.ts",
+      "default": "./dist/acp/contract/index.js"
+    },
+    "./acp/real": {
+      "types": "./dist/acp/real/index.d.ts",
+      "default": "./dist/acp/real/index.js"
+    },
+    "./acp/fake": {
+      "types": "./dist/acp/fake/index.d.ts",
+      "default": "./dist/acp/fake/index.js"
+    }
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "fmt": "vp fmt",
+    "lint": "vp check && tsc --noEmit && node ../../devtools/monoverse/src/cli/main.ts lint",
+    "test": "vitest run --exclude \"**/*.e2e.test.ts\"",
+    "test:e2e": "AI_TOOLKIT_V2_E2E=1 vitest run .e2e.test.ts"
+  },
+  "dependencies": {
+    "@agentclientprotocol/sdk": "catalog:",
+    "@anthropic-ai/claude-agent-sdk": "catalog:",
+    "@effect/platform-node": "catalog:effect41",
+    "@opencode/sdk": "catalog:effect41"
+  },
+  "peerDependencies": {
+    "effect": "^4.0.0"
+  },
+  "devDependencies": {
+    "@effect/vitest": "catalog:effect41",
+    "@kestack/monoverse": "workspace:*",
+    "@tsconfig/node22": "catalog:",
+    "@types/node": "catalog:",
+    "effect": "catalog:effect41",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}
