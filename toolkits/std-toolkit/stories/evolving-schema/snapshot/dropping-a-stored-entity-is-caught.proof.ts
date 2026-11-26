@@ -36,9 +36,10 @@ export default Proof.make({
   prepare: Effect.gen(function* () {
     const accepted = TableSnapshot.capture(shipped);
     yield* Proof.assert(
-      'the accepted table has Board and Task',
+      'the accepted table has Board and Task, beside its own entities',
       accepted.entities
         .map(({ name }) => name)
+        .filter((name) => !name.startsWith('__'))
         .sort()
         .join() === 'Board,Task',
     );

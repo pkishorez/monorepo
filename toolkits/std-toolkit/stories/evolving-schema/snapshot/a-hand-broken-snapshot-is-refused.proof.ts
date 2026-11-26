@@ -25,9 +25,10 @@ export default Proof.make({
       schemas: { identity: string }[];
     };
     yield* Proof.assert(
-      'the document holds Person and the Address it references',
+      'the document holds Person and the Address it references, beside its own schemas',
       document.schemas
         .map(({ identity }) => identity)
+        .filter((identity) => !identity.startsWith('__'))
         .sort()
         .join() === 'Address,Person',
     );
