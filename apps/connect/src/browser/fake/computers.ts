@@ -24,7 +24,8 @@ import { computersOver } from './layer.js';
  *           whose computer was removed.
  * - Each    a computer goes offline, comes back online, which clears why
  *           it last stopped, or is removed; its disk gets a sample project,
- *           a folder or a file. Each names the computer by its id.
+ *           a folder or a file. Each names the computer by its id or its
+ *           name, the id first.
  *
  * Why a `ke-connect` stopped is no control: layer.ts sets it when Connect
  * in the tab says so.
@@ -76,24 +77,37 @@ export type ComputersState = typeof ComputersState.Type;
 
 type State = SubscriptionRef.SubscriptionRef<ComputersState>;
 
-/** `id` changed by `change`, or why not: no computer has it. */
+/** The id of the computer named `given`, by its id or else its name; null when none is. */
+const idOf = (
+  computers: ReadonlyArray<ComputerState>,
+  given: string,
+): string | null =>
+  (
+    computers.find(({ id }) => id === given) ??
+    computers.find(({ name }) => name === given)
+  )?.id ?? null;
+
+const noComputer = (given: string) => `No computer is ${given}.`;
+
+/** The computer `given` names changed by `change`, or why not: none is it. */
 const changeComputer = (
   state: State,
-  id: string,
+  given: string,
   change: (computer: ComputerState) => ComputerState,
 ) =>
-  SubscriptionRef.updateEffect(state, ({ computers, added }) =>
-    computers.some((each) => each.id === id)
-      ? Effect.succeed({
+  SubscriptionRef.updateEffect(state, ({ computers, added }) => {
+    const id = idOf(computers, given);
+    return id === null
+      ? Effect.fail(noComputer(given))
+      : Effect.succeed({
           added,
           computers: computers.map((each) =>
             each.id === id ? change(each) : each,
           ),
-        })
-      : Effect.fail(`No computer is ${id}.`),
-  );
+        });
+  });
 
-/** A control on one computer, by its id. */
+/** A control on one computer, by its id or name. */
 const onComputer = <P extends { readonly computer: string }>(
   payload: Schema.Codec<P, unknown, never, never>,
   change: (payload: P) => (computer: ComputerState) => ComputerState,
@@ -102,7 +116,7 @@ const onComputer = <P extends { readonly computer: string }>(
     changeComputer(state, given.computer, change(given)),
   );
 
-/** A control on one computer's disk, by its id. */
+/** A control on one computer's disk, by its id or name. */
 const onDisk = <P extends { readonly computer: string }>(
   payload: Schema.Codec<P, unknown, never, never>,
   change: (payload: P) => DiskChange,
@@ -118,15 +132,16 @@ export const computers = Fake.make({
   state: ComputersState,
   initial: { computers: [], added: 0 },
   controls: {
-    /** A computer running `ke-connect`, online, its tunnel up and reached; blank fields take a plain default. */
     AddComputer: Fake.control(
       ComputersState,
       Schema.Struct({
         name: Schema.String,
-        keConnectVersion: Schema.String,
-        signedInAs: Schema.String,
+        signedInAs: Schema.optionalKey(Schema.String),
+        keConnectVersion: Schema.optionalKey(Schema.String),
+      }).annotate({
+        description: `A computer running ke-connect, online: a Connection of the Account signedInAs, by default ${SIGNED_IN_AS}. Add it before signing in: an app signed in already lists it only after reloading its Connections.`,
       }),
-      ({ name, keConnectVersion, signedInAs }, state) =>
+      ({ name, keConnectVersion = '', signedInAs = '' }, state) =>
         SubscriptionRef.update(state, ({ computers, added }) => {
           const id = `computer-${added + 1}`;
           return {
@@ -147,9 +162,14 @@ export const computers = Fake.make({
           };
         }),
     ),
-    /** It is switched off or loses its network; with `downAtOnce`, Connect Cloud last heard from it a minute ago. */
     GoOffline: onComputer(
-      Schema.Struct({ computer: Schema.String, downAtOnce: Schema.Boolean }),
+      Schema.Struct({
+        computer: Schema.String,
+        downAtOnce: Schema.optionalKey(Schema.Boolean),
+      }).annotate({
+        description:
+          'The computer, by name or id, is switched off or loses its network; downAtOnce: Connect Cloud last heard from it a minute ago.',
+      }),
       ({ downAtOnce }) =>
         (computer) => ({
           ...computer,
@@ -157,9 +177,11 @@ export const computers = Fake.make({
           silentFor: downAtOnce ? SILENT_AT_ONCE : null,
         }),
     ),
-    /** It is on and back on its network, `ke-connect` running again. */
     ComeOnline: onComputer(
-      Schema.Struct({ computer: Schema.String }),
+      Schema.Struct({ computer: Schema.String }).annotate({
+        description:
+          'The computer is on and back on its network, ke-connect running again.',
+      }),
       () => (computer) => ({
         ...computer,
         online: true,
@@ -167,37 +189,48 @@ export const computers = Fake.make({
         stopped: null,
       }),
     ),
-    /** The computer is gone, without a word to Connect Cloud. */
     Remove: Fake.control(
       ComputersState,
-      Schema.Struct({ computer: Schema.String }),
+      Schema.Struct({ computer: Schema.String }).annotate({
+        description: 'The computer is gone, without a word to Connect Cloud.',
+      }),
       ({ computer }, state) =>
-        SubscriptionRef.updateEffect(state, ({ computers, added }) =>
-          computers.some(({ id }) => id === computer)
-            ? Effect.succeed({
+        SubscriptionRef.updateEffect(state, ({ computers, added }) => {
+          const id = idOf(computers, computer);
+          return id === null
+            ? Effect.fail(noComputer(computer))
+            : Effect.succeed({
                 added,
-                computers: computers.filter(({ id }) => id !== computer),
-              })
-            : Effect.fail(`No computer is ${computer}.`),
-        ),
+                computers: computers.filter((each) => each.id !== id),
+              });
+        }),
     ),
-    /** A project on its disk, with a few files and a git repository on `main`, with branches and an Origin. */
     AddSampleProject: onDisk(
-      Schema.Struct({ computer: Schema.String, folder: Schema.String }),
+      Schema.Struct({
+        computer: Schema.String,
+        folder: Schema.String,
+      }).annotate({
+        description:
+          'A folder on its disk, such as /home/you/demo, which an app names from home, ~/demo, with a few files and a git repository on main, branches and an Origin.',
+      }),
       ({ folder }) => addSampleProject(folder),
     ),
-    /** A folder on its disk, with every folder on the way; one named `.something` is hidden. */
     AddFolder: onDisk(
-      Schema.Struct({ computer: Schema.String, folder: Schema.String }),
+      Schema.Struct({
+        computer: Schema.String,
+        folder: Schema.String,
+      }).annotate({
+        description:
+          'An empty folder on its disk, with every folder on the way.',
+      }),
       ({ folder }) => addFolder(folder),
     ),
-    /** A file on its disk holding the text given. */
     AddFile: onDisk(
       Schema.Struct({
         computer: Schema.String,
         file: Schema.String,
         text: Schema.String,
-      }),
+      }).annotate({ description: 'A file on its disk holding the text.' }),
       ({ file, text }) => addFile(file, text),
     ),
   },

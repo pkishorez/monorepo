@@ -84,10 +84,12 @@ export const agent = (options: AgentOptions = {}) =>
     state: AgentState,
     initial,
     controls: {
-      /** Every reply from now on replays this recording, or a random one of its harness's. */
       ReplyWith: Fake.control(
         AgentState,
-        Schema.Struct({ recording: RecordingName }),
+        Schema.Struct({ recording: RecordingName }).annotate({
+          description:
+            "Every agent's reply from now on replays this recording, or a random one of its harness's.",
+        }),
         ({ recording }, state) =>
           SubscriptionRef.update(state, (s) => ({
             ...s,

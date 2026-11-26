@@ -22,10 +22,11 @@ export const newBuild = Fake.make({
   state: NewBuildState,
   initial: { newer: false },
   controls: {
-    /** A deploy puts out a build newer than the page's. */
     PutOutNewerBuild: Fake.control(
       NewBuildState,
-      Schema.Struct({}),
+      Schema.Struct({}).annotate({
+        description: "A deploy puts out a build newer than the page's.",
+      }),
       (_, state) => SubscriptionRef.set(state, { newer: true }),
     ),
   },

@@ -30,10 +30,12 @@ export const speech = Fake.make({
   state: SpeechState,
   initial: { wished: false, installed: false, hearing: '' },
   controls: {
-    /** Every Take turns into this text (blank: a plain sentence). */
     Hear: Fake.control(
       SpeechState,
-      Schema.Struct({ text: Schema.String }),
+      Schema.Struct({ text: Schema.String }).annotate({
+        description:
+          'Every Take, the words of a Dictation, turns into this text from now on; blank for a plain sentence.',
+      }),
       ({ text }, state) =>
         SubscriptionRef.update(state, (s) => ({ ...s, hearing: text.trim() })),
     ),

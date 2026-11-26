@@ -102,15 +102,20 @@ export const signIn = ({ cache }: SignInOptions = {}) =>
     state: SignInState,
     initial,
     controls: {
-      /** Answers the sign-in asking: signs in as this email (at kestack.test; blank for you@kestack.test) and name (blank for the email's first part). */
       SignInAs: Fake.control(
         SignInState,
-        Schema.Struct({ email: Schema.String, name: Schema.String }),
+        Schema.Struct({ email: Schema.String, name: Schema.String }).annotate({
+          description:
+            "Answers the sign-in the app is asking (asking set): signs in this email at kestack.test, blank for you@, and name, blank for the email's first part.",
+        }),
         (who, state) => signInAs(state, who),
       ),
-      /** Answers the sign-in asking with nobody. */
-      Cancel: Fake.control(SignInState, Schema.Struct({}), (_, state) =>
-        cancel(state),
+      Cancel: Fake.control(
+        SignInState,
+        Schema.Struct({}).annotate({
+          description: 'Answers the sign-in the app is asking with nobody.',
+        }),
+        (_, state) => cancel(state),
       ),
     },
     layer: (state) => accountsOver(state, { cache }),

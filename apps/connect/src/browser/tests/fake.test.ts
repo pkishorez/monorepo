@@ -256,5 +256,23 @@ describe(
           ).toBe('No computer is computer-9.');
         }),
       ));
+
+    it('names a computer by its id or its name, the id first', () =>
+      run(
+        Effect.gen(function* () {
+          const { control, state } = yield* world();
+          yield* control('AddComputer', { name: 'computer-2' });
+          yield* control('AddComputer', { name: 'studio' });
+          yield* control('GoOffline', { computer: 'studio' });
+          yield* control('GoOffline', { computer: 'computer-2' });
+          const online = Effect.map(state, ({ computers }) =>
+            computers.map(({ name, online }) => [name, online]),
+          );
+          expect(yield* online).toEqual([
+            ['computer-2', true],
+            ['studio', false],
+          ]);
+        }),
+      ));
   },
 );

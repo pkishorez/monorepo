@@ -31,10 +31,11 @@ export const microphone = Fake.make({
   state: MicrophoneState,
   initial: { microphones: [{ id: 'mic-1', name: 'Built-in Microphone' }] },
   controls: {
-    /** A microphone is plugged in (blank: a USB Microphone). */
     PlugIn: Fake.control(
       MicrophoneState,
-      Schema.Struct({ name: Schema.String }),
+      Schema.Struct({ name: Schema.String }).annotate({
+        description: 'A microphone is plugged in; blank for a USB Microphone.',
+      }),
       ({ name }, state) =>
         SubscriptionRef.update(state, ({ microphones }) => ({
           microphones: [
