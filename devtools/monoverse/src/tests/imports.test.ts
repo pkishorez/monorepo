@@ -22,6 +22,48 @@ const kabuki = presets.kabuki.imports!;
 const judge = (from: string, to: string) =>
   judgeImport(tree, kabuki, `apps/web/src/${from}`, `apps/web/src/${to}`);
 
+const units = listTree([
+  'package.json',
+  'src/feature/server/index.ts',
+  'src/feature/server/mcp/tools/contract/index.ts',
+  'src/feature/server/mcp/tools/real/index.ts',
+  'src/feature/server/mcp/tools/tests/tools.test.ts',
+  'src/feature/server/other/contract/index.ts',
+  'src/feature/server/other/real/index.ts',
+  'src/feature/actor-feature/index.ts',
+]);
+const judgeUnit = (from: string, to: string) =>
+  judgeImport(units, kabuki, `src/feature/${from}`, `src/feature/${to}`);
+
+describe('an MCP Toolkit contract, mcp/*/contract', () => {
+  it('is open to its own real/ and tests/', () => {
+    expect(
+      judgeUnit(
+        'server/mcp/tools/real/index.ts',
+        'server/mcp/tools/contract/index.ts',
+      ),
+    ).toEqual({ ok: true });
+    expect(
+      judgeUnit(
+        'server/mcp/tools/tests/tools.test.ts',
+        'server/mcp/tools/contract/index.ts',
+      ),
+    ).toEqual({ ok: true });
+  });
+
+  it('is open to its server only, not to the feature outside it', () => {
+    expect(
+      judgeUnit('actor-feature/index.ts', 'server/mcp/tools/contract/index.ts'),
+    ).toEqual({ ok: false, reason: 'door', doors: kabuki.doors });
+  });
+
+  it('opens no other folder named contract', () => {
+    expect(
+      judgeUnit('server/other/real/index.ts', 'server/other/contract/index.ts'),
+    ).toEqual({ ok: false, reason: 'door', doors: kabuki.doors });
+  });
+});
+
 describe('judgeImport', () => {
   it('lets a file import any file in its own module', () => {
     expect(judge('feature/index.ts', 'feature/part.ts')).toEqual({ ok: true });

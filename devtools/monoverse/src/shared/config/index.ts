@@ -39,6 +39,7 @@ export const presets: Readonly<Record<PresetName, Rules>> = {
         'server/rpc/contract',
         'server/rpc/*/contract',
         'http/*/contract',
+        'mcp/*/contract',
       ],
     },
     contracts: {

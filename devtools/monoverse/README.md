@@ -114,10 +114,10 @@ monoverse: 2 problems in 2 of 2 packages.
   a broken `monoverse.json` is told once, on itself.
 - `default` has one door, `shared`. `kabuki` has the doors `logic/shared`,
   `view/shared`, `children/shared`, `capabilities/*/contract`,
-  `services/*/contract`, `server/rpc/contract`, `server/rpc/*/contract` and
-  `http/*/contract`, and requires each `services/<name>/` to have its
-  `contract/`, which exports only `Context.Service` and error classes as
-  values.
+  `services/*/contract`, `server/rpc/contract`, `server/rpc/*/contract`,
+  `http/*/contract` and `mcp/*/contract`, and requires each
+  `services/<name>/` to have its `contract/`, which exports only
+  `Context.Service` and error classes as values.
 - Paths are printed from where it runs, so a terminal can open them. It
   exits 1 on any problem.
 - With `--staged`, the files and their text are the index's, what the
