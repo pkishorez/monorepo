@@ -1,5 +1,9 @@
 import type { Entity } from '@kestack/std-toolkit/core';
-import type { LogRecord, SpanRecord, TraceSummary } from '../contract/index.js';
+import type {
+  LogRecord,
+  SpanRecord,
+  TraceSummary,
+} from '../../../rpc/telemetry/contract/index.js';
 
 const toNanoseconds = (value: string | number | undefined): bigint | null => {
   if (value === undefined) return null;

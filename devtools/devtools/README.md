@@ -20,7 +20,9 @@ that app's tab, through
 [@kestack/devtools-kabuki](../devtools-kabuki/README.md). Each Tool's folder
 holds its whole slice: its RPC contract, its server half and its Actors.
 Applications send telemetry with
-[@kestack/effect-tracer](../effect-tracer/README.md).
+[@kestack/effect-tracer](../effect-tracer/README.md). An AI agent reaches
+Lotel and Kabuki through the same server, as MCP tools at `/mcp`
+([ADR 0014](./docs/adr/0014-devtools-serves-mcp-on-its-own-server.md)).
 
 Terms are defined in [CONTEXT.md](./CONTEXT.md) and, per Tool, in
 [docs/lotel.md](./docs/lotel.md) and [docs/monoverse.md](./docs/monoverse.md).
@@ -46,9 +48,9 @@ The package has no library subpaths: it ships the `devtools` binary only.
 
 ### CLI
 
-| Command                             | What it does                                                                        |
-| ----------------------------------- | ----------------------------------------------------------------------------------- |
-| `devtools [--port] [--db] [--open]` | Runs the DevTools Server: the app, each Tool's RPC, and OTLP ingestion on loopback. |
+| Command                             | What it does                                                                            |
+| ----------------------------------- | --------------------------------------------------------------------------------------- |
+| `devtools [--port] [--db] [--open]` | Runs the DevTools Server: the app, each Tool's RPC, OTLP ingestion and MCP on loopback. |
 
 The server reads `DEVTOOLS_PORT` and `DEVTOOLS_DB` when the flags are absent;
 it listens on `127.0.0.1:14400` by default.
@@ -98,6 +100,8 @@ How it works:
   pass one's eight calls to its tab, and answer only a request with no
   `Origin` or DevTools' own
   ([@kestack/devtools-kabuki](../devtools-kabuki/README.md)).
+- `/mcp` is one MCP server over Streamable HTTP, for an AI agent; see
+  below.
 
 ### Explore a repository's folder tree
 
@@ -187,3 +191,63 @@ How it works:
   back arrow top left leaves the file, then the folder. Three buttons in a
   diff's header expand it, wrap it and lay it side by side; the browser
   keeps them.
+
+### Give an AI agent Lotel and Kabuki over MCP
+
+With the server running, an MCP client reaches it at `/mcp`. In this
+repository `.mcp.json` names it, so Claude Code connects to it here with no
+setup; elsewhere, add it once. The agent then reads the traces and logs
+Lotel holds, and reads and drives any Kabuki app connected to DevTools, by
+its Kabuki Session name.
+
+```sh
+claude mcp add --transport http devtools http://127.0.0.1:14400/mcp
+```
+
+```text
+lotel_traces      the most recent Traces, newest first, each summed up
+lotel_trace       one Trace's spans and logs, one plain record each, in ms
+lotel_logs        the most recent logs from every process
+kabuki_sessions   the live Kabuki Sessions: name, app and page
+kabuki_look       the live Instances as a tree, one name each; those opened
+                  with their Model and the Messages a person sends them
+kabuki_timeline   where the app is, and its last 10 Messages (before: pages)
+kabuki_send       a Message sent to an Instance, answered with what changed
+kabuki_travel     the app shown at a Step, or back to now
+kabuki_fork       every Message after a Step dropped, carrying on from it
+kabuki_fakes      in fake mode, each Fake's state and its Controls
+kabuki_control    a Control run on a Fake, answered with what changed
+```
+
+How it works:
+
+- `/mcp` is `McpServer.layerHttp` from `effect/ai`, on the same loopback
+  port. Every Tool's server registers its own Toolkit on it, so each tool
+  reads the same Telemetry Store or Kabuki Session registry its RPC does.
+  Monoverse registers none.
+- A request with an `Origin` other than DevTools' own is refused, as for
+  the RPC routes; an MCP client sends none.
+- Every answer is small and plain, for a model to read: a payload is one
+  line of TypeScript, `SignInAs { email: string; name: string }`, and a
+  tool's output schema is only `object`. All 11 tools describe themselves
+  in about 1,300 tokens; a look or a timeline answers in a few hundred.
+  Long text, long lists and wide records in a Model or a Fake's state are
+  cut, keeping a list's first 4 and last 8 items, and a store's own fields,
+  `$…` and `_meta`, are left out.
+- An Instance is named by its Actor, `Sidebar`; when that Actor has more
+  than one, by its key, `Projects[computer-2]`, or under its parent,
+  `Sidebar/Projects[computer-1]`. Every tool takes that name or the full
+  address.
+- There is no blueprint tool: `kabuki_look` gives each opened Instance the
+  Messages its Actor takes in its State now, read from the Blueprint on
+  the server. Only the Messages with a description are listed, as the ones
+  a person sends; the others are counted as internal. An app that
+  describes none has all of them listed.
+- `kabuki_send` and `kabuki_control` wait until the app has been still for
+  300 ms, at most 3 s, and answer with the Model fields the Message
+  changed and the Instances that came, went or changed State, so an
+  agent seldom needs a second look.
+- `kabuki_timeline` and `kabuki_fakes` answer with what their stream says
+  first, as a tool answers once. A tool's error, such as a Kabuki Session
+  name no live one has, comes back as its result, with what is there
+  instead.

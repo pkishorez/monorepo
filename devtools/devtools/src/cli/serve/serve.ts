@@ -15,6 +15,7 @@ import {
   monoverseServer,
 } from '../../app/monoverse/server/index.js';
 import { makeBrowserApplicationLive } from './browser-application.js';
+import { MCP_PATH, makeMcpLive } from './mcp.js';
 import { makeRequestAccessLive } from './request-access.js';
 
 const HOST = '127.0.0.1';
@@ -48,6 +49,7 @@ export function makeDevtoolsServer(options: Options) {
           lotelServer({ db: options.db }),
           monoverseServer({ db: options.db }),
           kabukiServer({ origins: ownOrigins }),
+          makeMcpLive({ version: options.version, ownOrigins }),
           makeBrowserApplicationLive({
             uiRoot,
             version: options.version,
@@ -55,6 +57,8 @@ export function makeDevtoolsServer(options: Options) {
               ...lotelEndpoints,
               ...monoverseEndpoints,
               ...kabukiEndpoints,
+              [MCP_PATH]:
+                'MCP over Streamable HTTP: Lotel and Kabuki tools for AI agents.',
             },
           }),
           makeRequestAccessLive({ port: options.port, ownOrigins }),

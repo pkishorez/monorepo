@@ -36,15 +36,19 @@ const lookedOf = (
   };
 };
 
+const kept = (value: unknown) => ({ value, folded: false });
+
 const openedOf = (
   instance: Instance,
   root: Blueprint,
   statuses: Statuses,
+  whole: boolean,
 ): Opened => {
   const data = encodedData(instance, blueprintAt(root, instance.address));
-  const state = fold(data.state);
-  const model = fold(data.model);
-  const props = 'props' in data ? fold(data.props) : undefined;
+  const shown = whole ? kept : fold;
+  const state = shown(data.state);
+  const model = shown(data.model);
+  const props = 'props' in data ? shown(data.props) : undefined;
   return {
     state: state.value,
     model: model.value,
@@ -60,7 +64,10 @@ const openedOf = (
 
 const none: Statuses = () => [];
 
-export const lookAt = (app: AppRuntime, { at, open }: LookAsked) =>
+export const lookAt = (
+  app: AppRuntime,
+  { at, open, whole = false }: LookAsked,
+) =>
   Effect.gen(function* () {
     const runtime = yield* runtimeOf(app);
     const { actor } = runtime;
@@ -104,7 +111,7 @@ export const lookAt = (app: AppRuntime, { at, open }: LookAsked) =>
       opened: Object.fromEntries(
         open.map((address) => [
           address,
-          openedOf(byAddress.get(address)!, actor.blueprint, statuses),
+          openedOf(byAddress.get(address)!, actor.blueprint, statuses, whole),
         ]),
       ),
     };

@@ -49,7 +49,7 @@ export function makeBrowserApplicationLive({
     '/*',
     HttpServerRequest.HttpServerRequest.use((request) => {
       const pathname = request.url.split('?', 1)[0] ?? '/';
-      const reserved = ['/rpc', '/v1', '/health', '/assets'].some(
+      const reserved = ['/rpc', '/v1', '/mcp', '/health', '/assets'].some(
         (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
       );
       const acceptsHtml =

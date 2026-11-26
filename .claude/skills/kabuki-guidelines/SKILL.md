@@ -43,6 +43,7 @@ few named folders, the **doors**. A file may import:
 | `capabilities/*/contract/`                       | a Context.Service the Actor provides            |
 | `services/*/contract/`                           | a Context.Service the app or a feature offers   |
 | `server/rpc/contract/`, `server/rpc/*/contract/` | what a feature's browser and server agree on    |
+| `mcp/*/contract/`                                | a server's MCP tools, for that server only      |
 | `http/*/contract/`                               | a server's non-RPC routes, for that server only |
 
 A door is open to everything inside the folder that holds it:
@@ -100,6 +101,11 @@ server/
 │       ├── contract/      door: the RpcGroup, its Schemas and errors
 │       ├── real/          group.toLayer(…): the handlers and their helpers, free-form
 │       └── tests/
+├── mcp/
+│   └── telemetry/       one Toolkit, the MCP tools of one topic
+│       ├── contract/      door for the server: the Toolkit, its Tools' Schemas and errors
+│       ├── real/          McpServer.toolkit(…) with toolkit.toLayer(…): the handlers
+│       └── tests/
 ├── http/
 │   └── otlp/            one HttpApi group, for routes that are not RPC
 │       ├── contract/      door for the server: the endpoints and their Schemas
@@ -113,15 +119,17 @@ server/
 - A handler's helpers live in its group's `real/`. What several groups need
   and does IO becomes a `services/<name>/`; what both halves run and is
   pure goes in `rpc/contract/`.
-- An RPC contract imports only packages, its own files and other RPC
+- An RPC or MCP contract imports only packages, its own files and RPC
   contracts. Inside a `real/`, sub-folders have no `index.ts`: a `real/` is
   one module.
-- `server/index.ts` merges every group's `real/` and every service's `real/`.
+- `server/index.ts` merges every group's and Toolkit's `real/` and every
+  service's `real/`, so a Toolkit's handlers share the services the routes
+  use. The host serves the one MCP endpoint every Toolkit registers on.
 - A server Service is keyed `'<Root>/server/<Name>'`: `'Monoverse/server/Snapshots'`.
 
 `services/` and `capabilities/` are Effect contexts: a `Context.Service`
 and the Layers that implement it. `rpc/` and `http/` are a wire format:
-what crosses the network, and the handlers behind it. Never mix the two.
+what crosses the network, and the handlers behind it; so is `mcp/`. Never mix the two.
 
 ## One Actor
 
@@ -263,15 +271,19 @@ review.
 5. **Names follow the folder.** `actor-folder-viewer` →
    `Actor.define('FolderViewer')` → `FolderViewerShape`, `FolderViewer`,
    `FolderViewerView`. Messages and Emits are past tense, States are
-   nouns, Commands are lowercase verbs. No `Live` on an Actor.
+   nouns, Commands are lowercase verbs. No `Live` on an Actor. A
+   Message a person sends through the View carries a `description`
+   (`Schema.Struct({…}).annotate({ description })`): one sentence on what
+   it does and what its payload cannot say. One the app sends itself has
+   none: DevTools' MCP tools show an agent only the described ones.
 6. **Three Children.** An Actor places at most three cohesive Children. A
    fourth needs a written reason. Independent ones, like Pages, may be
    more. A Child in `children/shared/` counts for each Actor that places
    it.
 7. **Implementations stay home.** A Capability's `real/` is imported only
    by its `actor.tsx`; a Service's only by the app's Layer, or a server
-   Service's by `server/index.ts`; a group's `real/` only by
-   `server/index.ts`. Other implementations are imported only by tests.
+   Service's by `server/index.ts`; a group's or a Toolkit's `real/`
+   only by `server/index.ts`. Other implementations are imported only by tests.
 8. **No comments.** If code needs a comment to be understood, change the
    code: a name, a type, a function, a test. A limit the code cannot show,
    one set by a browser, a library or a protocol, goes in the package's

@@ -37,7 +37,12 @@ const choicesOf = (ast: SchemaAST.AST): ReadonlyArray<Choice> | undefined => {
   return undefined;
 };
 
-export const textOf = (shape: Shape): string => {
+const TYPED = 2;
+
+const fieldText = (field: Field, depth: number) =>
+  `${field.name}${field.optional ? '?' : ''}: ${textOf(field.shape, depth + 1)}${field.nullable ? ' | null' : ''}`;
+
+export const textOf = (shape: Shape, depth = 0): string => {
   switch (shape.kind) {
     case 'text':
       return 'string';
@@ -46,11 +51,14 @@ export const textOf = (shape: Shape): string => {
       return shape.kind;
     case 'choice':
       return shape.options.map((one) => JSON.stringify(one)).join(' | ');
-    case 'array':
-      return `${textOf(shape.of)}[]`;
+    case 'array': {
+      const of = textOf(shape.of, depth);
+      return of.includes(' | ') ? `(${of})[]` : `${of}[]`;
+    }
     case 'struct':
-      return shape.fields.length === 0
-        ? '{}'
+      if (shape.fields.length === 0) return '{}';
+      return depth < TYPED
+        ? `{ ${shape.fields.map((field) => fieldText(field, depth)).join('; ')} }`
         : `{ ${shape.fields.map(({ name }) => name).join(', ')} }`;
     case 'json':
       return shape.text;

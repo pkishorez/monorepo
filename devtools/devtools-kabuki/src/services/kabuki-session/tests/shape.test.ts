@@ -101,7 +101,7 @@ describe('a Shape', () => {
           Schema.Struct({ b: Schema.Number }),
         ]),
       ),
-    ).toEqual({ kind: 'json', text: '{ a } | { b }' });
+    ).toEqual({ kind: 'json', text: '{ a: string } | { b: number }' });
     expect(shapeOf(Schema.Array(Schema.NullOr(Schema.Number)))).toEqual({
       kind: 'array',
       of: { kind: 'json', text: 'number | null' },
@@ -116,7 +116,9 @@ describe('a Shape', () => {
     const Tree: Schema.Codec<Tree> = Schema.Struct({
       children: Schema.Array(Schema.suspend(() => Tree)),
     });
-    expect(textOf(shapeOf(Tree))).toBe('{ children }');
+    expect(textOf(shapeOf(Tree))).toBe(
+      '{ children: { children: { children }[] }[] }',
+    );
     expect(JSON.stringify(shapeOf(Tree))).toContain('…');
   });
 

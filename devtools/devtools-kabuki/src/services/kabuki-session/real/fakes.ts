@@ -1,4 +1,4 @@
-import { Effect, Stream } from 'effect';
+import { Effect, SchemaAST, Stream } from 'effect';
 import type { FakeWorld } from '@kestack/kabuki/fake';
 import type { FakeNow as Told } from '@kestack/kabuki/fake/types';
 import { ControlRefused } from '../../../server/rpc/session/contract/index.ts';
@@ -13,10 +13,14 @@ const fakeOf = ({ name, state, value, controls }: Told): FakeNow => ({
   name,
   state: shapeOf(state),
   value: encoded(state, value),
-  controls: controls.map((control) => ({
-    name: control.name,
-    payload: shapeOf(control.payload),
-  })),
+  controls: controls.map((control) => {
+    const description = SchemaAST.resolveDescription(control.payload.ast);
+    return {
+      name: control.name,
+      ...(description ? { description } : {}),
+      payload: shapeOf(control.payload),
+    };
+  }),
 });
 
 export const fakesOf = (

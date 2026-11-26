@@ -3,6 +3,7 @@ import { RpcTest, type RpcClient } from 'effect/rpc';
 import { describe, expect, it } from 'vitest';
 import { TelemetryRpc } from '../contract/index.js';
 import { sqliteTelemetryStoreLayer } from '../../../services/telemetry-store/real/index.js';
+import { tracesLayer } from '../../../services/traces/real/index.js';
 import { TelemetryRpcLive } from '../real/index.js';
 
 const run = <A, E>(effect: Effect.Effect<A, E, never>) =>
@@ -20,6 +21,7 @@ const withClient = <A, E, R>(
     }),
   ).pipe(
     Effect.provide(TelemetryRpcLive),
+    Effect.provide(tracesLayer),
     Effect.provide(sqliteTelemetryStoreLayer({ path: ':memory:' })),
   );
 

@@ -80,24 +80,24 @@ The DevTools side: its Server's routes, and the calls of any live Kabuki
 Session through it. It needs only `effect`, so its clients run in a browser
 too.
 
-| Export                  | What it does                                                                                                                      |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `Inspector`             | The Inspector's root Actor, to place as a Child with a `KabukiSession` Provided, as DevTools does with `remote`.                  |
-| `InspectorView`         | The Inspector's View, to draw where its Child is placed.                                                                          |
-| `KabukiSession`         | The Service of one Kabuki Session's eight calls: `blueprint`, `watch`, `look`, `travel`, `fork`, `send`, `fakes`, `control`.      |
-| `remote`                | The `KabukiSession` Layer of one live Kabuki Session, by name, through a DevTools Server's `/kabuki/session/:name`.               |
-| `dialSessions`          | A client of the live Kabuki Sessions, `list` and `watch`, through a DevTools Server's `/kabuki/sessions`.                         |
-| `kabukiRoutes`          | The Layer of routes a DevTools Server mounts on its HttpRouter: `/kabuki/connect`, `/kabuki/sessions`, `/kabuki/session/:name`.   |
-| `CONNECT_PATH`          | The DevTools Server path a Kabuki Session dials, `/kabuki/connect`.                                                               |
-| `KabukiSessionSummary`  | The Schema of a live Kabuki Session as listed: name, app, Environment, page, origin, when it connected.                           |
-| `KabukiSessionNotFound` | The error for a name no live Kabuki Session has; lists those that are.                                                            |
-| `grouped`               | Kabuki Sessions by app, A to Z, then Environment, this computer's first: how DevTools' page and CLI list them.                    |
-| `isLocalEnvironment`    | Whether an Environment is a host on this computer, as `localhost:5173`.                                                           |
-| `StepNotFound`          | The error for a Step no longer kept; says the oldest and newest kept.                                                             |
-| `InstanceNotFound`      | The error for an Address no Instance has; lists the Instances there are.                                                          |
-| `MessageRefused`        | The error for a Message its Instance's Actor does not take, or its Schema refuses; says why.                                      |
-| `Seeking`               | The error for a Message Sent while the app Seeks a past Step: go back to now to send.                                             |
-| `ControlRefused`        | The error for a control the FakeWorld would not run: no FakeWorld, no such Fake or control, a payload refused, or its own reason. |
+| Export                  | What it does                                                                                                                                                  |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Inspector`             | The Inspector's root Actor, to place as a Child with a `KabukiSession` Provided, as DevTools does with `remote`.                                              |
+| `InspectorView`         | The Inspector's View, to draw where its Child is placed.                                                                                                      |
+| `KabukiSession`         | The Service of one Kabuki Session's eight calls: `blueprint`, `watch`, `look`, `travel`, `fork`, `send`, `fakes`, `control`.                                  |
+| `remote`                | The `KabukiSession` Layer of one live Kabuki Session, by name, through a DevTools Server's `/kabuki/session/:name`.                                           |
+| `dialSessions`          | A client of the live Kabuki Sessions, `list` and `watch`, through a DevTools Server's `/kabuki/sessions`.                                                     |
+| `kabukiRoutes`          | The Layer of routes a DevTools Server mounts on its HttpRouter: `/kabuki/connect`, `/kabuki/sessions`, `/kabuki/session/:name`, and the `kabuki_*` MCP tools. |
+| `CONNECT_PATH`          | The DevTools Server path a Kabuki Session dials, `/kabuki/connect`.                                                                                           |
+| `KabukiSessionSummary`  | The Schema of a live Kabuki Session as listed: name, app, Environment, page, origin, when it connected.                                                       |
+| `KabukiSessionNotFound` | The error for a name no live Kabuki Session has; lists those that are.                                                                                        |
+| `grouped`               | Kabuki Sessions by app, A to Z, then Environment, this computer's first: how DevTools' page and CLI list them.                                                |
+| `isLocalEnvironment`    | Whether an Environment is a host on this computer, as `localhost:5173`.                                                                                       |
+| `StepNotFound`          | The error for a Step no longer kept; says the oldest and newest kept.                                                                                         |
+| `InstanceNotFound`      | The error for an Address no Instance has; lists the Instances there are.                                                                                      |
+| `MessageRefused`        | The error for a Message its Instance's Actor does not take, or its Schema refuses; says why.                                                                  |
+| `Seeking`               | The error for a Message Sent while the app Seeks a past Step: go back to now to send.                                                                         |
+| `ControlRefused`        | The error for a control the FakeWorld would not run: no FakeWorld, no such Fake or control, a payload refused, or its own reason.                             |
 
 ### `@kestack/devtools-kabuki/inspector/sources.css`
 
@@ -297,3 +297,7 @@ How it works:
   call passed to the tab; its socket closes once the Kabuki Session is gone.
 - The Server going down leaves the list as it was: its watchers never see
   the Kabuki Sessions leave one by one.
+- It also registers the `kabuki_*` MCP tools, each a Kabuki Session's call
+  by name, on the server's `McpServer` from `effect/ai`; they reach a tab
+  through the same registry. With no `McpServer.layerHttp` mounted beside
+  it, the tools are registered and nothing serves them.

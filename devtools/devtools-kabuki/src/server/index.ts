@@ -2,6 +2,7 @@ import { Layer } from 'effect';
 import type { AppRuntime } from '@kestack/kabuki/react/types';
 import { accept, dial } from './http/connect/real/index.ts';
 import type { TabOptions } from './http/connect/real/index.ts';
+import { sessionsTools } from './mcp/sessions/real/index.ts';
 import { answered } from './rpc/session/real/index.ts';
 import { sessionsRoutes } from './rpc/sessions/real/index.ts';
 import type { SessionsOptions } from './rpc/sessions/real/index.ts';
@@ -12,7 +13,7 @@ export type KabukiRoutesOptions = SessionsOptions;
 export type { TabOptions };
 
 export const kabukiRoutes = (options: KabukiRoutesOptions) =>
-  Layer.mergeAll(accept, sessionsRoutes(options, answered)).pipe(
+  Layer.mergeAll(accept, sessionsRoutes(options, answered), sessionsTools).pipe(
     Layer.provide(registryLayer),
   );
 

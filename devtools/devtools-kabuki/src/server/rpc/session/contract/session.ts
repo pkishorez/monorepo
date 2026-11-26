@@ -243,7 +243,11 @@ export const FakeNow = Schema.Struct({
   state: Shape,
   value: Schema.Unknown,
   controls: Schema.Array(
-    Schema.Struct({ name: Schema.String, payload: Shape }),
+    Schema.Struct({
+      name: Schema.String,
+      description: Schema.optionalKey(Schema.String),
+      payload: Shape,
+    }),
   ),
 });
 export type FakeNow = typeof FakeNow.Type;
@@ -283,6 +287,7 @@ export class ControlRefused extends Schema.TaggedError<ControlRefused>()(
 export const LookAsked = Schema.Struct({
   at: Schema.optionalKey(Step),
   open: Schema.Array(Schema.String),
+  whole: Schema.optionalKey(Schema.Boolean),
 });
 export type LookAsked = typeof LookAsked.Type;
 
