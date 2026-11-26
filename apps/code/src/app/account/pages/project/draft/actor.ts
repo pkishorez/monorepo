@@ -198,26 +198,65 @@ const Model = Schema.Struct({
 });
 export type Model = typeof Model.Type;
 
-const Message = Schema.TaggedUnion({
+const Message = {
   CatalogRead: { catalog: Catalog.Catalog },
-  CatalogRetryAsked: {},
-  ModeAsked: { mode: Write.Mode },
-  AttachmentsChanged: { attachments: Schema.Array(Attached) },
-  InsertAsked: { what: Insert.What },
-  /** A mode's text was edited since the last problem. */
-  Retyped: {},
-  PickerOpened: { picking: Picking },
-  PickerClosed: {},
-  ModelChosen: { chosen: Chosen },
-  SettingChosen: { key: Schema.String, value: Schema.String },
-  SkillChosen: { name: Schema.String },
+  CatalogRetryAsked: Schema.Struct({}).annotate({
+    description:
+      'Reads again the agents, models and Skills that could not be read, as the Try again by model.catalog.problem does.',
+  }),
+  ModeAsked: Schema.Struct({ mode: Write.Mode }).annotate({
+    description:
+      "Switches the Draft Mode, as the Btw toggle does; 'Btw' only in a Session. Into Btw its Btw Drawer expands, back to 'Message' it minimises.",
+  }),
+  AttachmentsChanged: Schema.Struct({
+    attachments: Schema.Array(Attached),
+  }).annotate({
+    description:
+      'Sets the whole list of files the Message sends: each its name, mime, base64 data without a data: prefix, and size in bytes. Message mode only.',
+  }),
+  InsertAsked: Schema.Struct({ what: Insert.What }).annotate({
+    description:
+      "Puts text in at the open mode's cursor, over its selection, as a paste does: what: { _tag: 'Text', text }. Skills go in through SkillChosen.",
+  }),
+  Retyped: Schema.Struct({}).annotate({
+    description:
+      "Clears the problem the Draft shows (model.problem), as typing does; send it after a Write's Edited while one shows.",
+  }),
+  PickerOpened: Schema.Struct({ picking: Picking }).annotate({
+    description:
+      "Opens a Picker in Message mode, none open: { _tag: 'Branch', how: 'keys' } before BranchChosen, { _tag: 'Skills', how: 'keys', typed: false } before SkillChosen.",
+  }),
+  PickerClosed: Schema.Struct({}).annotate({
+    description: 'Closes the Picker open (model.picking) without picking.',
+  }),
+  ModelChosen: Schema.Struct({ chosen: Chosen }).annotate({
+    description:
+      'Picks the agent, model and settings, no Picker needed: account a model.catalog.harnesses[].account, model a catalog.models[].list[].id, null keeps either. A Session keeps its agent.',
+  }),
+  SettingChosen: Schema.Struct({
+    key: Schema.String,
+    value: Schema.String,
+  }).annotate({
+    description:
+      "Sets one of the agent's settings, as the model chip does: key from model.catalog.harnesses[].settings[].key, value one of its choices[].value.",
+  }),
+  SkillChosen: Schema.Struct({ name: Schema.String }).annotate({
+    description:
+      "Puts a Skill in at the cursor as one /name atom; only while the skills Picker is open: PickerOpened with 'Skills' first. name from model.catalog.skills[].list[].name.",
+  }),
   BranchesRead: { branches: Branches.schema },
   /** The branches could not be read, asked while the link had come up `linked` times. */
   BranchesFailed: { linked: Schema.Finite },
   /** Its link came up. */
   Linked: {},
-  BranchChosen: { branch: Schema.String },
-  NewWorktreeToggled: {},
+  BranchChosen: Schema.Struct({ branch: Schema.String }).annotate({
+    description:
+      "Picks a new session's branch, only while the Branch Picker is open (PickerOpened 'Branch' first): a model.branches.local[].name, or an origin[] one, checked out locally.",
+  }),
+  NewWorktreeToggled: Schema.Struct({}).annotate({
+    description:
+      'Turns the New Worktree switch on or off (model.newWorktree): on, the new session runs in a new Worktree, on a new branch from the one picked.',
+  }),
   /** A mode handed up its text: to send, start with or ask. */
   SendAsked: { mode: Write.Mode, text: Schema.String },
   StartNamed: { id: Schema.String },
@@ -231,14 +270,17 @@ const Message = Schema.TaggedUnion({
   },
   Answered: { id: Schema.Finite, answer: Schema.String },
   AskRefused: { id: Schema.Finite, reason: Schema.String },
-  /** The Btw Drawer expanded or minimised. */
-  DrawerShown: { drawer: Drawer },
-  /** The Btw Drawer closed: its Btw and answer go. */
-  DrawerClosed: {},
+  DrawerShown: Schema.Struct({ drawer: Drawer }).annotate({
+    description:
+      'Expands the Btw Drawer over the transcript, or minimises it to a bar on the Draft; the Btw and its answer are in model.asked.',
+  }),
+  DrawerClosed: Schema.Struct({}).annotate({
+    description: 'Closes the Btw Drawer: the Btw asked and its answer go.',
+  }),
   Restored: { where: Schema.NullOr(Where), draft: Schema.NullOr(SavedDraft) },
   /** On touch, a mode's Touch Draft was opened or collapsed. */
   Opened: { mode: Write.Mode, open: Schema.Boolean },
-});
+};
 
 const Draft = Actor.define('Draft', {
   requires: [

@@ -148,7 +148,7 @@ const Sidebar = Actor.define('Sidebar', {
     accountId: Schema.String,
   }),
   model: Model,
-  message: Schema.TaggedUnion({
+  message: {
     ConnectionsKnown: {
       read: Schema.Boolean,
       connections: Schema.NullOr(Schema.Array(Listed)),
@@ -157,30 +157,43 @@ const Sidebar = Actor.define('Sidebar', {
     },
     FilterRead: { chosen: Schema.NullOr(Schema.String) },
     CollapsedRead: { connectionIds: Schema.Array(Schema.String) },
-    /** A Connection's name clicked, or Enter on it: its Projects hidden, or shown again. */
-    CollapseToggled: { connectionId: Schema.String },
+    CollapseToggled: Schema.Struct({ connectionId: Schema.String }).annotate({
+      description:
+        "Hides a Connection's Projects under its name, or shows them again, as clicking the name does; kept on this device.",
+    }),
     AskingKnown: { asking: Model.fields.asking },
     WorkingKnown: { working: Model.fields.working },
     WidthRead: { width: Schema.Finite },
-    /** Dragged to a new width, once the drag rests. */
-    Resized: { width: Schema.Finite },
-    ConnectionChosen: { connectionId: Schema.NullOr(Schema.String) },
-    ReloadAsked: {},
-    SessionOpened: {
+    Resized: Schema.Struct({ width: Schema.Finite }).annotate({
+      description:
+        "Sets the sidebar's width on a wide screen, in pixels, as dragging its edge does; kept in Preferences.",
+    }),
+    ConnectionChosen: Schema.Struct({
+      connectionId: Schema.NullOr(Schema.String),
+    }).annotate({
+      description:
+        'Sets the Connection Filter: the Connection whose Projects and Sessions are shown, or null for every Connection; kept for the Account.',
+    }),
+    ReloadAsked: Schema.Struct({}).annotate({
+      description:
+        'Asks Connect Cloud for the Connection list again, as Reload or pulling the sidebar down does.',
+    }),
+    SessionOpened: Schema.Struct({
       connectionId: Schema.String,
       projectId: Schema.String,
       sessionId: Schema.String,
-    },
-    /**
-     * A Session put: by a swipe, which titles it to say with its Undo, or
-     * by its Undo or the Settled List's Un-settle, which do not.
-     */
-    MoveAsked: {
+    }).annotate({
+      description: "Opens a Session's page, as clicking its row does.",
+    }),
+    MoveAsked: Schema.Struct({
       connectionId: Schema.String,
       sessionId: Schema.String,
       settled: Schema.Boolean,
       title: Schema.NullOr(Schema.String),
-    },
+    }).annotate({
+      description:
+        "Settles a Session (settled: true) or Un-settles it, as a swipe does; title: the Session's title, said with an Undo, or null to say nothing.",
+    }),
     MovesShown: { moving: Schema.Array(Intent) },
     MoveRefused: {
       connectionId: Schema.String,
@@ -196,7 +209,7 @@ const Sidebar = Actor.define('Sidebar', {
     },
     /** Its width and every Connection shown are read: it can be drawn whole. */
     Ready: {},
-  }),
+  },
 });
 
 /** The Connection shown: the one chosen while it is listed, else none, for every Connection. */

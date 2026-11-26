@@ -22,10 +22,12 @@ import { Microphone } from './microphone/index.ts';
 
 const Spoken = Actor.define('Voice', {
   requires: [Voice],
-  message: Schema.TaggedUnion({
-    /** Space, Ctrl+Space, a mic, or a cancel: for the Dictation. */
-    DictationAsked: { ask: Ask },
-  }),
+  message: {
+    DictationAsked: Schema.Struct({ ask: Ask }).annotate({
+      description:
+        "Asks the Dictation: Toggle starts or stops one for owner {key, connectionId}, key 'draft <connectionId> <projectId> <sessionId|new>' or 'question <connectionId> <questionId> <itemId>'; Cancel throws it away; Retry a failed one's id.",
+    }),
+  },
 });
 
 export const VoiceLive = Spoken.build({

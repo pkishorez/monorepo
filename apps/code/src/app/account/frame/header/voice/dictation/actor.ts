@@ -120,7 +120,7 @@ export const Dictation = Actor.define('Dictation', {
   requires: [Preferences, Recorder, Voice],
   model: Model,
   state: State,
-  message: Schema.TaggedUnion({
+  message: {
     // What the app asks, through `Voice`.
     Toggle: { owner: Schema.NullOr(Owner) },
     Cancel: {},
@@ -141,8 +141,10 @@ export const Dictation = Actor.define('Dictation', {
       reason: Schema.NullOr(Schema.String),
     },
     Unable: { reason: Schema.String, blocked: Schema.Boolean },
-    /** The blocked microphone's dialog put away. */
-    BlockedDismissed: {},
+    BlockedDismissed: Schema.Struct({}).annotate({
+      description:
+        'Puts away the dialog saying the browser blocked the microphone (model.blocked), as its Not now does.',
+    }),
     Level: { level: Schema.Number },
     Stop: {},
     // What its Take says, by the Take's id.
@@ -156,7 +158,7 @@ export const Dictation = Actor.define('Dictation', {
     TakeFailed: { take: Schema.String, reason: Schema.String },
     MicrophoneRead: { microphone: Schema.NullOr(Schema.String) },
     Dismiss: { at: Schema.Number },
-  }),
+  },
 });
 
 const noticed = (model: Model, reason: string, at: number) => ({

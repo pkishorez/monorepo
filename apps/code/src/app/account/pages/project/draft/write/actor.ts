@@ -125,12 +125,18 @@ const Write = Actor.define('Write', {
   input: Opening,
   props: Props,
   model: Model,
-  message: Schema.TaggedUnion({
-    Edited: Written.fields,
-    SendAsked: {},
+  message: {
+    Edited: Schema.Struct(Written.fields).annotate({
+      description:
+        "Sets this Draft Mode's whole text, as typing does; anchor and head are the cursor's offsets: give both the text's length. Then SendAsked sends it.",
+    }),
+    SendAsked: Schema.Struct({}).annotate({
+      description:
+        "Sends the text: a new session's starts the Session once agents, model and branches are read, the page moving to it; in a Session, its next Message, or the Btw.",
+    }),
     Took: { given: Given },
     TouchOpened: { open: Schema.Boolean },
-  }),
+  },
 });
 
 export const WriteLive = Write.build({

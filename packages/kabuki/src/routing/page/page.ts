@@ -83,6 +83,8 @@ export interface PageOptions<
   R extends Requires,
   QW extends { readonly [name: string]: QueryWritten } = {},
 > {
+  /** What the page is about, as `Actor.define`'s `description`: in its Blueprint. */
+  readonly description?: string;
   /** Its path under the page above: `/projects/:id`. None, or `/`, adds nothing. */
   readonly path?: string;
   /** The Schema of each path param it names. */
@@ -413,6 +415,7 @@ const define = <
     'Page',
     {
       props,
+      ...(options.description ? { description: options.description } : {}),
       requires: [...(options.requires ?? []), Navigation],
       ...(options.model ? { model: options.model } : {}),
       ...(options.state ? { state: options.state } : {}),

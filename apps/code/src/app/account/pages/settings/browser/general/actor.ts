@@ -44,15 +44,37 @@ export const General = Actor.define('General', {
     /** Null until read. */
     device: Schema.NullOr(Device),
   }),
-  message: Schema.TaggedUnion({
+  message: {
     Read: { device: Device },
-    FloatingChosen: { on: Schema.Boolean },
-    TextSizeChosen: { size: PreferencesRead.fields.textSize },
-    SmartInputChosen: { on: Schema.Boolean },
-    SmartDisplacementChosen: { on: Schema.Boolean },
-    ContextChosen: { shown: PreferencesRead.fields.context },
-    KeepScreenOnChosen: { on: Schema.Boolean },
-  }),
+    FloatingChosen: Schema.Struct({ on: Schema.Boolean }).annotate({
+      description:
+        'Floats the app in a Window on very wide screens, or not; kept in this browser, and offered only on a wide screen.',
+    }),
+    TextSizeChosen: Schema.Struct({
+      size: PreferencesRead.fields.textSize,
+    }).annotate({
+      description:
+        "Sets this browser's Text Size; smaller fits more on screen. Offered only with a keyboard on a wide screen.",
+    }),
+    SmartInputChosen: Schema.Struct({ on: Schema.Boolean }).annotate({
+      description:
+        'Turns Smart Input on or off: a tap opens the Touch Draft without the keyboard, ready to dictate. Offered only on touch.',
+    }),
+    SmartDisplacementChosen: Schema.Struct({ on: Schema.Boolean }).annotate({
+      description:
+        'Turns Smart Displacement on or off: the cursor dragged in the Touch Draft sits just above the finger. Offered only on touch.',
+    }),
+    ContextChosen: Schema.Struct({
+      shown: PreferencesRead.fields.context,
+    }).annotate({
+      description:
+        "Sets when the Draft shows how full the Session's context is: always, only when nearly full, or never.",
+    }),
+    KeepScreenOnChosen: Schema.Struct({ on: Schema.Boolean }).annotate({
+      description:
+        'Turns Keep Screen On on or off: it stops the screen dimming while Code is open.',
+    }),
+  },
 });
 
 export const GeneralLive = General.build({

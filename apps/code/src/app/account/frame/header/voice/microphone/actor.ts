@@ -86,15 +86,18 @@ export const Microphone = Actor.define('Microphone', {
     inputs: Schema.NullOr(Schema.Array(Input)),
     problem: Schema.NullOr(Schema.String),
   }),
-  message: Schema.TaggedUnion({
-    Open: { how: Picker.How },
+  message: {
+    Open: Schema.Struct({ how: Picker.How }).annotate({
+      description:
+        "Opens the Microphone Picker; how: 'keys'. Its rows' values are a microphone's deviceId, or 'default' for the system default.",
+    }),
     Read: { inputs: Schema.Array(Input) },
     ChosenRead: { chosen: Schema.NullOr(Schema.String) },
     Refused: { reason: Schema.String },
     Closed: {},
     /** The row chosen: a `deviceId`, or the system default's. */
     Chose: { value: Schema.String },
-  }),
+  },
 });
 
 export const MicrophoneLive = Microphone.build({

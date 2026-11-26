@@ -139,23 +139,44 @@ const Model = Schema.Struct({
 });
 export type Model = typeof Model.Type;
 
-export const Message = Schema.TaggedUnion({
-  Typed: { query: Schema.String },
-  Highlighted: { value: Schema.String },
-  /** The highlight moves `by` rows, down for 1 and up for -1. */
-  Moved: { by: Schema.Finite },
-  Picked: { value: Schema.String },
-  /** Finished on the row `on`, or with null on the Step itself. */
-  Finished: { on: Schema.NullOr(Schema.String) },
-  Back: {},
-  Closed: {},
+export const Message = {
+  Typed: Schema.Struct({ query: Schema.String }).annotate({
+    description:
+      "Types `query` as the whole search, highlighting the best row. In a folder Step a path from home, '~/demo/', goes into that folder; one from / names none.",
+  }),
+  Highlighted: Schema.Struct({ value: Schema.String }).annotate({
+    description:
+      'Highlights the row `value`, as pointing at it does; only what is drawn changes, as Picked and Finished name their own row.',
+  }),
+  Moved: Schema.Struct({ by: Schema.Finite }).annotate({
+    description:
+      'Moves the highlight `by` rows among those that can be chosen, 1 down and -1 up, round from the last to the first, as arrow keys do.',
+  }),
+  Picked: Schema.Struct({ value: Schema.String }).annotate({
+    description:
+      "Chooses the row `value`, from model.step.listing.rows or as the owner's Open lists them: opens its next Step, or finishes; then Closed once model.taken.",
+  }),
+  Finished: Schema.Struct({ on: Schema.NullOr(Schema.String) }).annotate({
+    description:
+      'Finishes as Enter does, on the row `on`, or with null on the Step itself, such as a folder; then Closed once model.taken.',
+  }),
+  Back: Schema.Struct({}).annotate({
+    description:
+      'Goes back one Step, dropping the choice that opened it, as Escape on an empty search does; never below the Step it opened at.',
+  }),
+  Closed: Schema.Struct({}).annotate({
+    description:
+      'Closes the Picker, handing the owner its choices once model.taken, else none, as Escape does. A Picker the View closed already is gone.',
+  }),
   /** Taken, refused with why, or `held`: the owner showed something over it, and it stays as it was. */
   Settled: {
     refused: Schema.NullOr(Schema.String),
     held: Schema.optionalKey(Schema.Boolean),
   },
-  /** Make a new place named `name` in the top Step, such as a folder. */
-  Make: { name: Schema.String },
+  Make: Schema.Struct({ name: Schema.String }).annotate({
+    description:
+      'Makes a new place named `name` in the top Step, in a Step that makes, such as a folder, and goes into it; model.refused says why not.',
+  }),
   /** What the owner made, to go into, or why it could not. */
   Made: {
     row: Schema.NullOr(
@@ -169,7 +190,17 @@ export const Message = Schema.TaggedUnion({
     query: Schema.String,
     loaded: Loaded,
   },
-});
+};
+
+/** A Message the Picker takes: each case of `Message`, tagged with its key. */
+export type Message = {
+  readonly [K in keyof typeof Message]: Schema.TaggedStruct<
+    K,
+    (typeof Message)[K] extends Schema.Struct<infer F>
+      ? F
+      : Extract<(typeof Message)[K], Schema.Struct.Fields>
+  >['Type'];
+}[keyof typeof Message];
 
 /** Where a Step's own functions are: which one, the owner's Props, the choices so far, the search. */
 interface At<P> {

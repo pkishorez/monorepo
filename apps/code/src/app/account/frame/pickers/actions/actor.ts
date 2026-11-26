@@ -73,7 +73,7 @@ const Listing = Schema.Struct({
   keyboard: Schema.Boolean,
 });
 
-const List = Picker.make('Actions', {
+const List = Picker.make('ActionPicker', {
   props: Schema.Struct({
     session: Schema.NullOr(Open),
     ...Listing.fields,
@@ -231,14 +231,17 @@ export const Actions = Actor.define('Actions', {
       Schema.Struct({ reason: Schema.String, n: Schema.Finite }),
     ),
   }),
-  message: Schema.TaggedUnion({
-    Open: {
+  message: {
+    Open: Schema.Struct({
       how: Picker.How,
       at: Schema.NullOr(At),
       available: Schema.Array(Schema.String),
       vim: Schema.Boolean,
       keyboard: Schema.Boolean,
-    },
+    }).annotate({
+      description:
+        "Opens the Actions Picker on the Session `at`, null for none; how: 'keys', available: [], vim: false, keyboard: true. Row values: settle, unsettle, fork, original, retitle, stop.",
+    }),
     Read: { session: Schema.NullOr(Open) },
     Closed: {},
     /** Done, and where to go after, if anywhere. */
@@ -261,7 +264,7 @@ export const Actions = Actor.define('Actions', {
     },
     /** A title written long enough ago that the session shows it. */
     RetitleShown: { at: At, title: Schema.String },
-  }),
+  },
 });
 
 const sameAt = (a: typeof At.Type, b: typeof At.Type) =>

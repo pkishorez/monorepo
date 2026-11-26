@@ -31,11 +31,11 @@ import {
 import { keys } from '../../../../app/account/frame/commands.ts';
 import {
   finishedOn,
-  Message,
   outcomeOf,
   settles,
   shownOf,
   type Choice,
+  type Message,
   type Model,
   type Spec,
 } from '../actor.ts';
@@ -86,7 +86,7 @@ const CMDK_KEYS = new Set(['Enter', 'ArrowDown', 'ArrowUp']);
 type Self<P> = {
   readonly model: Model;
   readonly props: P;
-  readonly send: (message: typeof Message.Type) => void;
+  readonly send: (message: Message) => void;
 };
 
 export function List<P>({

@@ -136,6 +136,8 @@ export const readyOf = ({
         (!found.held || restored === true);
 
 export const Project = Page.define({
+  description:
+    "A Project's page: its Draft writes and starts a new Session, which then opens under it as the Session page.",
   path: '/m/:connectionId/p/:projectId',
   params: { connectionId: Schema.String, projectId: Schema.String },
   metadata: { title: 'Project · code' },
@@ -149,22 +151,28 @@ export const Project = Page.define({
   ],
   pages: { Session: Session.page },
   model: Model,
-  message: Schema.TaggedUnion({
+  message: {
     ConnectionKnown: {
       gone: Schema.Boolean,
       unlisted: Schema.Boolean,
       here: Schema.Boolean,
     },
     ...Catalog.messages,
-    ConfirmToggled: { open: Schema.Boolean },
-    RemoveAsked: {},
+    ConfirmToggled: Schema.Struct({ open: Schema.Boolean }).annotate({
+      description:
+        'Opens or closes the question asking to remove the Project, offered only while its folder is missing; RemoveAsked confirms it.',
+    }),
+    RemoveAsked: Schema.Struct({}).annotate({
+      description:
+        "Removes the Project and all this device kept of it, never its folder, then goes to the Account's home; problems show in model.removal.problem.",
+    }),
     Removed: {},
     RemoveRefused: Refused,
     /** All it draws at `at` (`placeIn`) is read from this device: it can be drawn whole. */
     Ready: { at: Schema.String },
     /** Its Draft started the Session `sessionId`, and moves to it. */
     HandedOver: { sessionId: Schema.String },
-  }),
+  },
 });
 
 /** 1. Catalog: kept for the Connection and project the URL names. */

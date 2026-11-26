@@ -367,12 +367,17 @@ export const Account = Page.define({
   pages: { Home: Home.page, Settings: Settings.page, Project: Project.page },
   model: Model,
   state: State,
-  message: Schema.TaggedUnion({
+  message: {
     // 1. Who
     Heard: { who: Who },
-    /** An Account signed in here, chosen on the sign-in screen. */
-    ChooseAsked: { id: Schema.String },
-    SignInAsked: {},
+    ChooseAsked: Schema.Struct({ id: Schema.String }).annotate({
+      description:
+        "On the sign-in screen, makes the Account `id` from model.who.accounts the active one, going to its home unless it is this page's; waits for model.who.answered.",
+    }),
+    SignInAsked: Schema.Struct({}).annotate({
+      description:
+        "Signs one more Account in with Google from the sign-in screen, coming back to this page; under the Fake it waits for the Sign-in fake's SignInAs.",
+    }),
     /** A sign-in asked here ended without leaving the page, as under the Fake. */
     SignInEnded: {},
     /** Signing in, or a switch, asked here failed. */
@@ -387,7 +392,10 @@ export const Account = Page.define({
       at: Schema.Number,
     },
     Failed: { since: Schema.Finite, problem: Schema.String },
-    ReloadAsked: {},
+    ReloadAsked: Schema.Struct({}).annotate({
+      description:
+        'Asks Connect Cloud for the Connection list again, as Reload does where no Connection is listed.',
+    }),
     RecheckDue: {},
     CheckWaited: {},
     /** The page shows again after a while hidden. */
@@ -401,7 +409,7 @@ export const Account = Page.define({
     ForgetDismissed: {},
     // 7. Rename
     Renamed: { id: Schema.String, displayName: Schema.NullOr(Schema.String) },
-  }),
+  },
 });
 
 const idsOf = (model: Model) => (model.list.value ?? []).map(({ id }) => id);

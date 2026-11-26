@@ -104,19 +104,35 @@ export const Touch = Actor.define('Touch', {
     collapses: Schema.Boolean,
   }),
   state: State,
-  message: Schema.TaggedUnion({
-    /** While it records, as its View stops it: take it, and send the Draft once it is text if `send`. */
-    Take: { send: Schema.Boolean },
-    Cancel: {},
-    /** A tap on it, collapsed. */
-    Open: {},
-    /** Type in it: the Composer. */
-    Edit: {},
-    /** Stop typing in it, and keep it open. */
-    Done: {},
-    Collapse: {},
-    /** Send the Draft, from wherever it rests. */
-    Send: {},
+  message: {
+    Take: Schema.Struct({ send: Schema.Boolean }).annotate({
+      description:
+        "While a Dictation records, marks it taken, as the talk bar's tap does; send: true sends the Draft once it is text. The mic itself stops the Dictation.",
+    }),
+    Cancel: Schema.Struct({}).annotate({
+      description:
+        "While a Dictation records or is transcribed, puts the Touch Draft back at rest, as Cancel does; the Dictation's own cancel throws it away.",
+    }),
+    Open: Schema.Struct({}).annotate({
+      description:
+        'Opens the collapsed Touch Draft, keyboard down, as a tap on its one line: the model chip comes in reach. Edit then types in it.',
+    }),
+    Edit: Schema.Struct({}).annotate({
+      description:
+        'Makes the open Touch Draft the Composer, keyboard up, as a tap in its words; a collapsed one is opened first with Open.',
+    }),
+    Done: Schema.Struct({}).annotate({
+      description:
+        'Stops typing in the Touch Draft and keeps it open, keyboard down.',
+    }),
+    Collapse: Schema.Struct({}).annotate({
+      description:
+        "Collapses a Session's Touch Draft to one line; a new session's never collapses, and only stops typing.",
+    }),
+    Send: Schema.Struct({}).annotate({
+      description:
+        "Sends the Draft from the Touch Draft, as its Send button: the same as the Draft Mode's SendAsked.",
+    }),
     Sent: {},
     /** `sendable`: nothing stops the Draft being sent now, such as being offline. */
     Heard: { dictation: Heard, sendable: Schema.Boolean },
@@ -124,7 +140,7 @@ export const Touch = Actor.define('Touch', {
     SmartRead: { on: Schema.Boolean },
     /** Whether it takes Smart Displacement, as Preferences keeps it. */
     DisplacementRead: { on: Schema.Boolean },
-  }),
+  },
 });
 
 const collapsed = { _tag: 'Collapsed' as const };

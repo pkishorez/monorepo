@@ -281,11 +281,23 @@ export const definitionOf = <Route extends AnyRoute>(
       attached: Schema.Boolean,
       loaded: Schema.Boolean,
     }),
-    message: Schema.TaggedUnion({
-      Pushed: { route: RouteSchema, ...moveOptions },
-      Replaced: { route: RouteSchema, ...moveOptions },
-      Went: { by: Schema.Number },
-      WentBackTo: { route: RouteSchema },
+    message: {
+      Pushed: Schema.Struct({ route: RouteSchema, ...moveOptions }).annotate({
+        description:
+          'Goes to a route, as a link does, adding a history entry; a route is written as in model.entries, and `hash` names an element to scroll to.',
+      }),
+      Replaced: Schema.Struct({ route: RouteSchema, ...moveOptions }).annotate({
+        description:
+          'Goes to a route in place of the current history entry, so Back skips it; a route is written as in model.entries.',
+      }),
+      Went: Schema.Struct({ by: Schema.Number }).annotate({
+        description:
+          "Moves `by` entries through the history, -1 back and 1 forward, as the browser's Back and Forward do.",
+      }),
+      WentBackTo: Schema.Struct({ route: RouteSchema }).annotate({
+        description:
+          "Goes back to `route` when it is the entry before, else puts it in place of the current entry, as a page's own Back link does.",
+      }),
       Arrived: {
         route: RouteSchema,
         key: Schema.NullOr(Schema.String),
@@ -297,10 +309,13 @@ export const definitionOf = <Route extends AnyRoute>(
       Waited: { id: Schema.Number },
       Loaded: { id: Schema.Number, known: KnownSchema },
       Redirected: { id: Schema.Number, route: RouteSchema },
-      Reloaded: reloadOptions,
+      Reloaded: Schema.Struct(reloadOptions).annotate({
+        description:
+          'Loads the data of the pages shown again; anew: true drops what is shown, as after the signed-in account changed, and hold: true keeps it until the new data comes.',
+      }),
       Preloading: { route: RouteSchema },
       ...placeMessages(routes),
-    }),
+    },
   } as never);
   return actor;
 };

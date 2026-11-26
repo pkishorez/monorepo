@@ -82,13 +82,22 @@ type Model = typeof Model.Type;
 export const Cards = Actor.define('Cards', {
   requires: [Connections],
   model: Model,
-  message: Schema.TaggedUnion({
+  message: {
     Known: Known.fields,
     Ask: { id: Schema.String },
-    Keep: {},
-    Forget: {},
-    Reload: {},
-  }),
+    Keep: Schema.Struct({}).annotate({
+      description:
+        'Answers the Forget question with Keep it: closes it and keeps the Connection; after a refused Forget, also clears why.',
+    }),
+    Forget: Schema.Struct({}).annotate({
+      description:
+        "Confirms the Forget question a ConnectionCard's ForgetAsked opened: the Connection is signed out and stops, and this device deletes what it kept of it.",
+    }),
+    Reload: Schema.Struct({}).annotate({
+      description:
+        'Asks Connect Cloud for the Connection List, and every Connection for its Setup, again.',
+    }),
+  },
 });
 
 /**

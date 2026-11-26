@@ -32,7 +32,12 @@ export const Settings = Page.define({
   path: '/settings',
   metadata: { title: 'Settings · code' },
   model: Schema.Struct({ open: Tab }),
-  message: Schema.TaggedUnion({ TabChosen: { tab: Tab } }),
+  message: {
+    TabChosen: Schema.Struct({ tab: Tab }).annotate({
+      description:
+        'Opens one Settings tab; Shortcuts is hidden on a touch screen with no keyboard, and About has no Actor of its own.',
+    }),
+  },
 });
 
 export const SettingsLive = Settings.build({

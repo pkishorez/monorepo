@@ -138,14 +138,20 @@ export const Sessions = Actor.define('Sessions', {
     open: Schema.NullOr(Here),
     sessions: Schema.NullOr(Schema.Array(Listed)),
   }),
-  message: Schema.TaggedUnion({
+  message: {
     ConnectionsKnown: { connections: Schema.Array(Connection) },
-    Open: { how: Picker.How, open: Schema.NullOr(Here) },
+    Open: Schema.Struct({
+      how: Picker.How,
+      open: Schema.NullOr(Here),
+    }).annotate({
+      description:
+        "Opens the Session Switcher; how: 'keys', open: the Session open, checked in the list, or null. Its rows' values are '<connectionId> <sessionId>'.",
+    }),
     Read: { sessions: Schema.Array(Listed) },
     Closed: {},
     /** The row chosen, by `valueOf`. */
     Chose: { value: Schema.String },
-  }),
+  },
 });
 
 export const SessionsLive = Sessions.build({

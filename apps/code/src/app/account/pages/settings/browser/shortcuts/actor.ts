@@ -53,18 +53,40 @@ type Model = typeof Model.Type;
 const Shortcuts = Actor.define('Shortcuts', {
   requires: [Preferences],
   model: Model,
-  message: Schema.TaggedUnion({
+  message: {
     Read: { bindings: Bindings },
-    Searched: { query: Schema.String },
-    Record: { id: Schema.String },
-    /** The key pressed, as people write it. */
-    Pressed: { keys: Schema.String },
-    Stopped: {},
-    Swap: {},
-    Dismiss: {},
-    Reset: { id: Schema.String },
-    ResetAll: {},
-  }),
+    Searched: Schema.Struct({ query: Schema.String }).annotate({
+      description:
+        "Filters the Actions listed by the search field's text, matching an Action's name or its keys.",
+    }),
+    Record: Schema.Struct({ id: Schema.String }).annotate({
+      description:
+        "Starts recording new keys for one Action, by its id such as 'app.help'; then Pressed with the key, or Stopped to keep them.",
+    }),
+    Pressed: Schema.Struct({ keys: Schema.String }).annotate({
+      description:
+        "The key pressed while recording, as 'ctrl+g' or 'j': it replaces the Action's Shortcut, unless it types or another Action has it (then Swap or Dismiss).",
+    }),
+    Stopped: Schema.Struct({}).annotate({
+      description:
+        "Stops recording and keeps the Action's keys, as Escape or a click away does.",
+    }),
+    Swap: Schema.Struct({}).annotate({
+      description:
+        'After Pressed found a clash, swaps keys with the Action that already had the key pressed.',
+    }),
+    Dismiss: Schema.Struct({}).annotate({
+      description:
+        'Keeps the keys as they are and clears the note under a row: a clash, a key that types, or what was reset with it.',
+    }),
+    Reset: Schema.Struct({ id: Schema.String }).annotate({
+      description:
+        "Puts one Action's keys, by id, back to its defaults, also resetting any Action whose keys those defaults would clash with.",
+    }),
+    ResetAll: Schema.Struct({}).annotate({
+      description: "Puts every Action's keys back to their defaults.",
+    }),
+  },
 });
 
 const save = (model: Model, bindings: typeof Bindings.Type) => ({
