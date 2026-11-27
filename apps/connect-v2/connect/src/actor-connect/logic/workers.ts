@@ -11,14 +11,15 @@ import {
 } from './shared/index.js';
 
 type ConnectSelf = SelfOf<typeof ConnectShape>;
+type SigningInSelf = SelfOf<typeof ConnectShape, 'SigningIn'>;
+type SignedInSelf = SelfOf<typeof ConnectShape, 'SignedIn'>;
 
 const messageOf = (cause: unknown) =>
   cause instanceof Error ? cause.message : String(cause);
 
-const signIn = (self: ConnectSelf) =>
+const signIn = (self: SigningInSelf) =>
   Effect.gen(function* () {
     const { model, state } = yield* self.get;
-    if (state._tag !== 'SigningIn') return;
     const accounts = yield* SignIn;
     const store = yield* Store;
     const wait = backoffAfter(
@@ -63,10 +64,10 @@ const signIn = (self: ConnectSelf) =>
     ),
   );
 
-const report = (self: ConnectSelf) =>
+const report = (self: SignedInSelf) =>
   Effect.gen(function* () {
     const { model, state } = yield* self.get;
-    if (state._tag !== 'SignedIn' || model.address === null) return;
+    if (model.address === null) return;
     const cloud = yield* Cloud;
     const answer = yield* cloud.report({
       id: state.who.connection.id,
@@ -98,7 +99,7 @@ const report = (self: ConnectSelf) =>
     }
   });
 
-const heartbeat = (self: ConnectSelf) =>
+const heartbeat = (self: SignedInSelf) =>
   Effect.flatMap(self.get, ({ model }) =>
     self.changes.pipe(
       Stream.map(({ model: now }) => now.address),
@@ -128,12 +129,12 @@ const control = (self: ConnectSelf) =>
 
 export const workers: WorkersOf<typeof ConnectShape> = {
   control: { run: control },
-  signIn: {
-    while: ({ state }) => state._tag === 'SigningIn',
-    run: signIn,
-  },
-  heartbeat: {
-    while: ({ state }) => state._tag === 'SignedIn',
-    run: heartbeat,
-  },
+};
+
+export const signingInWorkers: WorkersOf<typeof ConnectShape, 'SigningIn'> = {
+  signIn: { run: signIn },
+};
+
+export const signedInWorkers: WorkersOf<typeof ConnectShape, 'SignedIn'> = {
+  heartbeat: { run: heartbeat },
 };

@@ -200,6 +200,7 @@ app and in a feature alike.
 | A Capability's implementation               | `capabilities/<name>/real/`                                           |
 | Pure logic or a component used further down | `logic/shared/` or `view/shared/` of the lowest Actor above its users |
 | An Actor several Actors place               | `children/shared/` of the lowest Actor above all of them              |
+| A Message or Worker that acts in one State  | that State's block in `build`, never a top-level rule that checks it  |
 | What a feature's browser and server share   | the RPC group's `contract/`, or `server/rpc/contract/`                |
 | The app's component library                 | the root Actor's `view/shared/`                                       |
 
@@ -219,14 +220,14 @@ inside is free-form. Example: `updates.ts` → `updates/index.ts`.
 Type every part written outside `build` from the Shape. Never write these
 types by hand:
 
-| Part                         | Type                                                                     |
-| ---------------------------- | ------------------------------------------------------------------------ |
-| `init`                       | `InitOf<typeof FolderViewerShape>`                                       |
-| `updates`                    | `UpdatesOf<typeof FolderViewerShape>`                                    |
-| `workers`                    | `WorkersOf<typeof FolderViewerShape>`                                    |
-| a selector's argument        | `DataOf<typeof FolderViewerShape>`, or `DataOf<…, 'Open'>` for one State |
-| a Capability's `real/` Layer | `(self: SelfOf<typeof FolderViewerShape>) => Layer`                      |
-| the body's props             | `ViewPropsOf<typeof FolderViewerShape> & { fileViewer: ReactNode }`      |
+| Part                         | Type                                                                                   |
+| ---------------------------- | -------------------------------------------------------------------------------------- |
+| `init`                       | `InitOf<typeof FolderViewerShape>`                                                     |
+| `updates`                    | `UpdatesOf<typeof FolderViewerShape>`, or `UpdatesOf<…, 'Open'>` for one State's block |
+| `workers`                    | `WorkersOf<typeof FolderViewerShape>`, or `WorkersOf<…, 'Open'>` for one State's block |
+| a selector's argument        | `DataOf<typeof FolderViewerShape>`, or `DataOf<…, 'Open'>` for one State               |
+| a Capability's `real/` Layer | `(self: SelfOf<typeof FolderViewerShape>) => Layer`                                    |
+| the body's props             | `ViewPropsOf<typeof FolderViewerShape> & { fileViewer: ReactNode }`                    |
 
 `ViewPropsOf` comes from `@kestack/kabuki/react/types`; the others come
 from `@kestack/kabuki/types`. `shape.ts` names a type only when another

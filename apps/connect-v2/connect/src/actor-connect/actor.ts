@@ -7,6 +7,10 @@ import {
   pluginInputOf,
   pluginKeys,
   routesOf,
+  signedInUpdates,
+  signedInWorkers,
+  signingInUpdates,
+  signingInWorkers,
   updates,
   workers,
 } from './logic/index.js';
@@ -16,7 +20,10 @@ export const Connect = ConnectShape.build({
   on: updates,
   workers,
   states: {
+    SigningIn: { on: signingInUpdates, workers: signingInWorkers },
     SignedIn: {
+      on: signedInUpdates,
+      workers: signedInWorkers,
       children: {
         tunnel: Actor.child(Tunnel, {
           input: ({ model }) => model.settings.tunnel,
