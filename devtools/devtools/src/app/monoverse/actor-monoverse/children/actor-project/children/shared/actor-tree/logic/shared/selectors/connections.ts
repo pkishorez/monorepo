@@ -1,4 +1,7 @@
-import { isWithin } from '../../../../../../../../../server/rpc/contract/index.js';
+import {
+  isGraphSource,
+  isWithin,
+} from '../../../../../../../../../server/rpc/contract/index.js';
 import type { Link } from '../../../../../../../../../services/projects/contract/index.js';
 import type {
   ConnectionKind,
@@ -117,21 +120,23 @@ export function foldersToReveal(
 
 export function leavesOf(
   base: string,
+  files: ReadonlyArray<string>,
   links: ReadonlyArray<Link>,
 ): ReadonlySet<string> {
-  const using = new Set<string>();
-  const used = new Set<string>();
-  const mark = (marked: Set<string>, path: string, other: string) => {
+  const foldersOf = (path: string, other: string | null) => {
+    const folders: Array<string> = [];
     for (const at of ancestorsOf(path)) {
-      if (at === base || !isWithin(at, base) || isWithin(other, at)) break;
-      marked.add(at);
+      if (at === base || !isWithin(at, base)) break;
+      if (other !== null && isWithin(other, at)) break;
+      folders.push(at);
     }
+    return folders;
   };
-  for (const [from, to] of links) {
-    mark(using, from, to);
-    mark(used, to, from);
-  }
-  return new Set([...used].filter((folder) => !using.has(folder)));
+  const holding = new Set(
+    files.filter(isGraphSource).flatMap((path) => foldersOf(path, null)),
+  );
+  const using = new Set(links.flatMap(([from, to]) => foldersOf(from, to)));
+  return new Set([...holding].filter((folder) => !using.has(folder)));
 }
 
 export function foldersAround(

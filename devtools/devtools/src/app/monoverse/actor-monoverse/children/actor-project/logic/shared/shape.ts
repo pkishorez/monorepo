@@ -84,6 +84,7 @@ export const ProjectShape = Actor.define('Project', {
     ignored: Schema.Boolean,
     shown: ShownSchema,
     outside: Schema.Boolean,
+    reloads: Schema.Number,
   }),
   model: Model,
   state: State,

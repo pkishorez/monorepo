@@ -15,6 +15,7 @@ export {
   focusedTree,
   opensAround,
   trailOf,
+  unfolded,
   visibleOf,
   visibleRows,
   withDeleted,

@@ -38,7 +38,9 @@ export const workers: WorkersOf<typeof ProjectShape> = {
       }),
   },
   branches: {
-    each: ({ model }) => [JSON.stringify([model.root, model.reloads])],
+    each: ({ model, props }) => [
+      JSON.stringify([model.root, model.reloads, props.reloads]),
+    ],
     run: (self, key) =>
       Effect.gen(function* () {
         const [root] = JSON.parse(key) as [string];

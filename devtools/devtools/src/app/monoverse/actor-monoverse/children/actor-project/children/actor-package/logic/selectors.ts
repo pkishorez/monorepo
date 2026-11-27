@@ -56,4 +56,5 @@ export const treeProps = ({
   ignored: props.ignored,
   shown: props.shown,
   outside: props.outside,
+  leavable: props.leavable,
 });

@@ -12,12 +12,12 @@ type BodyProps = ViewPropsOf<typeof PackageShape> & {
 };
 
 export function Body({ root, model, props, state, send, tree }: BodyProps) {
-  const reading = isReading(state, props.branch, model.tries);
+  const reading = isReading(state, props.branch, model.tries, props.reloads);
   if (state._tag === 'Contents' && tree !== null)
     return (
       <div {...root} className="relative h-full min-h-0">
         {tree}
-        {reading ? <Rereading>Reading the branch…</Rereading> : null}
+        {reading ? <Rereading>Reading…</Rereading> : null}
       </div>
     );
   return (

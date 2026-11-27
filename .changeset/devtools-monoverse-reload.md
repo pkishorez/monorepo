@@ -1,0 +1,5 @@
+---
+'@kestack/devtools': patch
+---
+
+Monoverse gets a reload button beside the theme switcher. It reads the open project again (its project list, analysis, branches, changes, Package and open file) and keeps what is open and selected. Expand all and Collapse all stay on the right at one width, so opening a folder no longer moves them. A folder is a leaf when it imports no other folder, whether or not anything imports it. An open Package's trail starts with All packages, which leads back to the monorepo; once a folder inside it is shown alone, the trail starts at the Package. A connection's colour is now only its direction, blue for what the selection uses and amber for what uses it; an import through a door or an exception is a dashed line in that colour instead of purple. Pointing at one connection of the selection fades every other one, its line, arrowheads and row alike. A right click on a closed folder opens it with the folders inside it closed; the next opens them all, and the one after closes them again.

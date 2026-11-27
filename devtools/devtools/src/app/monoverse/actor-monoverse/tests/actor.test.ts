@@ -21,19 +21,21 @@ const HostShape = Actor.define('Host', {
   model: Schema.Struct({
     place: PlaceSchema,
     moved: Schema.Array(PlaceSchema),
+    reloads: Schema.Number,
   }),
   message: {
     Moved: { place: PlaceSchema },
     Go: { place: PlaceSchema },
+    Reloaded: {},
   },
 });
 
 const Host = HostShape.build({
-  init: (place) => ({ model: { place, moved: [] } }),
+  init: (place) => ({ model: { place, moved: [], reloads: 0 } }),
   children: {
     monoverse: Actor.child(Monoverse, {
       input: ({ model }) => model.place,
-      props: ({ model }) => model.place,
+      props: ({ model }) => ({ ...model.place, reloads: model.reloads }),
       emits: { Moved: ({ _tag, ...place }) => ({ _tag: 'Moved', place }) },
     }),
   },
@@ -42,6 +44,7 @@ const Host = HostShape.build({
       model: { place, moved: [...model.moved, place] },
     }),
     Go: ({ place }) => ({ model: { place } }),
+    Reloaded: (_, { model }) => ({ model: { reloads: model.reloads + 1 } }),
   },
 });
 
@@ -241,6 +244,7 @@ describe('Monoverse', () => {
           ignored: true,
           shown: { violations: true, exceptions: true, allowed: true },
           outside: true,
+          reloads: 0,
         });
         expect(find(app, 'Project')!.state).toMatchObject({
           _tag: 'Monorepo',
@@ -432,11 +436,30 @@ describe('Monoverse', () => {
         send(app, 'Project', { _tag: 'BranchChosen', branch: 'next' });
         send(app, 'Project', { _tag: 'ChangesToggled' });
         yield* settle;
-        expect(tool(app).props).toEqual(
-          place({ project: 'm', branch: 'next', changes: true }),
-        );
+        expect(tool(app).props).toEqual({
+          ...place({ project: 'm', branch: 'next', changes: true }),
+          reloads: 0,
+        });
         expect(host(app).moved).toHaveLength(2);
         expect(named(asked, 'analyse')).toHaveLength(2);
+      }),
+    ));
+
+  it('lists the projects and analyses the open one again on a reload, at the same Place', () =>
+    run(
+      Effect.gen(function* () {
+        const asked: Asked = [];
+        const app = yield* start({ project: 'm', branch: 'next' }, asked);
+        yield* settle;
+        app.root.send({ _tag: 'Reloaded' });
+        yield* settle;
+        expect(named(asked, 'projects')).toHaveLength(2);
+        expect(named(asked, 'analyse')).toHaveLength(2);
+        expect(tool(app).state).toMatchObject({
+          _tag: 'Showing',
+          project: 'm',
+        });
+        expect(host(app).moved).toEqual([]);
       }),
     ));
 

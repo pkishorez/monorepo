@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 
 import {
   buildTree,
+  unfolded,
   visibleOf,
   visibleRows,
   withDeleted,
@@ -83,5 +84,39 @@ describe('the folder tree', () => {
     ).toEqual(['src/edit.ts', 'src/old/c.ts']);
     const files = ['a.ts'];
     expect(withDeleted(files, null)).toBe(files);
+  });
+});
+
+describe('a right click on a folder', () => {
+  const inside = ['src/a', 'src/a/deep'];
+
+  test('opens a closed folder with the folders inside it closed', () => {
+    expect(unfolded(new Set(['src/a']), 'src', inside)).toEqual(['src']);
+  });
+
+  test('opens every folder inside an open one', () => {
+    expect(unfolded(new Set(['src']), 'src', inside)).toEqual([
+      'src',
+      'src/a',
+      'src/a/deep',
+    ]);
+    expect(unfolded(new Set(['src', 'src/a']), 'src', inside)).toEqual([
+      'src',
+      'src/a',
+      'src/a/deep',
+    ]);
+  });
+
+  test('counts a folder the focus opens around as open', () => {
+    const around = new Set(['src']);
+    expect(
+      unfolded(new Set(), 'src', inside, (path) => around.has(path)),
+    ).toEqual(['src/a', 'src/a/deep']);
+  });
+
+  test('closes them again once all are open, keeping the folder open', () => {
+    expect(
+      unfolded(new Set(['src', 'src/a', 'src/a/deep']), 'src', inside),
+    ).toEqual(['src']);
   });
 });

@@ -1,16 +1,10 @@
-import { isSource } from '@kestack/monoverse';
-
+import { isGraphSource } from '../../contract/index.js';
 import type { Import } from '../contract/index.js';
 
 export function graphSources(
   files: ReadonlyArray<string>,
 ): ReadonlyArray<string> {
-  return files.filter(
-    (path) =>
-      isSource(path) &&
-      !/\.d\.[cm]?ts$/.test(path) &&
-      !/\.min\.(?:[cm]?js|jsx)$/.test(path),
-  );
+  return files.filter(isGraphSource);
 }
 
 export function fileGraph(

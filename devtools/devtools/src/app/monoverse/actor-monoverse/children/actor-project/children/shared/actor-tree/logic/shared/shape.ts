@@ -71,6 +71,7 @@ const TreePropsSchema = Schema.Struct({
   changes: Schema.NullOr(Schema.Array(ChangedPathSchema)),
   unchanged: UnchangedSchema,
   ignored: Schema.Boolean,
+  leavable: Schema.Boolean,
 });
 
 export type TreeProps = typeof TreePropsSchema.Type;
@@ -95,12 +96,17 @@ export const TreeShape = Actor.define('Tree', {
     Opened: { path: Schema.String },
     Entered: { path: Schema.String },
     Viewed: { path: Schema.String, files: Schema.Array(Schema.String) },
+    Left: Schema.Struct({}).annotate({
+      description:
+        'Leave this Package for the tree of all packages, when it is open inside a monorepo',
+    }),
     Focused: Schema.Struct({ path: Schema.NullOr(Schema.String) }).annotate({
       description:
         'Show one folder alone, with the folders outside it that it connects to, or the whole tree again when null',
     }),
   },
   emits: {
+    Left: {},
     Opened: { path: Schema.String },
     Entered: { path: Schema.String },
     Viewed: {

@@ -70,6 +70,7 @@ export const updates: UpdatesOf<typeof TreeShape> = {
       },
     };
   },
+  Left: (_, { props }) => (props.leavable ? { emit: { _tag: 'Left' } } : {}),
   Opened: ({ path }) => ({ emit: { _tag: 'Opened', path } }),
   Entered: ({ path }) => ({ emit: { _tag: 'Entered', path } }),
   Viewed: ({ path, files }, { props }) => ({

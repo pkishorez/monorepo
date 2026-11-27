@@ -12,6 +12,7 @@ import {
   opensAround,
   shownLinks,
   trailOf,
+  unfolded,
   visibleRows,
   withDeleted,
   type Leaf,
@@ -91,12 +92,19 @@ export function Body({
     [focus],
   );
   const leafFolders = useMemo(
-    () => (packages.length > 0 ? new Set<string>() : leavesOf(base, links)),
-    [packages, base, links],
+    () =>
+      packages.length > 0 ? new Set<string>() : leavesOf(base, files, links),
+    [packages, base, files, links],
   );
+  const leavable = focus === null && props.leavable;
   const trail = useMemo(
-    () => (focus === null ? null : trailOf(whole, focus, name)),
-    [whole, focus, name],
+    () =>
+      focus !== null
+        ? trailOf(whole, focus, name)
+        : leavable
+          ? [{ path: null, name }]
+          : null,
+    [whole, focus, name, leavable],
   );
 
   const changeOf = useChanges(changes);
@@ -176,6 +184,7 @@ export function Body({
     links: drawnLinks,
     every,
     open: openSet,
+    isOpen,
     foldersInside,
     folding,
   });
@@ -184,6 +193,7 @@ export function Body({
     links: drawnLinks,
     every,
     open: openSet,
+    isOpen,
     foldersInside,
     folding,
   };
@@ -229,6 +239,7 @@ export function Body({
         });
       },
       reset: () => send({ _tag: 'Reset' }),
+      leave: () => send({ _tag: 'Left' }),
       focus: (path) => send({ _tag: 'Focused', path }),
       toggleInside: (path) => {
         const { open, folding, foldersInside } = latest.current;
@@ -238,6 +249,18 @@ export function Body({
           for (const folder of inside) next.delete(folder);
         else for (const folder of [path, ...inside]) next.add(folder);
         send({ _tag: 'OpenChosen', open: [...next] });
+      },
+      unfold: (path) => {
+        const { open, isOpen, foldersInside } = latest.current;
+        send({
+          _tag: 'OpenChosen',
+          open: unfolded(
+            open,
+            path,
+            foldersInside.inside.get(path) ?? [],
+            isOpen,
+          ),
+        });
       },
       reveal: (path) => {
         const { selected: from, links: all } = latest.current;
@@ -278,6 +301,7 @@ export function Body({
           shown={shown}
           leaves={leafFolders}
           trail={trail}
+          leavable={leavable}
           dimmed={dimmed}
           faded={faded}
           ignored={ignored}

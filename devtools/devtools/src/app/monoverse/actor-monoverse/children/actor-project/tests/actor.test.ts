@@ -44,9 +44,11 @@ const HostShape = Actor.define('Host', {
       allowed: Schema.Boolean,
     }),
     outside: Schema.Boolean,
+    reloads: Schema.Number,
   }),
   message: {
     Moved: { where: WhereSchema },
+    Reloaded: {},
     DeletedToggled: {},
     UnchangedChosen: { unchanged: Schema.Literals(['show', 'dim', 'hide']) },
     IgnoredToggled: {},
@@ -71,6 +73,7 @@ const Host = HostShape.build({
       ignored: true,
       shown: { violations: true, exceptions: true, allowed: true },
       outside: true,
+      reloads: 0,
     },
   }),
   children: {
@@ -84,6 +87,7 @@ const Host = HostShape.build({
         ignored: model.ignored,
         shown: model.shown,
         outside: model.outside,
+        reloads: model.reloads,
       }),
       emits: {
         Moved: ({ _tag, ...where }) => ({ _tag: 'Moved', where }),
@@ -104,6 +108,7 @@ const Host = HostShape.build({
       model: { where, moved: [...model.moved, where] },
     }),
     Go: ({ where }) => ({ model: { where } }),
+    Reloaded: (_, { model }) => ({ model: { reloads: model.reloads + 1 } }),
     DeletedToggled: (_, { model }) => ({ model: { deleted: !model.deleted } }),
     UnchangedChosen: ({ unchanged }) => ({ model: { unchanged } }),
     IgnoredToggled: (_, { model }) => ({ model: { ignored: !model.ignored } }),
@@ -332,7 +337,7 @@ describe('Project', () => {
       }),
     ));
 
-  it('enters a Package on a double click, at the branch, and leaves it from the crumb', () =>
+  it('enters a Package on a double click, at the branch, and leaves it from All packages in its trail', () =>
     run(
       Effect.gen(function* () {
         const asked: Asked = [];
@@ -365,7 +370,10 @@ describe('Project', () => {
         expect(named(asked, 'readPackage')).toEqual([
           { root: '/repo', branch: null, path: 'apps/web' },
         ]);
-        send(app, 'Project', { _tag: 'Left' });
+        const inner = trees.find(({ props }) => props.base === 'apps/web')!;
+        expect(inner.props).toMatchObject({ leavable: true });
+        expect(find(app, 'Tree')!.props).toMatchObject({ leavable: false });
+        app.at(inner.address)!.send({ _tag: 'Left' } as any);
         yield* settle;
         expect(find(app, 'Package')).toBeUndefined();
         expect(host(app).moved.map((one) => one.package)).toEqual([
@@ -388,6 +396,7 @@ describe('Project', () => {
         expect(find(app, 'Tree')!.props).toMatchObject({
           base: '',
           sourceRoots: ['src'],
+          leavable: false,
         });
       }),
     ));
@@ -498,6 +507,31 @@ describe('Project', () => {
           status: 'modified',
         });
         expect(find(app, 'FileViewer')!.state).toMatchObject({ _tag: 'Diff' });
+      }),
+    ));
+
+  it('reads the project, its Package and the open file again on a reload, keeping them open', () =>
+    run(
+      Effect.gen(function* () {
+        const asked: Asked = [];
+        const app = yield* start({ package: 'apps/web' }, asked);
+        yield* settle;
+        send(app, 'Tree', { _tag: 'Opened', path: 'docs/notes.md' });
+        yield* settle;
+        const before = (name: string) => named(asked, name).length;
+        const counts = ['analyse', 'branches', 'readPackage', 'readFile'].map(
+          before,
+        );
+        app.root.send({ _tag: 'Reloaded' });
+        yield* settle;
+        expect(
+          ['analyse', 'branches', 'readPackage', 'readFile'].map(before),
+        ).toEqual(counts.map((count) => count + 1));
+        expect(project(app).state).toMatchObject({ _tag: 'Monorepo' });
+        expect(find(app, 'Package')!.state).toMatchObject({ _tag: 'Contents' });
+        expect(find(app, 'FileViewer')!.model).toMatchObject({
+          path: 'docs/notes.md',
+        });
       }),
     ));
 

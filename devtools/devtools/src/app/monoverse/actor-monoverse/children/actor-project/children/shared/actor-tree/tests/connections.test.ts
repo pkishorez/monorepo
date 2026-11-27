@@ -142,20 +142,34 @@ describe('which connections are drawn', () => {
 });
 
 describe('a leaf folder', () => {
-  test('is imported from outside itself and imports nothing outside itself', () => {
-    expect(leavesOf('', links)).toEqual(new Set(['src/app']));
+  test('imports nothing outside itself', () => {
+    expect(leavesOf('', files, links)).toEqual(new Set(['src', 'src/app']));
     expect(
-      leavesOf('pkg', [
-        ['pkg/src/a/x.ts', 'pkg/src/b/y.ts'],
-        ['pkg/src/b/y.ts', 'pkg/src/b/deep/z.ts'],
-      ]),
-    ).toEqual(new Set(['pkg/src/b', 'pkg/src/b/deep']));
+      leavesOf(
+        'pkg',
+        ['pkg/src/a/x.ts', 'pkg/src/b/y.ts', 'pkg/src/b/deep/z.ts'],
+        [
+          ['pkg/src/a/x.ts', 'pkg/src/b/y.ts'],
+          ['pkg/src/b/y.ts', 'pkg/src/b/deep/z.ts'],
+        ],
+      ),
+    ).toEqual(new Set(['pkg/src', 'pkg/src/b', 'pkg/src/b/deep']));
   });
 
-  test('is never the package itself, nor a folder nothing imports', () => {
-    expect(leavesOf('pkg', [['pkg/src/x.ts', 'pkg/lib/y.ts']])).toEqual(
-      new Set(['pkg/lib']),
-    );
+  test('is one even when nothing imports it', () => {
+    expect(
+      leavesOf('pkg', ['pkg/src/main.ts', 'pkg/scripts/build.ts'], []),
+    ).toEqual(new Set(['pkg/src', 'pkg/scripts']));
+  });
+
+  test('is never the package itself, nor a folder without source files', () => {
+    expect(
+      leavesOf(
+        'pkg',
+        ['pkg/src/x.ts', 'pkg/lib/y.ts', 'pkg/docs/guide.md'],
+        [['pkg/src/x.ts', 'pkg/lib/y.ts']],
+      ),
+    ).toEqual(new Set(['pkg/lib']));
   });
 });
 

@@ -6,6 +6,7 @@ import type { MonoverseShape, Place } from './shared/index.js';
 
 export const workers: WorkersOf<typeof MonoverseShape> = {
   projects: {
+    each: ({ props }) => [String(props?.reloads ?? 0)],
     run: (self) =>
       Effect.gen(function* () {
         const service = yield* Projects;
@@ -19,7 +20,18 @@ export const workers: WorkersOf<typeof MonoverseShape> = {
       }),
   },
   follow: {
-    each: ({ props }) => (props === undefined ? [] : [JSON.stringify(props)]),
+    each: ({ props }) =>
+      props === undefined
+        ? []
+        : [
+            JSON.stringify({
+              project: props.project,
+              package: props.package,
+              branch: props.branch,
+              base: props.base,
+              changes: props.changes,
+            }),
+          ],
     run: (self, place) =>
       self.send({ _tag: 'Followed', place: JSON.parse(place) as Place }),
   },

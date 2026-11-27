@@ -216,3 +216,17 @@ export function withDeleted(
     .map(({ path }) => path);
   return deleted.length === 0 ? files : [...files, ...deleted];
 }
+
+export function unfolded(
+  open: ReadonlySet<string>,
+  path: string,
+  inside: ReadonlyArray<string>,
+  isOpen: (path: string) => boolean = (folder) => open.has(folder),
+): ReadonlyArray<string> {
+  const next = new Set(open);
+  if (!isOpen(path) || inside.every(isOpen)) {
+    next.add(path);
+    for (const folder of inside) next.delete(folder);
+  } else for (const folder of inside) next.add(folder);
+  return [...next];
+}

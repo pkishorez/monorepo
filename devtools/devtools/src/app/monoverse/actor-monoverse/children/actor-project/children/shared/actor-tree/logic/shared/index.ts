@@ -23,6 +23,7 @@ export {
   opensAround,
   shownLinks,
   trailOf,
+  unfolded,
   visibleOf,
   visibleRows,
   withDeleted,

@@ -9,14 +9,15 @@ export const init: InitOf<typeof PackageShape> = ({ root, path, name }) => ({
 
 export const updates: UpdatesOf<typeof PackageShape> = {
   Read: ({ at, contents }, { model, props }) =>
-    at === readAt(props.branch, model.tries)
+    at === readAt(props.branch, model.tries, props.reloads)
       ? { state: { _tag: 'Contents', at, contents } }
       : {},
   Refused: ({ at, problem }, { model, props }) =>
-    at === readAt(props.branch, model.tries)
+    at === readAt(props.branch, model.tries, props.reloads)
       ? { state: { _tag: 'Failure', at, problem } }
       : {},
   Retried: (_, { model }) => ({ model: { tries: model.tries + 1 } }),
+  Left: () => ({ emit: { _tag: 'Left' } }),
   Opened: ({ path }) => ({ emit: { _tag: 'Opened', path } }),
   Viewed: ({ path, files, sourceRoots }) => ({
     emit: { _tag: 'Viewed', path, files, sourceRoots },

@@ -7,8 +7,8 @@ import { isReading, readAt, type PackageShape } from './shared/index.js';
 export const workers: WorkersOf<typeof PackageShape> = {
   read: {
     each: ({ model, props, state }) =>
-      isReading(state, props.branch, model.tries)
-        ? [readAt(props.branch, model.tries)]
+      isReading(state, props.branch, model.tries, props.reloads)
+        ? [readAt(props.branch, model.tries, props.reloads)]
         : [],
     run: (self, at) =>
       Effect.gen(function* () {

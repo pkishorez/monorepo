@@ -20,6 +20,7 @@ const props: TreeProps = {
   changes: null,
   unchanged: 'dim' as const,
   ignored: true,
+  leavable: false,
 };
 
 const Host = Actor.define('Host', {
@@ -167,6 +168,10 @@ describe('the tree', () => {
       { _tag: 'Opened', path: 'src/b.ts' },
       { _tag: 'Entered', path: 'packages/core' },
     ]);
+  });
+
+  it('leaves for all packages only when it is a Package inside a monorepo', () => {
+    expect(play({ _tag: 'Left' } as never).emitted).toEqual([]);
   });
 
   it('tells its parent a folder was viewed, with every file in it', () => {

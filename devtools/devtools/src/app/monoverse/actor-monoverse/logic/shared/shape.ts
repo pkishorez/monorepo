@@ -60,7 +60,9 @@ export type Model = typeof Model.Type;
 export const MonoverseShape = Actor.define('Monoverse', {
   requires: [Projects],
   input: PlaceSchema,
-  props: Schema.UndefinedOr(PlaceSchema),
+  props: Schema.UndefinedOr(
+    Schema.Struct({ ...PlaceSchema.fields, reloads: Schema.Number }),
+  ),
   model: Model,
   state: State,
   message: {

@@ -2,6 +2,8 @@ import { Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
 import { Page, Router } from '@kestack/kabuki/routing';
+import { Button } from '@kestack/web-platform/ui/components/button';
+import { RefreshCwIcon } from 'lucide-react';
 import {
   Monoverse,
   MonoverseView,
@@ -18,7 +20,14 @@ export const MonoversePage = Page.define({
     base: Schema.optionalKey(Schema.String),
     changes: Schema.optionalKey(Schema.String),
   },
-  message: Schema.TaggedUnion({ Moved: { place: PlaceSchema } }),
+  model: { reloads: Schema.Number },
+  message: {
+    Moved: { place: PlaceSchema },
+    Reloaded: Schema.Struct({}).annotate({
+      description:
+        'Read the project again from disk and git: its Packages, branches, changes and the open file, keeping what is open and selected',
+    }),
+  },
 });
 
 interface Query {
@@ -47,16 +56,21 @@ const routeOf = (place: Place) => ({
 });
 
 export const MonoversePageLive = MonoversePage.build({
+  init: () => ({ model: { reloads: 0 } }),
   children: {
     tool: Actor.child(Monoverse, {
       input: ({ props }) => placeOf(props.query),
-      props: ({ props }) => placeOf(props.query),
+      props: ({ model, props }) => ({
+        ...placeOf(props.query),
+        reloads: model.reloads,
+      }),
       emits: {
         Moved: ({ _tag, ...place }) => ({ _tag: 'Moved', place }),
       },
     }),
   },
   on: {
+    Reloaded: (_, { model }) => ({ model: { reloads: model.reloads + 1 } }),
     Moved: ({ place }, { props }) => {
       const named = placeOf(props.query);
       const route = routeOf(place);
@@ -76,3 +90,16 @@ export const MonoversePageView = View.make(
   MonoversePageLive,
   ({ children }) => <MonoverseView instance={children.tool} />,
 );
+
+export const MonoverseReloadView = View.make(MonoversePageLive, ({ send }) => (
+  <Button
+    className="text-muted-foreground/70 hover:text-foreground"
+    size="icon-sm"
+    variant="ghost"
+    aria-label="Reload this project"
+    title="Reload this project"
+    onClick={() => send({ _tag: 'Reloaded' })}
+  >
+    <RefreshCwIcon className="size-3.5" />
+  </Button>
+));

@@ -1,10 +1,11 @@
 /* Outline's own colours and motion. */
 
 /*
- * The two directions of a connection, and a broken one: sky for what the
- * selection uses, amber for what uses it, a warm and a cool hue far apart
- * so the two never blur, at one lightness so neither outranks the other.
- * Broken is the one red. Light mode darkens each until it reads as text.
+ * A connection's colour is its direction: sky for what the selection uses,
+ * amber for what uses it, a warm and a cool hue far apart so the two never
+ * blur, at one lightness so neither outranks the other. Broken is the one
+ * red. Through a door or an exception is a dashed line, never a colour.
+ * Light mode darkens each until it reads as text.
  */
 .outline-tree {
   --outline-uses: oklch(0.56 0.14 240);
@@ -45,12 +46,28 @@
   stroke-dasharray: 1;
   stroke-dashoffset: 0;
   animation: outline-arc-draw 360ms cubic-bezier(0.32, 0.72, 0, 1) both;
-  transition: opacity 150ms ease-out;
+}
+
+.outline-arc-dashed {
+  animation: outline-fade-in 200ms ease-out both;
 }
 
 .outline-port {
   animation: outline-fade-in 200ms ease-out 120ms both;
+}
+
+/*
+ * Pointing at one connection fades the rest. The fade sits on a wrapper,
+ * because a finished fade-in animation holds its element's own opacity.
+ */
+.outline-dim {
   transition: opacity 150ms ease-out;
+}
+
+@media (hover: hover) {
+  .outline-tree:has([data-linked]:hover) [data-linked]:not(:hover) {
+    opacity: 0.3;
+  }
 }
 
 .outline-summary {
@@ -59,15 +76,20 @@
 
 /* Keyboard moves are fast: nothing they do animates. */
 .outline-still .outline-arc,
+.outline-still .outline-arc-dashed,
 .outline-still .outline-port {
   animation: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .outline-arc,
+  .outline-arc-dashed,
   .outline-port,
   .outline-summary {
     animation: none;
+  }
+
+  .outline-dim {
     transition: none;
   }
 }

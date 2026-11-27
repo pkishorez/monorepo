@@ -34,6 +34,8 @@ export const PackageShape = Actor.define('Package', {
     ignored: Schema.Boolean,
     shown: ShownSchema,
     outside: Schema.Boolean,
+    reloads: Schema.Number,
+    leavable: Schema.Boolean,
   }),
   model: Schema.Struct({
     root: Schema.String,
@@ -49,6 +51,7 @@ export const PackageShape = Actor.define('Package', {
     },
     Refused: { at: Schema.String, problem: Schema.String },
     Retried: {},
+    Left: {},
     Opened: { path: Schema.String },
     Viewed: {
       path: Schema.String,
@@ -57,6 +60,7 @@ export const PackageShape = Actor.define('Package', {
     },
   }),
   emits: {
+    Left: {},
     Opened: { path: Schema.String },
     Viewed: {
       path: Schema.String,

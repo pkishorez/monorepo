@@ -15,7 +15,7 @@ export const baseOf = ({ model, props }: Data): string | null =>
   props.base ?? model.branches?.defaultBase ?? null;
 
 export const analysisAt = ({ model, props }: Data) =>
-  JSON.stringify([props.branch, model.reloads]);
+  JSON.stringify([props.branch, model.reloads, props.reloads]);
 
 export const isRereading = (data: Data): boolean =>
   (data.state._tag === 'Monorepo' || data.state._tag === 'Package') &&
@@ -33,7 +33,13 @@ export const changesAt = (data: Data): string | null => {
     base,
   });
   if (blocked !== null) return null;
-  return JSON.stringify([model.root, props.branch, base, model.reloads]);
+  return JSON.stringify([
+    model.root,
+    props.branch,
+    base,
+    model.reloads,
+    props.reloads,
+  ]);
 };
 
 export const changesOf = (data: Data) => {

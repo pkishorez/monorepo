@@ -70,6 +70,7 @@ export const Project = ProjectShape.build({
           input: enteredInput,
           props: packageProps,
           emits: {
+            Left: () => ({ _tag: 'Left' }),
             Opened: ({ path }) => ({ _tag: 'FileOpened', path }),
             Viewed: ({ path, files, sourceRoots }) => ({
               _tag: 'FolderViewed',

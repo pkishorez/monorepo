@@ -23,6 +23,7 @@ export const Package = PackageShape.build({
           input: treeInput,
           props: treeProps,
           emits: {
+            Left: () => ({ _tag: 'Left' }),
             Opened: ({ path }) => ({ _tag: 'Opened', path }),
             Viewed: ({ path, files, sourceRoots }) => ({
               _tag: 'Viewed',

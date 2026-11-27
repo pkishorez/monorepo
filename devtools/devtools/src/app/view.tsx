@@ -8,7 +8,7 @@ import { ArrowRightIcon, MoonIcon, SunIcon } from 'lucide-react';
 import { DevToolsLive } from './actor.js';
 import { KabukiPageView } from './kabuki/page.js';
 import { LotelPageView } from './lotel/page.js';
-import { MonoversePageView } from './monoverse/page.js';
+import { MonoversePageView, MonoverseReloadView } from './monoverse/page.js';
 
 type Theme = 'dark' | 'light';
 type Tool = 'Lotel' | 'Monoverse' | 'Kabuki';
@@ -48,7 +48,14 @@ export const DevToolsView = View.make(DevToolsLive, ({ props, children }) => {
   const tool: Tool | null =
     at === 'Lotel' || at === 'Monoverse' || at === 'Kabuki' ? at : null;
   return (
-    <Shell tool={tool}>
+    <Shell
+      tool={tool}
+      reload={
+        children.Monoverse ? (
+          <MonoverseReloadView instance={children.Monoverse} />
+        ) : null
+      }
+    >
       {children.Lotel ? (
         <LotelPageView instance={children.Lotel} />
       ) : children.Monoverse ? (
@@ -64,7 +71,15 @@ export const DevToolsView = View.make(DevToolsLive, ({ props, children }) => {
   );
 });
 
-function Shell({ tool, children }: { tool: Tool | null; children: ReactNode }) {
+function Shell({
+  tool,
+  reload,
+  children,
+}: {
+  tool: Tool | null;
+  reload: ReactNode;
+  children: ReactNode;
+}) {
   const [theme, setTheme] = useState<Theme>(readTheme);
   const toggle = () => {
     const next = theme === 'dark' ? 'light' : 'dark';
@@ -88,16 +103,20 @@ function Shell({ tool, children }: { tool: Tool | null; children: ReactNode }) {
             ))}
           </nav>
         </div>
-        <ThemeButton theme={theme} onToggle={toggle} />
+        <div className="flex items-center gap-1">
+          {reload}
+          <ThemeButton theme={theme} onToggle={toggle} />
+        </div>
       </header>
       <main className="min-h-0 flex-1 overflow-hidden">{children}</main>
       <nav
         aria-label="Tools"
-        className="grid shrink-0 grid-cols-[1fr_1fr_1fr_auto] items-center gap-1 border-t border-border/60 bg-background px-2 pb-[max(env(safe-area-inset-bottom),0.25rem)] md:hidden"
+        className="grid shrink-0 grid-cols-[1fr_1fr_1fr_auto_auto] items-center gap-1 border-t border-border/60 bg-background px-2 pb-[max(env(safe-area-inset-bottom),0.25rem)] md:hidden"
       >
         {TOOLS.map(({ tool: one }) => (
           <MobileToolLink key={one} tool={one} active={one === tool} />
         ))}
+        <div className="flex size-11 shrink-0 [&>button]:size-11">{reload}</div>
         <ThemeButton
           theme={theme}
           className="size-11 shrink-0"

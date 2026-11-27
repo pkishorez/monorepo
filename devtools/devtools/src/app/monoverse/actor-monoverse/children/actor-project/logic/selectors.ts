@@ -64,6 +64,7 @@ export const treeProps = (data: DataOf<typeof ProjectShape, 'Monorepo'>) => {
     changes: shownChangesOf(data),
     unchanged: props.unchanged,
     ignored: props.ignored,
+    leavable: false,
   };
 };
 
@@ -80,6 +81,8 @@ export const packageProps = (data: Data) => ({
   ignored: data.props.ignored,
   shown: data.props.shown,
   outside: data.props.outside,
+  reloads: data.props.reloads,
+  leavable: data.state._tag === 'Monorepo',
 });
 
 export const isEntered = ({ props }: Data) => props.package !== null;
@@ -119,6 +122,7 @@ export const viewerKey = (data: Data) => {
     changes === null ? null : baseOf(data),
     changes === null,
     model.reloads,
+    props.reloads,
   ]);
 };
 

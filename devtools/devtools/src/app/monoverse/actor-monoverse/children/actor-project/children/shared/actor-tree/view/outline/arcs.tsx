@@ -32,6 +32,7 @@ interface Arc {
   readonly bend: number;
   readonly d: string;
   readonly colour: string;
+  readonly dashed: boolean;
   readonly head: number;
   readonly tail: number;
 }
@@ -67,12 +68,9 @@ export const OutlineArcs = memo(function OutlineArcs({
       if (index === undefined) continue;
       const to = place.middle(index);
       const rows = Math.abs(to - from) / rowHeight;
-      const colourOf = (plain: string) =>
-        connection.broken > 0
-          ? 'var(--outline-broken)'
-          : connection.excepted > 0
-            ? 'var(--outline-excepted)'
-            : plain;
+      const colourOf = (direction: string) =>
+        connection.broken > 0 ? 'var(--outline-broken)' : direction;
+      const dashed = connection.broken === 0 && connection.excepted > 0;
       const draw = (start: number, end: number, bend: number) => {
         const out = edge - bend;
         const stop = edge - 5;
@@ -88,6 +86,7 @@ export const OutlineArcs = memo(function OutlineArcs({
           bend,
           d: draw(start, end, bend),
           colour: colourOf('var(--outline-uses)'),
+          dashed,
           head: end,
           tail: start,
         });
@@ -101,6 +100,7 @@ export const OutlineArcs = memo(function OutlineArcs({
           bend: Math.min(room, bend + 3),
           d: draw(start, end, Math.min(room, bend + 3)),
           colour: colourOf('var(--outline-used-by)'),
+          dashed,
           head: end,
           tail: start,
         });
@@ -130,30 +130,36 @@ export const OutlineArcs = memo(function OutlineArcs({
         className={still ? 'outline-still' : undefined}
       >
         {arcs.map((arc) => (
-          <path
+          <g
             key={arc.key}
-            className="outline-arc"
-            d={arc.d}
-            pathLength={1}
-            stroke={arc.colour}
-            strokeWidth={focus === arc.path ? 2.25 : 1.75}
-            opacity={dim(arc) ? 0.2 : 1}
-          />
+            className="outline-dim"
+            opacity={dim(arc) ? 0.15 : 1}
+          >
+            <path
+              className={arc.dashed ? 'outline-arc-dashed' : 'outline-arc'}
+              d={arc.d}
+              {...(arc.dashed ? { strokeDasharray: '3 3' } : { pathLength: 1 })}
+              stroke={arc.colour}
+              strokeWidth={focus === arc.path ? 2.25 : 1.75}
+            />
+          </g>
         ))}
         {arcs.map((arc) => (
           <g
             key={`${arc.key}:ends`}
-            className="outline-port"
-            opacity={dim(arc) ? 0.25 : 1}
+            className="outline-dim"
+            opacity={dim(arc) ? 0.15 : 1}
           >
-            <circle cx={edge} cy={arc.tail} r={2} fill={arc.colour} />
-            <path
-              d={`M ${edge - 6.5} ${arc.head - 3.5} L ${edge + 0.5} ${arc.head} L ${edge - 6.5} ${arc.head + 3.5} Z`}
-              fill={arc.colour}
-              stroke={arc.colour}
-              strokeWidth={1}
-              strokeLinejoin="round"
-            />
+            <g className="outline-port">
+              <circle cx={edge} cy={arc.tail} r={2} fill={arc.colour} />
+              <path
+                d={`M ${edge - 6.5} ${arc.head - 3.5} L ${edge + 0.5} ${arc.head} L ${edge - 6.5} ${arc.head + 3.5} Z`}
+                fill={arc.colour}
+                stroke={arc.colour}
+                strokeWidth={1}
+                strokeLinejoin="round"
+              />
+            </g>
           </g>
         ))}
       </g>

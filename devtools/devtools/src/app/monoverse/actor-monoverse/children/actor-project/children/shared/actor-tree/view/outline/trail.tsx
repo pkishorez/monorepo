@@ -21,9 +21,11 @@ function Slash({ className }: { className?: string }) {
 export function FocusTrail({
   trail,
   onFocus,
+  onLeave,
 }: {
   trail: ReadonlyArray<Crumb>;
   onFocus: (path: string | null) => void;
+  onLeave: (() => void) | null;
 }) {
   const last = trail.length - 1;
   const folded = (index: number) => index > 0 && index < last - 1;
@@ -31,6 +33,21 @@ export function FocusTrail({
   return (
     <nav aria-label="Folder shown" className="-ml-1 min-w-0">
       <ol className="flex min-w-0 items-center text-xs">
+        {onLeave === null ? null : (
+          <>
+            <li className="flex shrink-0">
+              <button
+                type="button"
+                title="Show all packages"
+                className={crumbButton}
+                onClick={onLeave}
+              >
+                All packages
+              </button>
+            </li>
+            <Slash />
+          </>
+        )}
         {trail.map((crumb, index) => (
           <Fragment key={crumb.path ?? ''}>
             {index === 0 ? null : (

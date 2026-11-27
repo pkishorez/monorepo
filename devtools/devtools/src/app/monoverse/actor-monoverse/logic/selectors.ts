@@ -28,6 +28,7 @@ export const pickerKey = ({ state }: DataOf<typeof MonoverseShape>) =>
 
 export const projectProps = ({
   model,
+  props,
   state,
 }: DataOf<typeof MonoverseShape, 'Showing'>) => ({
   name: model.projects?.find((one) => one.id === state.project)?.name ?? null,
@@ -40,4 +41,5 @@ export const projectProps = ({
   ignored: model.ignored,
   shown: model.shown,
   outside: model.outside,
+  reloads: props?.reloads ?? 0,
 });

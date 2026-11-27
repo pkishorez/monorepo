@@ -61,6 +61,7 @@ export interface OutlineProps {
   readonly shown: Shown;
   readonly leaves: ReadonlySet<string>;
   readonly trail: ReadonlyArray<Crumb> | null;
+  readonly leavable: boolean;
   readonly dimmed: (path: string) => boolean;
   readonly faded: (path: string) => boolean;
   readonly ignored: (path: string) => boolean;
@@ -81,7 +82,9 @@ export interface TreeActions {
   readonly reveal: (path: string) => void;
   readonly toggleAll: () => void;
   readonly reset: () => void;
+  readonly leave: () => void;
   readonly toggleInside: (path: string) => void;
+  readonly unfold: (path: string) => void;
   readonly focus: (path: string | null) => void;
 }
 
@@ -109,6 +112,7 @@ export function Outline({
   shown,
   leaves,
   trail,
+  leavable,
   dimmed,
   faded,
   ignored,
@@ -168,6 +172,7 @@ export function Outline({
       activate: actions.activate,
       reveal: actions.reveal,
       toggleInside: actions.toggleInside,
+      unfold: actions.unfold,
       open: (node) =>
         node.kind === 'package' ? actions.changes(node) : actions.view(node),
     }),
@@ -362,36 +367,55 @@ export function Outline({
             }}
           >
             {trail === null ? null : (
-              <FocusTrail trail={trail} onFocus={actions.focus} />
+              <FocusTrail
+                trail={trail}
+                onFocus={actions.focus}
+                onLeave={leavable ? actions.leave : null}
+              />
             )}
-            <Button
-              variant="ghost"
-              size="xs"
-              className={cn(
-                'gap-1.5 px-1.5 font-normal text-muted-foreground',
-                trail === null ? '-ml-1' : 'ml-auto shrink-0',
-              )}
-              aria-pressed={folding.all}
-              onClick={actions.toggleAll}
-            >
-              <FoldIcon className="size-3.5" />
-              <span className={trail === null ? undefined : 'max-sm:sr-only'}>
-                {folding.all ? 'Collapse all' : 'Expand all'}
-              </span>
-            </Button>
-            {slots.docked ? null : (
+            <div className="ml-auto flex shrink-0 items-center gap-2">
               <Button
                 variant="ghost"
-                size="icon-xs"
-                className="text-muted-foreground max-sm:size-9"
-                aria-label="Reset to the default view"
-                title="Reset to the default view"
-                disabled={atHome}
-                onClick={reset}
+                size="xs"
+                className="gap-1.5 px-1.5 font-normal text-muted-foreground"
+                aria-pressed={folding.all}
+                aria-label={folding.all ? 'Collapse all' : 'Expand all'}
+                onClick={actions.toggleAll}
               >
-                <RotateCcwIcon className="size-3.5" />
+                <FoldIcon className="size-3.5" />
+                <span aria-hidden className="grid text-left max-sm:hidden">
+                  <span
+                    className={cn(
+                      'col-start-1 row-start-1',
+                      folding.all && 'invisible',
+                    )}
+                  >
+                    Expand all
+                  </span>
+                  <span
+                    className={cn(
+                      'col-start-1 row-start-1',
+                      !folding.all && 'invisible',
+                    )}
+                  >
+                    Collapse all
+                  </span>
+                </span>
               </Button>
-            )}
+              {slots.docked ? null : (
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  className="text-muted-foreground max-sm:size-9"
+                  aria-label="Reset to the default view"
+                  title="Reset to the default view"
+                  disabled={atHome}
+                  onClick={reset}
+                >
+                  <RotateCcwIcon className="size-3.5" />
+                </Button>
+              )}
+            </div>
           </div>
           <div
             ref={content}

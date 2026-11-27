@@ -31,6 +31,7 @@ export interface OutlineRowActions {
   readonly activate: (node: TreeNode) => void;
   readonly reveal: (path: string) => void;
   readonly toggleInside: (path: string) => void;
+  readonly unfold: (path: string) => void;
   readonly open: (node: TreeNode) => void;
 }
 
@@ -98,16 +99,11 @@ const stop = (event: MouseEvent) => event.stopPropagation();
 
 function linkOf(connection: Connection | null) {
   if (connection === null) return null;
-  const { uses, usedBy, broken, excepted } = connection;
+  const { uses, usedBy, broken } = connection;
   if (broken > 0)
     return {
       bar: 'var(--outline-broken)',
       band: tint('--outline-broken', 10),
-    };
-  if (excepted > 0)
-    return {
-      bar: 'var(--outline-excepted)',
-      band: tint('--outline-excepted', 10),
     };
   if (uses > 0 && usedBy > 0)
     return {
@@ -179,6 +175,7 @@ export const OutlineRow = memo(function OutlineRow({
     <div
       data-row
       data-path={node.path}
+      data-linked={link === null ? undefined : ''}
       role="treeitem"
       aria-selected={selected}
       aria-expanded={isFolder ? open : undefined}
@@ -217,7 +214,7 @@ export const OutlineRow = memo(function OutlineRow({
           ? (event) => {
               event.preventDefault();
               if (inside === null) actions.toggle(node.path);
-              else actions.toggleInside(node.path);
+              else actions.unfold(node.path);
             }
           : undefined
       }
@@ -459,7 +456,7 @@ const marked = (
   cycle ||
   (check !== null && check._tag !== 'Unchecked');
 
-const leafLabel = 'Leaf: other folders import it, and it imports none';
+const leafLabel = 'Leaf: it imports no other folder';
 
 function LeafMark() {
   return (

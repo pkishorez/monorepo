@@ -167,7 +167,7 @@ export function Body(self: BodyProps) {
               shownPackage
             )}
           </PanelSlotsContext.Provider>
-          {rereading ? <Rereading>Reading the branch…</Rereading> : null}
+          {rereading ? <Rereading>Reading…</Rereading> : null}
         </main>
       </div>
       <Dialog
