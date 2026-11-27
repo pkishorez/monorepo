@@ -107,7 +107,7 @@ export const generate = (codex = 'codex') => {
     const read = (name: string) =>
       readFileSync(join(out, `${name}.ts`), 'utf8');
     return [
-      `// Generated from ${version} by src/codex/tests/protocol.ts. Do not edit.`,
+      `// Generated from ${version} by src/harness/codex/tests/protocol.ts. Do not edit.`,
       ...v1,
       ...v2.map((file) => body(file.text)),
       ...json.map((file) => body(file.text)),

@@ -1,6 +1,6 @@
 import { isAbsolute, relative } from 'node:path';
 import { Schema } from 'effect';
-import type { ClaudeOptions, Out } from '@kestack/ai-toolkit-v2/claude';
+import type { ClaudeOptions, Out } from '@kestack/ai-toolkit-v2/harness/claude';
 import type { JsonSchema, Message } from '../contract/index.js';
 
 const READ_ONLY = ['Read', 'Grep', 'Glob'];

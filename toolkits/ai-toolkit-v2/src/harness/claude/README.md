@@ -1,10 +1,10 @@
-# @kestack/ai-toolkit-v2/claude
+# @kestack/ai-toolkit-v2/harness/claude
 
 Claude Code as one Effect Service, through the Claude Agent SDK, typed in the SDK's own words, with one live process per session and a fake.
 
 ## Big picture
 
-`Claude` follows the [harness contract](../../docs/contract.md). Each live session is one SDK `query()` in streaming-input mode; a Run is one pushed user message and every record until Claude Code answers it. Records, requests (`canUseTool`'s arguments), answers (`PermissionResult`) and options (`Options`, minus `abortController`, `canUseTool`, `continue`, `cwd`, `forkSession`, `resume`, `resumeSessionAt` and `sessionId`, which the toolkit owns) are the SDK's types. `create` picks the session id itself (`sessionId`), so `Started` comes at once; `send` resumes (`resume`) when no process is live; `fork` resumes with `forkSession`, a fresh `sessionId`, and `resumeSessionAt` set to the `at` of an `Ended`, the last main-thread message uuid of that Run. `send`'s `mode` is `queue` (the default: wait behind a Run in progress) or `steer`: join the Run in progress, pushed with `priority: 'next'`, ahead of anything queued, and stream that Run from its start. With no Run in progress, live or not, a steer runs like any `send`.
+`Claude` follows the [harness contract](../../../docs/contract.md). Each live session is one SDK `query()` in streaming-input mode; a Run is one pushed user message and every record until Claude Code answers it. Records, requests (`canUseTool`'s arguments), answers (`PermissionResult`) and options (`Options`, minus `abortController`, `canUseTool`, `continue`, `cwd`, `forkSession`, `resume`, `resumeSessionAt` and `sessionId`, which the toolkit owns) are the SDK's types. `create` picks the session id itself (`sessionId`), so `Started` comes at once; `send` resumes (`resume`) when no process is live; `fork` resumes with `forkSession`, a fresh `sessionId`, and `resumeSessionAt` set to the `at` of an `Ended`, the last main-thread message uuid of that Run. `send`'s `mode` is `queue` (the default: wait behind a Run in progress) or `steer`: join the Run in progress, pushed with `priority: 'next'`, ahead of anything queued, and stream that Run from its start. With no Run in progress, live or not, a steer runs like any `send`.
 
 It runs the Claude Code the user installed: `claude` on `PATH`, or the Layer's `executable`, or `pathToClaudeCodeExecutable`. It never falls back to the copy bundled in the SDK's platform package; with none installed, the stream fails with `ClaudeError`.
 
@@ -18,11 +18,11 @@ What Claude Code does, found by running it (Claude Code 2.1.332, SDK 0.3.309):
 
 ## Install
 
-See the [contract](../../docs/contract.md); this subpath needs `@anthropic-ai/claude-agent-sdk` and `effect`, and Claude Code installed and signed in.
+See the [contract](../../../docs/contract.md); this subpath needs `@anthropic-ai/claude-agent-sdk` and `effect`, and Claude Code installed and signed in.
 
 ## Exports
 
-### `@kestack/ai-toolkit-v2/claude`
+### `@kestack/ai-toolkit-v2/harness/claude`
 
 | Export                     | What it does                                                                                    |
 | -------------------------- | ----------------------------------------------------------------------------------------------- |
@@ -51,13 +51,13 @@ See the [contract](../../docs/contract.md); this subpath needs `@anthropic-ai/cl
 | `ClaudeError`              | Claude Code could not start, or refused a call.                                                 |
 | `NotLive`                  | No process is live for the session.                                                             |
 
-### `@kestack/ai-toolkit-v2/claude/real`
+### `@kestack/ai-toolkit-v2/harness/claude/real`
 
 | Export  | What it does                                                                        |
 | ------- | ----------------------------------------------------------------------------------- |
 | `layer` | The `Claude` Layer, with `linger` (default 30 seconds) and the `executable` to run. |
 
-### `@kestack/ai-toolkit-v2/claude/fake`
+### `@kestack/ai-toolkit-v2/harness/claude/fake`
 
 | Export       | What it does                                                                                |
 | ------------ | ------------------------------------------------------------------------------------------- |
@@ -73,8 +73,8 @@ A `send` with `mode: 'steer'` while a Run is in progress joins it: its stream is
 
 ```ts
 import { Effect, Stream } from 'effect';
-import { Claude } from '@kestack/ai-toolkit-v2/claude';
-import * as ClaudeReal from '@kestack/ai-toolkit-v2/claude/real';
+import { Claude } from '@kestack/ai-toolkit-v2/harness/claude';
+import * as ClaudeReal from '@kestack/ai-toolkit-v2/harness/claude/real';
 
 const program = Effect.gen(function* () {
   const claude = yield* Claude;
@@ -141,7 +141,7 @@ claude
 `ClaudeFake.layer` replays the recording named by the prompt text, else the first one; a recorded request waits for `respond`.
 
 ```ts
-import * as ClaudeFake from '@kestack/ai-toolkit-v2/claude/fake';
+import * as ClaudeFake from '@kestack/ai-toolkit-v2/harness/claude/fake';
 
 const outs =
   yield * claude.create({ cwd, prompt: 'permission' }).pipe(Stream.runCollect);

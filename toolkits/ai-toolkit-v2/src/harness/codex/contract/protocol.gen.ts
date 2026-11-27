@@ -1,4 +1,4 @@
-// Generated from codex-cli 0.164.0 by src/codex/tests/protocol.ts. Do not edit.
+// Generated from codex-cli 0.164.0 by src/harness/codex/tests/protocol.ts. Do not edit.
 
 /**
  * A path that is guaranteed to be absolute and normalized (though it is not

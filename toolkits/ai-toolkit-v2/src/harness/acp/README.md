@@ -1,10 +1,10 @@
-# @kestack/ai-toolkit-v2/acp
+# @kestack/ai-toolkit-v2/harness/acp
 
 Any Agent Client Protocol agent, such as `agy acp`, as an Effect Service the app names, one per agent, in ACP's own types, with one agent process per live session and a fake that replays recordings.
 
 ## Big picture
 
-Each ACP agent follows the [harness contract](../../docs/contract.md) as its own Service. The package gives the Service's shape, `AcpAgent`, and no tag: the app declares one plain `Context.Service` per agent (`class Goose extends Context.Service<Goose, AcpAgent>()('app/Goose') {}`), and `AcpReal.layer(Goose, { command, args, env })` or `AcpFake.layer(Goose, { recordings })` provides it, so several agents run side by side, each with its own router and processes. For agents known only at run time, such as commands a user configures, `make(options)` returns the Service value itself in the caller's `Scope`, for the app to keep in its own map; `layer` is `make` as a Layer. Each live session runs its own agent process over stdio, through the official `@agentclientprotocol/sdk` (its `/unstable` entry, for `session/fork`). The process is sent `initialize` first, and its `InitializeResponse` (capabilities, auth methods, agent info) stays on `Live.initialize`. `create` is `session/new` then `session/prompt`. `send` prompts the live session, or starts a process that calls `session/resume` (preferred, as it replays nothing) or `session/load`, whichever the agent advertises; with neither, the stream fails `AcpError`. `cancel` sends `session/cancel` and answers every pending request as cancelled (`cancelled` for a permission, `cancel` for an elicitation), as ACP asks. `session/update` notifications are `Record`s, unchanged. Two agent requests are `Requested`, told apart by `method`: `session/request_permission`, answered by `respond` with a `RequestPermissionResponse`, and `elicitation/create`, answered with a `CreateElicitationResponse` (`accept` with `content`, `decline` or `cancel`). An answer of the wrong shape fails `AcpError`. ACP has no steer, so `send` has no `mode`. `fork` calls `session/fork` only when the agent advertises `sessionCapabilities.fork`.
+Each ACP agent follows the [harness contract](../../../docs/contract.md) as its own Service. The package gives the Service's shape, `AcpAgent`, and no tag: the app declares one plain `Context.Service` per agent (`class Goose extends Context.Service<Goose, AcpAgent>()('app/Goose') {}`), and `AcpReal.layer(Goose, { command, args, env })` or `AcpFake.layer(Goose, { recordings })` provides it, so several agents run side by side, each with its own router and processes. For agents known only at run time, such as commands a user configures, `make(options)` returns the Service value itself in the caller's `Scope`, for the app to keep in its own map; `layer` is `make` as a Layer. Each live session runs its own agent process over stdio, through the official `@agentclientprotocol/sdk` (its `/unstable` entry, for `session/fork`). The process is sent `initialize` first, and its `InitializeResponse` (capabilities, auth methods, agent info) stays on `Live.initialize`. `create` is `session/new` then `session/prompt`. `send` prompts the live session, or starts a process that calls `session/resume` (preferred, as it replays nothing) or `session/load`, whichever the agent advertises; with neither, the stream fails `AcpError`. `cancel` sends `session/cancel` and answers every pending request as cancelled (`cancelled` for a permission, `cancel` for an elicitation), as ACP asks. `session/update` notifications are `Record`s, unchanged. Two agent requests are `Requested`, told apart by `method`: `session/request_permission`, answered by `respond` with a `RequestPermissionResponse`, and `elicitation/create`, answered with a `CreateElicitationResponse` (`accept` with `content`, `decline` or `cancel`). An answer of the wrong shape fails `AcpError`. ACP has no steer, so `send` has no `mode`. `fork` calls `session/fork` only when the agent advertises `sessionCapabilities.fork`.
 
 The client advertises one capability, form elicitation (`elicitation: { form: {} }`). `fs.readTextFile`, `fs.writeTextFile` and `terminal` are all `false`, so the agent reads, writes and runs commands itself, and the toolkit writes no files. URL elicitation, session cursors and auth are not advertised. The extra methods are stateless: `initialize` and `listSessions` start a process, ask and stop it; `setMode`, `setConfigOption` and `connection` (the SDK's `ClientContext` of the live process, the raw channel) need the live session and fail `NotLive`. Models are config options in ACP (`category: 'model'`), set with `setConfigOption`, or with `config` on a Run.
 
@@ -20,11 +20,11 @@ Limits set by ACP and the agents:
 
 ## Install
 
-See the [top README](../../README.md). The real Layer needs `@effect/platform-node` and an ACP agent on `PATH`.
+See the [top README](../../../README.md). The real Layer needs `@effect/platform-node` and an ACP agent on `PATH`.
 
 ## Exports
 
-### `@kestack/ai-toolkit-v2/acp`
+### `@kestack/ai-toolkit-v2/harness/acp`
 
 | Export     | What it does                                                                                            |
 | ---------- | ------------------------------------------------------------------------------------------------------- |
@@ -32,14 +32,14 @@ See the [top README](../../README.md). The real Layer needs `@effect/platform-no
 | `AcpError` | The error for an agent that cannot start or refuses a request before any Run.                           |
 | `NotLive`  | The error for a call that needs a live session when there is none.                                      |
 
-### `@kestack/ai-toolkit-v2/acp/real`
+### `@kestack/ai-toolkit-v2/harness/acp/real`
 
 | Export  | What it does                                                                                                                              |
 | ------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | `make`  | The Service over a real agent, in the caller's `Scope`: runs `command` with `args` and `env` per live session, lingering 30 s by default. |
 | `layer` | `layer(tag, options)`: `make` as the Layer for the app's own tag.                                                                         |
 
-### `@kestack/ai-toolkit-v2/acp/fake`
+### `@kestack/ai-toolkit-v2/harness/acp/fake`
 
 | Export       | What it does                                                                                                    |
 | ------------ | --------------------------------------------------------------------------------------------------------------- |
@@ -55,8 +55,8 @@ The app names the agent with its own tag. A Run is a Stream. A `Requested` eleme
 
 ```ts
 import { Context, Effect, Stream } from 'effect';
-import type { AcpAgent } from '@kestack/ai-toolkit-v2/acp';
-import * as AcpReal from '@kestack/ai-toolkit-v2/acp/real';
+import type { AcpAgent } from '@kestack/ai-toolkit-v2/harness/acp';
+import * as AcpReal from '@kestack/ai-toolkit-v2/harness/acp/real';
 
 class Agy extends Context.Service<Agy, AcpAgent>()('app/Agy') {}
 
@@ -98,7 +98,7 @@ const program = Effect.gen(function* () {
 
 ```ts
 import { Effect, Stream } from 'effect';
-import * as AcpFake from '@kestack/ai-toolkit-v2/acp/fake';
+import * as AcpFake from '@kestack/ai-toolkit-v2/harness/acp/fake';
 
 const outs = Effect.gen(function* () {
   const acp = yield* Agy;
@@ -121,8 +121,8 @@ A command known only at run time has no tag. `make` gives its Service in the cal
 ```ts
 import { Effect } from 'effect';
 import type { Scope } from 'effect';
-import type { AcpAgent } from '@kestack/ai-toolkit-v2/acp';
-import * as AcpReal from '@kestack/ai-toolkit-v2/acp/real';
+import type { AcpAgent } from '@kestack/ai-toolkit-v2/harness/acp';
+import * as AcpReal from '@kestack/ai-toolkit-v2/harness/acp/real';
 
 const agents = (
   configured: Record<string, { command: string; args: Array<string> }>,

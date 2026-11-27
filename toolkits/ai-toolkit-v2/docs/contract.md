@@ -1,6 +1,6 @@
 # The harness contract
 
-Every harness folder in `src/` follows this page. A harness is one Coding
+Every harness folder in `src/harness/` follows this page. A harness is one Coding
 Harness (Claude Code, Codex, OpenCode, Antigravity, any ACP agent) offered as
 one Effect `Context.Service`, typed in that harness's own words. Nothing is
 shared between harness folders: no common types, no shared helpers, no
@@ -128,7 +128,7 @@ import each other; and it checks every `contract/`: it exports the Service
 tag and error classes as values, everything else as types.
 
 ```
-src/<harness>/
+src/harness/<harness>/
 ├── README.md        the five-section README for this harness's subpaths
 ├── contract/        door: the Service tag, its errors; Out, Live, inputs as types only
 ├── shared/          door: the router and live instance, over a Driver; the Driver tag;
@@ -140,9 +140,9 @@ src/<harness>/
                      which writes what it records into fake/recordings/
 ```
 
-Package exports per harness: `./<harness>` is `contract/`, `./<harness>/real`
-is `real/`, `./<harness>/fake` is `fake/`. Callers import the Layers as
-namespaces: `import * as ClaudeReal from '@kestack/ai-toolkit-v2/claude/real'`,
+Package exports per harness: `./harness/<harness>` is `contract/`, `./harness/<harness>/real`
+is `real/`, `./harness/<harness>/fake` is `fake/`. Callers import the Layers as
+namespaces: `import * as ClaudeReal from '@kestack/ai-toolkit-v2/harness/claude/real'`,
 then `ClaudeReal.layer({ linger })`.
 
 Inside `shared/`, `real/` and `fake/` the layout is free-form: keep it

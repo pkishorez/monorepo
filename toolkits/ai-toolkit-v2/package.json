@@ -6,65 +6,65 @@
   "license": "MIT",
   "type": "module",
   "exports": {
-    "./claude": {
-      "types": "./dist/claude/contract/index.d.ts",
-      "default": "./dist/claude/contract/index.js"
+    "./harness/claude": {
+      "types": "./dist/harness/claude/contract/index.d.ts",
+      "default": "./dist/harness/claude/contract/index.js"
     },
-    "./claude/real": {
-      "types": "./dist/claude/real/index.d.ts",
-      "default": "./dist/claude/real/index.js"
+    "./harness/claude/real": {
+      "types": "./dist/harness/claude/real/index.d.ts",
+      "default": "./dist/harness/claude/real/index.js"
     },
-    "./claude/fake": {
-      "types": "./dist/claude/fake/index.d.ts",
-      "default": "./dist/claude/fake/index.js"
+    "./harness/claude/fake": {
+      "types": "./dist/harness/claude/fake/index.d.ts",
+      "default": "./dist/harness/claude/fake/index.js"
     },
-    "./codex": {
-      "types": "./dist/codex/contract/index.d.ts",
-      "default": "./dist/codex/contract/index.js"
+    "./harness/codex": {
+      "types": "./dist/harness/codex/contract/index.d.ts",
+      "default": "./dist/harness/codex/contract/index.js"
     },
-    "./codex/real": {
-      "types": "./dist/codex/real/index.d.ts",
-      "default": "./dist/codex/real/index.js"
+    "./harness/codex/real": {
+      "types": "./dist/harness/codex/real/index.d.ts",
+      "default": "./dist/harness/codex/real/index.js"
     },
-    "./codex/fake": {
-      "types": "./dist/codex/fake/index.d.ts",
-      "default": "./dist/codex/fake/index.js"
+    "./harness/codex/fake": {
+      "types": "./dist/harness/codex/fake/index.d.ts",
+      "default": "./dist/harness/codex/fake/index.js"
     },
-    "./opencode": {
-      "types": "./dist/opencode/contract/index.d.ts",
-      "default": "./dist/opencode/contract/index.js"
+    "./harness/opencode": {
+      "types": "./dist/harness/opencode/contract/index.d.ts",
+      "default": "./dist/harness/opencode/contract/index.js"
     },
-    "./opencode/real": {
-      "types": "./dist/opencode/real/index.d.ts",
-      "default": "./dist/opencode/real/index.js"
+    "./harness/opencode/real": {
+      "types": "./dist/harness/opencode/real/index.d.ts",
+      "default": "./dist/harness/opencode/real/index.js"
     },
-    "./opencode/fake": {
-      "types": "./dist/opencode/fake/index.d.ts",
-      "default": "./dist/opencode/fake/index.js"
+    "./harness/opencode/fake": {
+      "types": "./dist/harness/opencode/fake/index.d.ts",
+      "default": "./dist/harness/opencode/fake/index.js"
     },
-    "./antigravity": {
-      "types": "./dist/antigravity/contract/index.d.ts",
-      "default": "./dist/antigravity/contract/index.js"
+    "./harness/antigravity": {
+      "types": "./dist/harness/antigravity/contract/index.d.ts",
+      "default": "./dist/harness/antigravity/contract/index.js"
     },
-    "./antigravity/real": {
-      "types": "./dist/antigravity/real/index.d.ts",
-      "default": "./dist/antigravity/real/index.js"
+    "./harness/antigravity/real": {
+      "types": "./dist/harness/antigravity/real/index.d.ts",
+      "default": "./dist/harness/antigravity/real/index.js"
     },
-    "./antigravity/fake": {
-      "types": "./dist/antigravity/fake/index.d.ts",
-      "default": "./dist/antigravity/fake/index.js"
+    "./harness/antigravity/fake": {
+      "types": "./dist/harness/antigravity/fake/index.d.ts",
+      "default": "./dist/harness/antigravity/fake/index.js"
     },
-    "./acp": {
-      "types": "./dist/acp/contract/index.d.ts",
-      "default": "./dist/acp/contract/index.js"
+    "./harness/acp": {
+      "types": "./dist/harness/acp/contract/index.d.ts",
+      "default": "./dist/harness/acp/contract/index.js"
     },
-    "./acp/real": {
-      "types": "./dist/acp/real/index.d.ts",
-      "default": "./dist/acp/real/index.js"
+    "./harness/acp/real": {
+      "types": "./dist/harness/acp/real/index.d.ts",
+      "default": "./dist/harness/acp/real/index.js"
     },
-    "./acp/fake": {
-      "types": "./dist/acp/fake/index.d.ts",
-      "default": "./dist/acp/fake/index.js"
+    "./harness/acp/fake": {
+      "types": "./dist/harness/acp/fake/index.d.ts",
+      "default": "./dist/harness/acp/fake/index.js"
     }
   },
   "scripts": {

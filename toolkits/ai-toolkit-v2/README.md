@@ -8,7 +8,7 @@ Each Coding Harness has its own SDK or protocol, its own records and its own ide
 
 Every Service has the same few verbs where its harness can do them: `create`, `fork` and `send` stream a Run, first `Started` with the harness's native id and last `Ended`; `send` queues behind the Run in progress, or with `mode: 'steer'` joins it where the harness steers; `respond` and `cancel` reach the live instance; `watch` and `live` show it. The native id is the only id. A router keeps at most one live instance per id, starts one on demand and lets it go after `linger`. The rest of each Service is what that harness alone can answer: context usage, rate limits, models, past sessions and more. The package keeps nothing on disk.
 
-The harness folders share no code and import nothing from each other. The rules they follow are in [docs/contract.md](docs/contract.md).
+The source is grouped by kind: every harness lives under `src/harness/` and is exported under `./harness/*`, so other kinds, such as speech, can sit beside it later. The harness folders share no code and import nothing from each other. The rules they follow are in [docs/contract.md](docs/contract.md).
 
 ## Install
 
@@ -24,26 +24,26 @@ Install and sign in to the harnesses you use: `claude`, `codex`, `agy`, or any o
 
 Each harness is one Service in three subpaths: the Service and its errors, `/real` for the Layer over the real harness, and `/fake` for the Layer over recordings. ACP gives the Service's type instead of a tag, so an app declares one tag per ACP agent and makes its Layer with `layer(tag, options)`. Their tables are in each harness's README.
 
-| Subpath                                                                                  | What it does                                              |
-| ---------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| [`./claude`](src/claude/README.md), `./claude/real`, `./claude/fake`                     | Claude Code through the Claude Agent SDK.                 |
-| [`./codex`](src/codex/README.md), `./codex/real`, `./codex/fake`                         | Codex through `codex app-server`.                         |
-| [`./opencode`](src/opencode/README.md), `./opencode/real`, `./opencode/fake`             | OpenCode v2, hosted in-process by `@opencode/sdk/effect`. |
-| [`./antigravity`](src/antigravity/README.md), `./antigravity/real`, `./antigravity/fake` | Antigravity through `agy acp`, with its own extensions.   |
-| [`./acp`](src/acp/README.md), `./acp/real`, `./acp/fake`                                 | Any Agent Client Protocol agent, one tag per agent.       |
+| Subpath                                                                                                                  | What it does                                              |
+| ------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------- |
+| [`./harness/claude`](src/harness/claude/README.md), `./harness/claude/real`, `./harness/claude/fake`                     | Claude Code through the Claude Agent SDK.                 |
+| [`./harness/codex`](src/harness/codex/README.md), `./harness/codex/real`, `./harness/codex/fake`                         | Codex through `codex app-server`.                         |
+| [`./harness/opencode`](src/harness/opencode/README.md), `./harness/opencode/real`, `./harness/opencode/fake`             | OpenCode v2, hosted in-process by `@opencode/sdk/effect`. |
+| [`./harness/antigravity`](src/harness/antigravity/README.md), `./harness/antigravity/real`, `./harness/antigravity/fake` | Antigravity through `agy acp`, with its own extensions.   |
+| [`./harness/acp`](src/harness/acp/README.md), `./harness/acp/real`, `./harness/acp/fake`                                 | Any Agent Client Protocol agent, one tag per agent.       |
 
 ## Usage
 
 ### Hand a Claude session over to Codex
 
-A fork of a Claude session, kept nowhere, summarizes it as data, and a new Codex session carries on from the summary. Trimmed from `src/tests/handoff.e2e.test.ts`.
+A fork of a Claude session, kept nowhere, summarizes it as data, and a new Codex session carries on from the summary. Trimmed from `src/harness/tests/handoff.e2e.test.ts`.
 
 ```ts
 import { Effect, Layer, Stream } from 'effect';
-import { Claude } from '@kestack/ai-toolkit-v2/claude';
-import * as ClaudeReal from '@kestack/ai-toolkit-v2/claude/real';
-import { Codex } from '@kestack/ai-toolkit-v2/codex';
-import * as CodexReal from '@kestack/ai-toolkit-v2/codex/real';
+import { Claude } from '@kestack/ai-toolkit-v2/harness/claude';
+import * as ClaudeReal from '@kestack/ai-toolkit-v2/harness/claude/real';
+import { Codex } from '@kestack/ai-toolkit-v2/harness/codex';
+import * as CodexReal from '@kestack/ai-toolkit-v2/harness/codex/real';
 
 const handoff = (claudeId: string, cwd: string) =>
   Effect.gen(function* () {

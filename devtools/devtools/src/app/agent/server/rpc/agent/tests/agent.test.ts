@@ -5,8 +5,11 @@ import { Deferred, Effect, Fiber, Layer, Stream } from 'effect';
 import type { Scope } from 'effect';
 import { RpcTest, type RpcClient } from 'effect/rpc';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { Claude, type ClaudeOptions } from '@kestack/ai-toolkit-v2/claude';
-import * as ClaudeFake from '@kestack/ai-toolkit-v2/claude/fake';
+import {
+  Claude,
+  type ClaudeOptions,
+} from '@kestack/ai-toolkit-v2/harness/claude';
+import * as ClaudeFake from '@kestack/ai-toolkit-v2/harness/claude/fake';
 import { sqliteThreadStoreLayer } from '../../../services/thread-store/real/index.js';
 import { AgentRpc, statusOf, type Message } from '../contract/index.js';
 import { agentRpcLayer } from '../real/index.js';

@@ -1,6 +1,6 @@
 import { Layer } from 'effect';
 import { RpcSerialization, RpcServer } from 'effect/rpc';
-import * as ClaudeReal from '@kestack/ai-toolkit-v2/claude/real';
+import * as ClaudeReal from '@kestack/ai-toolkit-v2/harness/claude/real';
 import { AGENT_RPC_PATH, AgentRpc } from './rpc/agent/contract/index.js';
 import { agentRpcLayer } from './rpc/agent/real/index.js';
 import { sqliteThreadStoreLayer } from './services/thread-store/real/index.js';

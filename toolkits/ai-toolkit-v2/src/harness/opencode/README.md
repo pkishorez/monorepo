@@ -1,10 +1,10 @@
-# @kestack/ai-toolkit-v2/opencode
+# @kestack/ai-toolkit-v2/harness/opencode
 
 OpenCode 2 as one Effect Service, hosted in-process by its own Effect SDK, typed in OpenCode's words, with one live instance per session and a fake that replays real recordings.
 
 ## Big picture
 
-The Layer starts one OpenCode host with `@opencode/sdk/effect`'s `OpenCode.create`. The SDK runs OpenCode in the same process: its server routes answer through an in-memory `fetch`, with no listener and no network hop, and the installed `opencode2` binary is not used. That one host serves every session, and the router keeps one live instance per session id on top of it. `create` makes a session (its id is `Started` before any prompt) and prompts it; `send` prompts an existing one, after any Run in progress (`mode: 'queue'`, the default); `fork` is OpenCode's own fork `before` a message; `cancel` is OpenCode's interrupt, and fails `OpenCodeError` when OpenCode refuses it. The rules every harness follows are in [the harness contract](../../docs/contract.md).
+The Layer starts one OpenCode host with `@opencode/sdk/effect`'s `OpenCode.create`. The SDK runs OpenCode in the same process: its server routes answer through an in-memory `fetch`, with no listener and no network hop, and the installed `opencode2` binary is not used. That one host serves every session, and the router keeps one live instance per session id on top of it. `create` makes a session (its id is `Started` before any prompt) and prompts it; `send` prompts an existing one, after any Run in progress (`mode: 'queue'`, the default); `fork` is OpenCode's own fork `before` a message; `cancel` is OpenCode's interrupt, and fails `OpenCodeError` when OpenCode refuses it. The rules every harness follows are in [the harness contract](../../../docs/contract.md).
 
 `send` with `mode: 'steer'` joins the Run in progress instead of waiting: it prompts with OpenCode's `delivery: 'steer'`, skipping anything queued, and streams the Run it joined from its start. The steer's inbox message comes back as `Steered` where OpenCode delivers it. Only the prompt is used then. With no live instance, or none running, it is a plain `send`, so it always works. OpenCode delivers every prompt as `steer` by default, and a steer that reaches a session that has just gone idle starts a new execution, so a Run with a steer not yet delivered lasts until that steer is delivered and its execution ends.
 
@@ -16,11 +16,11 @@ Limits set by OpenCode and its SDK. The host keeps its database in memory unless
 
 ## Install
 
-See the [top README](../../README.md).
+See the [top README](../../../README.md).
 
 ## Exports
 
-### `@kestack/ai-toolkit-v2/opencode`
+### `@kestack/ai-toolkit-v2/harness/opencode`
 
 | Export          | What it does                                                  |
 | --------------- | ------------------------------------------------------------- |
@@ -28,13 +28,13 @@ See the [top README](../../README.md).
 | `NotLive`       | Tagged error when a session has no live instance.             |
 | `OpenCodeError` | Tagged error when OpenCode cannot start or refuses a request. |
 
-### `@kestack/ai-toolkit-v2/opencode/real`
+### `@kestack/ai-toolkit-v2/harness/opencode/real`
 
 | Export  | What it does                                                                                          |
 | ------- | ----------------------------------------------------------------------------------------------------- |
 | `layer` | The real Layer: one in-process OpenCode host, given the SDK's own `host` options and a `linger` time. |
 
-### `@kestack/ai-toolkit-v2/opencode/fake`
+### `@kestack/ai-toolkit-v2/harness/opencode/fake`
 
 | Export       | What it does                                                                                                            |
 | ------------ | ----------------------------------------------------------------------------------------------------------------------- |
@@ -52,8 +52,11 @@ A session that must ask before using the shell. The Run waits at `Requested`; a 
 
 ```ts
 import { Effect, Stream } from 'effect';
-import { OpenCode, type SessionID } from '@kestack/ai-toolkit-v2/opencode';
-import * as OpenCodeReal from '@kestack/ai-toolkit-v2/opencode/real';
+import {
+  OpenCode,
+  type SessionID,
+} from '@kestack/ai-toolkit-v2/harness/opencode';
+import * as OpenCodeReal from '@kestack/ai-toolkit-v2/harness/opencode/real';
 
 const program = Effect.gen(function* () {
   const opencode = yield* OpenCode;
@@ -117,8 +120,11 @@ The fake runs the same router on recorded events. A recording named by the promp
 
 ```ts
 import { Deferred, Effect, Fiber, Option, Stream } from 'effect';
-import { OpenCode, type SessionID } from '@kestack/ai-toolkit-v2/opencode';
-import * as OpenCodeFake from '@kestack/ai-toolkit-v2/opencode/fake';
+import {
+  OpenCode,
+  type SessionID,
+} from '@kestack/ai-toolkit-v2/harness/opencode';
+import * as OpenCodeFake from '@kestack/ai-toolkit-v2/harness/opencode/fake';
 
 const program = Effect.gen(function* () {
   const opencode = yield* OpenCode;

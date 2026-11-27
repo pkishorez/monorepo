@@ -1,10 +1,10 @@
-# @kestack/ai-toolkit-v2/antigravity
+# @kestack/ai-toolkit-v2/harness/antigravity
 
 The Antigravity CLI (`agy`) as one Effect Service in the Agent Client Protocol's own types, with one `agy acp` process per live session and a fake that replays recordings.
 
 ## Big picture
 
-`Antigravity` follows the [harness contract](../../docs/contract.md). Each live session runs its own `agy acp`, spoken to over ACP on stdio with `@agentclientprotocol/sdk`, initialized with `elicitation: { form: {} }` so agy can ask questions. `create` is `session/new` (its `sessionId` is `Started`; `systemPrompt` goes to `_meta.antigravity.systemPrompt.append`), `send` goes to the live session or starts a process that calls `session/resume`, which replays nothing. Its `mode` is `queue` (the default: a `send` during a Run waits its turn, `Queued`) or `steer`: during a Run in progress, its prompt joins that Run ahead of anything queued, and its stream is that Run, from its `Started` to its `Ended`; otherwise it runs as `queue` does. A steer uses only `prompt`; `config`, `flags` and `session` apply when it runs as its own Run. A Run's `config` values are sent with `session/set_config_option` before its prompt: `model`, `thought_level` (`low` to `xhigh`) and `mode` (`default`, `accept-edits`, `auto`, `plan`). Every `session/update` of a Run is a `Record`; `session/request_permission` and `elicitation/create` are `Requested`, answered by `respond` with that method's own response. `connection(id)` is the raw ACP connection of a live session.
+`Antigravity` follows the [harness contract](../../../docs/contract.md). Each live session runs its own `agy acp`, spoken to over ACP on stdio with `@agentclientprotocol/sdk`, initialized with `elicitation: { form: {} }` so agy can ask questions. `create` is `session/new` (its `sessionId` is `Started`; `systemPrompt` goes to `_meta.antigravity.systemPrompt.append`), `send` goes to the live session or starts a process that calls `session/resume`, which replays nothing. Its `mode` is `queue` (the default: a `send` during a Run waits its turn, `Queued`) or `steer`: during a Run in progress, its prompt joins that Run ahead of anything queued, and its stream is that Run, from its `Started` to its `Ended`; otherwise it runs as `queue` does. A steer uses only `prompt`; `config`, `flags` and `session` apply when it runs as its own Run. A Run's `config` values are sent with `session/set_config_option` before its prompt: `model`, `thought_level` (`low` to `xhigh`) and `mode` (`default`, `accept-edits`, `auto`, `plan`). Every `session/update` of a Run is a `Record`; `session/request_permission` and `elicitation/create` are `Requested`, answered by `respond` with that method's own response. `connection(id)` is the raw ACP connection of a live session.
 
 Harness methods: `initialize` and `listSessions` (`session/list`, every session of the profile unless `cwd` is given) start a short-lived `agy acp` per call; `setConfigOption` and `closeSession` need the live session and fail `NotLive` without one. The advertised commands (`/goal`, `/compact`, `/schedule`, skills...) come in `available_commands_update` and live on `Live.commands`; run one by sending its text as a prompt. `prompt` is a one-shot `agy --print --output-format json`, kept only for `--json-schema` structured output, which ACP lacks.
 
@@ -26,11 +26,11 @@ The fake replays the recording whose name equals the prompt's first text, or the
 
 ## Install
 
-See the [top README](../../README.md). The real Layer needs `@effect/platform-node` and the `agy` CLI on `PATH`, signed in.
+See the [top README](../../../README.md). The real Layer needs `@effect/platform-node` and the `agy` CLI on `PATH`, signed in.
 
 ## Exports
 
-### `@kestack/ai-toolkit-v2/antigravity`
+### `@kestack/ai-toolkit-v2/harness/antigravity`
 
 | Export             | What it does                                                                                       |
 | ------------------ | -------------------------------------------------------------------------------------------------- |
@@ -38,13 +38,13 @@ See the [top README](../../README.md). The real Layer needs `@effect/platform-no
 | `AntigravityError` | The error for a process that cannot start or a request agy refuses before any Run.                 |
 | `NotLive`          | The error for a call that needs a live session when there is none.                                 |
 
-### `@kestack/ai-toolkit-v2/antigravity/real`
+### `@kestack/ai-toolkit-v2/harness/antigravity/real`
 
 | Export  | What it does                                                                    |
 | ------- | ------------------------------------------------------------------------------- |
 | `layer` | The real Layer: runs `binary` (default `agy`), lingering 30 seconds by default. |
 
-### `@kestack/ai-toolkit-v2/antigravity/fake`
+### `@kestack/ai-toolkit-v2/harness/antigravity/fake`
 
 | Export       | What it does                                                                                                         |
 | ------------ | -------------------------------------------------------------------------------------------------------------------- |
@@ -58,8 +58,8 @@ See the [top README](../../README.md). The real Layer needs `@effect/platform-no
 
 ```ts
 import { Effect, Stream } from 'effect';
-import { Antigravity } from '@kestack/ai-toolkit-v2/antigravity';
-import * as AntigravityReal from '@kestack/ai-toolkit-v2/antigravity/real';
+import { Antigravity } from '@kestack/ai-toolkit-v2/harness/antigravity';
+import * as AntigravityReal from '@kestack/ai-toolkit-v2/harness/antigravity/real';
 
 const text = (value: string) => [{ type: 'text' as const, text: value }];
 
@@ -112,10 +112,10 @@ const program = Effect.gen(function* () {
 ### Test without agy
 
 ```ts
-import * as AntigravityFake from '@kestack/ai-toolkit-v2/antigravity/fake';
+import * as AntigravityFake from '@kestack/ai-toolkit-v2/harness/antigravity/fake';
 
 const layer = AntigravityFake.layer({ linger: '100 millis', pace: '5 millis' });
 ```
 
 - The fake shares the router and instance code and only swaps the driver, so queueing, steer, cancel, linger and process death behave as with agy.
-- `AI_TOOLKIT_V2_E2E=1 vitest run src/antigravity` rewrites the recordings from the real agy.
+- `AI_TOOLKIT_V2_E2E=1 vitest run src/harness/antigravity` rewrites the recordings from the real agy.

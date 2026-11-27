@@ -8,7 +8,7 @@ import {
   Stream,
   SubscriptionRef,
 } from 'effect';
-import { Claude } from '@kestack/ai-toolkit-v2/claude';
+import { Claude } from '@kestack/ai-toolkit-v2/harness/claude';
 import {
   ThreadStore,
   type ThreadStoreError,
