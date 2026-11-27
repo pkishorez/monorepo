@@ -66,10 +66,10 @@ const wordsOf = (error: unknown) =>
     : '';
 
 /**
- * Why Connect Cloud could not be asked, as a person reads it: what the error
- * says, or, for an RPC client's failed HTTP call, whose reason says nothing
- * (so the error only `HttpError:`), what its cause says, as
- * `Transport: Failed to fetch (POST https://…)`.
+ * Why Connect Cloud could not be asked, as a person reads it: for an RPC
+ * client's failed HTTP call, what its reason says, or else its cause, as
+ * `Transport: Failed to fetch (POST https://…)`, without the `HttpError:`
+ * the error itself puts first; for any other error, what it says.
  */
 export const cloudProblemOf = (error: unknown): string => {
   const reason =
@@ -80,11 +80,12 @@ export const cloudProblemOf = (error: unknown): string => {
     typeof reason === 'object' && reason !== null && 'cause' in reason
       ? reason.cause
       : null;
-  const said =
-    reason !== null && wordsOf(reason) === '' && wordsOf(cause) !== ''
-      ? wordsOf(cause)
-      : wordsOf(error);
-  return said || 'Connect Cloud could not be reached';
+  return (
+    wordsOf(reason) ||
+    wordsOf(cause) ||
+    wordsOf(error) ||
+    'Connect Cloud could not be reached'
+  );
 };
 
 /** A Connection's link, its socket, now. */

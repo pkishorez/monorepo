@@ -5,8 +5,8 @@ import { cloudProblemOf } from '../account.ts';
 
 /*
  * Why Connect Cloud could not be asked, as the app says it: an RPC client's
- * failed HTTP call says what its cause says, not the bare `HttpError:` the
- * error itself does; any other error, its own words; none, a plain line.
+ * failed HTTP call says what its reason says, without the `HttpError:` the
+ * error itself puts first; any other error, its own words; none, a plain line.
  */
 
 /** A call that never reached Connect Cloud, as the RPC client fails it. */
@@ -24,7 +24,9 @@ const unreached = (description?: string) =>
 
 describe('cloudProblemOf', () => {
   it("says a failed HTTP call's cause, not the bare HttpError", () => {
-    expect(unreached('Failed to fetch').message).toBe('HttpError: ');
+    expect(unreached('Failed to fetch').message).toBe(
+      'HttpError: Transport: Failed to fetch (POST https://connect.example/rpc/app)',
+    );
     expect(cloudProblemOf(unreached('Failed to fetch'))).toBe(
       'Transport: Failed to fetch (POST https://connect.example/rpc/app)',
     );
