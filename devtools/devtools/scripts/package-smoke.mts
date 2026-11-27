@@ -55,6 +55,7 @@ try {
     '/kabuki/connect',
     '/kabuki/sessions',
     '/kabuki/session/:name',
+    '/rpc/agent',
   ]) {
     assert.equal(
       typeof endpoints[endpoint],
@@ -181,6 +182,20 @@ try {
     'the packaged engine worker checks a Package',
   );
 
+  const missing = path.join(testRoot, 'missing');
+  const thread = await answerOf<string>('/rpc/agent', 'ask', {
+    folder: missing,
+    prompt: 'What is here?',
+  });
+  const threads = await answerOf<
+    Array<{ id: string; title: string; status: string }>
+  >('/rpc/agent', 'threads', { folder: missing });
+  assert.deepEqual(
+    threads.map(({ id, title, status }) => ({ id, title, status })),
+    [{ id: thread, title: 'What is here?', status: 'failed' }],
+    'the packaged Agent keeps a Thread whose folder is missing, failed',
+  );
+
   console.log('packaged DevTools server smoke test passed');
 } finally {
   server.kill('SIGTERM');
@@ -195,6 +210,24 @@ try {
     }),
   ]);
   await rm(testRoot, { recursive: true, force: true });
+}
+
+async function answerOf<A>(
+  route: string,
+  tag: string,
+  payload: unknown,
+): Promise<A> {
+  const response = await fetch(`${origin}${route}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/ndjson' },
+    body: `${JSON.stringify({ _tag: 'Request', id: '1', tag, payload, headers: [] })}\n`,
+  });
+  const [answer] = (await response.text())
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as { exit?: { value?: A } });
+  assert.ok(answer?.exit?.value !== undefined, `${route} answers ${tag}`);
+  return answer.exit.value;
 }
 
 async function availablePort(): Promise<number> {

@@ -3,8 +3,8 @@ import type { Scope } from 'effect';
 import { RpcClientError } from 'effect/rpc';
 import { describe, expect, it } from 'vitest';
 import { Runtime } from '@kestack/kabuki';
-import { Preferences } from '../../services/preferences/contract/index.js';
-import { fakePreferences } from '../../services/preferences/fake/index.js';
+import { Preferences } from '../../../services/preferences/contract/index.js';
+import { fakePreferences } from '../../../services/preferences/fake/index.js';
 import {
   Telemetry,
   type OtelSpan,

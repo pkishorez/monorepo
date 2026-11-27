@@ -1,13 +1,14 @@
 import { Actor } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
 import {
-  RemoteInspector,
-  RemoteInspectorView,
-} from './children/actor-remote-inspector/index.js';
+  Inspection,
+  InspectionView,
+} from './children/actor-inspection/index.js';
 import {
   KabukiShape,
+  appOf,
   init,
-  inspectorKey,
+  inspectionKey,
   updates,
   workers,
 } from './logic/index.js';
@@ -20,9 +21,10 @@ export const Kabuki = KabukiShape.build({
   states: {
     Inspection: {
       children: {
-        inspector: Actor.child(RemoteInspector, {
-          key: inspectorKey,
-          input: ({ state }) => ({ name: state.name }),
+        inspection: Actor.child(Inspection, {
+          key: inspectionKey,
+          input: (data) => ({ name: data.state.name, app: appOf(data) }),
+          props: ({ model }) => ({ tab: model.tab }),
         }),
       },
     },
@@ -32,11 +34,11 @@ export const Kabuki = KabukiShape.build({
 export const KabukiView = View.make(Kabuki, (self) => (
   <Body
     {...self}
-    inspector={
+    inspection={
       self._tag === 'Inspection' ? (
-        <RemoteInspectorView
+        <InspectionView
           key={self.state.name}
-          instance={self.children.inspector}
+          instance={self.children.inspection}
         />
       ) : null
     }

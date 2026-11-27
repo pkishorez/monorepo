@@ -4,12 +4,13 @@ import { nameOf } from '../logic/shared/index.js';
 import type { KabukiShape } from '../logic/shared/index.js';
 import { Away, Connecting, Unpicked, Waiting } from './blank.js';
 import { SessionColumn, SessionPath, SessionSelect } from './session-list.js';
+import { Tabs } from './tabs.js';
 
 type BodyProps = ViewPropsOf<typeof KabukiShape> & {
-  readonly inspector: ReactNode;
+  readonly inspection: ReactNode;
 };
 
-export function Body({ root, model, state, send, inspector }: BodyProps) {
+export function Body({ root, model, state, send, inspection }: BodyProps) {
   const { sessions, link } = model;
   const picked = nameOf(state);
   const pick = (name: string) => send({ _tag: 'Chosen', name });
@@ -28,14 +29,20 @@ export function Body({ root, model, state, send, inspector }: BodyProps) {
     );
 
   const listed = { sessions, picked, link, onPick: pick };
+  const tabs =
+    state._tag === 'Inspection' ? (
+      <Tabs tab={model.tab} onTab={(tab) => send({ _tag: 'Tabbed', tab })} />
+    ) : null;
   return (
     <div {...root} className="flex h-full min-h-0">
       <SessionColumn {...listed} />
       <section aria-label="Inspector" className="flex min-w-0 flex-1 flex-col">
-        <SessionSelect {...listed} />
-        {picked !== null && <SessionPath sessions={sessions} picked={picked} />}
-        {state._tag === 'Inspection' && inspector !== null ? (
-          inspector
+        <SessionSelect {...listed} tabs={tabs} />
+        {picked !== null && (
+          <SessionPath sessions={sessions} picked={picked} tabs={tabs} />
+        )}
+        {state._tag === 'Inspection' && inspection !== null ? (
+          inspection
         ) : state._tag === 'Absence' ? (
           <Away name={state.name} reconnecting={link !== 'live'} />
         ) : (

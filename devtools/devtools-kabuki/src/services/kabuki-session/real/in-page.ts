@@ -3,6 +3,7 @@ import { History } from '@kestack/kabuki';
 import type { FakeWorld } from '@kestack/kabuki/fake';
 import type { AppRuntime } from '@kestack/kabuki/react/types';
 import { KabukiSession } from '../contract/index.ts';
+import { planOf } from './blueprint.ts';
 import { controlOf, fakesOf } from './fakes.ts';
 import { historyOf } from './history.ts';
 import { lookAt } from './look.ts';
@@ -45,4 +46,7 @@ export const inPage = (
     world: () => fakesOf(world),
 
     control: (asked) => controlOf(world, asked),
+
+    blueprint: () =>
+      Effect.map(runtimeOf(app), ({ actor }) => planOf(actor.blueprint)),
   });

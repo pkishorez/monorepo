@@ -38,6 +38,7 @@
   "devDependencies": {
     "@effect/platform-node": "catalog:",
     "@effect/platform-node-shared": "catalog:",
+    "@kestack/ai-toolkit-v2": "workspace:*",
     "@kestack/devtools-kabuki": "workspace:*",
     "@kestack/effect-tracer": "workspace:*",
     "@kestack/kabuki": "workspace:*",

@@ -15,9 +15,11 @@ Input and draws everything below it, so any app can mount one on its own:
 Lotel stores and shows OpenTelemetry data; Monoverse shows a Monorepo or a
 Single Package as its folder tree, with the imports between folders and the
 one rule they must keep; Kabuki lists the running Kabuki apps connected as
-Kabuki Sessions and opens the Inspector on one, its eight calls answered by
+Kabuki Sessions and opens the Inspector on one, its nine calls answered by
 that app's tab, through
-[@kestack/devtools-kabuki](../devtools-kabuki/README.md). Each Tool's folder
+[@kestack/devtools-kabuki](../devtools-kabuki/README.md), or its Story: the
+Agent reads the app's code in a Worktree of its Project and answers any
+question as a story told on the app's Blueprint, one Beat at a time. Each Tool's folder
 holds its whole slice: its RPC contract, its server half and its Actors.
 Applications send telemetry with
 [@kestack/effect-tracer](../effect-tracer/README.md). An AI agent reaches
@@ -97,9 +99,13 @@ How it works:
   Telemetry Store keep separate tables in the one DevTools database.
 - Kabuki apps dial the WebSocket `/kabuki/connect` as Kabuki Sessions, from
   any origin. `/kabuki/sessions` and `/kabuki/session/:name` list them and
-  pass one's eight calls to its tab, and answer only a request with no
+  pass one's nine calls to its tab, and answer only a request with no
   `Origin` or DevTools' own
   ([@kestack/devtools-kabuki](../devtools-kabuki/README.md)).
+- The Agent answers `/rpc/agent`: any Tool asks Claude Code about a folder,
+  with read-only tools, in Threads kept in memory until the server stops. It
+  runs the `claude` installed on `PATH`, signed in; without it, a Thread's
+  run fails and says so.
 - `/mcp` is one MCP server over Streamable HTTP, for an AI agent; see
   below.
 

@@ -1,5 +1,5 @@
 import type { Card, Folded, More } from '../logic/shared/index.ts';
-import type { Rect } from './space.ts';
+import type { Rect } from './shared/index.ts';
 
 export interface Placed extends Rect {
   readonly id: string;

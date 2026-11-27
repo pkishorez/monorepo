@@ -13,5 +13,5 @@ export const kabukiEndpoints: Readonly<Record<string, string>> = {
   '/kabuki/sessions':
     'WebSocket RPC: the live Kabuki Sessions, listed and watched.',
   '/kabuki/session/:name':
-    "WebSocket RPC: one Kabuki Session's eight calls, passed to its app.",
+    "WebSocket RPC: one Kabuki Session's nine calls, passed to its app.",
 };

@@ -12,6 +12,7 @@
       "label": "Internal dependencies use workspace:* everywhere",
       "dependencies": [
         "@kestack/ai-toolkit",
+        "@kestack/ai-toolkit-v2",
         "@kestack/kabuki",
         "@kestack/auth-toolkit",
         "@kestack/cli-platform",
@@ -91,6 +92,7 @@
       "label": "Internal workspace protocols are enforced by version groups",
       "dependencies": [
         "@kestack/ai-toolkit",
+        "@kestack/ai-toolkit-v2",
         "@kestack/kabuki",
         "@kestack/auth-toolkit",
         "@kestack/cli-platform",

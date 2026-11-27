@@ -328,6 +328,91 @@ export const Looked = Schema.Struct({
 });
 export type Looked = typeof Looked.Type;
 
+const Written = { state: Schema.optionalKey(Schema.String) };
+
+export const Tagged = Schema.Struct({
+  tag: Schema.String,
+  description: Schema.optionalKey(Schema.String),
+  payload: Shape,
+});
+export type Tagged = typeof Tagged.Type;
+
+export interface Slot {
+  readonly name: string;
+  readonly state?: string;
+  readonly runs: Runs;
+  readonly keyed: boolean;
+  readonly plan: Plan;
+}
+
+export interface Plan {
+  readonly path: string;
+  readonly actor: string;
+  readonly description?: string;
+  readonly repeats?: string;
+  readonly input?: Shape;
+  readonly model: Shape;
+  readonly props?: Shape;
+  readonly states: ReadonlyArray<{
+    readonly tag: string;
+    readonly data: Shape;
+  }>;
+  readonly messages: ReadonlyArray<Tagged & { readonly state?: string }>;
+  readonly workers: ReadonlyArray<{
+    readonly name: string;
+    readonly runs: Runs;
+    readonly state?: string;
+  }>;
+  readonly emits: ReadonlyArray<Tagged>;
+  readonly requires: ReadonlyArray<string>;
+  readonly provides: ReadonlyArray<{
+    readonly name: string;
+    readonly state?: string;
+  }>;
+  readonly queries: ReadonlyArray<{
+    readonly name: string;
+    readonly state?: string;
+    readonly args?: Shape;
+    readonly result: Shape;
+  }>;
+  readonly children: ReadonlyArray<Slot>;
+}
+
+export const Slot: Schema.Codec<Slot> = Schema.Struct({
+  name: Schema.String,
+  ...Written,
+  runs: Runs,
+  keyed: Schema.Boolean,
+  plan: Schema.suspend(() => Plan),
+});
+
+export const Plan: Schema.Codec<Plan> = Schema.Struct({
+  path: Schema.String,
+  actor: Schema.String,
+  description: Schema.optionalKey(Schema.String),
+  repeats: Schema.optionalKey(Schema.String),
+  input: Schema.optionalKey(Shape),
+  model: Shape,
+  props: Schema.optionalKey(Shape),
+  states: Schema.Array(Schema.Struct({ tag: Schema.String, data: Shape })),
+  messages: Schema.Array(Schema.Struct({ ...Tagged.fields, ...Written })),
+  workers: Schema.Array(
+    Schema.Struct({ name: Schema.String, runs: Runs, ...Written }),
+  ),
+  emits: Schema.Array(Tagged),
+  requires: Schema.Array(Schema.String),
+  provides: Schema.Array(Schema.Struct({ name: Schema.String, ...Written })),
+  queries: Schema.Array(
+    Schema.Struct({
+      name: Schema.String,
+      ...Written,
+      args: Schema.optionalKey(Shape),
+      result: Shape,
+    }),
+  ),
+  children: Schema.Array(Slot),
+});
+
 export const FakeNow = Schema.Struct({
   name: Schema.String,
   state: Shape,
@@ -427,4 +512,5 @@ export const KabukiSessionRpcs = RpcGroup.make(
     success: Schema.Literal('done'),
     error: ControlRefused,
   }),
+  Rpc.make('blueprint', { success: Plan }),
 );

@@ -6,7 +6,12 @@ import {
   GitUnavailableError,
   InvalidRootError,
 } from '../../project/contract/index.js';
-import { BranchesSchema, ChangeSetSchema, FileDiffSchema } from './changes.js';
+import {
+  BranchesSchema,
+  ChangeSetSchema,
+  FileDiffSchema,
+  WorktreeSchema,
+} from './changes.js';
 import {
   FileContentSchema,
   FileNotFoundError,
@@ -28,6 +33,11 @@ export const GitRpc = RpcGroup.make(
   Rpc.make('GetBranches', {
     payload: { root: Schema.String },
     success: BranchesSchema,
+    error: GitError,
+  }),
+  Rpc.make('GetWorktrees', {
+    payload: { root: Schema.String },
+    success: Schema.Array(WorktreeSchema),
     error: GitError,
   }),
   Rpc.make('GetChanges', {

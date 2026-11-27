@@ -107,6 +107,7 @@ const session = Effect.gen(function* () {
     send: (payload) => ask('send', payload, 'handled' as const),
     world: () => Stream.empty,
     control: () => Effect.succeed('done' as const),
+    blueprint: () => Effect.die('the Inspector does not read the Blueprint'),
   });
   return { layer, told, asked };
 });

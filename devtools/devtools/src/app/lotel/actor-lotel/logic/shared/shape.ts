@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
-import { Preferences } from '../../../services/preferences/contract/index.js';
+import { Preferences } from '../../../../services/preferences/contract/index.js';
 import { Telemetry } from '../../../services/telemetry/contract/index.js';
 import { Toasts } from '../../../services/toasts/contract/index.js';
 import { TraceLayoutSchema } from './types.js';

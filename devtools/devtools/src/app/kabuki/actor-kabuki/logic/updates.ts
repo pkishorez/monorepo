@@ -13,7 +13,7 @@ const placed = (
 };
 
 export const init: InitOf<typeof KabukiShape> = ({ session }) => ({
-  model: { sessions: null, link: 'connecting' },
+  model: { sessions: null, link: 'connecting', tab: 'inspector' },
   state: placed(session, null),
 });
 
@@ -37,4 +37,5 @@ export const updates: UpdatesOf<typeof KabukiShape> = {
         },
   Followed: ({ name }, { model, state }) =>
     name === nameOf(state) ? {} : { state: placed(name, model.sessions) },
+  Tabbed: ({ tab }) => ({ model: { tab } }),
 };

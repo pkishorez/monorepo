@@ -36,6 +36,20 @@ its handlers and stores. The DevTools Server is the Server halves of every
 Tool put together, plus the app.
 _Avoid_: backend, handlers.
 
+**Agent**:
+The DevTools piece that asks Claude Code about a folder, with read-only tools,
+for any Tool: a question in, an answer out, as text or as data shaped by a
+JSON Schema. It is not a Tool: it has no page and knows nothing of what a
+Tool asks about. Its Server half runs Claude Code; any Tool Actor Requires its
+client.
+_Avoid_: AI, assistant, chat.
+
+**Thread**:
+One conversation with the Agent about one folder: its questions, answers,
+activity lines and each run's status, in order, on one Claude Code session.
+Kept in the DevTools Server's memory, so a restart drops every Thread.
+_Avoid_: Chat, conversation, session (on its own).
+
 **Tool Scope**:
 Whether a Tool works with repository-wide information or information from one
 Project.
@@ -95,6 +109,59 @@ One running Kabuki app connected to a DevTools Server under a unique name,
 kept in memory while its socket is open. Defined in the
 [DevTools Kabuki context](../devtools-kabuki/CONTEXT.md).
 _Avoid_: session (on its own), tab, connection.
+
+**Story**:
+The Kabuki Tool's second view of an open Kabuki Session, beside the
+Inspector: a question to the Agent about the app's code in a Worktree of
+its Project, both picked once and remembered per app, answered as Beats and
+played on the root's Blueprint drawn as a tree of cards, one Beat at a time.
+Whatever the question, the answer is a story that starts wide and builds
+up. Its Threads are the Agent's; it keeps only the Project, the Worktree and
+the Thread last open.
+_Avoid_: tour, walkthrough, explanation.
+
+**Beat**:
+One step of a Story: one to three sentences about what is on screen, and
+the whole picture they speak to, never a change from the Beat before: the
+actor the camera centres on, every lit card with exactly the Refs lit on
+it, and the links lit between actors with their labels. The rest of a lit
+card stays in its place, dimmed; every other card is quiet, its name only.
+What a Beat names that the Blueprint does not have is shown as not found;
+the rest of it still shows.
+_Avoid_: step (that is Kabuki's), slide, stop.
+
+**Card**:
+How the Story draws one actor's Plan, always in the same shape, by Kabuki's
+levels: its description, its model keys, Always (what holds at the top
+level: the Workers, Messages and Children there, then its Emits, Requires,
+Provides, Queries, Input and Props), then one row per State, which expands
+to that State's data keys, Workers, Messages and Children. Keys and
+payloads are named, never valued.
+_Avoid_: node, box.
+
+**Ref**:
+One thing a Beat lights on a card, from a closed grammar built from the
+Plan: `description`; `model` or `model.<key>`; `input`, `props` and their
+keys; `state:<Tag>` and `state:<Tag>.<key>`; `worker:<name>`,
+`message:<Tag>`, `message:<Tag>.<key>` and `child:<slot>`, each found at
+the level it belongs to (written `state:<Tag>/…` when a name is at several);
+`emits:<Tag>`, `requires`, `provides` and `queries`. Lighting a Ref inside a
+State expands that State.
+_Avoid_: part, section, field.
+
+**Story mode**:
+How the Story's canvas is while a story plays or is stepped: the current
+Beat decides every card, and nothing on a card can be opened or clicked.
+Panning and zooming keep it; the next Beat pans to centre its actor, at the
+zoom the person chose.
+_Avoid_: playback, presentation.
+
+**Explore mode**:
+How the Story's canvas is once a card is touched: it starts from the
+current Beat's picture, and on any card the States expand and collapse and
+each row lights by hand, each row able to add its Ref to the next question. "Back to
+story", a Beat in the chat, Back or Next return to Story mode.
+_Avoid_: free mode, manual mode.
 
 **Trace Summary**:
 One row describing a Trace as a whole: its identity, root operation, service,

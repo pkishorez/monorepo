@@ -1,6 +1,6 @@
 import { Effect, Option } from 'effect';
 import type { WorkersOf } from '@kestack/kabuki/types';
-import { Preferences } from '../../services/preferences/contract/index.js';
+import { Preferences } from '../../../services/preferences/contract/index.js';
 import { TraceLayoutSchema } from './shared/index.js';
 import type { LotelShape } from './shared/index.js';
 

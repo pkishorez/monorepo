@@ -1,9 +1,13 @@
-import { Effect, Queue, Schema } from 'effect';
-import type { Layer, Scope } from 'effect';
+import { Effect, Layer, Queue, Schema } from 'effect';
+import type { Scope } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { Actor, Runtime } from '@kestack/kabuki';
 import type { Instance } from '@kestack/kabuki/types';
 import type { KabukiSessionSummary } from '@kestack/devtools-kabuki/devtools';
+import { fakeAgent } from '../../../services/agent/fake/index.js';
+import { Preferences } from '../../../services/preferences/contract/index.js';
+import { fakePreferences } from '../../../services/preferences/fake/index.js';
+import { fakeProjectRegistry } from '../../../services/project-registry/fake/index.js';
 import type { Sessions } from '../../services/sessions/contract/index.js';
 import { fakeSessions } from '../../services/sessions/fake/index.js';
 import { Kabuki } from '../index.js';
@@ -62,13 +66,25 @@ type App = Runtime<typeof Host>;
 const tool = (app: App) =>
   walk(app.snapshot.root).find((each) => each.actor === 'Kabuki')!;
 const inspected = (app: App) =>
-  walk(app.snapshot.root).some((each) => each.actor === 'RemoteInspector');
+  walk(app.snapshot.root).some((each) => each.actor === 'Inspection');
+
+const beside = (layer: Layer.Layer<Sessions>) =>
+  Effect.map(fakeAgent(), (agent) =>
+    Layer.mergeAll(
+      layer,
+      agent.layer,
+      Layer.succeed(Preferences)(fakePreferences()),
+      fakeProjectRegistry([]),
+    ),
+  );
 
 const start = (
   name: string | null,
   layer: Layer.Layer<Sessions>,
 ): Effect.Effect<App, never, Scope.Scope> =>
-  Runtime.scoped(Host, { input: { session: name }, layer });
+  Effect.flatMap(beside(layer), (all) =>
+    Runtime.scoped(Host, { input: { session: name }, layer: all }),
+  );
 
 describe('the Kabuki Tool', () => {
   it('opens the Kabuki Session its Input names once it is live, and waits while it is gone', () =>
@@ -140,6 +156,7 @@ describe('the Kabuki Tool', () => {
         expect(tool(app).model).toEqual({
           sessions: [summary('quiet-otter')],
           link: 'reconnecting',
+          tab: 'inspector',
         });
         expect(tool(app).state).toEqual({
           _tag: 'Absence',
@@ -265,13 +282,37 @@ describe('the Kabuki Tool', () => {
       }),
     ));
 
+  it("shows the open Kabuki Session's Inspector or its Story, the Tab kept as it reconnects", () =>
+    run(
+      Effect.gen(function* () {
+        const devtools = yield* fakeSessions;
+        const app = yield* start('quiet-otter', devtools.layer);
+        const socket = yield* Queue.take(devtools.sockets);
+        yield* Queue.offer(socket, [summary('quiet-otter', 1)]);
+        yield* settle;
+        const story = () =>
+          walk(app.snapshot.root).find((each) => each.actor === 'Story');
+        expect(story()?.props).toEqual({ shown: false });
+
+        app.root.children.kabuki.send({ _tag: 'Tabbed', tab: 'story' });
+        yield* settle;
+        expect(story()?.props).toEqual({ shown: true });
+        expect(story()?.model).toMatchObject({ app: 'Diary' });
+
+        yield* Queue.offer(socket, [summary('quiet-otter', 2)]);
+        yield* settle;
+        expect(tool(app).model).toMatchObject({ tab: 'story' });
+        expect(story()?.props).toEqual({ shown: true });
+      }),
+    ));
+
   it('stands on its own as the root, with no Props, and follows its own picks', () =>
     run(
       Effect.gen(function* () {
         const devtools = yield* fakeSessions;
         const app = yield* Runtime.scoped(Kabuki, {
           input: { session: 'quiet-otter' },
-          layer: devtools.layer,
+          layer: yield* beside(devtools.layer),
         });
         const socket = yield* Queue.take(devtools.sockets);
         yield* Queue.offer(socket, [

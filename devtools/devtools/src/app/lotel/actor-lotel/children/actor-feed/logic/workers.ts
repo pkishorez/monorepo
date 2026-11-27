@@ -1,6 +1,6 @@
 import { Effect, Option, Stream } from 'effect';
 import type { DataOf, WorkersOf } from '@kestack/kabuki/types';
-import { Preferences } from '../../../../services/preferences/contract/index.js';
+import { Preferences } from '../../../../../services/preferences/contract/index.js';
 import { Telemetry } from '../../../../services/telemetry/contract/index.js';
 import { FeedPreferences } from './shared/index.js';
 import type { FeedShape } from './shared/index.js';

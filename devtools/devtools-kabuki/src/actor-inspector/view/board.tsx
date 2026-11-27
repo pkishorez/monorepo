@@ -18,7 +18,7 @@ import type { Curve } from './layout.ts';
 import { Chip } from './message.tsx';
 import { MoreCard } from './more.tsx';
 import type { Placed } from './layout.ts';
-import { CARD_SPRING, unionOf, useSpace } from './space.ts';
+import { CARD_SPRING, unionOf, useSpace } from './shared/index.ts';
 
 interface Size {
   readonly height: number;

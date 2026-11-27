@@ -4,8 +4,14 @@ import type { KabukiShape, State } from './shape.js';
 export const nameOf = (state: State) =>
   state._tag === 'Choice' ? null : state.name;
 
-export const inspectorKey = ({
+const summaryOf = ({
   model,
   state,
 }: DataOf<typeof KabukiShape, 'Inspection'>) =>
-  `${state.name}@${model.sessions?.find((one) => one.name === state.name)?.connectedAt ?? 0}`;
+  model.sessions?.find((one) => one.name === state.name);
+
+export const appOf = (data: DataOf<typeof KabukiShape, 'Inspection'>) =>
+  summaryOf(data)?.app ?? data.state.name;
+
+export const inspectionKey = (data: DataOf<typeof KabukiShape, 'Inspection'>) =>
+  `${data.state.name}@${summaryOf(data)?.connectedAt ?? 0}`;

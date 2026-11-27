@@ -90,3 +90,17 @@ export const BranchesSchema = Schema.Struct({
 });
 
 export type Branches = typeof BranchesSchema.Type;
+
+export const WorktreeSchema = Schema.Struct({
+  folder: Schema.String,
+  branch: Schema.NullOr(Schema.String),
+  head: Schema.String,
+  primary: Schema.Boolean,
+  current: Schema.Boolean,
+}).annotate({
+  title: 'Worktree',
+  description:
+    "One checkout of the Project's repository, by the Project's folder inside it: the branch it has checked out, or none when detached, its HEAD commit, whether it is the primary checkout, and whether the Project's folder is in it.",
+});
+
+export type Worktree = typeof WorktreeSchema.Type;

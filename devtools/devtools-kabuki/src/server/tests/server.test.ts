@@ -133,7 +133,7 @@ const lights = Fake.make({
 
 describe('the full path: an app connected through a DevTools Server, called through remote', () => {
   it(
-    'answers the eight calls of a live Kabuki Session by its name, Sends and runs controls',
+    'answers the nine calls of a live Kabuki Session by its name, Sends and runs controls',
     () =>
       run(
         Effect.gen(function* () {
@@ -248,6 +248,11 @@ describe('the full path: an app connected through a DevTools Server, called thro
             _tag: 'ControlRefused',
             reason: 'lights has no control Broke',
           });
+          const plan = yield* session.blueprint();
+          expect(plan).toMatchObject({ path: 'Diary', actor: 'Diary' });
+          expect(plan.children.map(({ plan }) => plan.path)).toEqual([
+            'Diary/counter',
+          ]);
         }),
       ),
     20_000,

@@ -19,6 +19,15 @@ export function getBranches(root: string) {
   });
 }
 
+export function getWorktrees(root: string) {
+  return Effect.gen(function* () {
+    const snapshots = yield* Snapshots;
+    const git = yield* Git;
+    const folder = yield* snapshots.existingRoot(root);
+    return yield* git.attempt(() => git.listWorktrees(folder));
+  });
+}
+
 export function getChanges(root: string, branch: string | null, base: string) {
   return Effect.gen(function* () {
     const snapshots = yield* Snapshots;

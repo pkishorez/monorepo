@@ -7,6 +7,7 @@ export {
   ChangeStatusSchema,
   FileDiffSchema,
   uncommittedBase,
+  WorktreeSchema,
 } from './changes.js';
 export type {
   Branch,
@@ -17,6 +18,7 @@ export type {
   DiffHunk,
   DiffLine,
   FileDiff,
+  Worktree,
 } from './changes.js';
 export {
   FileContentSchema,

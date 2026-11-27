@@ -5,15 +5,17 @@ import type {
   Asked,
   Named,
   Runs,
+  Tagged,
   Takes,
   Within,
 } from '../../../server/rpc/session/contract/index.ts';
 import { payloadOf } from './shape.ts';
 
-const nameOf = (key: string): string => key.split(/[/:]/).at(-1) ?? key;
+export const nameOf = (key: string): string => key.split(/[/:]/).at(-1) ?? key;
 
-const runsOf = (kind: Blueprint['top']['workers'][number]['kind']): Runs =>
-  kind === 'while' || kind === 'each' ? kind : 'always';
+export const runsOf = (
+  kind: Blueprint['top']['workers'][number]['kind'],
+): Runs => (kind === 'while' || kind === 'each' ? kind : 'always');
 
 export const askedOf = (
   print: Blueprint | undefined,
@@ -56,19 +58,26 @@ export const providesOf = (
       ]
     : [];
 
+export const taggedOf = (
+  tag: string,
+  schema: Parameters<typeof payloadOf>[0],
+): Tagged => {
+  const description = SchemaAST.resolveDescription(schema.ast);
+  return {
+    tag,
+    ...(description ? { description } : {}),
+    payload: payloadOf(schema),
+  };
+};
+
 const takenAt = (
   on: Readonly<Record<string, Parameters<typeof payloadOf>[0]>>,
   within: Within,
 ): ReadonlyArray<Takes> =>
-  Object.entries(on).map(([tag, schema]) => {
-    const description = SchemaAST.resolveDescription(schema.ast);
-    return {
-      tag,
-      ...(description ? { description } : {}),
-      payload: payloadOf(schema),
-      within,
-    };
-  });
+  Object.entries(on).map(([tag, schema]) => ({
+    ...taggedOf(tag, schema),
+    within,
+  }));
 
 export const takesOf = (
   print: Blueprint | undefined,

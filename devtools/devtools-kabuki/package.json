@@ -2,7 +2,7 @@
   "name": "@kestack/devtools-kabuki",
   "version": "0.0.16",
   "private": true,
-  "description": "Kabuki apps in DevTools: the Inspector, a panel that reads and moves a running app through one Kabuki Session's eight calls, answered in the page or through the DevTools Server",
+  "description": "Kabuki apps in DevTools: the Inspector, a panel that reads and moves a running app through one Kabuki Session's nine calls, answered in the page or through the DevTools Server",
   "repository": {
     "type": "git",
     "url": "https://github.com/pkishorez/monorepo",

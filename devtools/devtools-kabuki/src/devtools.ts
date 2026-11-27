@@ -1,9 +1,16 @@
 export { Inspector, InspectorView } from './actor-inspector/index.ts';
+export {
+  CARD_SPRING,
+  unionOf,
+  useSpace,
+} from './actor-inspector/view/shared/index.ts';
+export type { Rect } from './actor-inspector/view/shared/index.ts';
 export { CONNECT_PATH } from './server/rpc/contract/index.ts';
 export {
   ControlRefused,
   InstanceNotFound,
   MessageRefused,
+  Plan,
   Previewing,
   StepNotFound,
 } from './server/rpc/session/contract/index.ts';
@@ -48,9 +55,11 @@ export type {
   SendAsked,
   Sent,
   Shape,
+  Slot,
   Step,
   StepAsked,
   Stepped,
+  Tagged,
   Takes,
   Told,
   Unreachable,

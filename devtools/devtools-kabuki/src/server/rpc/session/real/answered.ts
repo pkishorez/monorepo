@@ -24,6 +24,8 @@ export const answered = KabukiSessionRpcs.toLayer(
         session
           .control(asked)
           .pipe(Effect.catchTag('RpcClientError', Effect.die)),
+      blueprint: () =>
+        session.blueprint().pipe(Effect.catchTag('RpcClientError', Effect.die)),
     };
   }),
 );

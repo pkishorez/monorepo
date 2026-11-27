@@ -42,6 +42,10 @@ Monoverse engine worker is packed alone, as `dist/cli/monoverse-engine.mjs`,
 so a check never blocks the server. The second pack sets `clean: false`, or it
 would delete the first one's output. The server finds the UI at `../ui/` from
 its bundled file, not its source file, hence `UI_ROOT_BESIDE_BUNDLED_CLI`.
+The Claude Agent SDK, which the Agent reaches through the private
+`@kestack/ai-toolkit-v2`, is inlined too: it is plain JavaScript, and it starts
+the `claude` installed on `PATH`, never the binary of its optional platform
+package, so that package is not needed.
 
 ## The server
 
@@ -122,3 +126,26 @@ would fall below the matches.
 whenever its rows or their heights change, and puts the height in the key, as
 `file-list.tsx` does. A `keyOf` memoized without the height leaves stale row
 heights on screen.
+
+## Agent
+
+### Every run starts its own Claude Code process
+
+Claude Code takes a session's options, the JSON Schema of `outputFormat`
+included, only when its process starts; a live process keeps the ones it
+started with. A Thread's follow-up may bring another schema, or none, so the
+Agent's `Claude` Layer lingers for no time (`linger: 0`): the process stops
+when its run ends, and the next run resumes the session with its own options.
+
+### Read-only, and nothing else
+
+Each run passes `tools` of Read, Grep and Glob, so Claude Code has only those
+three, plus the `StructuredOutput` tool an `outputFormat` adds. Claude Code
+runs them without asking; `permissionMode: 'dontAsk'` denies anything else
+instead of asking, so a run never waits on a permission request. They are not
+also in `allowedTools`: the SDK would warn on every run that `canUseTool` is
+shadowed. `strictMcpConfig` with no
+`mcpServers` leaves out every MCP server the user's settings or claude.ai
+account would bring, since their tools may write. Claude Code reports paths
+from the folder's real path (`/private/tmp` for `/tmp` on macOS), so activity
+lines are shown relative to that.

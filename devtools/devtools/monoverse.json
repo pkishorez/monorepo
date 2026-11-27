@@ -8,6 +8,16 @@
       "from": "src/cli/serve/",
       "to": "src/app/*/server/index.ts",
       "reason": "The CLI hosts every Tool's server: it is the one place that puts them together."
+    },
+    {
+      "from": "src/app/services/agent/",
+      "to": "src/app/agent/server/rpc/agent/contract/index.ts",
+      "reason": "Agent's client is the app's, for every Tool to use, and it speaks Agent's RPC."
+    },
+    {
+      "from": "src/app/services/project-registry/",
+      "to": "src/app/monoverse/server/rpc/contract/index.ts",
+      "reason": "The Project registry is Monoverse's, kept by its Server half; any Tool lists it through the app's client of that RPC."
     }
   ],
   "restrictions": [

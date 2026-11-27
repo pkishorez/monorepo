@@ -1,6 +1,6 @@
 import { Context, Data, type Effect } from 'effect';
 
-import type { Branches } from '../../../rpc/git/contract/index.js';
+import type { Branches, Worktree } from '../../../rpc/git/contract/index.js';
 import type { GitUnavailableError } from '../../../rpc/project/contract/index.js';
 
 export class GitError extends Data.TaggedError('GitError')<{
@@ -20,6 +20,7 @@ export type Checkout = {
   readonly root: string;
   readonly head: string;
   readonly branch: string | null;
+  readonly primary: boolean;
 };
 
 export type Placement =
@@ -56,6 +57,7 @@ export interface GitShape {
     branch: string | null,
   ) => Promise<Placement>;
   readonly listBranches: (root: string) => Promise<Branches>;
+  readonly listWorktrees: (root: string) => Promise<ReadonlyArray<Worktree>>;
   readonly attempt: <A>(
     run: () => Promise<A>,
   ) => Effect.Effect<A, GitUnavailableError>;

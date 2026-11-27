@@ -5,6 +5,7 @@ import path from 'node:path';
 import { Effect, Layer } from 'effect';
 import { HttpRouter } from 'effect/http';
 import { NodeHttpServer, NodeServices } from '@effect/platform-node';
+import { agentEndpoints, agentServer } from '../../app/agent/server/index.js';
 import {
   kabukiEndpoints,
   kabukiServer,
@@ -49,6 +50,7 @@ export function makeDevtoolsServer(options: Options) {
           lotelServer({ db: options.db }),
           monoverseServer({ db: options.db }),
           kabukiServer({ origins: ownOrigins }),
+          agentServer,
           makeBrowserApplicationLive({
             uiRoot,
             version: options.version,
@@ -56,6 +58,7 @@ export function makeDevtoolsServer(options: Options) {
               ...lotelEndpoints,
               ...monoverseEndpoints,
               ...kabukiEndpoints,
+              ...agentEndpoints,
               [MCP_PATH]:
                 'MCP over Streamable HTTP: Lotel and Kabuki tools for AI agents.',
             },

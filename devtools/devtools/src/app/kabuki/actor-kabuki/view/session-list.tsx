@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { KeyboardEvent } from 'react';
+import type { KeyboardEvent, ReactNode } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'motion/react';
 import {
   NativeSelect,
@@ -261,7 +261,13 @@ function GoneRow({ name }: { readonly name: string }) {
   );
 }
 
-export function SessionSelect({ sessions, picked, link, onPick }: ListProps) {
+export function SessionSelect({
+  sessions,
+  picked,
+  link,
+  onPick,
+  tabs,
+}: ListProps & { readonly tabs: ReactNode }) {
   const live = picked !== null && sessions.some((one) => one.name === picked);
   return (
     <div className="flex shrink-0 items-center gap-3 border-b border-border/50 px-3 py-2 md:hidden">
@@ -295,6 +301,7 @@ export function SessionSelect({ sessions, picked, link, onPick }: ListProps) {
         ))}
       </NativeSelect>
       <LinkStatus link={link} />
+      {tabs}
     </div>
   );
 }
@@ -302,16 +309,18 @@ export function SessionSelect({ sessions, picked, link, onPick }: ListProps) {
 export function SessionPath({
   sessions,
   picked,
+  tabs,
 }: {
   readonly sessions: ReadonlyArray<KabukiSessionSummary>;
   readonly picked: string;
+  readonly tabs: ReactNode;
 }) {
   const session = sessions.find((one) => one.name === picked);
   const parts = session ? [session.app, session.environment] : [];
   return (
     <nav
       aria-label="Kabuki Session"
-      className="hidden h-9 shrink-0 items-center border-b border-border/50 px-3 text-xs md:flex"
+      className="hidden h-9 shrink-0 items-center justify-between gap-3 border-b border-border/50 pr-1.5 pl-3 text-xs md:flex"
     >
       <ol className="flex min-w-0 items-center gap-1.5">
         {parts.map((part) => (
@@ -332,6 +341,7 @@ export function SessionPath({
           {picked}
         </li>
       </ol>
+      {tabs}
     </nav>
   );
 }

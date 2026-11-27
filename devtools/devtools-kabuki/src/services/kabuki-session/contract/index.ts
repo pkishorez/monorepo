@@ -11,6 +11,7 @@ import type {
   LookAsked,
   Looked,
   MessageRefused,
+  Plan,
   PreviewAsked,
   Previewing,
   SendAsked,
@@ -47,6 +48,7 @@ export interface KabukiSessionCalls {
   readonly control: (
     asked: ControlAsked,
   ) => Effect.Effect<'done', ControlRefused | Unreachable>;
+  readonly blueprint: () => Effect.Effect<Plan, Unreachable>;
 }
 
 export class KabukiSession extends Context.Service<
@@ -76,6 +78,7 @@ export type {
   Node,
   Now,
   Outcome,
+  Plan,
   Played,
   PreviewAsked,
   Previewing,
@@ -84,10 +87,12 @@ export type {
   SendAsked,
   Sent,
   Shape,
+  Slot,
   Step,
   StepAsked,
   StepNotFound,
   Stepped,
+  Tagged,
   Takes,
   Told,
   Wanted,

@@ -1,7 +1,7 @@
 import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import type { Branches } from '../../../rpc/git/contract/index.js';
+import type { Branches, Worktree } from '../../../rpc/git/contract/index.js';
 import {
   GitError,
   type Checkout,
@@ -33,9 +33,12 @@ export async function locateRepository(root: string): Promise<Repository> {
 
 export function parseWorktreeList(output: string): Checkout[] {
   const checkouts: Checkout[] = [];
+  let first = true;
   for (const block of output.split(/\n\s*\n/)) {
     const lines = block.split('\n').filter((line) => line.length > 0);
     if (lines.length === 0) continue;
+    const primary = first;
+    first = false;
     let root: string | null = null;
     let head = '';
     let branch: string | null = null;
@@ -48,7 +51,7 @@ export function parseWorktreeList(output: string): Checkout[] {
       else if (line === 'bare') bare = true;
     }
     if (root === null || bare) continue;
-    checkouts.push({ root, head, branch });
+    checkouts.push({ root, head, branch, primary });
   }
   return checkouts;
 }
@@ -119,6 +122,30 @@ export async function listBranches(root: string): Promise<Branches> {
   const defaultBase =
     preferredBases.find((name) => names.includes(name)) ?? current;
   return { current, defaultBase, branches };
+}
+
+export async function listWorktrees(
+  root: string,
+): Promise<ReadonlyArray<Worktree>> {
+  const repository = await locateRepository(root);
+  const worktrees = await Promise.all(
+    repository.worktrees.map(async (checkout) => {
+      const current = checkout.root === repository.toplevel;
+      const folder = current ? root : join(checkout.root, repository.prefix);
+      return current || (await isDirectory(folder))
+        ? [
+            {
+              folder,
+              branch: checkout.branch,
+              head: checkout.head,
+              primary: checkout.primary,
+              current,
+            },
+          ]
+        : [];
+    }),
+  );
+  return worktrees.flat();
 }
 
 async function isDirectory(path: string): Promise<boolean> {

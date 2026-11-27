@@ -2,8 +2,8 @@ import { Effect, Layer, Schema, SubscriptionRef } from 'effect';
 import type { Scope } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { Actor, Runtime } from '@kestack/kabuki';
-import { Preferences } from '../../../../services/preferences/contract/index.js';
-import { fakePreferences } from '../../../../services/preferences/fake/index.js';
+import { Preferences } from '../../../../../services/preferences/contract/index.js';
+import { fakePreferences } from '../../../../../services/preferences/fake/index.js';
 import {
   Telemetry,
   type Live,

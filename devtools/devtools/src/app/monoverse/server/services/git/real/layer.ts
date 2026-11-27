@@ -4,6 +4,7 @@ import { GitUnavailableError } from '../../../rpc/project/contract/index.js';
 import { Git, GitError } from '../contract/index.js';
 import {
   listBranches,
+  listWorktrees,
   locateRepository,
   placeBranch,
   worktreeFolder,
@@ -24,5 +25,6 @@ export const gitLayer = Layer.succeed(Git)({
   worktreeFolder,
   placeBranch,
   listBranches,
+  listWorktrees,
   attempt: (run) => Effect.tryPromise({ try: run, catch: toGitUnavailable }),
 });
