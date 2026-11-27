@@ -16,6 +16,10 @@ _Avoid_: CLI path, executable setting, bundled binary
 One login of a Coding Harness on this computer: the Harness Binary it runs and the config folder it keeps its login, settings and transcripts in (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`), such as a work Claude beside a personal one. Every harness call runs as one; an Agent's context lives in its account's folder, so it is resumed, forked and asked as the same account. One with no folder of its own uses the environment's, else the harness's own.
 _Avoid_: profile, alias, login (alone), instance
 
+**Harness Host**:
+What a Harness Account stands on, on this computer: whether a Harness Binary runs, and which config folder an account really uses. Signing a Harness Account in reads it; on Node it runs binaries and reads the environment, and a browser gives a fake.
+_Avoid_: account host, sign-in service, environment
+
 **Language Model**:
 A named model offered through a Coding Harness. An Agent has one, and any Turn may change it within the same harness.
 _Avoid_: harness, provider
@@ -87,6 +91,10 @@ _Avoid_: tool status, plugin status
 **Context Usage**:
 How much of an Agent's context window is filled, and the account's remaining rate limits.
 _Avoid_: tokens left, quota
+
+**Recording**:
+Every record a real Coding Harness wrote in one Turn, captured by the e2e tests. The Agent fake replays one as each reply, with its own ids and folders in place of the recorded ones, so the real projection draws exactly what a real run produced; the projection tests read the same files.
+_Avoid_: fixture, script, canned reply
 
 **Speech to Text**:
 Turning spoken audio into text, on the computer itself. It knows nothing of Agents or Coding Harnesses.

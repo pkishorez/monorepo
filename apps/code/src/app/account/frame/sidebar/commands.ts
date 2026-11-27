@@ -44,7 +44,7 @@ export const setSidebarWidth = Command.make('SetSidebarWidth', {
     ),
 });
 
-/** Asks Cloud Connect for the Connections again now. */
+/** Asks Connect Cloud for the Connections again now. */
 export const reload = Command.make('ReloadConnections', {
   run: () => Effect.flatMap(Connections, (connections) => connections.reload),
 });

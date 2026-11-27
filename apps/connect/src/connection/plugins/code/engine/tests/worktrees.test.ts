@@ -1,0 +1,911 @@
+import { execFileSync } from 'node:child_process';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { Effect, Exit, Fiber, Layer, type Scope } from 'effect';
+import {
+  HarnessError,
+  Harnesses,
+  type Harness,
+} from '@kestack/ai-toolkit/harness';
+import { claude } from '@kestack/ai-toolkit/harness/node';
+import { TestClock } from 'effect/testing';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  makeFakeHarness,
+  type FakeHarness,
+} from '@kestack/ai-toolkit/harness/fake';
+import { EVERY } from '../actor-code/actor-session/branch.js';
+import {
+  Engine,
+  Store,
+  type StartSession,
+  type StartStepReport,
+} from '../index.js';
+import { nodeEdges, storeLayer } from '../node.js';
+
+/*
+ * Sessions in a git Project, against a real clone of an Origin of its own:
+ * where a start puts each Session and the steps it reports, a git step
+ * that fails starting nothing, the first Title naming a new Worktree's
+ * branch, and the Branch Check.
+ */
+
+const made: Array<string> = [];
+const temp = () => {
+  const path = realpathSync(mkdtempSync(join(tmpdir(), 'ai-worktrees-')));
+  made.push(path);
+  return path;
+};
+afterEach(() => {
+  for (const path of made.splice(0))
+    rmSync(path, { recursive: true, force: true });
+});
+
+const sh = (cwd: string, ...args: ReadonlyArray<string>) =>
+  execFileSync('git', args, {
+    cwd,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      GIT_AUTHOR_NAME: 'Ada',
+      GIT_AUTHOR_EMAIL: 'ada@example.com',
+      GIT_COMMITTER_NAME: 'Ada',
+      GIT_COMMITTER_EMAIL: 'ada@example.com',
+    },
+  }).trim();
+
+/** A clone on `main` of an Origin with `main` and `feature`, and the local `topic`. */
+const clone = () => {
+  const seed = temp();
+  sh(seed, 'init', '-q', '-b', 'main');
+  sh(seed, 'commit', '-q', '--allow-empty', '-m', 'first');
+  sh(seed, 'branch', 'feature');
+  const origin = join(temp(), 'origin.git');
+  sh(seed, 'clone', '-q', '--bare', seed, origin);
+  const path = join(temp(), 'repo');
+  sh(seed, 'clone', '-q', origin, path);
+  sh(path, 'branch', 'topic');
+  return realpathSync(path);
+};
+
+const run = <A, E>(
+  effect: (
+    worktrees: string,
+  ) => Effect.Effect<A, E, Engine | Store | Scope.Scope>,
+  options: {
+    readonly fake?: FakeHarness;
+    readonly testClock?: boolean;
+    /** Every Agent fails to open. */
+    readonly refuseOpen?: boolean;
+    /** The harness every Session runs, in place of the fake's. */
+    readonly harness?: Harness;
+    /** The Store as the engine sees it, changed from the in-memory one. */
+    readonly store?: (store: Store['Service']) => Store['Service'];
+    /** A Store file kept past the run, in place of an in-memory one. */
+    readonly storePath?: string;
+    readonly worktrees?: string;
+  } = {},
+) => {
+  const worktrees = options.worktrees ?? temp();
+  const storeAt = options.storePath ?? ':memory:';
+  const fake = options.fake ?? makeFakeHarness();
+  const refusing = {
+    ...fake.harness,
+    open: () => Effect.fail(new HarnessError({ message: 'no agent here' })),
+  };
+  const harness = options.refuseOpen ? refusing : options.harness;
+  const store = options.store;
+  const base = Layer.merge(
+    store
+      ? Layer.effect(Store, Effect.map(Store, store)).pipe(
+          Layer.provide(storeLayer(storeAt)),
+        )
+      : storeLayer(storeAt),
+    harness
+      ? Layer.merge(
+          fake.layer,
+          Layer.succeed(Harnesses, { all: [harness], get: () => harness }),
+        )
+      : fake.layer,
+  );
+  const world = Layer.merge(
+    base,
+    Engine.layer({ attachments: temp(), worktrees }).pipe(
+      Layer.provide(Layer.merge(base, nodeEdges({ home: temp() }))),
+    ),
+  );
+  return Effect.runPromise(
+    Effect.scoped(effect(worktrees)).pipe(
+      Effect.provide(world),
+      Effect.provide(options.testClock ? TestClock.layer() : Layer.empty),
+    ),
+  );
+};
+
+/** What is in the folder `path`; nothing when there is none. */
+const inside = (path: string) => (existsSync(path) ? readdirSync(path) : []);
+
+const eventually = (assertion: () => Promise<void> | void) =>
+  Effect.promise(() => vi.waitFor(assertion, { timeout: 5000, interval: 10 }));
+
+/** Starts a Session in `projectId`, and the steps it reported. */
+const start = (projectId: string, more: Partial<StartSession> = {}) =>
+  Effect.gen(function* () {
+    const engine = yield* Engine;
+    const steps: Array<string> = [];
+    const report = (step: StartStepReport) =>
+      Effect.sync(() => void steps.push(`${step.step} ${step.state}`));
+    const session = yield* engine.startSession(
+      {
+        projectId,
+        account: 'claude',
+        model: 'claude-test',
+        settings: {},
+        text: 'hello',
+        attachments: [],
+        ...more,
+      },
+      report,
+    );
+    return { session, steps };
+  });
+
+const stored = (id: string) =>
+  Effect.flatMap(Store, (store) => store.session(id));
+
+/** A Session as the Store holds it, read outside the engine's Effects. */
+const saved = (store: Store['Service'], id: string) =>
+  Effect.runPromise(store.session(id));
+
+describe('a Session in a git Project', () => {
+  it('lists the branches, an Origin branch a local one tracks only once', async () => {
+    const repo = clone();
+    await run(() =>
+      Effect.gen(function* () {
+        const engine = yield* Engine;
+        const project = yield* engine.addProject(repo);
+        expect(yield* engine.branches(project.id)).toEqual({
+          _tag: 'Git',
+          current: 'main',
+          worktrees: [{ path: repo, branch: 'main' }],
+          local: [
+            { name: 'main', upstream: 'origin/main', worktree: repo },
+            { name: 'topic', upstream: null, worktree: null },
+          ],
+          origin: ['origin/feature'],
+        });
+        const plain = yield* engine.addProject(temp());
+        expect(yield* engine.branches(plain.id)).toEqual({ _tag: 'NotGit' });
+        const missing = yield* Effect.exit(engine.branches('nope'));
+        expect(Exit.isFailure(missing)).toBe(true);
+      }),
+    );
+  });
+
+  it('runs where the branch is out, or switches the folder to it first', async () => {
+    const repo = clone();
+    const fake = makeFakeHarness();
+    await run(
+      () =>
+        Effect.gen(function* () {
+          const engine = yield* Engine;
+          const project = yield* engine.addProject(repo);
+
+          const here = yield* start(project.id, { branch: 'main' });
+          expect(here.steps).toEqual([
+            'startingAgent running',
+            'startingAgent done',
+          ]);
+          expect(here.session).toMatchObject({
+            worktree: repo,
+            branch: 'main',
+          });
+
+          const switched = yield* start(project.id, {
+            branch: 'origin/feature',
+          });
+          expect(switched.steps).toEqual([
+            'switchingBranch running',
+            'switchingBranch done',
+            'startingAgent running',
+            'startingAgent done',
+          ]);
+          expect(switched.session).toMatchObject({
+            worktree: repo,
+            branch: 'feature',
+          });
+          expect(sh(repo, 'branch', '--show-current')).toBe('feature');
+
+          // A branch out in another Worktree: the Session runs there.
+          const other = join(temp(), 'other');
+          sh(repo, 'worktree', 'add', '-q', other, 'topic');
+          const there = yield* start(project.id, { branch: 'topic' });
+          expect(there.steps).toEqual([
+            'startingAgent running',
+            'startingAgent done',
+          ]);
+          expect(there.session).toMatchObject({
+            worktree: realpathSync(other),
+            branch: 'topic',
+          });
+          yield* eventually(() =>
+            expect(fake.opens.map((open) => open.cwd)).toContain(
+              realpathSync(other),
+            ),
+          );
+        }),
+      { fake },
+    );
+  });
+
+  it('makes a new Worktree on ke-code/<id> from the branch picked', async () => {
+    const repo = clone();
+    const fake = makeFakeHarness();
+    await run(
+      (worktrees) =>
+        Effect.gen(function* () {
+          const engine = yield* Engine;
+          const project = yield* engine.addProject(repo);
+          const { session, steps } = yield* start(project.id, {
+            branch: 'origin/feature',
+            newWorktree: true,
+          });
+          const id = session.id.toLowerCase();
+          const at = join(worktrees, project.id, id);
+          expect(steps).toEqual([
+            'makingWorktree running',
+            'makingWorktree done',
+            'startingAgent running',
+            'startingAgent done',
+          ]);
+          expect(session).toMatchObject({
+            worktree: at,
+            branch: `ke-code/${id}`,
+          });
+          expect(sh(at, 'branch', '--show-current')).toBe(`ke-code/${id}`);
+          expect(sh(at, 'rev-parse', 'HEAD')).toBe(
+            sh(repo, 'rev-parse', 'origin/feature'),
+          );
+          // The Project's folder stays where it was.
+          expect(sh(repo, 'branch', '--show-current')).toBe('main');
+          expect((yield* stored(session.id))?.worktree).toBe(at);
+
+          expect(yield* engine.branches(project.id)).toMatchObject({
+            worktrees: [{ path: repo }, { path: at }],
+          });
+
+          // Its Fork runs in the same Worktree.
+          const store = yield* Store;
+          yield* eventually(async () =>
+            expect(await saved(store, session.id)).toMatchObject({
+              status: 'idle',
+            }),
+          );
+          const fork = yield* engine.forkSession(session.id, null);
+          expect(fork).toMatchObject({ worktree: at, branch: session.branch });
+          expect(fake.forks.at(-1)?.cwd).toBe(at);
+        }),
+      { fake },
+    );
+  });
+
+  describe('in a Project inside its repository, as a package of a monorepo', () => {
+    /** A clone with the committed folder `packages/one`, and that folder. */
+    const monorepo = () => {
+      const repo = clone();
+      const one = join(repo, 'packages', 'one');
+      mkdirSync(one, { recursive: true });
+      writeFileSync(join(one, 'README.md'), 'one\n');
+      sh(repo, 'add', '.');
+      sh(repo, 'commit', '-q', '-m', 'one');
+      return { repo, one };
+    };
+
+    it('lists the branches and runs in the same folder of each Worktree', async () => {
+      const { repo, one } = monorepo();
+      const fake = makeFakeHarness({ oneShot: 'Fix the login bug' });
+      await run(
+        (worktrees) =>
+          Effect.gen(function* () {
+            const engine = yield* Engine;
+            const store = yield* Store;
+            const project = yield* engine.addProject(one);
+            expect(yield* engine.branches(project.id)).toMatchObject({
+              _tag: 'Git',
+              current: 'main',
+              worktrees: [{ path: repo, branch: 'main' }],
+            });
+
+            const here = yield* start(project.id, { branch: 'main' });
+            expect(here.session).toMatchObject({
+              worktree: one,
+              branch: 'main',
+            });
+
+            const { session } = yield* start(project.id, { newWorktree: true });
+            const at = join(worktrees, project.id, session.id.toLowerCase());
+            const folder = join(at, 'packages', 'one');
+            expect(session.worktree).toBe(folder);
+            yield* eventually(() =>
+              expect(fake.opens.map((open) => open.cwd)).toContain(folder),
+            );
+            // Its branch is named for its first Title, as at the top.
+            yield* eventually(async () =>
+              expect(await saved(store, session.id)).toMatchObject({
+                branch: 'ke-code/fix-the-login-bug',
+              }),
+            );
+
+            // A branch out in another Worktree: the same folder there.
+            const other = join(temp(), 'other');
+            sh(repo, 'worktree', 'add', '-q', '-b', 'side', other);
+            const there = yield* start(project.id, { branch: 'side' });
+            expect(there.session.worktree).toBe(
+              join(realpathSync(other), 'packages', 'one'),
+            );
+          }),
+        { fake },
+      );
+    });
+
+    it('takes back the Worktree it made when the Agent fails to open', async () => {
+      const { repo, one } = monorepo();
+      await run(
+        (worktrees) =>
+          Effect.gen(function* () {
+            const engine = yield* Engine;
+            const project = yield* engine.addProject(one);
+            const exit = yield* Effect.exit(
+              start(project.id, { newWorktree: true }),
+            );
+            expect(Exit.isFailure(exit)).toBe(true);
+            expect(inside(join(worktrees, project.id))).toEqual([]);
+            expect(sh(repo, 'branch', '--list', 'ke-code/*')).toBe('');
+            expect(sh(repo, 'worktree', 'list', '--porcelain')).not.toContain(
+              worktrees,
+            );
+          }),
+        { refuseOpen: true },
+      );
+    });
+  });
+
+  it('starts nothing when a git step fails, and leaves no Worktree behind', async () => {
+    const repo = clone();
+    await run((worktrees) =>
+      Effect.gen(function* () {
+        const engine = yield* Engine;
+        const store = yield* Store;
+        const project = yield* engine.addProject(repo);
+        const made = yield* Effect.exit(
+          start(project.id, { branch: 'nowhere', newWorktree: true }),
+        );
+        expect(made).toMatchObject({
+          _tag: 'Failure',
+          cause: {
+            reasons: [{ error: { _tag: 'GitFailed', step: 'makingWorktree' } }],
+          },
+        });
+        const switched = yield* Effect.exit(
+          start(project.id, { branch: 'nowhere' }),
+        );
+        expect(switched).toMatchObject({
+          _tag: 'Failure',
+          cause: {
+            reasons: [
+              { error: { _tag: 'GitFailed', step: 'switchingBranch' } },
+            ],
+          },
+        });
+        expect((yield* store.allSessions).length).toBe(0);
+        expect(inside(join(worktrees, project.id))).toEqual([]);
+        expect(sh(repo, 'branch', '--list', 'ke-code/*')).toBe('');
+      }),
+    );
+  });
+
+  it('leaves a branch or folder that was there before a Worktree failed', async () => {
+    const repo = clone();
+    const ids = ['01J0Z8Q3VQ4N7Y2K5R6T8W9XAB', '01J0Z8Q3VQ4N7Y2K5R6T8W9XAC'];
+    await run((worktrees) =>
+      Effect.gen(function* () {
+        const engine = yield* Engine;
+        const project = yield* engine.addProject(repo);
+        // As a start of the same id that crashed before would leave them.
+        const branch = `ke-code/${ids[0]!.toLowerCase()}`;
+        sh(repo, 'branch', branch);
+        const folder = join(worktrees, project.id, ids[1]!.toLowerCase());
+        mkdirSync(folder, { recursive: true });
+        writeFileSync(join(folder, 'keep'), '');
+        for (const id of ids) {
+          const exit = yield* Effect.exit(
+            start(project.id, { id, branch: 'main', newWorktree: true }),
+          );
+          expect(exit).toMatchObject({
+            _tag: 'Failure',
+            cause: {
+              reasons: [
+                { error: { _tag: 'GitFailed', step: 'makingWorktree' } },
+              ],
+            },
+          });
+        }
+        expect(sh(repo, 'branch', '--list', branch)).not.toBe('');
+        expect(existsSync(join(folder, 'keep'))).toBe(true);
+      }),
+    );
+  });
+
+  it('refuses a branch the Project does not list, one that reads as an option too', async () => {
+    const repo = clone();
+    await run((worktrees) =>
+      Effect.gen(function* () {
+        const engine = yield* Engine;
+        const project = yield* engine.addProject(repo);
+        for (const branch of ['--orphan=oops', '--detach', 'HEAD~1', 'nope'])
+          for (const newWorktree of [false, true]) {
+            const exit = yield* Effect.exit(
+              start(project.id, { branch, newWorktree }),
+            );
+            expect(exit).toMatchObject({
+              _tag: 'Failure',
+              cause: { reasons: [{ error: { _tag: 'GitFailed' } }] },
+            });
+          }
+        expect(sh(repo, 'branch', '--show-current')).toBe('main');
+        expect(inside(join(worktrees, project.id))).toEqual([]);
+        expect(sh(repo, 'branch', '--list', 'ke-code/*')).toBe('');
+      }),
+    );
+  });
+
+  it('refuses an Origin branch a local one of its name does not track, and lists it', async () => {
+    const repo = clone();
+    sh(repo, 'branch', '--no-track', 'feature', 'topic');
+    await run(() =>
+      Effect.gen(function* () {
+        const engine = yield* Engine;
+        const project = yield* engine.addProject(repo);
+        expect(yield* engine.branches(project.id)).toMatchObject({
+          origin: ['origin/feature'],
+        });
+        const exit = yield* Effect.exit(
+          start(project.id, { branch: 'origin/feature' }),
+        );
+        expect(exit).toMatchObject({
+          _tag: 'Failure',
+          cause: {
+            reasons: [
+              { error: { _tag: 'GitFailed', step: 'switchingBranch' } },
+            ],
+          },
+        });
+        expect(sh(repo, 'branch', '--show-current')).toBe('main');
+      }),
+    );
+  });
+
+  it('keeps no Session, and no Worktree it made, when the Agent fails to open', async () => {
+    const repo = clone();
+    await run(
+      (worktrees) =>
+        Effect.gen(function* () {
+          const engine = yield* Engine;
+          const store = yield* Store;
+          const project = yield* engine.addProject(repo);
+          const id = '01J0Z8Q3VQ4N7Y2K5R6T8W9XAB';
+          const exit = yield* Effect.exit(
+            start(project.id, {
+              id,
+              branch: 'origin/feature',
+              newWorktree: true,
+            }),
+          );
+          expect(exit).toMatchObject({
+            _tag: 'Failure',
+            cause: {
+              reasons: [
+                { error: { _tag: 'HarnessFailed', message: 'no agent here' } },
+              ],
+            },
+          });
+          expect(inside(join(worktrees, project.id))).toEqual([]);
+          expect(sh(repo, 'branch', '--list', 'ke-code/*')).toBe('');
+
+          // A folder switched for it stays on the branch picked, and so
+          // does a branch made to track Origin's, which is out there.
+          const switched = yield* Effect.exit(
+            start(project.id, { branch: 'topic' }),
+          );
+          expect(Exit.isFailure(switched)).toBe(true);
+          expect(sh(repo, 'branch', '--show-current')).toBe('topic');
+          const tracked = yield* Effect.exit(
+            start(project.id, { branch: 'origin/feature' }),
+          );
+          expect(Exit.isFailure(tracked)).toBe(true);
+          expect(sh(repo, 'branch', '--show-current')).toBe('feature');
+
+          yield* Effect.sleep('50 millis');
+          expect(yield* store.allSessions).toEqual([]);
+          expect((yield* Effect.flip(engine.cancel(id)))._tag).toBe(
+            'SessionNotFound',
+          );
+          // Asked again under that id, it starts afresh: none was kept.
+          const again = yield* Effect.exit(start(project.id, { id }));
+          expect(again).toMatchObject({
+            _tag: 'Failure',
+            cause: { reasons: [{ error: { _tag: 'HarnessFailed' } }] },
+          });
+        }),
+      { refuseOpen: true },
+    );
+  });
+
+  it('keeps no Session, and no Worktree it made, when Claude Code exits before it has initialized', async () => {
+    const repo = clone();
+    const bin = temp();
+    const exits = join(bin, 'claude');
+    writeFileSync(exits, '#!/bin/sh\necho boom >&2\nexit 1\n', {
+      mode: 0o755,
+    });
+    vi.stubEnv('AI_TOOLKIT_CLAUDE', exits);
+    try {
+      await run(
+        (worktrees) =>
+          Effect.gen(function* () {
+            const engine = yield* Engine;
+            const store = yield* Store;
+            const project = yield* engine.addProject(repo);
+            const exit = yield* Effect.exit(
+              start(project.id, { branch: 'main', newWorktree: true }),
+            );
+            expect(exit).toMatchObject({
+              _tag: 'Failure',
+              cause: {
+                reasons: [
+                  {
+                    error: {
+                      _tag: 'HarnessFailed',
+                      message: 'Claude Code stopped with exit code 1: boom',
+                    },
+                  },
+                ],
+              },
+            });
+            expect(inside(join(worktrees, project.id))).toEqual([]);
+            expect(sh(repo, 'branch', '--list', 'ke-code/*')).toBe('');
+            yield* Effect.sleep('50 millis');
+            expect(yield* store.allSessions).toEqual([]);
+          }),
+        { harness: claude },
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('starts on the branch a repository with no commits is on, but makes no Worktree from it', async () => {
+    const repo = temp();
+    sh(repo, 'init', '-q', '-b', 'main');
+    await run((worktrees) =>
+      Effect.gen(function* () {
+        const engine = yield* Engine;
+        const project = yield* engine.addProject(repo);
+        expect(yield* engine.branches(project.id)).toMatchObject({
+          current: 'main',
+          local: [],
+        });
+        const { session, steps } = yield* start(project.id, {
+          branch: 'main',
+        });
+        expect(steps).toEqual(['startingAgent running', 'startingAgent done']);
+        expect(session).toMatchObject({ worktree: repo, branch: 'main' });
+
+        const exit = yield* Effect.exit(
+          start(project.id, { branch: 'main', newWorktree: true }),
+        );
+        expect(exit).toMatchObject({
+          _tag: 'Failure',
+          cause: {
+            reasons: [
+              {
+                error: {
+                  _tag: 'GitFailed',
+                  step: 'makingWorktree',
+                  message:
+                    'This Project has no commits yet to start a worktree from',
+                },
+              },
+            ],
+          },
+        });
+        expect(inside(join(worktrees, project.id))).toEqual([]);
+      }),
+    );
+  });
+
+  it('shows only the second attempt when a start that failed to open is asked again under its id', async () => {
+    const fake = makeFakeHarness();
+    let opens = 0;
+    const once: Harness = {
+      ...fake.harness,
+      open: (config) =>
+        ++opens === 1
+          ? Effect.fail(new HarnessError({ message: 'no agent here' }))
+          : fake.harness.open(config),
+    };
+    await run(
+      () =>
+        Effect.gen(function* () {
+          const engine = yield* Engine;
+          const store = yield* Store;
+          const project = yield* engine.addProject(temp());
+          const id = '01J0Z8Q3VQ4N7Y2K5R6T8W9XAC';
+          const failed = yield* Effect.exit(
+            start(project.id, { id, text: 'first' }),
+          );
+          expect(Exit.isFailure(failed)).toBe(true);
+          yield* Effect.sleep('50 millis');
+          yield* start(project.id, { id, text: 'second' });
+          yield* eventually(async () =>
+            expect(
+              (await Effect.runPromise(store.raws(id).after(null, 1000))).items
+                .length,
+            ).toBeGreaterThan(0),
+          );
+          yield* Effect.sleep('50 millis');
+          const { items } = yield* store.raws(id).after(null, 1000);
+          const started = items.filter(
+            ({ value }) => value.kind === 'turn.started',
+          );
+          expect(started.map(({ value }) => value.payload)).toMatchObject([
+            { text: 'second' },
+          ]);
+          expect(new Set(items.map(({ value }) => value.turnId)).size).toBe(1);
+        }),
+      { fake, harness: once },
+    );
+  });
+
+  it('reports a start only once the Session and its first message are saved', async () => {
+    const held = Promise.withResolvers<void>();
+    await run(
+      () =>
+        Effect.gen(function* () {
+          const engine = yield* Engine;
+          const store = yield* Store;
+          const project = yield* engine.addProject(temp());
+          const id = '01J0Z8Q3VQ4N7Y2K5R6T8W9XAD';
+          const starting = yield* Effect.forkChild(
+            start(project.id, { id, text: 'first' }),
+          );
+          yield* Effect.sleep('100 millis');
+          expect(starting.pollUnsafe()).toBeUndefined();
+          held.resolve();
+          yield* Fiber.join(starting);
+          const { items } = yield* store.raws(id).after(null, 1000);
+          expect(items[0]?.value).toMatchObject({
+            kind: 'turn.started',
+            payload: { text: 'first' },
+          });
+          expect(yield* store.session(id)).toMatchObject({ id });
+        }),
+      {
+        store: (store) => ({
+          ...store,
+          appendRaw: (raw) =>
+            Effect.andThen(
+              Effect.promise(() => held.promise),
+              store.appendRaw(raw),
+            ),
+        }),
+      },
+    );
+  });
+
+  describe('ends a start, keeping no Session nor Worktree, when', () => {
+    const failsWith = (
+      store: (store: Store['Service']) => Store['Service'],
+    ) => {
+      const repo = clone();
+      return run(
+        (worktrees) =>
+          Effect.gen(function* () {
+            const engine = yield* Engine;
+            const project = yield* engine.addProject(repo);
+            const exit = yield* Effect.exit(
+              start(project.id, { newWorktree: true }),
+            );
+            expect(exit).toMatchObject({
+              _tag: 'Failure',
+              cause: { reasons: [{ error: { _tag: 'HarnessFailed' } }] },
+            });
+            expect(inside(join(worktrees, project.id))).toEqual([]);
+            expect(sh(repo, 'branch', '--list', 'ke-code/*')).toBe('');
+            yield* Effect.sleep('50 millis');
+            expect(yield* (yield* Store).allSessions).toEqual([]);
+          }),
+        { store },
+      );
+    };
+
+    it('its first message cannot be written', () =>
+      failsWith((store) => ({
+        ...store,
+        appendRaw: () => Effect.die(new Error('disk full')),
+      })));
+
+    it('it cannot be saved', () =>
+      failsWith((store) => ({
+        ...store,
+        saveSession: () => Effect.die(new Error('disk full')),
+      })));
+
+    it('Connect stops while it waits', async () => {
+      const repo = clone();
+      const storePath = join(temp(), 'store.sqlite');
+      const worktrees = temp();
+      let projectId = '';
+      await run(
+        () =>
+          Effect.gen(function* () {
+            const engine = yield* Engine;
+            projectId = (yield* engine.addProject(repo)).id;
+            yield* Effect.forkDetach(start(projectId, { newWorktree: true }));
+            yield* eventually(() =>
+              expect(inside(join(worktrees, projectId))).toHaveLength(1),
+            );
+            yield* Effect.sleep('50 millis');
+          }),
+        {
+          storePath,
+          worktrees,
+          store: (store) => ({
+            ...store,
+            appendRaw: () => Effect.never,
+          }),
+        },
+      );
+      expect(inside(join(worktrees, projectId))).toEqual([]);
+      expect(sh(repo, 'branch', '--list', 'ke-code/*')).toBe('');
+      await run(
+        () =>
+          Effect.gen(function* () {
+            expect(yield* (yield* Store).allSessions).toEqual([]);
+          }),
+        { storePath },
+      );
+    });
+  });
+
+  it('runs in its folder, with no branch, in a Project that is not git', async () => {
+    await run(() =>
+      Effect.gen(function* () {
+        const engine = yield* Engine;
+        const project = yield* engine.addProject(temp());
+        const { session, steps } = yield* start(project.id, {
+          branch: 'main',
+          newWorktree: true,
+        });
+        expect(steps).toEqual(['startingAgent running', 'startingAgent done']);
+        expect(session).toMatchObject({ worktree: null, branch: null });
+      }),
+    );
+  });
+
+  it('names a new Worktree’s branch for its first Title, -2 when that is taken, once', async () => {
+    const repo = clone();
+    sh(repo, 'branch', 'ke-code/fix-the-login-bug');
+    const fake = makeFakeHarness({ oneShot: 'Fix the login bug' });
+    await run(
+      () =>
+        Effect.gen(function* () {
+          const engine = yield* Engine;
+          const store = yield* Store;
+          const project = yield* engine.addProject(repo);
+          const { session } = yield* start(project.id, { newWorktree: true });
+          yield* eventually(async () =>
+            expect(await saved(store, session.id)).toMatchObject({
+              title: 'Fix the login bug',
+              branch: 'ke-code/fix-the-login-bug-2',
+            }),
+          );
+          expect(sh(session.worktree!, 'branch', '--show-current')).toBe(
+            'ke-code/fix-the-login-bug-2',
+          );
+          // A new Title leaves the branch as it is.
+          yield* engine.regenerateTitle(session.id);
+          expect((yield* stored(session.id))?.branch).toBe(
+            'ke-code/fix-the-login-bug-2',
+          );
+        }),
+      { fake },
+    );
+  });
+
+  it('names no branch for a Title while its start may still fail', async () => {
+    const repo = clone();
+    const fake = makeFakeHarness({ oneShot: 'Fix the login bug' });
+    await run(
+      (worktrees) =>
+        Effect.gen(function* () {
+          const engine = yield* Engine;
+          const project = yield* engine.addProject(repo);
+          const exit = yield* Effect.exit(
+            start(project.id, { newWorktree: true }),
+          );
+          expect(Exit.isFailure(exit)).toBe(true);
+          expect(inside(join(worktrees, project.id))).toEqual([]);
+          expect(sh(repo, 'branch', '--list', 'ke-code/*')).toBe('');
+        }),
+      {
+        fake,
+        store: (store) => ({
+          ...store,
+          saveSession: () =>
+            Effect.andThen(
+              Effect.sleep('300 millis'),
+              Effect.die(new Error('disk full')),
+            ),
+        }),
+      },
+    );
+  });
+
+  it('keeps a pushed branch’s name on the first Title', async () => {
+    const repo = clone();
+    const fake = makeFakeHarness({ oneShot: 'Fix the login bug' });
+    await run(
+      () =>
+        Effect.gen(function* () {
+          const engine = yield* Engine;
+          const store = yield* Store;
+          const project = yield* engine.addProject(repo);
+          const { session } = yield* start(project.id, { newWorktree: true });
+          sh(session.worktree!, 'push', '-q', '-u', 'origin', session.branch!);
+          yield* eventually(async () =>
+            expect((await saved(store, session.id))?.title).toBe(
+              'Fix the login bug',
+            ),
+          );
+          expect(sh(session.worktree!, 'branch', '--show-current')).toBe(
+            session.branch,
+          );
+          expect((yield* stored(session.id))?.branch).toBe(session.branch);
+        }),
+      { fake },
+    );
+  });
+
+  it('keeps the branch its Worktree is on, read every minute', async () => {
+    const repo = clone();
+    await run(
+      () =>
+        Effect.gen(function* () {
+          const engine = yield* Engine;
+          const project = yield* engine.addProject(repo);
+          const { session } = yield* start(project.id, { branch: 'main' });
+          sh(repo, 'switch', '-q', 'topic');
+          // Each minute, as many as it takes the check to wait for the next.
+          for (let minute = 0; minute < 50; minute++) {
+            if ((yield* stored(session.id))?.branch === 'topic') break;
+            yield* TestClock.adjust(EVERY);
+            yield* Effect.promise(
+              () => new Promise((done) => setTimeout(done, 20)),
+            );
+          }
+          expect((yield* stored(session.id))?.branch).toBe('topic');
+        }),
+      { testClock: true },
+    );
+  });
+});

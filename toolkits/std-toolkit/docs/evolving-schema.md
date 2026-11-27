@@ -184,8 +184,9 @@ sharp edges worth knowing before you rely on it.
   shipped migrations are contracts with the rows already written, but nothing
   in the types detects that you changed v1's fields or rewrote the v1→v2 step
   after rows were written. On a persistent table, three things catch a changed
-  version: the per-table test (`expectTableShippable`) in CI, the deploy guard,
-  and setup against the Stored contract. See "Shipping" below. A rewritten migration is not caught by a snapshot: it is
+  version: the per-table test (`expectTableShippable`) in CI, and the check
+  against the snapshot the table keeps, at deploy or at setup. See "Shipping"
+  below. A rewritten migration is not caught by a snapshot: it is
   code. `expectUpgradable` (below) is the test that exercises it.
 - **Migrations only run on read.** A row written at v1 stays a v1 row on disk
   until something decodes and re-encodes it. If you delete the v1→v2 migration
@@ -250,9 +251,10 @@ when a change is not safe, such as preferences or a local copy the Backend can
 send again. A disposable table may become persistent; a persistent table never
 becomes disposable.
 
-The baseline is the **Stored contract**: the table snapshot the data was last
-set up under, kept beside the data. Setup (`SQLite.setup`, `IDB.make` on first
-open, `D1.table` at deploy) diffs the current snapshot against it:
+The baseline is the **Stored snapshot**: the table snapshot the data was last
+set up under, kept inside the table itself as three internal entities
+(`__snapshot`, `__snapshot_entity`, `__snapshot_version`). One check diffs the
+current snapshot against it:
 
 - On a persistent table, a `breaking` or `unverifiable` change fails with
   `SetupRefused` and changes nothing. A `requires-backfill` change passes with
@@ -261,15 +263,29 @@ open, `D1.table` at deploy) diffs the current snapshot against it:
   change that needs a backfill, IndexedDB reindexes or wipes as `onBackfill`
   says; the other adapters wipe.
 
-Because each database keeps its own contract, a browser or Durable Object that
-skipped releases is compared from where its data actually is.
+Because each table keeps its own snapshot, a browser or Durable Object that
+skipped releases is compared from where its data actually is, and nothing is
+lost with Alchemy state.
 
-The **deploy guard** stops a change earlier. It keeps the Deployed contract,
-the snapshot last shipped, in Alchemy state, and fails the deploy on a breaking
-change. `D1.table` and `DynamoDB.table` include it for persistent tables;
-`DeployGuard.table(table)` adds it for a table Alchemy does not create, such as
-an IndexedDB or Durable Object table. DynamoDB keeps no Stored contract, so its
-guard is its only check, and nothing replaces or wipes a DynamoDB table: in either mode, a breaking change, or any index change other than adding a global secondary index, fails the deploy, and the way past it is a new `DynamoDB.table` resource, with its own id and table name: renaming the table under the same resource would make Alchemy replace it and delete the old one, so that is refused too.
+The check runs where no request pays for it. `D1.table` and `DynamoDB.table`
+run it at deploy, so a breaking change fails the deploy before anything
+ships. `SQLite.setup` runs it at process start for a SQLite file and in a
+Durable Object's constructor; IndexedDB runs it when the database opens. A
+Durable Object or IndexedDB table meets the change only after the code is
+live, so for them the per-table test in CI is the earlier check.
+
+Nothing replaces or wipes a DynamoDB table: in either mode, a breaking
+change, or any index change other than adding a global secondary index,
+fails the deploy, and the way past it is a new `DynamoDB.table` resource,
+with its own id and table name: renaming the table under the same resource
+would make Alchemy replace it and delete the old one, so that is refused too.
+
+When a release changes how std-toolkit itself stores data, the code that
+moves the old layout to the new one is a migration in `src/migrations/`, one
+folder per release, run on the next setup or deploy. Tables from before the
+Stored snapshot are moved this way: SQLite files, D1 and Durable Objects
+carry their old contract over, and IndexedDB disposable stores are wiped
+once.
 
 The only way past a persistent table's refusal is honest about the data: a new
 physical table name, leaving the old data in place. There is no override.

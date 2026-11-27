@@ -9,7 +9,7 @@ import {
 } from 'effect';
 import { Actor, Command } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
-import type { ActorType } from '@kestack/kabuki/types';
+import type { ActorType, SelfOf } from '@kestack/kabuki/types';
 import type { ViewOf } from '@kestack/kabuki/react/types';
 import { Accounts } from '@kestack/auth-toolkit/client';
 
@@ -152,11 +152,23 @@ const Input = Schema.Struct({
   maxAccounts: Schema.Number,
 });
 
-const Message = Schema.TaggedUnion({
-  SignIn: {},
-  SwitchTo: { id: Schema.String },
-  SignOut: {},
-  SignOutAll: {},
+const Message = {
+  SignIn: Schema.Struct({}).annotate({
+    description:
+      "Signs one more Account in, as Sign in or the menu's Add another account does; refused while another action is under way (model.busy).",
+  }),
+  SwitchTo: Schema.Struct({ id: Schema.String }).annotate({
+    description:
+      'Makes another Account signed in here the active one, by its id from model.account.accounts, as choosing it in the menu does.',
+  }),
+  SignOut: Schema.Struct({}).annotate({
+    description:
+      "Signs the active Account out of this browser, as the menu's Sign out does.",
+  }),
+  SignOutAll: Schema.Struct({}).annotate({
+    description:
+      "Signs every Account out of this browser, as the menu's Sign out of all accounts does.",
+  }),
   Changed: {
     account: Shown,
     /** The Account a switch under way makes active. */
@@ -166,7 +178,7 @@ const Message = Schema.TaggedUnion({
   SwitchDone: {},
   Settled: {},
   Failed: { message: Schema.String },
-});
+};
 
 const AccountSwitcher = Actor.define('AccountSwitcher', {
   requires: [Accounts, Link],
@@ -175,6 +187,9 @@ const AccountSwitcher = Actor.define('AccountSwitcher', {
   message: Message,
 });
 
+/** The Messages it takes, as `send` takes them. */
+type Message = Parameters<SelfOf<typeof AccountSwitcher>['send']>[0];
+
 // Written out: the type `build` infers names Kabuki's internals.
 export const AccountSwitcherLive: ActorType<
   'AccountSwitcher',
@@ -182,7 +197,7 @@ export const AccountSwitcherLive: ActorType<
   void,
   typeof Model.Type,
   { readonly _tag: 'Single' },
-  typeof Message.Type,
+  Message,
   { readonly Single: {} },
   Accounts | Link
 > = AccountSwitcher.build({

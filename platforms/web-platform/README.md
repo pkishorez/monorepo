@@ -9,7 +9,7 @@ Every kestack web app used to wire the same things by hand: the Document, the Th
 It has four modules, each depending only on the ones before it:
 
 - `ui`: what the user sees and touches: `ui/theme`, `ui/input` (device, gestures, keys, sounds), `ui/components/*` and the viewers built from them, `ui/viewers/*`.
-- `pwa`: the app installable, opening without the network and updated in place. `pwa/vite` builds the worker and manifest, `pwa/worker` runs in the worker, and `pwa` is the page's side: `PwaHead`, `Pwa`, the Update and Install Prompts and the Extras.
+- `pwa`: the app installable, opening without the network and updated in place. `pwa/vite` builds the worker and manifest, `pwa/worker` runs in the worker, and `pwa` is the page's side: `PwaHead`, `Pwa`, the Update and Install Prompts and the Extras. `pwa/fake` is the New build fake, for fake mode.
 - `recipes/*`: whole features built from `ui`: the Frame, the Account Switcher, the Vim status line, Local sign-in, Kabuki's Devtools, the Thumb Picker, swipe rows, an image viewer, and the touch layers that keep a Drawer and its field above the on-screen keyboard.
 - `app`: putting it together: `app/vite` is the one Vite plugin an app lists, `app/document` the Document it passes to `Start.app`, and `app/alchemy` how it is deployed on its Stages.
 
@@ -24,7 +24,7 @@ pnpm add -D @tailwindcss/vite @vitejs/plugin-react
 
 An app's stylesheet imports `@kestack/web-platform/ui/theme/global.css`, which also points Tailwind at the Package's own classes. `app/vite` bundles the Package for the server too; an app that lists `start()` and `pwa()` itself adds `@kestack/web-platform` to `ssr.noExternal`.
 
-- `@kestack/auth-toolkit`: `./recipes/account-switcher` follows its `Accounts`, by the sign-in service's cookie or as Fake Accounts.
+- `@kestack/auth-toolkit`: `./recipes/account-switcher` follows its `Accounts`, by the sign-in service's cookie, or over its Sign-in fake.
 - `react`, `react-dom`: every component, Recipe and the Document render with React 19.
 - `@kestack/use-gesture`: the platform-free gesture core that `./ui/input`'s web gestures and the Thumb Picker run on.
 - `@kestack/use-keys` (optional): the Binding and Shortcut types `./ui/input` shows, and the `createKeys` keyboard `./recipes/keyboard` shows. `./ui/theme/global.css` draws every `keys.Surface` from its data attributes, so a `keys.Provider` needs no `appearance` (also alone as `./ui/theme/keys.css`).
@@ -34,7 +34,8 @@ An app's stylesheet imports `@kestack/web-platform/ui/theme/global.css`, which a
 - `alchemy` and `@alchemy.run/cloudflare` (optional): the Cloudflare Website and state `./app/alchemy` deploys with.
 - `laymos` (optional): the file diff and change types the diff, git-changes and source-explorer viewers read.
 - `use-effect-ts` (optional): runs `./ui/viewers/source-explorer`'s loaders inside React.
-- `@kestack/kabuki` (optional): the Start parts `./app/document`'s Document draws, the Start app `./pwa/vite` builds beside, and the Actor and View `./recipes/account-switcher` is.
+- `@kestack/kabuki` (optional): the Start parts `./app/document`'s Document draws, the Start app `./pwa/vite` builds beside, the Actor and View `./recipes/account-switcher` is, and `./pwa/fake`'s Fake, made with its `Fake.make`.
+- `@kestack/std-toolkit` (optional): `OnOutdated`, which `./pwa/fake` serves.
 
 ## Exports
 
@@ -287,6 +288,14 @@ The PWA on the page.
 | ------------------ | -------------------------------------------------------------------------------------------------- |
 | `runServiceWorker` | Starts the worker; an app's own `src/sw.ts` calls it once, at the top, as the built-in entry does. |
 
+### `@kestack/web-platform/pwa/fake`
+
+The New build fake, for an app's fake mode, where no service worker runs: the builds a deploy puts out, as the page's PWA sees them. It carries `kestack-fake`, so a production build that brings it in fails.
+
+| Export     | What it does                                                                                                                                                                                                                                                                                                  |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `newBuild` | The Fake, for `FakeWorld.make` (`@kestack/kabuki/fake`): its state says whether a newer build is out, none at first; its control `PutOutNewerBuild` puts one out. Its Layer gives std-toolkit's `OnOutdated`: asked once per page load, it waits for a newer build, says so on the page, and reloads into it. |
+
 ### `@kestack/web-platform/recipes/frame`
 
 | Export                                                         | What it does                                                                                                                                                                                                                                                                                                                                                                          |
@@ -326,11 +335,12 @@ The Account Switcher of a Kabuki app: a Child of the root page, its View in the 
 
 ### `@kestack/web-platform/recipes/devtools`
 
-The Dock devtools sit in. Kabuki's Inspector is in [`@kestack/devtools-kabuki/inspector`](../../devtools/devtools-kabuki/README.md).
+The Dock devtools sit in beside a page, and the Dialog that opens them over a page the Dock cannot lay out. Kabuki's Inspector is in [`@kestack/devtools-kabuki/app`](../../devtools/devtools-kabuki/README.md).
 
-| Export         | What it does                                                                                                                                                                                                                                                                                                                                                                                                  |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DevtoolsDock` | Wraps a page with devtools opened from a corner button of one fixed size and place, or Ctrl+/ unless `shortcut` is off: full screen, a resizable bar or side panel, or a floating window, kept across reloads; phones get only full screen and the bar, or nothing with `onPhones` off. With `scrolls="window"`, a page that scrolls the window stays in the document's flow, the bar or panel fixed over it. |
+| Export           | What it does                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DevtoolsDialog` | Opens devtools full screen over a page it never wraps or lays out, drawn beside it, from the Dock's corner button and Ctrl+/ unless `shortcut` is off; Escape closes them, unless something inside took it first. Kept open across reloads; on a phone, nothing with `onPhones` off.                                                                                                                          |
+| `DevtoolsDock`   | Wraps a page with devtools opened from a corner button of one fixed size and place, or Ctrl+/ unless `shortcut` is off: full screen, a resizable bar or side panel, or a floating window, kept across reloads; phones get only full screen and the bar, or nothing with `onPhones` off. With `scrolls="window"`, a page that scrolls the window stays in the document's flow, the bar or panel fixed over it. |
 
 ### `@kestack/web-platform/recipes/thumb-picker`
 
@@ -367,9 +377,9 @@ The Dock devtools sit in. Kabuki's Inspector is in [`@kestack/devtools-kabuki/in
 
 ### `@kestack/web-platform/app/vite`
 
-| Export | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `app`  | Every Vite plugin a kestack app needs: Tailwind, React, Kabuki Start and the PWA (`pwa: false` for none), with the Web Platform bundled for the server. Under `vite dev` it signs in with auth-toolkit's Fake, serves every backend at `/rpc-<name>` on the site's origin and pipes a Kabuki Session's socket at `/__devtools/kabuki/connect` to the DevTools Server (`devtools`, `http://127.0.0.1:14400` by default, `false` for none), nothing else of DevTools, and it fails any build that carries the Fake. |
+| Export | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `app`  | Every Vite plugin a kestack app needs: Tailwind, React, Kabuki Start and the PWA (`pwa: false` for none), with the Web Platform bundled for the server. Under `vite dev` it pipes a Kabuki Session's socket at `/__devtools/kabuki/connect` to the DevTools Server (`devtools`, `http://127.0.0.1:14400` by default, `false` for none), nothing else of DevTools, and it fails any build that carries a fake (`kestack-fake`), a lazy chunk too. |
 
 ### `@kestack/web-platform/app/document`
 
@@ -379,15 +389,15 @@ The Dock devtools sit in. Kabuki's Inspector is in [`@kestack/devtools-kabuki/in
 
 ### `@kestack/web-platform/app/alchemy`
 
-| Export              | What it does                                                                                                                              |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `Site`              | A Kabuki Start app as a Cloudflare Website: on its domain on a deployed Stage, on Portless's port under `alchemy dev`.                    |
-| `State`             | Where alchemy keeps a Stack's state: Cloudflare's state store for a deployed Stage, `.alchemy/state` on disk for anyone's own.            |
-| `where`             | Where the Stage being run serves the site and its API Workers, once it is checked it may be run.                                          |
-| `isDeployedStage`   | Whether a Stage reaches the world: `prod`, `demo` or a pull request's `prN`.                                                              |
-| `assertStageIsSafe` | Refuses a deployed Stage unless `ALLOW_DEPLOY=true`.                                                                                      |
-| `portlessPort`      | The `PORT` `portless run` gives `pnpm dev`; throws when there is none.                                                                    |
-| `backend`           | A backend Worker's `build`: auth-toolkit's Fake under `alchemy dev` (unless `KESTACK_AUTH=real`), and failing elsewhere if it carries it. |
+| Export              | What it does                                                                                                                   |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `Site`              | A Kabuki Start app as a Cloudflare Website: on its domain on a deployed Stage, on Portless's port under `alchemy dev`.         |
+| `State`             | Where alchemy keeps a Stack's state: Cloudflare's state store for a deployed Stage, `.alchemy/state` on disk for anyone's own. |
+| `where`             | Where the Stage being run serves the site and its API Workers, once it is checked it may be run.                               |
+| `isDeployedStage`   | Whether a Stage reaches the world: `prod`, `demo` or a pull request's `prN`.                                                   |
+| `assertStageIsSafe` | Refuses a deployed Stage unless `ALLOW_DEPLOY=true`.                                                                           |
+| `portlessPort`      | The `PORT` `portless run` gives `pnpm dev`; throws when there is none.                                                         |
+| `backend`           | A backend Worker's `build`: anywhere but `alchemy dev`, failing if it carries a fake (`kestack-fake`).                         |
 
 ## Usage
 

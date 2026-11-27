@@ -4,17 +4,21 @@
   "ignoredPaths": ["src/styles.css", "src/env.d.ts"],
   "fileModules": [
     "src/start.tsx",
+    "src/fake.ts",
     "src/app/app.ts",
     "src/app/account/account.ts",
     "src/app/account/frame/commands.ts",
     "src/app/account/frame/store.ts",
     "src/app/account/frame/header/voice/voice.ts",
+    "src/app/account/frame/header/voice/recorder/recorder.ts",
+    "src/app/account/frame/header/voice/recorder/pcm.ts",
     "src/app/account/pages/project/store.ts",
     "src/app/account/pages/settings/cards/store.ts",
     "src/app/account/pages/settings/cards/card/agents/store.ts"
   ],
   "rules": {
     "src/start.tsx": ["src/app", "src/ui/page/devtools", "src/ui/page/theme"],
+    "src/fake.ts": ["src/app"],
     "src/app": ["src/ui"],
     "src/app/storage/local": ["src/app/storage/database"],
     "src/app/storage/cache": ["src/app/storage/database"],
@@ -39,6 +43,17 @@
     ],
     "src/app/account/frame/header/voice/microphone": [
       "src/app/account/frame/header/voice/recorder"
+    ],
+    "src/app/account/frame/header/voice/recorder/recorder.ts": [
+      "src/app/account/frame/header/voice/recorder/pcm.ts"
+    ],
+    "src/app/account/frame/header/voice/recorder/browser": [
+      "src/app/account/frame/header/voice/recorder/recorder.ts",
+      "src/app/account/frame/header/voice/recorder/pcm.ts"
+    ],
+    "src/app/account/frame/header/voice/recorder/fake": [
+      "src/app/account/frame/header/voice/recorder/recorder.ts",
+      "src/app/account/frame/header/voice/recorder/pcm.ts"
     ],
     "src/app/account/connection/records": ["src/app/account/connection/link"],
     "src/app/account/connection/link/health": [

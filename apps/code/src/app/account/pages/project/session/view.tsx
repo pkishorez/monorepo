@@ -234,7 +234,6 @@ function Page({ root, model, props, children, send }: Self) {
   const sends = useChild(children.draft, ({ model }) => model.sends);
   useEffect(() => {
     if (sends) scroll.holdOn(true);
-    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [sends]);
   keys.useAction('content.stop', stop, { enabled: canStop });
   const stopKeys = useBound('content.stop');

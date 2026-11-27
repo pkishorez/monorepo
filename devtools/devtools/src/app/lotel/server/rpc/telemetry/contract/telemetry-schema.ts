@@ -1,0 +1,146 @@
+import { Schema } from 'effect';
+import { EntityESchema, ESchema } from '@kestack/std-toolkit/eschema';
+import type {
+  OtlpLogRecord,
+  OtlpSpan,
+  TelemetryContext,
+} from '../../../http/otlp/contract/index.js';
+
+export type SpanPayload = Omit<OtlpSpan, 'traceId' | 'spanId'>;
+export type LogPayload = Omit<OtlpLogRecord, 'traceId' | 'spanId'>;
+
+export const SpanEntitySchema = EntityESchema.make('Span', 'spanId', {
+  traceId: Schema.String,
+  span: ESchema.fromType<SpanPayload>(),
+  context: ESchema.fromType<TelemetryContext>(),
+})
+  .evolve(
+    'v2',
+    {
+      flowId: Schema.NullOr(Schema.String),
+      participantName: Schema.NullOr(Schema.String),
+    },
+    (previous) => ({
+      ...previous,
+      flowId: null,
+      participantName: null,
+    }),
+  )
+  .evolve(
+    'v3',
+    { flowId: null, participantName: null },
+    ({ flowId: _flowId, participantName: _participantName, ...rest }) => rest,
+  )
+  .build();
+
+export const LogEntitySchema = EntityESchema.make('LogRecord', 'id', {
+  traceId: Schema.NullOr(Schema.String),
+  spanId: Schema.NullOr(Schema.String),
+  log: ESchema.fromType<LogPayload>(),
+  context: ESchema.fromType<TelemetryContext>(),
+})
+  .evolve(
+    'v2',
+    {
+      flowId: Schema.NullOr(Schema.String),
+      participantName: Schema.NullOr(Schema.String),
+    },
+    (previous) => ({
+      ...previous,
+      flowId: null,
+      participantName: null,
+    }),
+  )
+  .evolve(
+    'v3',
+    { flowId: null, participantName: null },
+    ({ flowId: _flowId, participantName: _participantName, ...rest }) => rest,
+  )
+  .build();
+
+export type SpanRecord = typeof SpanEntitySchema.Type;
+export type LogRecord = typeof LogEntitySchema.Type;
+
+export const NewLogRecordSchema = Schema.Struct({
+  traceId: Schema.NullOr(Schema.String),
+  spanId: Schema.NullOr(Schema.String),
+  log: ESchema.fromType<LogPayload>(),
+  context: ESchema.fromType<TelemetryContext>(),
+});
+
+export const NewSpanRecordSchema = Schema.Struct({
+  traceId: Schema.String,
+  spanId: Schema.String,
+  span: ESchema.fromType<SpanPayload>(),
+  context: ESchema.fromType<TelemetryContext>(),
+});
+
+export type NewSpanRecord = typeof NewSpanRecordSchema.Type;
+
+export type NewLogRecord = typeof NewLogRecordSchema.Type;
+
+export const UpdateCursorSchema = Schema.Union([
+  Schema.Struct({ '>': Schema.NullOr(Schema.String) }),
+  Schema.Struct({ '>=': Schema.NullOr(Schema.String) }),
+  Schema.Struct({ '<': Schema.NullOr(Schema.String) }),
+  Schema.Struct({ '<=': Schema.NullOr(Schema.String) }),
+]);
+
+export type UpdateCursor = typeof UpdateCursorSchema.Type;
+
+export const ListPayloadSchema = Schema.Struct({
+  _u: UpdateCursorSchema,
+  limit: Schema.optional(Schema.Number),
+});
+
+export const SpanListSchema = Schema.Struct({
+  items: Schema.Array(SpanEntitySchema.entity),
+});
+
+export const LogListSchema = Schema.Struct({
+  items: Schema.Array(LogEntitySchema.entity),
+});
+
+export const TraceSummarySchema = Schema.Struct({
+  traceId: Schema.String,
+  name: Schema.NullOr(Schema.String),
+  serviceName: Schema.NullOr(Schema.String),
+  startTimeUnixNano: Schema.NullOr(Schema.String),
+  endTimeUnixNano: Schema.NullOr(Schema.String),
+  spanCount: Schema.Number,
+  errorCount: Schema.Number,
+  running: Schema.Boolean,
+});
+
+export type TraceSummary = typeof TraceSummarySchema.Type;
+
+export const ListTracesPayloadSchema = Schema.Struct({
+  limit: Schema.optional(Schema.Number),
+});
+
+export const TraceSummaryListSchema = Schema.Struct({
+  items: Schema.Array(TraceSummarySchema),
+});
+
+export const TraceDetailsSchema = Schema.Struct({
+  traceId: Schema.String,
+  spans: Schema.Array(SpanEntitySchema.entity),
+  logs: Schema.Array(LogEntitySchema.entity),
+});
+
+export const BatchWriteResultSchema = Schema.Struct({
+  accepted: Schema.Number,
+  rejected: Schema.Number,
+});
+
+export const ClearTelemetryResultSchema = Schema.Struct({
+  deleted: Schema.Number,
+});
+
+export class LotelRpcError extends Schema.TaggedError<LotelRpcError>(
+  'LotelRpcError',
+)('LotelRpcError', { message: Schema.String }) {}
+
+export class TraceNotFound extends Schema.TaggedError<TraceNotFound>(
+  'TraceNotFound',
+)('TraceNotFound', { traceId: Schema.String }) {}

@@ -23,7 +23,7 @@ import {
   type Channel,
   type QuestionAnswered,
   type ToolItem,
-} from '../thread/index.js';
+} from '../record-kinds/index.js';
 
 /** Tool output longer than this is cut in the projection; Raw keeps it all. */
 export const OUTPUT_LIMIT = 4_000;

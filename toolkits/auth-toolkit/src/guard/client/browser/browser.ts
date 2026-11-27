@@ -11,7 +11,12 @@ import {
 } from './cache.js';
 import { makeCookieSource } from './cookie-source.js';
 
-export { browserAccountsTable, rememberedAccounts };
+export {
+  browserAccountsTable,
+  type CacheStorage,
+  makeCache,
+  rememberedAccounts,
+};
 
 export interface BrowserOptions {
   /** The Auth Worker's own URL. */
@@ -51,8 +56,7 @@ const checkOptions = ({ url }: BrowserOptions) => {
  *
  * `signIn()` leaves for the Login Screen; `signIn({ provider: 'google' })`
  * leaves for Google at once, from the app's own screen, as the Login
- * Screen's button does; `signIn({ test: { email, key? } })` signs a Test
- * User in at once, where the Auth Worker allows it.
+ * Screen's button does.
  */
 export const browser = (options: BrowserOptions): AccountsLayer => {
   checkOptions(options);

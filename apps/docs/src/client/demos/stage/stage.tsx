@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { History as Kept } from '@kestack/kabuki';
 import type { AppRuntime } from '@kestack/kabuki/react/types';
-import { KabukiInspector } from '@kestack/devtools-kabuki/inspector';
+import { KabukiInspector } from '@kestack/devtools-kabuki/app';
 
 /*
  * A demo staged to be watched: the app on top, its tree of Actors under it,

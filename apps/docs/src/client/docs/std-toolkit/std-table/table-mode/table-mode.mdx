@@ -56,7 +56,8 @@ to protect.
 
 Each stored table keeps a note of the table it was last set up for: its
 keys, its indexes, and every version of every shape bound to it. That
-note is its **Stored contract**, and it lives beside the data.
+note is its **Stored snapshot**, and it lives in the table itself, as a
+few rows of its own.
 
 Every time setup runs, it compares your table now with that note. Each
 difference gets one of four verdicts:
@@ -71,8 +72,8 @@ difference gets one of four verdicts:
 Because the note lives with the data, a phone that skipped three
 releases is compared from where its own data really is.
 
-DynamoDB is the one exception: it keeps no Stored contract. Its check
-runs at deploy instead, as [Deploying](/std-toolkit/deploying) shows.
+On D1 and DynamoDB the check runs at deploy instead, as
+[Deploying](/std-toolkit/deploying) shows.
 
 ## What each mode does
 

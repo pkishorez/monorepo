@@ -101,20 +101,35 @@ const Frame = Actor.define('Frame', {
     /** Whether it is drawn: once all it first draws was read (4. Shown). */
     shown: Schema.Boolean,
   }),
-  message: Schema.TaggedUnion({
+  message: {
     KeyboardRead: { keyboard: Keys },
-    /** Vim Mode turned on or off, by its keys or in Settings. */
-    VimChanged: { on: Schema.Boolean },
-    /** A new session in the project open. */
-    NewSessionAsked: { connectionId: Schema.String, projectId: Schema.String },
-    /** Settings, from where the app is; `back`: back from Settings. */
-    SettingsToggled: { from: Back, back: Schema.Boolean },
-    /** Ctrl+O and Ctrl+I: Back and Forward through the pages. */
-    BackAsked: {},
-    ForwardAsked: {},
+    VimChanged: Schema.Struct({ on: Schema.Boolean }).annotate({
+      description:
+        'Turns Vim Mode on or off, as its keys do; it shows at once and is kept in Preferences.',
+    }),
+    NewSessionAsked: Schema.Struct({
+      connectionId: Schema.String,
+      projectId: Schema.String,
+    }).annotate({
+      description:
+        "Starts a new Session in a Project: goes to the Project's page, where the new Session's Draft is written.",
+    }),
+    SettingsToggled: Schema.Struct({
+      from: Back,
+      back: Schema.Boolean,
+    }).annotate({
+      description:
+        'Opens Settings with back: false, from: the Project and Session open {connectionId, projectId, sessionId|null}, or null for home; back: true returns there.',
+    }),
+    BackAsked: Schema.Struct({}).annotate({
+      description: 'Goes back one page in the history, as Ctrl+O does.',
+    }),
+    ForwardAsked: Schema.Struct({}).annotate({
+      description: 'Goes forward one page in the history, as Ctrl+I does.',
+    }),
     /** All it first draws is read from this device: the sidebar, the header and the page. */
     Ready: {},
-  }),
+  },
 });
 
 /** The keyboard, now and after each change to it, here or in another tab. */

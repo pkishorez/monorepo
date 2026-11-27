@@ -1,3 +1,4 @@
+import type { ConnectionStatus } from '@kestack/connect/cloud';
 import { describe, expect, it } from 'vitest';
 import { offlineSaid } from '../link.ts';
 
@@ -8,18 +9,19 @@ import { offlineSaid } from '../link.ts';
  * Connection is known to be out of reach.
  */
 
-const seen = (status: { readonly _tag: string }) =>
+const seen = (status: ConnectionStatus) =>
   ({ _tag: 'Seen', lastSeen: 0, status }) as const;
+
+const ready = (check: Extract<ConnectionStatus, { _tag: 'Ready' }>['check']) =>
+  seen({ _tag: 'Ready', url: 'https://a.example', check });
 
 describe('the Draft’s word that the Connection is out of reach', () => {
   it('is not said while the link first comes up', () => {
     expect(offlineSaid('linking', { _tag: 'Unknown' })).toBe(false);
-    expect(offlineSaid('linking', seen({ _tag: 'Reachable' }) as never)).toBe(
+    expect(offlineSaid('linking', ready({ _tag: 'Reachable', at: 0 }))).toBe(
       false,
     );
-    expect(offlineSaid('linking', seen({ _tag: 'Unchecked' }) as never)).toBe(
-      false,
-    );
+    expect(offlineSaid('linking', ready({ _tag: 'Unchecked' }))).toBe(false);
   });
 
   it('is said once a link that was up dropped', () => {
@@ -28,9 +30,27 @@ describe('the Draft’s word that the Connection is out of reach', () => {
 
   it('is said once the Connection is known to be out of reach', () => {
     expect(offlineSaid('linking', { _tag: 'Down', lastSeen: 0 })).toBe(true);
-    expect(offlineSaid('linking', seen({ _tag: 'Opening' }) as never)).toBe(
-      true,
-    );
+    expect(
+      offlineSaid(
+        'linking',
+        seen({ _tag: 'SettingUp', step: { _tag: 'Opening' } }),
+      ),
+    ).toBe(true);
+    expect(
+      offlineSaid(
+        'linking',
+        seen({
+          _tag: 'SettingUp',
+          step: { _tag: 'Failed', at: 0, problem: 'no route' },
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      offlineSaid(
+        'linking',
+        ready({ _tag: 'Unreachable', at: 0, problem: 'no route' }),
+      ),
+    ).toBe(true);
   });
 
   it('is not said once linked', () => {

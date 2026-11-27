@@ -93,7 +93,6 @@ export function useScroller(key: string, id: string) {
   const kept = useElementScrollRestoration({ id });
   const keep = useKeepScrollAnchor({ id });
   // A new list, its own place.
-  // oxlint-disable-next-line react-hooks/exhaustive-deps
   const scroll = useMemo(() => scrollOf(BOTTOM), [key]);
   // Until its list is drawn, it opens where the entry was left, as that is
   // known: on a page load, only once the Router knows its entry.

@@ -9,7 +9,6 @@ import { PluginStatus } from './values.js';
  */
 
 export { PluginState, PluginStatus } from './values.js';
-export { Plugins } from './plugins.js';
 
 /** The environment a Plugin's process is started with. */
 export const PluginEnv = {

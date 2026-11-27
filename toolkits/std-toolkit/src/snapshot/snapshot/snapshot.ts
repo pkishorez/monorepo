@@ -10,6 +10,7 @@ import {
 } from '../capture/table-capture/index.js';
 import {
   parseTableSnapshot,
+  referencesIn,
   serializeTableSnapshot,
 } from './snapshot-decoder/index.js';
 import { diffTableSnapshot } from './snapshot-diff/index.js';
@@ -35,4 +36,6 @@ export const TableSnapshot = {
   renderChanges: (changes: readonly SnapshotChange[]): string =>
     renderSnapshotChanges(changes),
   changeLabel: (change: SnapshotChange): string => changeLabel(change),
+  /** The ESchema identities a version's shape names. */
+  references: (shape: unknown): ReadonlySet<string> => referencesIn(shape),
 } as const;

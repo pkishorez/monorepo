@@ -19,9 +19,6 @@ export interface AuthOptions<OAuth extends OAuthOptions = OAuthOptions> {
   /** The Auth Worker's deployed URL, e.g. `https://auth.example.com`. */
   readonly url: string;
   readonly oauth?: OAuth | undefined;
-  /** Admit Test Users, whose email ends in `.test`. Refused (Forbidden)
-   * unless `true`, whatever their credential. */
-  readonly testUsers?: boolean | undefined;
 }
 
 /** Throws unless `options` name the Auth Worker's `url`. */

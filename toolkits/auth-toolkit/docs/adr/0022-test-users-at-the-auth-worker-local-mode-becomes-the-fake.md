@@ -4,7 +4,7 @@ Date: 2026-10-24
 
 ## Status
 
-Accepted. Extended by [root ADR 0012](../../../../docs/adr/0012-pnpm-dev-signs-in-with-the-fake.md): every app signs in with the Fake under `pnpm dev`, and a Fake Account's email must be at `kestack.test`. Supersedes the Local mode of [ADR 0016](./0016-auth-runs-locally-at-two-seams-joined-by-a-local-token.md) and [ADR 0018](./0018-three-caller-kinds-four-doors.md), and reverses ADR 0016's rejection of Test Login on the real Auth Worker.
+Accepted. Test Users superseded by [ADR 0024](./0024-test-users-go-one-sign-in-fake.md): they are removed, and the fake is one Sign-in fake run as a Fake. Extended by [root ADR 0012](../../../../docs/adr/0012-pnpm-dev-signs-in-with-the-fake.md), itself superseded by [root ADR 0015](../../../../docs/adr/0015-two-modes-real-and-fake.md): every app signs in with the Fake under `pnpm dev`, and a Fake Account's email must be at `kestack.test`. Supersedes the Local mode of [ADR 0016](./0016-auth-runs-locally-at-two-seams-joined-by-a-local-token.md) and [ADR 0018](./0018-three-caller-kinds-four-doors.md), and reverses ADR 0016's rejection of Test Login on the real Auth Worker.
 
 ## Context
 

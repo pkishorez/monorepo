@@ -312,37 +312,64 @@ export const readyOf = ({
 };
 
 export const Session = Page.define({
+  description:
+    "A Session's page: model.row has its title and running, true while a Turn runs; its Transcript's Messages child holds every prompt and the agent's answers; its Draft sends the next Message.",
   path: '/s/:sessionId',
   params: { sessionId: Schema.String },
   metadata: { title: 'Session · code' },
   requires: [CodeClient, Replicas, Storage, Connections, Preferences],
   model: Model,
-  message: Schema.TaggedUnion({
+  message: {
     Read: Read.fields,
-    StopAsked: {},
+    StopAsked: Schema.Struct({}).annotate({
+      description:
+        'Stops everything the Session runs, its Turn and its Background Jobs, as Stop does; model.row.running turns false once it has stopped.',
+    }),
     Stopped: {},
-    Toggled: { id: Schema.String },
+    Toggled: Schema.Struct({ id: Schema.String }).annotate({
+      description:
+        "Opens or shuts one fold in the transcript, as a click on its head: a tool call, its input or output, or a run of steps, by the fold's id; model.open lists those open.",
+    }),
     JobsHeard: { jobs: Schema.Array(BackgroundJobSchema) },
-    JobStopAsked: { jobId: Schema.String },
+    JobStopAsked: Schema.Struct({ jobId: Schema.String }).annotate({
+      description:
+        'Stops one Background Job, leaving the Turn running; jobId from model.jobs[].id.',
+    }),
     JobStopped: { jobId: Schema.String },
-    /** A subagent opened over the drawers open, or, `under` that many, in place of those above. */
-    DrawerOpened: { id: Schema.String, under: Schema.Finite },
-    /** The drawers from `depth` on closed: 0 closes them all. */
-    DrawersClosed: { depth: Schema.Finite },
+    DrawerOpened: Schema.Struct({
+      id: Schema.String,
+      under: Schema.Finite,
+    }).annotate({
+      description:
+        'Opens a subagent over the page, as a click on its row: id its row id, such as model.running[].rowId; under: 0, or the drawers to keep beneath it.',
+    }),
+    DrawersClosed: Schema.Struct({ depth: Schema.Finite }).annotate({
+      description:
+        'Closes the subagent drawers open (model.drawers) from depth on: 0 closes them all, 1 goes back to the outermost.',
+    }),
     RunningRead: { items: Schema.Array(RunningItem) },
     /** A background command opened over the page, in place of what was open. */
     CommandOpened: { jobId: Schema.String },
-    CommandClosed: {},
+    CommandClosed: Schema.Struct({}).annotate({
+      description:
+        "Closes the background command's output open over the page (model.command); the command runs on.",
+    }),
     /** What the open command wrote since. */
     OutputHeard: {
       jobId: Schema.String,
       run: Schema.Finite,
       text: Schema.String,
     },
-    RunningOpened: { how: Picker.How },
+    RunningOpened: Schema.Struct({ how: Picker.How }).annotate({
+      description:
+        "Opens the Running Picker over what runs now (model.running), to open a subagent or a command, or stop everything; how: 'keys'. Only while something runs.",
+    }),
     /** The Running Picker finished: on its last choice, or with none. */
     RunningDone: { last: Schema.NullOr(RunningChosen) },
-    ForkAsked: { afterTurnId: Schema.String },
+    ForkAsked: Schema.Struct({ afterTurnId: Schema.String }).annotate({
+      description:
+        "Forks a new Session from this one's context up to a Turn's end, then moves to it; afterTurnId: the turnId of a turnEnded in the transcript's messages.",
+    }),
     Forked: { projectId: Schema.String, sessionId: Schema.String },
     Refused,
     /** All it draws is read from this device: it can be drawn whole, its row held or not. */
@@ -353,10 +380,13 @@ export const Session = Page.define({
       context: Schema.NullOr(ContextUsageSchema),
     },
     ContextShownRead: { shown: ContextShown },
-    DetailsToggled: { open: Schema.Boolean },
+    DetailsToggled: Schema.Struct({ open: Schema.Boolean }).annotate({
+      description:
+        "Opens or closes the Session's details: its cost, Turns, time and tokens, and how full its agent's context is (model.context, asked afresh as they open).",
+    }),
     /** Whether its Connection runs here now. */
     ConnectionKnown: { here: Schema.Boolean },
-  }),
+  },
 });
 
 export const SessionLive = Session.build({

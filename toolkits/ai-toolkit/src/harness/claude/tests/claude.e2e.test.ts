@@ -63,7 +63,8 @@ vi.mock('@anthropic-ai/claude-agent-sdk', async (importOriginal) => {
 /**
  * Runs the real local Claude Code. Opt in with AI_TOOLKIT_E2E=1; set
  * AI_TOOLKIT_CAPTURE=<dir> to also write every turn's records there as JSON
- * (the project fixtures were captured this way).
+ * (`../fake/recordings/claude` was captured this way: the Agent fake
+ * replays them, and the projection tests read them).
  */
 const enabled = process.env['AI_TOOLKIT_E2E'] === '1';
 const capture = process.env['AI_TOOLKIT_CAPTURE'];

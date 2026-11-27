@@ -9,6 +9,7 @@ export {
   RpcConnection as connection,
   status,
   type ConnectionStatus,
+  type Dial,
   type SocketClose,
   type SocketWatch,
 } from './client/index.ts';

@@ -1,11 +1,11 @@
 import { Effect, Option, Stream } from 'effect';
-import type {
-  ContractFailure,
-  StoredItem,
-  StoredKey,
-  StdTableContract,
+import {
+  isInternalEntity,
+  type ContractFailure,
+  type StoredItem,
+  type StoredKey,
+  type StdTableContract,
 } from '../contract/index.js';
-import { LEGACY_BASELINE_ENTITY } from '../key/index.js';
 
 const SCAN_PAGE_SIZE = 200;
 
@@ -33,7 +33,12 @@ const scanSegment = (
     ),
   );
 
-/** Each segment is its own paginated sub-stream; non-DynamoDB adapters answer every segment but 0 with an immediate empty page, so merging never duplicates rows. */
+/**
+ * Each segment is its own paginated sub-stream; non-DynamoDB adapters answer
+ * every segment but 0 with an immediate empty page, so merging never
+ * duplicates rows. The internal entities' items describe the table, not its
+ * rows, so a scan skips them.
+ */
 export const scanStream = (
   contract: StdTableContract,
   parallelism: number,
@@ -44,5 +49,5 @@ export const scanStream = (
       scanSegment(contract, segment, totalSegments),
     ),
     { concurrency: totalSegments },
-  ).pipe(Stream.filter((item) => item.meta._e !== LEGACY_BASELINE_ENTITY));
+  ).pipe(Stream.filter((item) => !isInternalEntity(item.meta._e)));
 };

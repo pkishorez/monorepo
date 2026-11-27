@@ -1,6 +1,5 @@
-import { Memory } from '@kestack/std-toolkit/db/memory';
 import { NodeHttpPlatform, NodeServices } from '@effect/platform-node';
-import { Effect, Fiber, Layer, Schema, type Scope, Stream } from 'effect';
+import { Effect, Exit, Fiber, Layer, Schema, type Scope, Stream } from 'effect';
 import { Etag } from 'effect/http';
 import {
   HttpApi,
@@ -10,15 +9,10 @@ import {
   HttpApiTest,
 } from 'effect/http-api';
 import { Rpc, RpcGroup, RpcTest } from 'effect/rpc';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { Authz } from '../../authz/index.js';
 import { Accounts, AccountsState } from '../../client/accounts/index.js';
-import {
-  fakeAccounts,
-  fakeAccountsTable,
-  fakeChooser,
-  fakeGuard,
-} from '../index.js';
+import { fakeAccounts, fakeGuard, fakeSignIn, fakeSigning } from '../index.js';
 import { fakeToken } from '../token.js';
 
 /** Signs in whoever is next in line, as a test's stand-in for a dialog. */
@@ -41,10 +35,6 @@ const listed = Effect.flatMap(Accounts, ({ current }) =>
       : [],
   ),
 );
-
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
 
 describe('fakeAccounts', () => {
   it('signs in whoever was chosen and makes them the Active Account', async () => {
@@ -146,49 +136,14 @@ describe('fakeAccounts', () => {
     expect(none).toEqual([]);
   });
 
-  it('keeps fake Accounts in the storage it is given', async () => {
-    const storage = Memory.make(fakeAccountsTable).layer;
-    await run(
-      Effect.flatMap(Accounts, (accounts) => accounts.signIn()),
-      fakeAccounts({ choose: queue({ email: 'ada@kestack.test' }), storage }),
-    );
-    expect(
-      await run(listed, fakeAccounts({ choose: queue(), storage })),
-    ).toEqual([['ada@kestack.test', 'ada', true]]);
-  });
-
-  it('signs a named User in at once, as a Test User', async () => {
-    const state = await run(
-      Effect.gen(function* () {
-        const accounts = yield* Accounts;
-        yield* accounts.signIn({ test: { email: 'tess@kestack.test' } });
-        yield* accounts.signIn({
-          test: { email: 'Ada@Kestack.Test', key: 'ignored' },
-        });
-        return yield* accounts.current;
-      }),
-      fakeAccounts({ choose: Effect.die('never asked') }),
-    );
-    expect(state).toMatchObject({
-      _tag: 'SignedIn',
-      active: { email: 'ada@kestack.test', test: true },
-      accounts: [
-        { email: 'tess@kestack.test', test: true },
-        { email: 'ada@kestack.test', test: true },
-      ],
-    });
-  });
-
   it('keeps the formats devices hold', async () => {
-    const storage = Memory.make(fakeAccountsTable).layer;
     const state = await run(
       Effect.gen(function* () {
         yield* (yield* Accounts).signIn();
         return yield* (yield* Accounts).current;
       }),
-      fakeAccounts({ choose: queue({ email: 'ada@kestack.test' }), storage }),
+      fakeAccounts({ choose: queue({ email: 'ada@kestack.test' }) }),
     );
-    expect(fakeAccountsTable.logicalName).toBe('auth-local-accounts');
     const ada = state._tag === 'SignedIn' ? state.active : null;
     expect(ada?.id).toBe('local_YWRhQGtlc3RhY2sudGVzdA');
     const token = fakeToken.make({
@@ -207,76 +162,28 @@ describe('fakeAccounts', () => {
     expect(fakeToken.read('real-session-token')).toBeNull();
   });
 
-  it('comes back where a sign-in asks, else where it was made to, as the real one does', async () => {
-    const assign = vi.fn();
-    const here = 'https://app.example.com/a/ada';
-    vi.stubGlobal('window', { location: { href: here, assign } });
-    const storage = Memory.make(fakeAccountsTable).layer;
-    /** Signs in as the next chosen, and says whether it completed here. */
-    const signIn = (options?: { readonly returnTo: string }) =>
+  it('signs in on the same page, whatever a sign-in says it comes back to', async () => {
+    const listedAfter = await run(
       Effect.gen(function* () {
         const accounts = yield* Accounts;
-        const fiber = yield* Effect.forkChild(accounts.signIn(options), {
-          startImmediately: true,
-        });
-        yield* Effect.sleep(5);
-        const done = fiber.pollUnsafe() !== undefined;
-        yield* Fiber.interrupt(fiber);
-        return done;
-      });
-    const layer = fakeAccounts({
-      choose: queue(
-        { email: 'ada@kestack.test' },
-        { email: 'bob@kestack.test' },
-        { email: 'cy@kestack.test' },
-      ),
-      storage,
-      returnTo: 'https://app.example.com/',
-    });
-    const done = await run(
-      Effect.gen(function* () {
-        // On this page: signed in in place.
-        const inPlace = yield* signIn({ returnTo: here });
-        // Elsewhere, as the Layer says: the page leaves, as the real one's.
-        const home = yield* signIn();
-        // Elsewhere, as the sign-in says.
-        const asked = yield* signIn({
-          returnTo: 'https://app.example.com/a/cy',
-        });
-        // A Test User, always in place.
-        yield* (yield* Accounts).signIn({
-          test: { email: 'tess@kestack.test' },
-        });
-        return [inPlace, home, asked];
+        yield* accounts.signIn({ returnTo: 'https://app.example.com/a/ada' });
+        return yield* listed;
       }),
-      layer,
+      fakeAccounts({ choose: queue({ email: 'ada@kestack.test' }) }),
     );
-    expect(done).toEqual([true, false, false]);
-    expect(assign.mock.calls.map(([to]) => to)).toEqual([
-      'https://app.example.com/',
-      'https://app.example.com/a/cy',
-    ]);
-    // Each is kept, for the page it left for to read.
-    expect(
-      await run(listed, fakeAccounts({ choose: queue(), storage })),
-    ).toEqual([
-      ['ada@kestack.test', 'ada', false],
-      ['bob@kestack.test', 'bob', false],
-      ['cy@kestack.test', 'cy', false],
-      ['tess@kestack.test', 'tess', true],
-    ]);
+    expect(listedAfter).toEqual([['ada@kestack.test', 'ada', true]]);
   });
 
-  it('signs nobody in at an email outside kestack.test', async () => {
-    const state = await run(
+  it('refuses an email outside kestack.test, signing nobody in', async () => {
+    const [exit, state] = await run(
       Effect.gen(function* () {
         const accounts = yield* Accounts;
-        yield* accounts.signIn();
-        yield* accounts.signIn({ test: { email: 'tess@example.test' } });
-        return yield* accounts.current;
+        const exit = yield* Effect.exit(accounts.signIn());
+        return [exit, yield* accounts.check] as const;
       }),
       fakeAccounts({ choose: queue({ email: 'ada@example.com' }) }),
     );
+    expect(Exit.isSuccess(exit)).toBe(true);
     expect(state).toEqual(AccountsState.SignedOut());
   });
 });
@@ -287,8 +194,7 @@ describe('fakeGuard', () => {
   );
   const Api = RpcGroup.make(WhoAmI);
   const Handlers = Api.toLayer({
-    WhoAmI: () =>
-      Effect.map(Authz.User, ({ user, test }) => `${user.email} ${test}`),
+    WhoAmI: () => Effect.map(Authz.User, ({ user }) => user.email),
   });
   const call = Effect.gen(function* () {
     const client = yield* RpcTest.makeClient(Api);
@@ -302,16 +208,21 @@ describe('fakeGuard', () => {
         const before = yield* call;
         yield* accounts.signIn();
         const ada = yield* call;
-        yield* accounts.signIn({ test: { email: 'tess@kestack.test' } });
+        yield* accounts.signIn();
         return [before, ada, yield* call] as const;
       }),
-      fakeAccounts({ choose: queue({ email: 'ada@kestack.test' }) }),
+      fakeAccounts({
+        choose: queue(
+          { email: 'ada@kestack.test' },
+          { email: 'tess@kestack.test' },
+        ),
+      }),
     );
     expect(before).toMatchObject({
       failure: { _tag: 'Unauthenticated', reason: 'Not signed in' },
     });
-    expect(ada).toMatchObject({ success: 'ada@kestack.test true' });
-    expect(tess).toMatchObject({ success: 'tess@kestack.test true' });
+    expect(ada).toMatchObject({ success: 'ada@kestack.test' });
+    expect(tess).toMatchObject({ success: 'tess@kestack.test' });
   });
 
   const callWith = (user: { id: string; email: string; name: string }) =>
@@ -360,6 +271,57 @@ describe('fakeGuard', () => {
       ).toMatchObject({ failure: { _tag: 'Unauthenticated' } });
   });
 
+  it('puts a fake User on a Sign-in of its own behind every call, as a device holds one', async () => {
+    const WhoSignedIn = Rpc.make('WhoSignedIn', {
+      success: Schema.String,
+    }).pipe(Authz.required);
+    const Signed = RpcGroup.make(WhoSignedIn);
+    const as = fakeSignIn('Ada@kestack.test', 'laptop');
+    const result = await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const client = yield* RpcTest.makeClient(Signed);
+          return yield* client.WhoSignedIn();
+        }).pipe(
+          Effect.provide(
+            Signed.toLayer({
+              WhoSignedIn: () =>
+                Effect.map(Authz.User, (principal) =>
+                  principal.kind === 'session'
+                    ? `${principal.user.id} ${principal.session.id}`
+                    : 'token',
+                ),
+            }),
+          ),
+          Effect.provide(fakeGuard.rpc({ as })),
+        ),
+      ),
+    );
+    expect(result).toBe('local_YWRhQGtlc3RhY2sudGVzdA laptop');
+    expect(fakeSignIn('ada@example.com', 'laptop')).toBeNull();
+  });
+
+  it("signs a device's calls as its own Sign-in, whoever the browser around it has active", async () => {
+    const asDevice = (email: string) =>
+      call.pipe(Effect.provide(fakeSigning(fakeSignIn(email, 'laptop'))));
+    const [device, nobody, browser] = await run(
+      Effect.gen(function* () {
+        yield* Effect.flatMap(Accounts, (accounts) => accounts.signIn());
+        return [
+          yield* asDevice('ada@kestack.test'),
+          yield* call.pipe(Effect.provide(fakeSigning(null))),
+          yield* call,
+        ] as const;
+      }),
+      fakeAccounts({ choose: queue({ email: 'tess@kestack.test' }) }),
+    );
+    expect(device).toMatchObject({ success: 'ada@kestack.test' });
+    expect(nobody).toMatchObject({
+      failure: { _tag: 'Unauthenticated', reason: 'Not signed in' },
+    });
+    expect(browser).toMatchObject({ success: 'tess@kestack.test' });
+  });
+
   it('is unauthenticated for any other credential', async () => {
     const Unsigned = Effect.gen(function* () {
       const client = yield* RpcTest.makeClient(Api);
@@ -380,14 +342,12 @@ describe('fakeGuard', () => {
     class HttpApiFake extends HttpApi.make('fake-api').add(Group) {}
     const HttpHandlers = HttpApiBuilder.group(HttpApiFake, 'fake', (handlers) =>
       handlers.handle('me', () =>
-        Effect.map(Authz.User, ({ user, test }) => `${user.email} ${test}`),
+        Effect.map(Authz.User, ({ user }) => user.email),
       ),
     );
     const result = await run(
       Effect.gen(function* () {
-        yield* (yield* Accounts).signIn({
-          test: { email: 'tess@kestack.test' },
-        });
+        yield* (yield* Accounts).signIn();
         const client = yield* HttpApiTest.groups(HttpApiFake, ['fake']);
         return yield* client.fake.me();
       }).pipe(
@@ -401,30 +361,8 @@ describe('fakeGuard', () => {
           ),
         ),
       ),
-      fakeAccounts({ choose: queue() }),
+      fakeAccounts({ choose: queue({ email: 'tess@kestack.test' }) }),
     );
-    expect(result).toBe('tess@kestack.test true');
-  });
-});
-
-describe('fakeChooser', () => {
-  it('waits for an answer while asking', async () => {
-    const chooser = fakeChooser();
-    const seen: boolean[] = [];
-    chooser.subscribe(() => seen.push(chooser.isAsking()));
-
-    const answered = await Effect.runPromise(
-      Effect.gen(function* () {
-        const fiber = yield* Effect.forkChild(chooser.choose);
-        yield* Effect.yieldNow;
-        expect(chooser.isAsking()).toBe(true);
-        chooser.answer({ email: 'ada@kestack.test' });
-        return yield* Fiber.join(fiber);
-      }),
-    );
-
-    expect(answered).toEqual({ email: 'ada@kestack.test' });
-    expect(chooser.isAsking()).toBe(false);
-    expect(seen).toEqual([true, false]);
+    expect(result).toBe('tess@kestack.test');
   });
 });

@@ -1,0 +1,361 @@
+import {
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
+import {
+  animate,
+  motion,
+  useMotionValue,
+  useReducedMotion,
+  useTransform,
+} from 'motion/react';
+import { useDefaultLayout } from 'react-resizable-panels';
+import type { ViewPropsOf } from '@kestack/kabuki/react/types';
+import { Button } from '@kestack/web-platform/ui/components/button';
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from '@kestack/web-platform/ui/components/resizable';
+import { cn } from '@kestack/web-platform/ui/components/utils';
+import { GestureProvider, GestureZone } from '@kestack/web-platform/ui/input';
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ArrowLeftIcon,
+  ChevronsDownUpIcon,
+  ChevronsUpDownIcon,
+  XIcon,
+} from 'lucide-react';
+
+import { isWithin } from '../../../../../../server/rpc/contract/index.js';
+import { isIgnored } from '../../../logic/shared/index.js';
+import {
+  settingsTrigger,
+  TreeSettings,
+  usePhone,
+} from '../../../view/shared/index.js';
+import {
+  defaultSettings,
+  entriesOf,
+  fileTreeRows,
+  foldersOf,
+  shownOf,
+  sinceOf,
+  stepFrom,
+  stepsOf,
+  type ViewerShape,
+} from '../logic/shared/index.js';
+import { FileList } from './file-list.js';
+import { settle, Swipes, useRestAt } from './swipes.js';
+
+const typing = (target: EventTarget) =>
+  target instanceof HTMLElement &&
+  (target.isContentEditable ||
+    target.tagName === 'INPUT' ||
+    target.tagName === 'TEXTAREA');
+
+const plural = (count: number, one: string) =>
+  `${count} ${one}${count === 1 ? '' : 's'}`;
+
+type FolderProps = Extract<
+  ViewPropsOf<typeof ViewerShape>,
+  { readonly _tag: 'Folder' }
+> & {
+  readonly file: ReactNode;
+};
+
+export function Folder({ root, state, props, send, file }: FolderProps) {
+  const settings = props ?? defaultSettings;
+  const entries = useMemo(() => entriesOf(state, settings), [state, settings]);
+  const rows = useMemo(
+    () => fileTreeRows(state.path, entries, new Set(state.closed)),
+    [state.path, entries, state.closed],
+  );
+  const changesOn = state.base !== null;
+  const deletedCount = changesOn
+    ? state.changed.filter(({ status }) => status === 'deleted').length
+    : 0;
+  const changedCount = entries.filter(({ status }) => status !== null).length;
+  const order = useMemo(() => stepsOf(state, settings), [state, settings]);
+  const shown = shownOf(state, settings);
+  const at = shown === null ? -1 : order.indexOf(shown);
+  const hasNext = stepFrom(state, settings, 1) !== null;
+  const hasPrevious = stepFrom(state, settings, -1) !== null;
+  const reduced = useReducedMotion() ?? false;
+
+  const holders = useMemo(() => {
+    const folders = foldersOf(state, settings);
+    const known = new Set(folders);
+    const holding = new Set<string>();
+    for (const folder of folders)
+      for (
+        let at = folder.lastIndexOf('/');
+        at > 0;
+        at = folder.lastIndexOf('/', at - 1)
+      ) {
+        const above = folder.slice(0, at);
+        if (known.has(above)) holding.add(above);
+      }
+    return holding;
+  }, [state, settings]);
+  const closedSet = new Set(state.closed);
+  const allOpenInside = (path: string) =>
+    !closedSet.has(path) &&
+    !state.closed.some((one) => one !== path && isWithin(one, path));
+  const anyClosed = state.closed.length > 0;
+
+  const fileX = useMotionValue(0);
+  const fileOpacity = useTransform(fileX, [-200, 0, 200], [0.3, 1, 0.3]);
+  const step = (by: number) => {
+    if (stepFrom(state, settings, by) === null) return;
+    send({ _tag: 'Stepped', by });
+    if (reduced) return;
+    fileX.set(by > 0 ? 56 : -56);
+    animate(fileX, 0, settle);
+  };
+
+  const phone = usePhone();
+  const split = useDefaultLayout({
+    id: 'monoverse:folder-split',
+    onlySaveAfterUserInteractions: true,
+  });
+  const selected = shown;
+  const [width, setWidth] = useState(0);
+  const observer = useRef<ResizeObserver | null>(null);
+  const measure = useCallback((element: HTMLDivElement | null) => {
+    observer.current?.disconnect();
+    if (element === null) return;
+    observer.current = new ResizeObserver(([entry]) =>
+      setWidth(entry?.contentRect.width ?? 0),
+    );
+    observer.current.observe(element);
+  }, []);
+  const trackX = useMotionValue(0);
+  const rest = phone && state.showing ? -width : 0;
+  useRestAt(trackX, rest);
+  const onStepKey = (event: KeyboardEvent) => {
+    if (event.defaultPrevented || event.altKey || event.metaKey) return;
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    if (typing(event.target)) return;
+    if (
+      event.target instanceof Element &&
+      event.target.closest('[role="tree"], [role="menu"]') !== null
+    )
+      return;
+    event.preventDefault();
+    step(event.key === 'ArrowLeft' ? -1 : 1);
+  };
+
+  const header = (
+    <header
+      className={cn(
+        'flex h-11 shrink-0 items-center gap-1 border-b border-border/60 px-1.5',
+        'max-sm:h-auto max-sm:min-h-14 max-sm:pt-[env(safe-area-inset-top)]',
+      )}
+    >
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label="Close the folder"
+        title="Close"
+        className="max-sm:size-11"
+        onClick={() => send({ _tag: 'Closed' })}
+      >
+        {phone ? (
+          <ArrowLeftIcon className="size-4" />
+        ) : (
+          <XIcon className="size-4" />
+        )}
+      </Button>
+      <div className="flex min-w-0 flex-1 flex-col" title={state.title}>
+        <span className="truncate font-mono text-xs font-medium">
+          {state.title}
+        </span>
+        <span className="truncate text-[11px] text-muted-foreground tabular-nums">
+          {changesOn
+            ? `${plural(changedCount, 'file')} changed since ${sinceOf(state.base)}`
+            : plural(entries.length, 'file')}
+          {changesOn && !settings.deleted && deletedCount > 0
+            ? ` · ${deletedCount} deleted hidden`
+            : null}
+        </span>
+      </div>
+      {entries.length === 0 ? null : (
+        <button
+          type="button"
+          aria-label={anyClosed ? 'Expand all folders' : 'Collapse all folders'}
+          title={anyClosed ? 'Expand all folders' : 'Collapse all folders'}
+          className={settingsTrigger}
+          onClick={() => send({ _tag: 'AllToggled' })}
+        >
+          {anyClosed ? (
+            <ChevronsUpDownIcon className="size-4" />
+          ) : (
+            <ChevronsDownUpIcon className="size-4" />
+          )}
+        </button>
+      )}
+      <TreeSettings
+        changesOn={changesOn}
+        unchanged={settings.unchanged}
+        deleted={settings.deleted}
+        ignored={settings.ignored}
+        onUnchanged={(unchanged) =>
+          send({ _tag: 'UnchangedChosen', unchanged })
+        }
+        onDeleted={() => send({ _tag: 'DeletedToggled' })}
+        onIgnored={() => send({ _tag: 'IgnoredToggled' })}
+      />
+    </header>
+  );
+
+  const listPane = (
+    <div
+      inert={phone && state.showing}
+      className="flex h-full min-h-0 flex-col max-sm:w-1/2 max-sm:shrink-0"
+    >
+      {header}
+      <FileList
+        rows={rows}
+        shown={shown}
+        holders={holders}
+        faded={(row) =>
+          changesOn && settings.unchanged === 'dim' && row.status === null
+        }
+        ignored={(path) => isIgnored(path, state.sourceRoots)}
+        allOpenInside={allOpenInside}
+        onToggle={(path) => send({ _tag: 'FolderToggled', path })}
+        onShow={(path) => send({ _tag: 'Selected', path })}
+        onToggleInside={(path) => send({ _tag: 'InsideToggled', path })}
+      />
+    </div>
+  );
+
+  const filePane = (
+    <div
+      inert={phone && !state.showing}
+      className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background max-sm:w-1/2 max-sm:flex-none max-sm:shadow-[-12px_0_24px_-16px_rgb(0_0_0/0.6)]"
+    >
+      <motion.div
+        className="min-h-0 flex-1"
+        style={{ x: fileX, opacity: fileOpacity }}
+      >
+        {file}
+      </motion.div>
+      {order.length > 1 || (order.length === 1 && at === -1) ? (
+        <GestureZone
+          role="group"
+          aria-label="Step between files"
+          className="flex h-10 shrink-0 items-center gap-1 border-t border-border/60 px-1.5 select-none max-sm:h-auto max-sm:min-h-12 max-sm:pb-[env(safe-area-inset-bottom)]"
+        >
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Previous file"
+            title="Previous file (←)"
+            disabled={!hasPrevious}
+            className="max-sm:size-11"
+            onClick={() => step(-1)}
+          >
+            <ChevronLeftIcon className="size-4" />
+          </Button>
+          <Swipes
+            x={fileX}
+            follow={0.6}
+            {...(hasNext ? { onLeft: () => step(1) } : {})}
+            {...(hasPrevious ? { onRight: () => step(-1) } : {})}
+          />
+          <span className="min-w-0 flex-1 text-center text-[11px] text-muted-foreground tabular-nums">
+            {at === -1 ? '–' : at + 1} of {order.length}
+            {changesOn ? ' changed' : ''}
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Next file"
+            title="Next file (→)"
+            disabled={!hasNext}
+            className="max-sm:size-11"
+            onClick={() => step(1)}
+          >
+            <ChevronRightIcon className="size-4" />
+          </Button>
+        </GestureZone>
+      ) : null}
+    </div>
+  );
+  return (
+    <section
+      {...root}
+      aria-label={`Folder ${state.title}`}
+      className="flex h-full min-h-0 flex-col bg-background"
+      onKeyDown={onStepKey}
+    >
+      {entries.length > 0 ? null : header}
+      {entries.length === 0 ? (
+        <p className="flex flex-1 items-center justify-center p-8 text-center text-sm text-balance text-muted-foreground">
+          {!changesOn
+            ? `No files in ${state.title}.`
+            : deletedCount > 0 && !settings.deleted
+              ? `Only deleted files changed in ${state.title} since ${sinceOf(state.base)}.`
+              : `Nothing changed in ${state.title} since ${sinceOf(state.base)}.`}
+        </p>
+      ) : (
+        <GestureProvider>
+          <GestureZone
+            ref={measure}
+            className="flex min-h-0 flex-1 overflow-hidden"
+          >
+            <Swipes
+              x={trackX}
+              rest={rest}
+              {...(phone && !state.showing && selected !== null
+                ? { onLeft: () => send({ _tag: 'Selected', path: selected }) }
+                : {})}
+              {...(phone
+                ? {
+                    onRight: () =>
+                      send({ _tag: state.showing ? 'WentBack' : 'Closed' }),
+                  }
+                : {})}
+            />
+            {phone ? (
+              <motion.div
+                className="flex min-h-0 w-[200%] flex-none"
+                style={{ x: trackX }}
+              >
+                {listPane}
+                {filePane}
+              </motion.div>
+            ) : (
+              <ResizablePanelGroup
+                orientation="horizontal"
+                defaultLayout={split.defaultLayout}
+                onLayoutChanged={split.onLayoutChanged}
+                className="min-h-0 flex-1"
+              >
+                <ResizablePanel
+                  id="list"
+                  defaultSize={288}
+                  minSize={200}
+                  maxSize="60%"
+                >
+                  {listPane}
+                </ResizablePanel>
+                <ResizableHandle className="bg-border/60" />
+                <ResizablePanel id="file" minSize={320}>
+                  {filePane}
+                </ResizablePanel>
+              </ResizablePanelGroup>
+            )}
+          </GestureZone>
+        </GestureProvider>
+      )}
+    </section>
+  );
+}

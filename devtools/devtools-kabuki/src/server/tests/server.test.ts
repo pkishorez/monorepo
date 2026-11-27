@@ -1,19 +1,31 @@
 import { createServer, request } from 'node:http';
 import { createServer as createNetServer } from 'node:net';
 import type { AddressInfo } from 'node:net';
-import { Effect, Exit, Fiber, Layer, Option, Scope, Stream } from 'effect';
+import {
+  Context,
+  Effect,
+  Exit,
+  Fiber,
+  Layer,
+  Option,
+  Schema,
+  Scope,
+  Stream,
+  SubscriptionRef,
+} from 'effect';
 import { HttpRouter } from 'effect/http';
 import * as NodeHttpServer from '@effect/platform-node/NodeHttpServer';
+import { Fake, FakeWorld } from '@kestack/kabuki/fake';
 import { describe, expect, it } from 'vitest';
-import { connect } from '../../session/index.ts';
-import { started } from '../../session/tests/app.ts';
-import { dialSession, dialSessions, kabukiRoutes } from '../index.ts';
-import type { KabukiSessionsClient } from '../index.ts';
-
-/*
- * The DevTools side end to end: a real app dials a server built from the
- * Kabuki routes, and DevTools' own clients read it through them.
- */
+import { connect } from '../../app.tsx';
+import {
+  KabukiSession,
+  dialSessions,
+  kabukiRoutes,
+  remote,
+} from '../../devtools.ts';
+import type { FakeNow, KabukiSessionsClient, Watched } from '../../devtools.ts';
+import { started } from '../../services/kabuki-session/tests/diary.ts';
 
 const OWN = 'http://127.0.0.1:14400';
 
@@ -29,7 +41,6 @@ const freePort = () =>
     });
   });
 
-/** A DevTools Server with only the Kabuki routes on `port`, until the Scope closes. */
 const devtools = (port: number) =>
   Layer.build(
     HttpRouter.serve(kabukiRoutes({ origins: [OWN] }), {
@@ -37,7 +48,6 @@ const devtools = (port: number) =>
       disableListenLog: true,
     }).pipe(
       Layer.provide(
-        // As the DevTools Server: a Kabuki Session's socket never drains.
         NodeHttpServer.layer(createServer, {
           host: '127.0.0.1',
           port,
@@ -47,7 +57,6 @@ const devtools = (port: number) =>
     ),
   );
 
-/** A plain GET, answered with its status and body. */
 const get = (port: number, path: string, headers: Record<string, string>) =>
   Effect.promise(
     () =>
@@ -75,66 +84,179 @@ const namesOnceThere = (sessions: KabukiSessionsClient, count: number) =>
     Effect.map(Option.getOrUndefined),
   );
 
-describe('the Kabuki routes', () => {
+const firstWhere = <A, E>(
+  stream: Stream.Stream<A, E>,
+  test: (a: A) => boolean,
+) =>
+  stream.pipe(
+    Stream.filter(test),
+    Stream.runHead,
+    Effect.map(Option.getOrThrow<A>),
+  );
+
+class Lights extends Context.Service<
+  Lights,
+  { readonly on: Effect.Effect<boolean> }
+>()('Test/service/Lights') {}
+
+const Lit = Schema.Struct({ on: Schema.Boolean });
+
+const lights = Fake.make({
+  name: 'lights',
+  state: Lit,
+  initial: { on: false },
+  controls: {
+    Switched: Fake.control(
+      Lit,
+      Schema.Struct({ on: Schema.Boolean }),
+      ({ on }, state) => SubscriptionRef.set(state, { on }),
+    ),
+  },
+  layer: (state) =>
+    Layer.succeed(Lights)({
+      on: Effect.map(SubscriptionRef.get(state), ({ on }) => on),
+    }),
+});
+
+describe('the full path: an app connected through a DevTools Server, called through remote', () => {
   it(
-    'keep each app that dials under a name of its own, and forward its Api',
+    'answers the eight calls of a live Kabuki Session by its name, Sends and runs controls',
     () =>
       run(
         Effect.gen(function* () {
           const port = yield* Effect.promise(freePort);
           yield* devtools(port);
-          const url = `http://127.0.0.1:${port}`;
-          const sessions = yield* dialSessions(url);
+          const origin = `http://127.0.0.1:${port}`;
+          const sessions = yield* dialSessions(origin);
           expect(yield* sessions.list()).toEqual([]);
 
+          const world = FakeWorld.make([lights]);
+          const services = yield* Layer.build(world.layer);
           const diary = yield* started;
           diary.write('first', 5);
-          const stop = connect(diary.app, {
+          const stop = connect({
             url: `ws://127.0.0.1:${port}`,
             name: 'diary',
             environment: 'kishores-mbp',
-          });
+            world,
+          })(diary.app);
           yield* Effect.addFinalizer(() => Effect.sync(stop));
           yield* namesOnceThere(sessions, 1);
-
-          const other = yield* started;
-          const stopOther = connect(other.app, {
-            url: `ws://127.0.0.1:${port}`,
+          expect((yield* sessions.list())[0]).toMatchObject({
             name: 'diary',
-          });
-          yield* Effect.addFinalizer(() => Effect.sync(stopOther));
-          expect(yield* namesOnceThere(sessions, 2)).toEqual([
-            'diary',
-            'diary-2',
-          ]);
-          const [first] = yield* sessions.list();
-          expect(first).toMatchObject({
             app: 'Diary',
             environment: 'kishores-mbp',
             origin: null,
           });
 
-          const client = yield* dialSession(url, 'diary');
-          const history = yield* client.history({});
-          expect(history.entries.map((entry) => entry.tag)).toEqual(['Wrote']);
-          expect(
-            (yield* client.snapshot({ path: 'model.notes.0.text' })).value,
-          ).toBe('first');
-          const changes = yield* client.changes({
-            step: history.entries[0]!.id,
-          });
-          expect(changes.changes.map((change) => change.instance)).toContain(
-            'Diary',
+          const session = Context.get(
+            yield* Layer.build(remote(origin, 'diary')),
+            KabukiSession,
           );
-          const path = yield* Effect.flip(
-            client.snapshot({ path: 'model.nope' }),
-          );
-          expect(path).toMatchObject({ _tag: 'PathNotFound' });
-          expect(yield* client.info()).toMatchObject({ name: 'diary' });
-          const now = yield* client.watch().pipe(Stream.runHead);
-          expect(Option.getOrUndefined(now)).toMatchObject({ running: true });
+          const { root } = yield* session.blueprint();
+          expect(root.top.messages.map(({ tag }) => tag)).toEqual(['Wrote']);
 
-          stopOther();
+          const now = yield* firstWhere(session.watch(), () => true);
+          expect(now.entries.map(({ tag }) => tag)).toEqual(['Wrote']);
+
+          expect(
+            yield* session.send({
+              to: 'Diary',
+              message: {
+                _tag: 'Wrote',
+                note: { at: new Date(9).toISOString(), text: 'second' },
+              },
+            }),
+          ).toBe('handled');
+          const after = yield* firstWhere(
+            session.watch(),
+            (watched: Watched) => watched.entries.length === 2,
+          );
+          expect(after.entries[1]!.from).toEqual({
+            kind: 'outside',
+            name: 'devtools',
+          });
+          const look = yield* session.look({ open: ['Diary'] });
+          expect(look.opened['Diary']!.model).toEqual({
+            notes: [
+              { at: new Date(5).toISOString(), text: 'first' },
+              { at: new Date(9).toISOString(), text: 'second' },
+            ],
+          });
+
+          const refused = yield* Effect.flip(
+            session.send({ to: 'Diary', message: { _tag: 'Nope' } }),
+          );
+          expect(refused).toMatchObject({
+            _tag: 'MessageRefused',
+            tag: 'Nope',
+          });
+          const lost = yield* Effect.flip(session.look({ at: 999, open: [] }));
+          expect(lost).toMatchObject({ _tag: 'StepNotFound', step: 999 });
+
+          yield* session.travel({ to: 'start' });
+          expect(diary.app.seeking).toMatchObject({ entry: null });
+          const seeking = yield* Effect.flip(
+            session.send({ to: 'Diary', message: { _tag: 'Wrote' } }),
+          );
+          expect(seeking).toMatchObject({ _tag: 'Seeking', step: 'start' });
+          yield* session.travel({ to: null });
+          yield* session.fork({ from: after.entries[0]!.id });
+          expect(diary.app.history.head).toBe(after.entries[0]!.id);
+
+          expect(
+            yield* session.control({
+              fake: 'lights',
+              control: 'Switched',
+              payload: { on: true },
+            }),
+          ).toBe('done');
+          expect(yield* Context.get(services, Lights).on).toBe(true);
+          const fakes = yield* firstWhere(
+            session.fakes(),
+            (list: ReadonlyArray<FakeNow>) => list.length > 0,
+          );
+          expect(fakes[0]).toMatchObject({
+            name: 'lights',
+            value: { on: true },
+          });
+          const control = yield* Effect.flip(
+            session.control({ fake: 'lights', control: 'Broke', payload: {} }),
+          );
+          expect(control).toMatchObject({
+            _tag: 'ControlRefused',
+            reason: 'lights has no control Broke',
+          });
+        }),
+      ),
+    20_000,
+  );
+
+  it(
+    'names each app that dials uniquely, and forgets one once its socket closes',
+    () =>
+      run(
+        Effect.gen(function* () {
+          const port = yield* Effect.promise(freePort);
+          yield* devtools(port);
+          const sessions = yield* dialSessions(`http://127.0.0.1:${port}`);
+          const one = yield* started;
+          const stopOne = connect({
+            url: `ws://127.0.0.1:${port}`,
+            name: 'diary',
+          })(one.app);
+          yield* Effect.addFinalizer(() => Effect.sync(stopOne));
+          yield* namesOnceThere(sessions, 1);
+          const two = yield* started;
+          const stopTwo = connect({
+            url: `ws://127.0.0.1:${port}`,
+            name: 'diary',
+          })(two.app);
+          expect(yield* namesOnceThere(sessions, 2)).toEqual([
+            'diary',
+            'diary-2',
+          ]);
+          stopTwo();
           expect(yield* namesOnceThere(sessions, 1)).toEqual(['diary']);
         }),
       ),
@@ -142,22 +264,17 @@ describe('the Kabuki routes', () => {
   );
 
   it(
-    'going down, leave the list as it was: its watchers never see the Kabuki Sessions leave one by one',
+    'going down, leaves the list as it was: its watchers never see the Kabuki Sessions leave one by one',
     () =>
       run(
         Effect.gen(function* () {
           const port = yield* Effect.promise(freePort);
           const server = yield* Scope.make();
           yield* devtools(port).pipe(Scope.provide(server));
-          const url = `http://127.0.0.1:${port}`;
-          // Watched first: its socket is older than the apps'.
-          const sessions = yield* dialSessions(url);
+          const sessions = yield* dialSessions(`http://127.0.0.1:${port}`);
           for (const name of ['diary', 'shop', 'notes']) {
-            const app = yield* started;
-            const stop = connect(app.app, {
-              url: `ws://127.0.0.1:${port}`,
-              name,
-            });
+            const { app } = yield* started;
+            const stop = connect({ url: `ws://127.0.0.1:${port}`, name })(app);
             yield* Effect.addFinalizer(() => Effect.sync(stop));
           }
           yield* namesOnceThere(sessions, 3);
@@ -179,7 +296,7 @@ describe('the Kabuki routes', () => {
     20_000,
   );
 
-  it('answer no other origin but DevTools’ own, and say which names are live', () =>
+  it('answers no other origin but DevTools’ own, and says which names are live', () =>
     run(
       Effect.gen(function* () {
         const port = yield* Effect.promise(freePort);
@@ -191,7 +308,6 @@ describe('the Kabuki routes', () => {
         expect(
           (yield* get(port, '/kabuki/session/diary', foreign)).status,
         ).toBe(403);
-
         const missing = yield* get(port, '/kabuki/session/diary', {
           origin: OWN,
         });

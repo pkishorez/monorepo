@@ -9,7 +9,6 @@ import {
   AuthWorkerUnavailable,
   DeviceLoginFailed,
   type SignInOptions,
-  TestSignInUnsupported,
 } from '../accounts/index.js';
 import { makeAccounts, signing } from '../engine/index.js';
 import { authWorkerApi } from '../auth-worker-api/index.js';
@@ -85,7 +84,7 @@ const without = (current: Stored, userId: string): Stored => {
  * Each Account keeps its own Sign-in token in the Sign-in Store; every
  * guarded RPC or HttpApi call carries the Active Account's as a bearer, and
  * one refused Unauthenticated checks again before failing. `signIn` is a
- * Device Login; a Test User sign-in (`test`) fails TestSignInUnsupported. Nothing is asked of the Auth Worker on start: the stored
+ * Device Login. Nothing is asked of the Auth Worker on start: the stored
  * Accounts are trusted until `check` or a refused call.
  */
 export const device = ({
@@ -163,9 +162,6 @@ export const device = ({
 
       const signIn = (options: SignInOptions) =>
         Effect.gen(function* () {
-          if (options.test) {
-            return yield* new TestSignInUnsupported({ client: 'Device' });
-          }
           const { url, login } = yield* worker;
           /** `effect`, given up once the Auth Worker is no longer at `url`. */
           const there = <A, E, R>(effect: Effect.Effect<A, E, R>) =>

@@ -80,21 +80,17 @@ _Avoid_: consent page, authorize page
 The Auth Worker's page at `/device`, where the User approves a Device Login as an Approving Account. The Device's link carries the code; typing it in is only for a visit by hand.
 _Avoid_: device page, verification page
 
-**Test User**:
-A User whose email ends in `.test`, a reserved top-level domain no Google account can have. The email is the only mark; nothing else is stored. Every backend refuses one (Forbidden) until its guard opts in with `testUsers: true`; once admitted, a Test User is any User, and `test` on its Principal and Account says which it is.
-_Avoid_: test account, demo user, fake user (the Fake's are Fake Accounts)
-
-**Test Sign-In**:
-The Auth Worker's second way to sign in, beside Google: naming a Test User's email, with the Worker's key when it sets one. Off unless the deployment sets `testUsers`. Gives a normal Sign-in, so everything after it works as it would for a Google sign-in. `admit` does not apply to it.
-_Avoid_: Test Login, dev login, magic login, backdoor
-
 **Fake**:
-auth-toolkit's stand-in for the Auth Worker, where none can be reached or none should be: the browser environment, where the whole backend runs in the tab, and every app under `pnpm dev`. The `fake` door: `fakeAccounts` takes the place of `browser()`, and `fakeGuard.rpc()` and `fakeGuard.http()` of `auth.rpc()` and `auth.http()`. Under the `kestack-fake-auth` export condition, which only development sets, the `server`, `client/browser` and `client/device` doors are the Fake themselves. Anyone may be any Fake Account, so it never guards real data.
+auth-toolkit's stand-in for the Auth Worker, where none can be reached or none should be: fake mode, where the whole backend runs in the tab, and tests. The `fake` door: the Sign-in fake's Accounts (its Layer, or `fakeAccounts` in tests) take the place of `browser()`, and `fakeGuard.rpc()` and `fakeGuard.http()` of `auth.rpc()` and `auth.http()`. The real doors are always real: an app picks the Fake itself, in fake mode only. Anyone may be any Fake Account, so it never guards real data.
 _Avoid_: Local mode (the former name), mock auth, sandbox, dev login
+
+**Sign-in fake**:
+The Fake (`signIn()`, a Fake as `@kestack/kabuki/fake` makes one, for an app's FakeWorld) that plays the Auth Worker and the identity provider for one browser: its state is who is signed in on it, and the sign-in waiting to be told who. Its controls answer that sign-in, as someone (`SignInAs`) or nobody (`Cancel`), and the sign-in ends on the page that asked: it never leaves for a provider and comes back. The real Accounts client runs over it. Each page load starts with nobody signed in.
+_Avoid_: fake chooser, sign-in dialog, Test Sign-In (gone)
 
 **Fake Account**:
 An Account the Fake signs in by naming an email at `kestack.test`, with no Auth Worker and no identity provider. The same email is always the same User, and only such an email names one. Switching and signing out work as they would with a real sign-in.
-_Avoid_: Local Account, Named Account (the former names), test account (a Test User is a real User at a real Auth Worker)
+_Avoid_: Local Account, Named Account (the former names), test account, Test User (gone)
 
 **Fake Token**:
 The token a Fake Account signs each call with, which carries the User it names. `fakeGuard` reads it without asking anyone, so the two sides never share state, and makes the User from its email again: a token naming any other email, or a real User's id, names no one. Signing out revokes nothing.
@@ -173,7 +169,7 @@ A User granted the `admin` role and therefore allowed to manage users and sessio
 _Avoid_: dashboard user, admin user
 
 **User Admission Policy**:
-An optional rule that accepts or rejects an identity when it first registers, links an account, or starts a fresh provider sign-in. It does not continuously re-evaluate existing sessions; banning handles an already-admitted User. It does not apply to Test Users.
+An optional rule that accepts or rejects an identity when it first registers, links an account, or starts a fresh provider sign-in. It does not continuously re-evaluate existing sessions; banning handles an already-admitted User.
 _Avoid_: invariant, user validation
 
 **Server-Side Verification**:

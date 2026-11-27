@@ -52,12 +52,21 @@ const Agents = Actor.define('Agents', {
     problem: Schema.NullOr(Schema.String),
   }),
   model: Model,
-  message: Schema.TaggedUnion({
-    Retry: {},
-    Toggled: { key: Schema.String },
+  message: {
+    Retry: Schema.Struct({}).annotate({
+      description:
+        'Asks the Connection for its Setup again, after it could not be asked; offered as Try again beside why.',
+    }),
+    Toggled: Schema.Struct({ key: Schema.String }).annotate({
+      description:
+        "Opens a Harness Account's card, closing any other, or closes it if open; key is the account's id, or 'new-<agent>' while adding. Needs its Link linked.",
+    }),
     Closed: { key: Schema.String },
-    AddAsked: { harness: HarnessInfo.fields.harness },
-  }),
+    AddAsked: Schema.Struct({ harness: HarnessInfo.fields.harness }).annotate({
+      description:
+        "Adds a Harness Account of an agent: opens its new card, keyed 'new-<agent>'; then HarnessAccount's Edited and Save. Needs its Link linked.",
+    }),
+  },
 });
 
 /** The card `key` closed, if it is the one open; the account being added, dropped. */

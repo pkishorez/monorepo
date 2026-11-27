@@ -7,7 +7,7 @@ An app is one tree of Actors that lives outside React. Each Actor is a small sta
 ### The package
 
 **Part**:
-One of the four pieces kabuki is learned and taken in, each its own subpath using only the ones below it: core, the Actors and how they run; react, drawing them; routing, giving them a place in the URL; start, serving them as one app. An app takes as many as it needs, from the bottom up.
+One of the four pieces kabuki is learned and taken in, each its own subpath using only the ones below it: core, the Actors and how they run; react, drawing them; routing, giving them a place in the URL; start, serving them as one app. An app takes as many as it needs, from the bottom up. Beside them, fake, at `@kestack/kabuki/fake`, is no Part: it uses none of them, and fakes the services an app uses.
 _Avoid_: layer (that is Effect's Layer), module, package (kabuki is one), door (a Part has several)
 
 ### The tree
@@ -17,7 +17,7 @@ One piece of the app: its Model and States, the Input and Props it takes, the Me
 _Avoid_: Node, component, machine
 
 **Shape**:
-What an Actor is, as `Actor.define` gives it: its name, its Schemas, what it Emits, the Queries it answers and its Requires, which fix every type. It is the Actor's whole surface: what it holds, hears, tells its parent and answers. Each Schema is written whole, or as what it is made of: a struct as its fields, a tagged union as its cases by tag. It runs nothing and imports only other Shapes, so anything may import it. It builds its Actor itself: `Counter.build({ … })`. Named after the Actor: `Counter`.
+What an Actor is, as `Actor.define` gives it: its name, what it is about, its Schemas, what it Emits, the Queries it answers and its Requires, which fix every type. It is the Actor's whole surface: what it holds, hears, tells its parent and answers. Each Schema is written whole, or as what it is made of: a struct as its fields, a tagged union as its cases by tag, each its fields or a struct of them, which may be described. It runs nothing and imports only other Shapes, so anything may import it. It builds its Actor itself: `Counter.build({ … })`. Named after the Actor: `Counter`.
 _Avoid_: definition (that is the Shape and the Build together), spec, schema (on its own), type
 
 **Build**:
@@ -29,11 +29,11 @@ An Actor's Shape and its Build together, as one plain tree: each Child's place i
 _Avoid_: engine form, compiled, spec
 
 **Blueprint**:
-What an Actor is and does, made from its Definition, with nothing running: its name, its Requires and its Schemas, and for each level, the top and each of its States, the Messages it has an Update for, its Workers and their Conditions, its Children with theirs, its Queries and the Capabilities it Provides. Each State's level also holds the Schema of the data that State carries, and its States are exactly its levels besides the top. A Child's place in it holds that Child's own Blueprint, so the root's Blueprint reaches the whole tree an app can grow. A Runtime runs the Definition; every tool that describes an Actor reads the Blueprint, never the Definition.
+What an Actor is and does, made from its Definition, with nothing running: its name, what it is about as its Shape describes it, its Requires and its Schemas, each Message's with the description it is annotated with, and for each level, the top and each of its States, the Messages it has an Update for, its Workers and their Conditions, its Children with theirs, its Queries and the Capabilities it Provides. Each State's level also holds the Schema of the data that State carries, and its States are exactly its levels besides the top. A Child's place in it holds that Child's own Blueprint, so the root's Blueprint reaches the whole tree an app can grow. A Runtime runs the Definition; every tool that describes an Actor reads the Blueprint, never the Definition.
 _Avoid_: definition (that is how the engine holds the Actor), compiled, schema, spec
 
 **Instance**:
-One running Actor in the tree: its Address, its current Model, State and Props, and its Children. Called an "actor instance" where "Instance" alone is unclear. Views draw an Instance; Messages are sent to one. In a Snapshot it is plain data, and its State's tag is repeated at its top, so a check on it tells which State it is in and which Children that State holds. Code outside the tree reaches the root Instance through its Runtime, typed by its Actor and always live, and from it any Instance below, or any one straight at its Address, which is the same Instance: it reads their data and their Workers, Sends to them, asks their Queries and waits `until` their data passes a test, and changes nothing else. An Instance that is gone from the Runtime's Snapshot reads as it was when last read, and nothing Sent to it arrives.
+One running Actor in the tree: its Address, its current Model, State and Props, and its Children. Called an "actor instance" where "Instance" alone is unclear. Views draw an Instance; Messages are sent to one. In a Snapshot it is plain data, and its State's tag is repeated at its top, so a check on it tells which State it is in and which Children that State holds. Code outside the tree reaches the root Instance through its Runtime, typed by its Actor and always live, and from it any Instance below, or any one straight at its Address, which is the same Instance: it reads their data and their Workers, Sends to them, asks their Queries, tries a Message to learn what it would do, and waits `until` their data passes a test, and changes nothing else. A try is worked out from the Snapshot alone, as Replay plays a Message: nothing is Sent and nothing runs, and it says the Instance is not found, the Message is refused and why, no rule handles it in this State, it changes nothing, or the Snapshot after it, the Model fields it changes, the Commands it asks for and what it Emits. An Instance that is gone from the Runtime's Snapshot reads as it was when last read, and nothing Sent to it arrives.
 _Avoid_: ref, process, live node, store
 
 **Address**:
@@ -319,7 +319,7 @@ _Avoid_: sitemap, route manifest, page list
 ### Seeing the app
 
 **Timeline**:
-The Inspector's bar for picking the Step shown: every Step on the Branch in view, in order. With Travel the app on, as it is at first, picking a Step Time Travels the app too, and a Fork carries on from it on a new Branch; off, only the Inspector looks back while the app runs on. Going to the Head shows it again.
+The Inspector's bar for picking the Step shown: every Step on the Branch in view, in order. Picking a Step Time Travels the app, Now goes back to the Head, and a Fork carries on from the Step shown on a new Branch.
 _Avoid_: history, message list, scrubber
 
 **Branch in view**:
@@ -327,9 +327,15 @@ The one Branch the Timeline and the Inspector walk, from the History's start to 
 _Avoid_: selected branch, active branch
 
 **Inspector**:
-The one way to look inside the app: the Snapshot at the Step shown, every Instance a card on a canvas to pan and zoom, joined to its parent by a line that says its Condition, with the Timeline under it. A card opens to its States, Workers, the Messages it handles, its Children, Model, Props and Capabilities, and as many open at once as the reader likes. The Step is compared with the one before it: what it added, changed or took away is marked where it is and on the card that holds it, and the card its Message was for names the Message. A Capability picked shows who provides it and every card that uses it. Laid out by its own width, the same full screen, in a side panel or on a phone; a Story can be told on it.
+The one way to look inside the app, in DevTools or beside the app in its page. Running: the Snapshot at the Step shown, every Instance a card on a canvas to pan and zoom, joined to its parent by a line that says its Condition, with the Timeline under it. A card opens to its State, Model, Props and Workers, and its Actions, every Message its Actor takes now, to Send to the app; as many open at once as the reader likes. The Step is compared with the one before it: what it started or changed is marked on its card, and the card its Message was for opens. Blueprint: every Actor the root can grow, running or not. World, while the app has a FakeWorld: each Fake's state and its controls, to run. Laid out by its own width, the same full screen, in a side panel or on a phone. Defined in the [DevTools Kabuki context](../../devtools/devtools-kabuki/CONTEXT.md).
 _Avoid_: devtools (the repo's DevTools is another thing), debugger, panel, stage
 
-**Story**:
-An answer told on the Inspector, one Scene at a time, as data an agent writes: each Scene names a moment of the History, the card it is about and one part of it, and says one thing about it, and the Inspector lights that part and dims the rest. It plays on the app's own History, or on a saved one it carries, the same every time.
-_Avoid_: tour, walkthrough, scene list
+### Faking
+
+**Fake**:
+One service pretended in a browser, in plain Effect, as `Fake.make` makes it: its name, its state, the facts it knows, as a Schema, with where it starts, its controls, and its Layer, the service the app uses, built over the state and watching it. Each control is one thing a person or an agent may do to it: the Schema of its payload, and what it does to the state, or the reason, a person can read, why it cannot. A description: it holds no state, and knows no Actor, DevTools or RPC.
+_Avoid_: mock, stub, Actor (a Fake runs none), edge
+
+**FakeWorld**:
+An app's Fakes together, each named once, as `FakeWorld.make` makes them: one Layer of every Fake's service, every Fake as it is now as a Stream, and one way to run a control by its Fake's name and its own, its payload decoded by its Schema, saying `'done'` or why not. It keeps nothing: each build of its Layer starts every Fake from its `initial`, or from where `start` says, in that build's Scope, and the world ends as the Scope closes. Built twice, each build is a world of its own, and what is shown and controlled is the latest one still open.
+_Avoid_: fake mode, sandbox, environment, saved world

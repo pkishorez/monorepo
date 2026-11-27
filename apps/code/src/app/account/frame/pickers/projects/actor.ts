@@ -192,10 +192,16 @@ export const Projects = Actor.define('Projects', {
       Schema.Struct({ connectionId: Schema.String, projectId: Schema.String }),
     ),
   }),
-  message: Schema.TaggedUnion({
+  message: {
     ConnectionsKnown: { connections: Schema.Array(Listed) },
     FilterRead: { filter: Schema.NullOr(Schema.String) },
-    Open: { how: Picker.How, byButton: Schema.optional(Schema.Boolean) },
+    Open: Schema.Struct({
+      how: Picker.How,
+      byButton: Schema.optional(Schema.Boolean),
+    }).annotate({
+      description:
+        "Opens the Project Picker; how: 'keys'. Rows: a Connection's id, then its Projects' ids, or 'open-folder', where Typed '~/demo/' (from home, ending in /) goes into that folder and Finished null adds it.",
+    }),
     Read: { recent: Schema.Array(Recent) },
     Closed: {},
     Chose: { connectionId: Schema.String, projectId: Schema.String },
@@ -205,7 +211,7 @@ export const Projects = Actor.define('Projects', {
       connectionId: Schema.String,
       projectId: Schema.String,
     },
-  }),
+  },
 });
 
 export const ProjectsLive = Projects.build({

@@ -30,11 +30,14 @@ const Speech = Actor.define('Speech', {
     switching: Schema.Boolean,
     problem: Schema.NullOr(Schema.String),
   }),
-  message: Schema.TaggedUnion({
-    Switch: { on: Schema.Boolean },
+  message: {
+    Switch: Schema.Struct({ on: Schema.Boolean }).annotate({
+      description:
+        "Turns this Connection's Speech to Text on, downloading a 460 MB model (on again retries a failure), or off, deleting it. Needs its Link linked.",
+    }),
     Switched: {},
     Refused,
-  }),
+  },
 });
 
 export const SpeechLive = Speech.build({

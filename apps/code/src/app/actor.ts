@@ -250,18 +250,21 @@ export const App = Page.define({
   pages: { Account: Account.page },
   model: Model,
   state: Signed,
-  message: Schema.TaggedUnion({
+  message: {
     Signed: { account: Signed },
     /** The URL names `/`, an address the app had before, or a page under a guess the Auth Worker answered otherwise. */
     Misplaced: {},
     /** The guess the page was placed under is settled. */
     Settled: {},
-    SignInAsked: {},
+    SignInAsked: Schema.Struct({}).annotate({
+      description:
+        "Signs in with Google from the signed-out screen, coming back to this page; under the Fake it waits for the Sign-in fake's SignInAs.",
+    }),
     /** A sign-in ended without leaving the page, as under the Fake. */
     SignInEnded: {},
     SignInFailed: { problem: Schema.String },
     KeepScreenOnRead: { on: Schema.Boolean },
-  }),
+  },
 });
 
 export const AppLive = App.build({

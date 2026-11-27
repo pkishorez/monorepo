@@ -10,6 +10,7 @@ import {
   Stream,
   SubscriptionRef,
 } from 'effect';
+import type { TakeHeard } from '../contract/index.js';
 
 /*
  * Takes: Dictations heard as they are recorded. A Take is one recording,
@@ -35,19 +36,6 @@ import {
  * reconnect, sends them all again. A Take that stops before it is Done,
  * dropped or broken, fails whoever watches it.
  */
-
-/** What a Take has heard so far. */
-export type TakeHeard =
-  /** The model is downloading: bytes of `total`, once known. */
-  | {
-      readonly _tag: 'Downloading';
-      readonly done: number;
-      readonly total: number | null;
-    }
-  /** The text so far; more may come. */
-  | { readonly _tag: 'Heard'; readonly text: string }
-  /** The whole text: nothing more comes. */
-  | { readonly _tag: 'Done'; readonly text: string };
 
 /** The model could not hear a Take. */
 export class TakeFailed extends Data.TaggedError('TakeFailed')<{

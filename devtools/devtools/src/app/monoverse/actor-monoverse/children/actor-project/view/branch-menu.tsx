@@ -1,0 +1,165 @@
+import { useState, type ReactNode } from 'react';
+import {
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@kestack/web-platform/ui/components/command';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@kestack/web-platform/ui/components/popover';
+import { cn } from '@kestack/web-platform/ui/components/utils';
+import { ChevronDownIcon } from 'lucide-react';
+
+import { shortenHome } from '../../../../server/rpc/contract/index.js';
+import {
+  uncommittedBase,
+  type Branch,
+} from '../../../../server/rpc/git/contract/index.js';
+
+const searchFrom = 8;
+const uncommittedLabel = 'Uncommitted';
+
+export function BranchMenu({
+  label,
+  icon,
+  prefix,
+  chosen,
+  current,
+  branches,
+  disabled,
+  uncommitted = false,
+  onChoose,
+  className,
+}: {
+  label: string;
+  icon: ReactNode;
+  prefix?: string;
+  chosen: string | null;
+  current: string | null;
+  branches: ReadonlyArray<Branch>;
+  disabled?: boolean;
+  uncommitted?: boolean;
+  onChoose: (name: string) => void;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const shown = chosen === uncommittedBase ? uncommittedLabel : chosen;
+  const choose = (name: string) => {
+    setOpen(false);
+    if (name !== chosen) onChoose(name);
+  };
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        disabled={disabled}
+        aria-label={`${label}: ${shown ?? 'none'}`}
+        title={shown === null ? label : `${label}: ${shown}`}
+        className={cn(
+          'inline-flex h-8 max-w-56 max-sm:max-w-32 min-w-0 items-center gap-1.5 rounded-md px-2 text-sm text-foreground/90 transition-colors duration-150 outline-none select-none',
+          'hover:bg-muted/70 focus-visible:ring-2 focus-visible:ring-ring/50 data-[popup-open]:bg-muted/70',
+          'disabled:pointer-events-none disabled:opacity-50',
+          className,
+          '[&_svg]:shrink-0 [&_svg]:text-muted-foreground',
+        )}
+      >
+        {icon}
+        {prefix === undefined || chosen === uncommittedBase ? null : (
+          <span className="text-muted-foreground">{prefix}</span>
+        )}
+        <span
+          className={cn(
+            'min-w-0 truncate',
+            chosen !== uncommittedBase && 'font-mono text-[12.5px]',
+          )}
+        >
+          {shown ?? '—'}
+        </span>
+        <ChevronDownIcon className="size-3.5 opacity-70" />
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-80 gap-0 p-0">
+        <Command
+          loop
+          className="rounded-md! bg-transparent"
+          defaultValue={shown ?? undefined}
+        >
+          {branches.length > searchFrom ? (
+            <CommandInput
+              placeholder="Find a branch…"
+              aria-label="Find a branch"
+            />
+          ) : null}
+          <CommandList className="max-h-80 p-1">
+            <CommandEmpty className="py-6 text-xs text-muted-foreground">
+              No branch matches.
+            </CommandEmpty>
+            {uncommitted ? (
+              <CommandItem
+                value={uncommittedLabel}
+                data-checked={chosen === uncommittedBase}
+                onSelect={() => choose(uncommittedBase)}
+                className="gap-2 py-1.5"
+              >
+                <span
+                  title="Only the changes not committed yet"
+                  className="min-w-0 flex-1 truncate"
+                >
+                  {uncommittedLabel}
+                </span>
+              </CommandItem>
+            ) : null}
+            {branches.map((branch) => (
+              <CommandItem
+                key={branch.name}
+                value={branch.name}
+                data-checked={branch.name === chosen}
+                onSelect={() => choose(branch.name)}
+                className="gap-2 py-1.5"
+              >
+                <span
+                  title={branch.name}
+                  className="min-w-0 flex-1 truncate font-mono text-[12.5px]"
+                >
+                  {branch.name}
+                </span>
+                <BranchMarks branch={branch} current={current} />
+              </CommandItem>
+            ))}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function BranchMarks({
+  branch,
+  current,
+}: {
+  branch: Branch;
+  current: string | null;
+}) {
+  if (branch.name === current)
+    return <Mark title="The branch the project folder is on">current</Mark>;
+  if (branch.worktree !== null)
+    return (
+      <Mark title={`Checked out in ${shortenHome(branch.worktree)}`}>
+        worktree
+      </Mark>
+    );
+  return null;
+}
+
+function Mark({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <span
+      title={title}
+      className="shrink-0 rounded-sm px-1 text-[10px] font-medium tracking-wide text-muted-foreground/80 ring-1 ring-border/70"
+    >
+      {children}
+    </span>
+  );
+}

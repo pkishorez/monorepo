@@ -7,6 +7,13 @@ export {
 } from './chunker/index.js';
 export { failureReason, type FailedIn } from './failure/index.js';
 export {
+  binaryAt,
+  HarnessHost,
+  InvalidBinary,
+  Models,
+  ModelsError,
+} from './catalog.js';
+export {
   HarnessAccount,
   HarnessError,
   Harnesses,

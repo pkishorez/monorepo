@@ -23,6 +23,10 @@
       "types": "./dist/harness/index.d.ts",
       "default": "./dist/harness/index.js"
     },
+    "./harness/node": {
+      "types": "./dist/harness/node.d.ts",
+      "default": "./dist/harness/node.js"
+    },
     "./harness/fake": {
       "types": "./dist/harness/fake/index.d.ts",
       "default": "./dist/harness/fake/index.js"
@@ -30,6 +34,10 @@
     "./speech": {
       "types": "./dist/speech/index.d.ts",
       "default": "./dist/speech/index.js"
+    },
+    "./speech/node": {
+      "types": "./dist/speech/node.d.ts",
+      "default": "./dist/speech/node.js"
     },
     "./speech/fake": {
       "types": "./dist/speech/fake/index.d.ts",

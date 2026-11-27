@@ -90,6 +90,14 @@ one: `import type { Entry } from '@kestack/kabuki/types'`. Start has two
 more paths for what runs on one side only, `/start/server` and
 `/start/vite`. Why is [ADR 0047](./docs/adr/0047-values-and-types-have-separate-paths.md).
 
+Beside the Parts, `@kestack/kabuki/fake` fakes the services an app uses,
+in a browser, in plain Effect: no Actor runs in it, nothing is kept, and it
+knows nothing of DevTools or RPC. A Fake is one service: its state, as a
+Schema, the controls a person or an agent may use on it, and its Layer over
+the state. A FakeWorld is an app's Fakes together: one Layer, every Fake as
+it is now as a Stream, and one way to run a control by name, as DevTools
+sends it.
+
 Read the language in [CONTEXT.md](./CONTEXT.md), the decisions in
 [docs/adr/](./docs/adr/), and how the History works in
 [docs/history.md](./docs/history.md). A live demo, Opening an app, is at `/demos/opening-an-app` in the docs app: every concept in one story, drawn as the tree.
@@ -111,50 +119,51 @@ pnpm add @kestack/kabuki effect react
 
 ### `@kestack/kabuki`
 
-| Export              | What it does                                                                                                                                                                                                                                               |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Actor.define`      | Says what an Actor is, its Shape: its name, Requires, Schemas, what it Emits and the Queries it answers, each with what it is asked with and answers; each Schema may be written as its fields or its cases. It runs nothing.                              |
-| `shape.build`       | Says how a defined Actor behaves, at the top and under `states` in one block per State: its rules, Children, Workers, Provides and answers to its Queries. The build is what runs and is drawn, and its `blueprint` is what it is and does, as plain data. |
-| `Actor.child`       | Makes one Child in a level's `children`: its Actor, then always, `while` a test holds, or one per key `each` names, with what it is handed and what the parent hears; every function in it is typed by the level it is written in.                         |
-| `Blueprint.at`      | Finds the Blueprint at a place in the tree the root's Blueprint can grow, as `App/Inside:downloads/files`.                                                                                                                                                 |
-| `Command.make`      | Defines a Command from its name, the Schema of its args and the Effect it runs; an Update calls it with the args.                                                                                                                                          |
-| `Address.parse`     | Reads an Address into its root and its segments: the State, slot, key and count of each Child on the way.                                                                                                                                                  |
-| `Address.parent`    | Gives the Address of an Instance's parent, or nothing for the root.                                                                                                                                                                                        |
-| `Address.place`     | Gives an Instance's place in the root's Blueprint: its Address without keys and counts.                                                                                                                                                                    |
-| `Address.within`    | Says whether an Address is another one or below it.                                                                                                                                                                                                        |
-| `Address.check`     | Turns text written by hand into an Address of the root's tree, if the root's Blueprint has a Child at every segment.                                                                                                                                       |
-| `History.init`      | A History with no entries, starting from a Snapshot.                                                                                                                                                                                                       |
-| `History.add`       | Writes one entry, or a list of them in order, after the Head and moves the Head to the last; after an entry that already has one after it, they grow a new Branch. It gives the new History.                                                               |
-| `History.move`      | Gives the same History with its Head at any entry, or at the start, so the next entry grows from there.                                                                                                                                                    |
-| `History.entry`     | Finds the entry with an id, if the History still has it.                                                                                                                                                                                                   |
-| `History.entries`   | Gives the path to an entry, the Head by default: the entries from the start to it, oldest first, as a plain list to filter.                                                                                                                                |
-| `History.all`       | Gives every entry, on every Branch, oldest first.                                                                                                                                                                                                          |
-| `History.children`  | Gives the entries that follow an entry, or the start, oldest first.                                                                                                                                                                                        |
-| `History.tips`      | Gives the last entry of every Branch, the ones nothing follows yet, oldest first: with `entry(h, id).parent` and `children`, how a tool walks the History.                                                                                                 |
-| `History.snapshot`  | The Snapshot right after any entry, the Head by default, or at the start, played from the start and the Messages alone.                                                                                                                                    |
-| `History.replay`    | The same as an Effect that yields to the page as it plays, so a long History never freezes it.                                                                                                                                                             |
-| `History.compact`   | Keeps only a Window on the Head's Branch: the start moves forward to the Snapshot right before the oldest entry kept, the entries kept keep their ids, and what does not grow from there is gone.                                                          |
-| `History.save`      | The History as plain JSON: its start, its entries and its Head, every value as its Schema's encoded side.                                                                                                                                                  |
-| `History.load`      | A History saved before, read with the Actor's code as it is now. It throws if the start no longer fits; an entry that no longer fits warns and is skipped, or fails at once with `onMismatch: 'fail'`.                                                     |
-| `Snapshot.init`     | The app right after init, from the root's Input.                                                                                                                                                                                                           |
-| `Snapshot.next`     | The Snapshot right after one more entry, purely, and what came of it: whether it was handled, ignored or dropped, the Commands asked for and what was Emitted.                                                                                             |
-| `Snapshot.at`       | Finds the Instance at an Address in a Snapshot, with everything under it.                                                                                                                                                                                  |
-| `Snapshot.workers`  | The Workers the data asks for at an Instance, from the Snapshot and the root's Actor alone: each by its name, and its key for one of `each`, as a running Runtime runs them there.                                                                         |
-| `Snapshot.isMany`   | Tells the list of an `each` Child from one Instance in an Instance's Children.                                                                                                                                                                             |
-| `Snapshot.save`     | The Snapshot as plain JSON, every value as its Actor's Schemas encode it.                                                                                                                                                                                  |
-| `Snapshot.load`     | A Snapshot saved before, read with the Actor's code as it is now; it throws, saying why, if it no longer fits.                                                                                                                                             |
-| `Runtime.make`      | Makes the app's one Runtime of an Actor, from a `snapshot` or from the root's `input`, with the app's Layer. It runs from the moment it is made; with `running: false` it runs nothing until `start()`.                                                    |
-| `Runtime.scoped`    | The same for Effect code: on its clock, and let go when its Scope closes.                                                                                                                                                                                  |
-| `runtime.snapshot`  | The app as data, now.                                                                                                                                                                                                                                      |
-| `runtime.running`   | Whether the Runtime runs: its Workers, Provides and Commands, and the Messages Sent to it.                                                                                                                                                                 |
-| `runtime.root`      | The root Instance, typed and live, for code outside the tree: reads any Instance's data, Children and Workers, asks its Queries, Sends to it and learns what became of the Message, and waits `until` its data passes a test.                              |
-| `runtime.at`        | The live Instance at an Address, the same one walking down from the root reaches; none if it is not in the tree now.                                                                                                                                       |
-| `runtime.follow`    | Becomes a Snapshot handed in and carries Time on from its Time, changing only what differs: work both Snapshots ask for is not touched. With `restart: true` all work stops and starts again from it. No Command runs.                                     |
-| `runtime.start`     | Runs again from its Snapshot: the Workers and Provides its data asks for start. No past Command runs again.                                                                                                                                                |
-| `runtime.stop`      | Stops every Worker, Provide and Command, and Time with it; a Send is refused until it starts again.                                                                                                                                                        |
-| `runtime.subscribe` | Calls a listener, once the Messages Sent are all played, with the entries played since its last call, oldest first; and with none on every start, stop and Snapshot followed. It returns how to stop.                                                      |
-| `runtime.changes`   | The Snapshot as an Effect Stream: now, then whenever the app settles; a slow reader gets only the latest.                                                                                                                                                  |
-| `Stopped`           | What a Query asked from outside the tree fails with once its Instance has stopped or left the Query's State, or while the Runtime is stopped, and what an `until` fails with once its Instance has stopped. A Send never throws it: it is refused.         |
+| Export              | What it does                                                                                                                                                                                                                                                            |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Actor.define`      | Says what an Actor is, its Shape: its name, what it is about, Requires, Schemas, what it Emits and the Queries it answers, each with what it is asked with and answers; each Schema may be written as its fields or its cases. It runs nothing.                         |
+| `shape.build`       | Says how a defined Actor behaves, at the top and under `states` in one block per State: its rules, Children, Workers, Provides and answers to its Queries. The build is what runs and is drawn, and its `blueprint` is what it is and does, as plain data.              |
+| `Actor.child`       | Makes one Child in a level's `children`: its Actor, then always, `while` a test holds, or one per key `each` names, with what it is handed and what the parent hears; every function in it is typed by the level it is written in.                                      |
+| `Blueprint.at`      | Finds the Blueprint at a place in the tree the root's Blueprint can grow, as `App/Inside:downloads/files`.                                                                                                                                                              |
+| `Blueprint.handles` | Lists the Messages an Actor has a rule for in a State, the top's then the State's own: what an Instance in that State takes.                                                                                                                                            |
+| `Command.make`      | Defines a Command from its name, the Schema of its args and the Effect it runs; an Update calls it with the args.                                                                                                                                                       |
+| `Address.parse`     | Reads an Address into its root and its segments: the State, slot, key and count of each Child on the way.                                                                                                                                                               |
+| `Address.parent`    | Gives the Address of an Instance's parent, or nothing for the root.                                                                                                                                                                                                     |
+| `Address.place`     | Gives an Instance's place in the root's Blueprint: its Address without keys and counts.                                                                                                                                                                                 |
+| `Address.within`    | Says whether an Address is another one or below it.                                                                                                                                                                                                                     |
+| `Address.check`     | Turns text written by hand into an Address of the root's tree, if the root's Blueprint has a Child at every segment.                                                                                                                                                    |
+| `History.init`      | A History with no entries, starting from a Snapshot.                                                                                                                                                                                                                    |
+| `History.add`       | Writes one entry, or a list of them in order, after the Head and moves the Head to the last; after an entry that already has one after it, they grow a new Branch. It gives the new History.                                                                            |
+| `History.move`      | Gives the same History with its Head at any entry, or at the start, so the next entry grows from there.                                                                                                                                                                 |
+| `History.entry`     | Finds the entry with an id, if the History still has it.                                                                                                                                                                                                                |
+| `History.entries`   | Gives the path to an entry, the Head by default: the entries from the start to it, oldest first, as a plain list to filter.                                                                                                                                             |
+| `History.all`       | Gives every entry, on every Branch, oldest first.                                                                                                                                                                                                                       |
+| `History.children`  | Gives the entries that follow an entry, or the start, oldest first.                                                                                                                                                                                                     |
+| `History.tips`      | Gives the last entry of every Branch, the ones nothing follows yet, oldest first: with `entry(h, id).parent` and `children`, how a tool walks the History.                                                                                                              |
+| `History.snapshot`  | The Snapshot right after any entry, the Head by default, or at the start, played from the start and the Messages alone.                                                                                                                                                 |
+| `History.replay`    | The same as an Effect that yields to the page as it plays, so a long History never freezes it.                                                                                                                                                                          |
+| `History.compact`   | Keeps only a Window on the Head's Branch: the start moves forward to the Snapshot right before the oldest entry kept, the entries kept keep their ids, and what does not grow from there is gone.                                                                       |
+| `History.save`      | The History as plain JSON: its start, its entries and its Head, every value as its Schema's encoded side.                                                                                                                                                               |
+| `History.load`      | A History saved before, read with the Actor's code as it is now. It throws if the start no longer fits; an entry that no longer fits warns and is skipped, or fails at once with `onMismatch: 'fail'`.                                                                  |
+| `Snapshot.init`     | The app right after init, from the root's Input.                                                                                                                                                                                                                        |
+| `Snapshot.next`     | The Snapshot right after one more entry, purely, and what came of it: whether it was handled, ignored or dropped, the Commands asked for and what was Emitted.                                                                                                          |
+| `Snapshot.at`       | Finds the Instance at an Address in a Snapshot, with everything under it.                                                                                                                                                                                               |
+| `Snapshot.workers`  | The Workers the data asks for at an Instance, from the Snapshot and the root's Actor alone: each by its name, and its key for one of `each`, as a running Runtime runs them there.                                                                                      |
+| `Snapshot.isMany`   | Tells the list of an `each` Child from one Instance in an Instance's Children.                                                                                                                                                                                          |
+| `Snapshot.save`     | The Snapshot as plain JSON, every value as its Actor's Schemas encode it.                                                                                                                                                                                               |
+| `Snapshot.load`     | A Snapshot saved before, read with the Actor's code as it is now; it throws, saying why, if it no longer fits.                                                                                                                                                          |
+| `Runtime.make`      | Makes the app's one Runtime of an Actor, from a `snapshot` or from the root's `input`, with the app's Layer. It runs from the moment it is made; with `running: false` it runs nothing until `start()`.                                                                 |
+| `Runtime.scoped`    | The same for Effect code: on its clock, and let go when its Scope closes.                                                                                                                                                                                               |
+| `runtime.snapshot`  | The app as data, now.                                                                                                                                                                                                                                                   |
+| `runtime.running`   | Whether the Runtime runs: its Workers, Provides and Commands, and the Messages Sent to it.                                                                                                                                                                              |
+| `runtime.root`      | The root Instance, typed and live, for code outside the tree: reads any Instance's data, Children and Workers, asks its Queries, `try`s a Message to see what it would do, Sends to it and learns what became of the Message, and waits `until` its data passes a test. |
+| `runtime.at`        | The live Instance at an Address, the same one walking down from the root reaches; none if it is not in the tree now.                                                                                                                                                    |
+| `runtime.follow`    | Becomes a Snapshot handed in and carries Time on from its Time, changing only what differs: work both Snapshots ask for is not touched. With `restart: true` all work stops and starts again from it. No Command runs.                                                  |
+| `runtime.start`     | Runs again from its Snapshot: the Workers and Provides its data asks for start. No past Command runs again.                                                                                                                                                             |
+| `runtime.stop`      | Stops every Worker, Provide and Command, and Time with it; a Send is refused until it starts again.                                                                                                                                                                     |
+| `runtime.subscribe` | Calls a listener, once the Messages Sent are all played, with the entries played since its last call, oldest first; and with none on every start, stop and Snapshot followed. It returns how to stop.                                                                   |
+| `runtime.changes`   | The Snapshot as an Effect Stream: now, then whenever the app settles; a slow reader gets only the latest.                                                                                                                                                               |
+| `Stopped`           | What a Query asked from outside the tree fails with once its Instance has stopped or left the Query's State, or while the Runtime is stopped, and what an `until` fails with once its Instance has stopped. A Send never throws it: it is refused.                      |
 
 ### `@kestack/kabuki/react`
 
@@ -234,17 +243,34 @@ pnpm add @kestack/kabuki effect react
 | `Start.ResponseHeaders`         | The service a dynamic or client Loader, or the visitor, adds headers to its response with, as a refreshed session's `set-cookie`.                                                                                                                                                                 |
 | `serveCloudflare`, `serveNitro` | Start's handler as the platform's server entry: what the entry the plugin writes default-exports; an app never calls them.                                                                                                                                                                        |
 
+### `@kestack/kabuki/fake`
+
+| Export           | What it does                                                                                                                                                                                                                |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Fake.make`      | Says what a Fake is: its name, the Schema of its state and where it starts, its controls, and its Layer, the service the app uses, built over the state as a `SubscriptionRef`. It holds no state itself.                   |
+| `Fake.control`   | Makes one control from the Schema of the state it changes, which types it, the Schema of its payload, and what it does to the state, failing with a reason a person can read.                                               |
+| `FakeWorld.make` | Puts an app's Fakes together, each name once, with where some `start` in place of their `initial`; it throws on a name given twice.                                                                                         |
+| `world.layer`    | Every Fake's service merged: built, it starts each Fake's state in its Scope, and its Scope closed, that world ends. Built again, the latest build still open is the one `fakes` and `control` follow.                      |
+| `world.fakes`    | Every Fake as it is now, as a Stream, and again after any change: its name, the Schema of its state, its state and its controls, each with the Schema of its payload; empty while no build is open.                         |
+| `world.control`  | Runs one control by its Fake's name and its own, its payload decoded by its Schema: it ends `'done'`, or fails with why not, a Fake or control not found, a payload refused, no world started, or the control's own reason. |
+
 ### Types
 
 Each Part's types are at its own `/types` path, in types only, for code that
 has to name one; the paths above give values alone.
 
-| Path                            | Types                                                                                                                                                                                                                                     |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@kestack/kabuki/types`         | `Self`, `Single`, `ActorType`, `AnyActor`, `DefinedOf`, `BlueprintLevel`, `Entry`, `From`, `Instance`, `SavedSnapshot`, `WantedWorker`, `LiveInstance`, `Needs`, `RuntimeOptions`, `Sent`, `WorkerStatus`, `HistoryEntry`, `SavedHistory` |
-| `@kestack/kabuki/react/types`   | `ViewProps`, `ViewOf`, `Handle`, `ChildData`, `Root`, `AppRuntime`, `Attachment`, `Step`, `KabukiProps`                                                                                                                                   |
-| `@kestack/kabuki/routing/types` | `Metadata`, `Status`, `Preload`, `MoveOptions`, `ReloadOptions`, `RouterOptions`                                                                                                                                                          |
-| `@kestack/kabuki/start/types`   | `DocumentProps`, `Drawn`, `StartApp`, `Pages`, `PageInfo`, `Platform`, `Handler`, `Host`, `PageCache`, `StartOptions`, `NitroOptions`                                                                                                     |
+The ones ending in `Of` take an Actor's Shape, `typeof FolderViewerShape`,
+and type a part written outside its `build`: `InitOf`, `UpdatesOf`,
+`WorkersOf`, `SelfOf` and `DataOf` (its data, in one State when named), and
+`ViewPropsOf`, what its View draws from, without its Children.
+
+| Path                            | Types                                                                                                                                                                                                                                                                                                               |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@kestack/kabuki/types`         | `InitOf`, `UpdatesOf`, `WorkersOf`, `SelfOf`, `DataOf`, `Self`, `Single`, `ActorType`, `AnyActor`, `DefinedOf`, `BlueprintLevel`, `Asked`, `Entry`, `From`, `Instance`, `SavedSnapshot`, `Tried`, `WantedWorker`, `LiveInstance`, `Needs`, `RuntimeOptions`, `Sent`, `WorkerStatus`, `HistoryEntry`, `SavedHistory` |
+| `@kestack/kabuki/react/types`   | `ViewPropsOf`, `ViewProps`, `ViewOf`, `Handle`, `ChildData`, `Root`, `AppRuntime`, `Attachment`, `Step`, `KabukiProps`                                                                                                                                                                                              |
+| `@kestack/kabuki/routing/types` | `Metadata`, `Status`, `Preload`, `MoveOptions`, `ReloadOptions`, `RouterOptions`                                                                                                                                                                                                                                    |
+| `@kestack/kabuki/start/types`   | `DocumentProps`, `Drawn`, `StartApp`, `Pages`, `PageInfo`, `Platform`, `Handler`, `Host`, `PageCache`, `StartOptions`, `NitroOptions`                                                                                                                                                                               |
+| `@kestack/kabuki/fake/types`    | `Control`, `FakeNow`, `StartOf`, `StateOf`, `OutOf`, `ErrorOf`, `NeedsOf`                                                                                                                                                                                                                                           |
 
 `@kestack/kabuki/start/client` is there only for the browser entry the
 plugin writes; an app never imports it.
@@ -333,7 +359,7 @@ export const AuthLive = Auth.build({
 });
 ```
 
-- `Actor.define` takes only the name, the Requires, the Schemas and what the Actor Emits, which fix every type, and imports nothing but other Shapes. A struct is written as its fields, a tagged union as its cases by tag, as `Schema.TaggedUnion` takes them; a whole Schema works too. The Model is always a struct. The Shape's own `build` is checked against them: an Update that returns a State the Schema does not have, or a `state.user` read where there is none, does not compile. The Shape is `Auth`, the build `AuthLive`, side by side in one file; together they are the Actor's Definition.
+- `Actor.define` takes only the name, a `description` of what the Actor is about, the Requires, the Schemas and what the Actor Emits, which fix every type, and imports nothing but other Shapes. The description is in its Blueprint. A struct is written as its fields, a tagged union as its cases by tag, each its fields or a `Schema.Struct` of them; a whole Schema works too. A case written as a struct is tagged with its key and keeps its annotations and checks, so a Message is described with Schema's own `description` annotation: `Toggled: Schema.Struct({ id: Schema.String }).annotate({ description: 'Mark one to-do done or not done' })`. Describe each Message a person sends through the View, and no other: DevTools' MCP tools list an agent only the described Messages, and count the rest, sent by Workers, Commands and Children, as internal. The Model is always a struct. The Shape's own `build` is checked against them: an Update that returns a State the Schema does not have, or a `state.user` read where there is none, does not compile. The Shape is `Auth`, the build `AuthLive`, side by side in one file; together they are the Actor's Definition.
 - A build has two Levels. What is written at the top holds for as long as the Instance lives; what is written under `states`, in a State's block, holds while that State lasts. Each Level can hold `provides`, `children`, `on`, `workers` and `queries`.
 - An Update gives only the fields of the Model that change; the rest stay as they are, and a Model whose fields all stay the same is the same object. An Update that returns a different `_tag` is a Transition: the old State's Children, Workers and Capabilities stop, the new State's start. A Child written at the top lasts through it.
 - A level's `children` names each Child, made with `Actor.child`: `Actor.child(LoginLive, { … })`, the Actor, then when it exists, what it is handed and what the parent hears. `Actor.child` is typed by the level it is written in, its State narrowed in a State's block, so every function in it is checked against the parent's data and the Child's Actor. A Child that needs no Input and no Props is `Actor.child(TodosLive)`.
@@ -344,6 +370,7 @@ export const AuthLive = Auth.build({
 - A Query is a question code outside the tree asks an Instance. `define` declares it, with what it is asked with and what it answers, `queries: { peers: { args: { room: Schema.String }, result: Schema.Array(Schema.String) } }`, and `build` answers it, `queries: { peers: (self, { room }) => Effect }`: it reads `self` and the Actor's Requires, and never Sends. Its args and answer are checked against their Schemas, and a Query answered but not declared does not compile. Written in a State's block it is askable only in that State, and the live Instance has it on its type only once `_tag` has narrowed to it. Asked of an Instance that has stopped or left the State, or while the Runtime is stopped, it fails with `Stopped`, from `@kestack/kabuki`.
 - Outside code reaches the root Instance with `runtime.root`, typed and live, and any other by walking down its `children`, or straight with `runtime.at(address)`. A typed Instance repeats its State's tag as `_tag`, and checking it narrows `state` and `children`, so a Child a State holds is read after that check: `if (auth._tag === 'Authenticated') auth.children.todos`.
 - Outside code tells an Instance with `send`, which says what became of the Message: `handled`, `ignored` with no rule for it in that State, `queued` behind one being handled, or `refused`, with the Instance gone, the Runtime stopped or the Message not matching its Schema. It waits on one with `until`, `yield* session.until((s) => s._tag === 'Running')`, which answers with the Instance narrowed as the test narrows it, from data the Snapshot holds, or fails with `Stopped`. A job that needs outside work and then a change asks a Query, then Sends.
+- Outside code asks what a Message would do with `try`, before Sending it or instead: it is worked out from the Snapshot alone, so nothing is Sent, nothing runs and the History does not move. It answers `InstanceNotFound` once the Instance is gone; `Refused`, with the `reason`, when the Message does not match its Schema or its Update gives what its Schemas refuse; `Unhandled` with no rule for it in this State, with the States that have one in `handledIn`; `NoChange` when the rule changes nothing, asks for nothing and Emits nothing; or `Changes`: the `snapshot` after it, the `model` fields that change, the `commands` asked for, as `{ name, args }`, and the `emits` the Update gave.
 
 ### A list of Actors, a Command, and a Worker per key
 
@@ -467,6 +494,56 @@ const DemoApp = View.app(AuthView, { layer: ServerLive });
 - What changes over time arrives as Messages: a Worker Sends a `Tick` or its progress, and the View draws the Model. motion can smooth what it draws from one Message to the next.
 - `View.app` does not compile until its `layer` covers every Capability the tree still needs; a tree that Requires nothing needs no `layer`.
 - Give `attach: [(app) => stop]` to run something beside the app, such as a devtool: each Attachment is called with the app's `AppRuntime` once its Runtime is made at the first mount in a browser, never on a server, and its `stop` at the last unmount or a hot reload. It holds the same object `useRuntime` returns, always read as it is now, and `app.subscribe` tells it of each change. One that throws is logged with `console.error`, and the app and the other Attachments run on. `Start.app({ …, attach })` hands them on in the same way. `Start.app({ …, loading })` is what the App Shell paints until the app is drawn.
+
+### Faking a service in the browser
+
+A Fake stands in for a service the app uses, and a FakeWorld runs an app's
+Fakes behind one Layer. Here a Fake says whether a newer build is out, and
+its one control puts one out; DevTools, or a test, runs it by name.
+
+```ts
+import { Fake, FakeWorld } from '@kestack/kabuki/fake';
+
+const NewBuild = Schema.Struct({ newer: Schema.Boolean });
+
+export const newBuild = Fake.make({
+  name: 'newBuild',
+  state: NewBuild,
+  initial: { newer: false },
+  controls: {
+    PutOutNewerBuild: Fake.control(NewBuild, Schema.Struct({}), (_, state) =>
+      SubscriptionRef.update(state, (s) => ({ ...s, newer: true })),
+    ),
+  },
+  layer: (state) =>
+    Layer.succeed(OnOutdated, {
+      newer: SubscriptionRef.get(state).pipe(Effect.map((s) => s.newer)),
+      waited: SubscriptionRef.changes(state).pipe(
+        Stream.filter((s) => s.newer),
+        Stream.take(1),
+        Stream.runDrain,
+      ),
+    }),
+});
+
+export const world = FakeWorld.make([newBuild, computers], {
+  start: { computers: { names: ['mac', 'pc'] } },
+});
+
+const program = Effect.gen(function* () {
+  const outdated = yield* OnOutdated;
+  yield* world.control('newBuild', 'PutOutNewerBuild', {}); // 'done'
+  yield* outdated.waited;
+  yield* Effect.flip(world.control('newBuild', 'Rollback', {}));
+  // 'newBuild has no control Rollback'
+}).pipe(Effect.provide(world.layer));
+```
+
+- A Fake's state is a `SubscriptionRef` its FakeWorld makes when its Layer is built, from `initial`, or from `start` for the Fakes it names. Its Layer reads it and watches it change; a control changes it.
+- A control is the Schema of its payload and what it does, which fails with a reason a person can read. `Fake.control` takes the state's Schema first only to type the state it is handed: TypeScript does not carry the state from `Fake.make` into a call written inside it.
+- `world.control(fake, control, payload)` takes the payload as DevTools sends it, unknown, and decodes it by its Schema. It never dies on bad input: each refusal is its failure, a string.
+- `world.fakes` gives a UI what it draws: each Fake's name, state Schema, state now and controls, each with its payload Schema, again after every change. It is empty until the Layer is built and once its Scope closes.
+- Nothing is kept: each build starts again. Building the Layer twice makes two worlds, each read by its own Layers; `fakes` and `control` follow the latest one still open, then the one before it.
 
 ### Running it, looking back, and drawing it before it runs
 

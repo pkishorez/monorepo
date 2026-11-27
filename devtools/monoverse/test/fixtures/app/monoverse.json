@@ -1,0 +1,6 @@
+{
+  "$schema": "../../../schema.json",
+  "sourceRoots": ["src"],
+  "ignore": ["**/tests/**"],
+  "preset": "kabuki"
+}

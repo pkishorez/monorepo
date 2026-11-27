@@ -1,1 +1,1 @@
-export { run, type Commands, type ServeFlags } from './cli.js';
+export { main } from './cli.js';

@@ -1,4 +1,4 @@
-export { accounts, keptAccounts } from './accounts.ts';
+export { accounts, accountsTable, keptAccounts } from './accounts.ts';
 export {
   ContextShown,
   nothing,

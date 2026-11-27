@@ -1,36 +1,86 @@
 {
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
-  "ignoredPaths": ["src/connection/tests/fixtures"],
-  "fileModules": [],
+  "ignoredPaths": ["src/connection/cli/tests/fixtures"],
+  "fileModules": ["src/connection/plugins/code/engine/node.ts"],
   "rules": {
-    "*": ["src/cloud/contract"],
-    "src/cloud/worker/registry": ["src/cloud/worker/storage"],
-    "src/connection": ["src/cloud/contract", "src/cloud/client"],
-    "src/connection/actor-connection/actor-online": [
-      "src/connection/actor-connection/capabilities"
+    "src/browser": [
+      "src/cloud/client",
+      "src/cloud/worker/app",
+      "src/cloud/worker/heartbeat",
+      "src/cloud/worker/store",
+      "src/connection/cli/identity/cloud",
+      "src/connection/plugins/code/api",
+      "src/connection/plugins/code/engine",
+      "src/connection/plugins/code/serve/handlers",
+      "src/contracts/app-api",
+      "src/contracts/heartbeat",
+      "src/contracts/link"
     ],
-    "src/connection/actor-connection/actor-online/actor-tunnel": [
-      "src/connection/actor-connection/actor-online/capabilities"
+    "src/browser/fake": ["src/browser/computers"],
+    "src/cloud": ["src/contracts/heartbeat"],
+    "src/cloud/client": ["src/contracts/app-api"],
+    "src/cloud/worker": ["src/contracts/app-api", "src/contracts/link"],
+    "src/cloud/worker/app": ["src/cloud/worker/store"],
+    "src/cloud/worker/heartbeat": ["src/cloud/worker/store"],
+    "src/connection/cli": ["src/contracts/heartbeat", "src/contracts/link"],
+    "src/connection/cli/actor-identity/actor-connection": [
+      "src/connection/cli/actor-identity/capabilities"
     ],
-    "src/connection/actor-connection/actor-plugins": [
-      "src/connection/actor-connection/capabilities"
+    "src/connection/cli/identity/migrations": [
+      "src/connection/cli/identity/store"
     ],
-    "src/plugins/code/api": ["src/plugins/code/records", "src/cloud/contract"],
-    "src/plugins/code/serve": [
-      "src/plugins/code/api",
-      "src/plugins/code/engine",
-      "src/plugins/code/records"
+    "src/connection/cli/identity/sign-in": [
+      "src/connection/cli/identity/store"
     ],
-    "src/plugins/code/api/client": ["src/plugins/code/api/contract"],
-    "src/plugins/code/engine": ["src/plugins/code/records"],
-    "src/plugins/code/engine/actor-code": [
-      "src/plugins/code/engine/capabilities",
-      "src/plugins/code/engine/engine-raw"
+    "src/connection/cli/control": [
+      "src/connection/cli/actor-identity/capabilities"
     ],
-    "src/plugins/code/engine/actor-code/checks": [
-      "src/plugins/code/engine/actor-code/actor-session"
+    "src/connection/plugins/code/api": [
+      "src/contracts/link",
+      "src/connection/plugins/code/records"
     ],
-    "src/plugins/code/engine/services": ["src/plugins/code/engine/capabilities"]
-  }
+    "src/connection/plugins/code/serve": [
+      "src/connection/plugins/code/api",
+      "src/connection/plugins/code/engine",
+      "src/connection/plugins/code/records"
+    ],
+    "src/connection/plugins/code/api/client": [
+      "src/connection/plugins/code/api/contract"
+    ],
+    "src/connection/plugins/code/engine": [
+      "src/connection/plugins/code/records"
+    ],
+    "src/connection/plugins/code/engine/actor-code": [
+      "src/connection/plugins/code/engine/capabilities",
+      "src/connection/plugins/code/engine/engine-raw",
+      "src/connection/plugins/code/engine/paths"
+    ],
+    "src/connection/plugins/code/engine/actor-code/checks": [
+      "src/connection/plugins/code/engine/actor-code/actor-session"
+    ],
+    "src/connection/plugins/code/engine/attachments": [
+      "src/connection/plugins/code/engine/capabilities",
+      "src/connection/plugins/code/engine/paths"
+    ],
+    "src/connection/plugins/code/engine/node.ts": [
+      "src/connection/plugins/code/engine/capabilities",
+      "src/connection/plugins/code/engine/services"
+    ],
+    "src/connection/plugins/code/engine/services": [
+      "src/connection/plugins/code/engine/capabilities",
+      "src/connection/plugins/code/engine/paths"
+    ],
+    "src/connection/plugins/code/engine/services/git/fake": [
+      "src/connection/plugins/code/engine/services/file-system/fake"
+    ],
+    "src/contracts/app-api": ["src/contracts/heartbeat"]
+  },
+  "exceptions": [
+    {
+      "from": "src/connection/cli/actor-identity",
+      "to": "src/connection/cli/control",
+      "because": "Identity's tests run it on a real control socket, as serve does, to check it answers list and remove there"
+    }
+  ]
 }

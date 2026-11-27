@@ -1,4 +1,4 @@
-export { StdTable } from './std-table/table/index.js';
+export { StdTable, type StoredSnapshotReads } from './std-table/table/index.js';
 export type {
   AccessPatternDefinition,
   GlobalSecondaryIndex,
@@ -22,3 +22,8 @@ export {
   type TransactOperation,
   type TransactOutcome,
 } from './std-table/error/index.js';
+export {
+  SnapshotUnreadable,
+  storedTableSnapshot,
+  type StoredTableSnapshot,
+} from './table-snapshot/index.js';

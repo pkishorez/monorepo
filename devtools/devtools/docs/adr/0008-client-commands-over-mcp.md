@@ -1,6 +1,6 @@
 # Agents read telemetry through Client Commands, not MCP
 
-**Status:** accepted
+**Status:** superseded by [ADR 0013](./0013-the-app-is-one-kabuki-tree-of-composable-tools.md), then [ADR 0014](./0014-devtools-serves-mcp-on-its-own-server.md)
 
 > Note: the Flow Tool has since been removed, so Client Commands now cover
 > Traces only and the Flow parts below no longer apply.

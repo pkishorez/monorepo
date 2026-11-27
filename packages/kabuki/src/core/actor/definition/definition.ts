@@ -114,6 +114,8 @@ export interface ProvideDefinition {
 /** The Definition the engine works from; an Actor without States is keyed by its one State. */
 export interface ActorDefinition {
   readonly name: string;
+  /** What the Actor is about, as `define` was given it. */
+  readonly description?: string;
   /** Every State it can be in, by tag: the ones its State Schema names. */
   readonly states: ReadonlyArray<string>;
   readonly requires: Requires;

@@ -15,9 +15,11 @@
     "src/db/std-table/definition/__tests__",
     "src/db/std-table/entity/__tests__",
     "src/db/std-table/key/__tests__",
+    "src/db/table-snapshot/__tests__",
     "src/eschema/__tests__",
     "src/eschema/play.ts",
     "src/eschema/tutorial",
+    "src/migrations/2026-11-stored-contract/__tests__",
     "src/replica/__tests__",
     "src/snapshot/__tests__",
     "src/snapshot/vitest/__tests__",
@@ -84,7 +86,7 @@
     ],
     "src/snapshot/snapshot/snapshot-renderer": ["src/eschema"],
     "src/snapshot/vitest": ["src/eschema/testing"],
-    "src/db/std-table/definition": ["src/eschema"],
+    "src/db/std-table/definition": ["src/db/std-table/contract", "src/eschema"],
     "src/db/std-table/key": ["src/db/std-table/contract"],
     "src/db/std-table/entity": [
       "src/db/std-table/contract",
@@ -99,7 +101,6 @@
       "src/db/std-table/definition",
       "src/db/std-table/entity",
       "src/db/std-table/error",
-      "src/db/std-table/key",
       "src/eschema",
       "src/core"
     ],
@@ -115,11 +116,20 @@
       "src/db/dynamodb/expression",
       "src/db/dynamodb/item-schema"
     ],
-    "src/db/stored-contract": ["src/snapshot"],
+    "src/db/table-snapshot": [
+      "src/db/std-table/contract",
+      "src/db/std-table/definition",
+      "src/db/std-table/entity",
+      "src/db/std-table/error",
+      "src/db/std-table/key",
+      "src/snapshot",
+      "src/core"
+    ],
     "src/db/idb": [
       "src/db/std-table/contract",
       "src/db/std-table/definition",
-      "src/db/stored-contract",
+      "src/db/table-snapshot",
+      "src/migrations",
       "src/snapshot"
     ],
     "src/db/idb/database": ["src/db/idb/upgrade"],
@@ -131,14 +141,16 @@
     "src/db/sqlite": [
       "src/db/std-table/contract",
       "src/db/std-table/definition",
-      "src/db/stored-contract",
+      "src/db/table-snapshot",
       "src/snapshot"
     ],
     "src/db/sqlite/database": ["src/db/sqlite/item-schema"],
     "src/db/sqlite/drivers": ["src/db/sqlite/database"],
     "src/db/sqlite/setup": [
       "src/db/sqlite/database",
-      "src/db/sqlite/statement"
+      "src/db/sqlite/statement",
+      "src/db/sqlite/table",
+      "src/migrations"
     ],
     "src/db/sqlite/statement": ["src/db/sqlite/item-schema"],
     "src/db/sqlite/table": [
@@ -146,13 +158,28 @@
       "src/db/sqlite/item-schema",
       "src/db/sqlite/statement"
     ],
-    "src/alchemy/deploy-guard": ["src/db/stored-contract", "src/snapshot"],
+    "src/migrations": ["src/db/std-table/contract"],
+    "src/migrations/2026-11-stored-contract": [
+      "src/db/table-snapshot",
+      "src/snapshot"
+    ],
+    "src/migrations/alchemy": [
+      "src/migrations/2026-11-stored-contract/alchemy"
+    ],
+    "src/alchemy": ["src/migrations/alchemy"],
     "src/alchemy/d1": [
-      "src/alchemy/deploy-guard",
+      "src/alchemy/collection",
       "src/db/sqlite",
       "src/snapshot"
     ],
-    "src/alchemy/dynamodb": ["src/alchemy/deploy-guard", "src/db"],
+    "src/alchemy/dynamodb": [
+      "src/alchemy/collection",
+      "src/db/dynamodb",
+      "src/db/std-table/contract",
+      "src/db/std-table/definition",
+      "src/db/table-snapshot",
+      "src/snapshot"
+    ],
     "src/sync/domain/collection-item": ["src/eschema", "src/core"],
     "src/sync/domain/stored-entity": ["src/db", "src/eschema"],
     "src/sync/store": ["src/sync/domain/stored-entity"],

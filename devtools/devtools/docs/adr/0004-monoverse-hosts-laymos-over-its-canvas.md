@@ -1,6 +1,6 @@
 # Monoverse hosts Embedded Laymos over its canvas
 
-**Status:** amended: the Laymos Tool is gone; Embedded Laymos is the only way DevTools shows Laymos ([ADR 0007](./0007-laymos-is-reached-through-monoverse.md)).
+**Status:** superseded by [ADR 0013](./0013-the-app-is-one-kabuki-tree-of-composable-tools.md)
 
 Opening a Package in Laymos from Monoverse renders the full Laymos Project
 workspace inside the `/monoverse` route, over the Monoverse canvas, which stays

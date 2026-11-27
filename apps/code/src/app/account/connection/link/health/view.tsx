@@ -1,4 +1,4 @@
-import type { Health } from './health.ts';
+import { downloadingOf, type Health } from './health.ts';
 import { ago } from '../../../../../ui/labels/status/index.ts';
 
 /*
@@ -24,26 +24,32 @@ export const pillOf = (health: Health): Pill | null => {
       ];
   }
   const { status, lastSeen } = health;
-  switch (status._tag) {
-    case 'Installing':
-      return [
-        'Downloading cloudflared…',
-        'The Connection is downloading cloudflared, once, to open its tunnel. On a slow network this takes a few minutes.',
-      ];
-    case 'Opening':
-      return [
-        'Opening tunnel…',
-        'The Connection is opening its tunnel to Cloudflare.',
-      ];
-    case 'OpenFailed':
-      return [
-        'Tunnel failed · retrying',
-        `The Connection could not open its tunnel: ${status.problem}. It tries again shortly.`,
-      ];
+  if (status._tag === 'SettingUp') {
+    const { step } = status;
+    switch (step._tag) {
+      case 'Downloading':
+        return [
+          downloadingOf(step),
+          'The Connection is downloading cloudflared, once, to open its tunnel. On a slow network this takes a few minutes.',
+        ];
+      case 'Opening':
+        return [
+          'Opening tunnel…',
+          'The Connection is opening its tunnel to Cloudflare.',
+        ];
+      case 'Failed':
+        return [
+          'Tunnel failed · retrying',
+          `The Connection could not open its tunnel: ${step.problem}. It tries again shortly.`,
+        ];
+    }
+  }
+  const { check } = status;
+  switch (check._tag) {
     case 'Unreachable':
       return [
         `Out of reach · seen ${ago(lastSeen)}`,
-        `The Connection is up, but its tunnel is broken: ${status.problem}. Relinking…`,
+        `The Connection is up, but its tunnel is broken: ${check.problem}. Relinking…`,
       ];
     case 'Unchecked':
     case 'Reachable':
@@ -59,8 +65,9 @@ export const shortOf = (health: Health) =>
   health._tag === 'Down'
     ? 'Connection down'
     : health._tag === 'Seen' &&
-        (health.status._tag === 'Unreachable' ||
-          health.status._tag === 'OpenFailed')
+        (health.status._tag === 'SettingUp'
+          ? health.status.step._tag === 'Failed'
+          : health.status.check._tag === 'Unreachable')
       ? 'Out of reach'
       : 'Connecting…';
 

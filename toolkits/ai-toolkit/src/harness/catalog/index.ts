@@ -1,9 +1,7 @@
 export {
-  binaryAt,
   checkBinary,
   configFolderOf,
-  InvalidBinary,
-  Models,
-  ModelsError,
+  harnessHostLayer,
+  modelsLayer,
   type ModelsOptions,
 } from './catalog.js';

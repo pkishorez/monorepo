@@ -80,8 +80,9 @@ const bundle = async (code: string) => {
 
 // Effect HttpApi's server builder, and rpc-toolkit's Transports.
 const HTTP_API_BUILDER = '/effect/dist/http-api/HttpApiBuilder.';
-// The browser environment's fake, which no real door may carry.
+// The fake, which no real door may carry, and the mark it carries.
 const FAKE = '/auth-toolkit/src/guard/fake/';
+const FAKE_MARK = 'kestack-fake';
 const TRANSPORTS = [
   '/rpc-toolkit/dist/rpc/http/',
   '/rpc-toolkit/dist/rpc/websocket/',
@@ -89,14 +90,20 @@ const TRANSPORTS = [
 ];
 
 describe('what the Guard leaves out', () => {
-  it('the fake, bundled the way an app imports it, really is in the bundle', async () => {
-    const { has } = await bundle(
-      `import { fakeAccounts, fakeGuard } from '@kestack/auth-toolkit/fake';
+  it('the fake, bundled the way an app imports it, really is in the bundle, with its mark', async () => {
+    for (const code of [
+      `import { fakeAccounts } from '@kestack/auth-toolkit/fake';
        import { Effect } from 'effect';
-       export const layer = fakeAccounts({ choose: Effect.succeed(null) });
+       export const layer = fakeAccounts({ choose: Effect.succeed(null) });`,
+      `import { fakeGuard } from '@kestack/auth-toolkit/fake';
        export const guard = fakeGuard.rpc();`,
-    );
-    expect(has(FAKE)).toBe(true);
+      `import { signIn } from '@kestack/auth-toolkit/fake';
+       export const fake = signIn();`,
+    ]) {
+      const bundled = await bundle(code);
+      expect(bundled.has(FAKE)).toBe(true);
+      expect(bundled.code).toContain(FAKE_MARK);
+    }
   }, 60_000);
 
   it('the contract, on RPC and HttpApi targets: no HttpApiBuilder, no Transport', async () => {
@@ -128,6 +135,7 @@ describe('what the Guard leaves out', () => {
     expect(code).toContain('@kestack/auth-toolkit/http-api/Auth');
     expect(has(HTTP_API_BUILDER)).toBe(false);
     expect(has(FAKE)).toBe(false);
+    expect(code).not.toContain(FAKE_MARK);
     for (const transport of TRANSPORTS) expect(has(transport)).toBe(false);
   }, 60_000);
 

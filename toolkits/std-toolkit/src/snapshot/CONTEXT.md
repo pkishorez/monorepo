@@ -13,23 +13,11 @@ One semantically coherent difference between two **table snapshots**, with its o
 _Avoid_: Overall status, snapshot result.
 
 **snapshot verification**:
-A comparison of a current **table snapshot** with an earlier one, yielding **snapshot changes** that each keep their own safety classification. The new snapshot is upgradable when no change is `breaking` or `unverifiable`. Snapshot provides only the comparison; the baseline it compares against belongs to the caller. The toolkit keeps two: the **Stored contract**, with the data, and the **Deployed contract**, in Alchemy state. For a **Persistent table**, a committed file snapshot, checked by `expectTableShippable`, catches a change before review; setup and the **Deploy guard** are what refuse it.
-_Avoid_: Safety assessment, snapshot approval, approved snapshot file, contract file, enforcement baseline.
-
-**Deploy guard**:
-The Alchemy resource in `@kestack/std-toolkit/alchemy` that keeps the **Deployed contract** for one StdTable in Alchemy state, named after the StdTable's logical name. Declaring one says the table is persistent, so it takes no mode; one guard covers every physical table of that StdTable, since they share the contract the code ships. On each deploy it runs **snapshot verification** against it and fails the deploy when the new snapshot is not upgradable; a `requires-backfill` change is accepted with a warning. It is on by default for every **Persistent table** Alchemy deploys, and is DynamoDB's only guard, since a DynamoDB table keeps no **Stored contract**. It keeps one contract per physical table, so a new table starts fresh and one moved away from is still checked against its own data when it is moved back to. It runs only at deploy, never in a layer or a request.
-_Avoid_: Snapshot guard (retired), enforcement, deploy gate, contract resource.
-
-**Stored contract**:
-The **table snapshot** the data in one physical table was last set up under, kept with that data, together with the table's **Table mode**. It is the baseline: setup compares the current snapshot with it, so a device or object that skipped releases is compared from where its own data actually is.
-_Avoid_: Baseline item, schema version row, enforcement baseline.
-
-**Deployed contract**:
-The **table snapshot** last shipped for one persistent StdTable, kept in Alchemy state. Checking it at deploy stops a change before it reaches any device or object. It is a guard ahead of the **Stored contract**, never a replacement for it.
-_Avoid_: Approved snapshot, baseline.
+A comparison of a current **table snapshot** with an earlier one, yielding **snapshot changes** that each keep their own safety classification. The new snapshot is upgradable when no change is `breaking` or `unverifiable`. Snapshot provides only the comparison; the baseline it compares against belongs to the caller. The toolkit keeps one, the [[db]] **Stored snapshot**, inside each physical table. For a **Persistent table**, a committed file snapshot, checked by `expectTableShippable`, catches a change before review; the check against the Stored snapshot, at deploy or at setup, is what refuses it.
+_Avoid_: Safety assessment, snapshot approval, approved snapshot file, contract file, enforcement baseline, Stored contract and Deployed contract (retired terms), Deploy guard (retired).
 
 **Snapshot document format**:
-The versioned shape of a stored snapshot itself, distinct from the **versions** of the schemas it describes. A snapshot written under an older format is read forward into the current one, so a stored snapshot never becomes unreadable because the toolkit moved on.
+The versioned shape of a serialized **table snapshot** itself (the committed file, a deploy resource's props), distinct from the **versions** of the schemas it describes. A document written under an older format is read forward into the current one, so it never becomes unreadable because the toolkit moved on. The [[db]] **Stored snapshot** does not use it: its format is the internal entities' own ESchemas, which change by a new version like any entity's. Its hash, which lets setup skip the comparison on an unchanged table, is taken over those entities' values, not over this document.
 _Avoid_: Retired format, snapshot schema version.
 
 **Snapshot type**:

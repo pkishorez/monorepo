@@ -1,0 +1,377 @@
+import { readFileSync } from 'node:fs';
+import { describe, expect, it } from 'vitest';
+import { isChecked, matches, parseConfig, presets } from '../index.ts';
+
+const parse = (json: unknown) => parseConfig(JSON.stringify(json));
+
+const config = (json: unknown) => {
+  const result = parse(json);
+  if (!result.ok) throw new Error(result.error);
+  return result.config;
+};
+
+describe('parseConfig', () => {
+  it('expands a preset into its rules', () => {
+    expect(config({ sourceRoots: ['src/'], preset: 'kabuki' })).toEqual({
+      sourceRoots: ['src'],
+      ignore: [],
+      rules: presets.kabuki,
+      exceptions: [],
+      restrictions: [],
+    });
+  });
+
+  it("reads a package's own rules, leaving out the ones it does not name", () => {
+    expect(
+      config({
+        $schema: './schema.json',
+        sourceRoots: ['.'],
+        ignore: ['**/fixtures/**'],
+        rules: { imports: { doors: ['ports/*'] } },
+      }),
+    ).toEqual({
+      sourceRoots: [''],
+      ignore: ['**/fixtures/**'],
+      rules: { imports: { doors: ['ports/*'] } },
+      exceptions: [],
+      restrictions: [],
+    });
+  });
+
+  it.each([
+    [
+      'both a preset and rules',
+      { sourceRoots: ['src'], preset: 'default', rules: {} },
+      'monoverse.json needs exactly one of "preset" and "rules".',
+    ],
+    [
+      'neither a preset nor rules',
+      { sourceRoots: ['src'] },
+      'monoverse.json needs exactly one of "preset" and "rules".',
+    ],
+    [
+      'a key it does not know',
+      { sourceRoots: ['src'], preset: 'default', cycles: [] },
+      'monoverse.json has "cycles", which it does not know. It knows "$schema", "sourceRoots", "ignore", "preset", "rules", "exceptions", "restrictions".',
+    ],
+    [
+      'a rule it does not know',
+      { sourceRoots: ['src'], rules: { cycles: {} } },
+      'monoverse.json has "rules.cycles", which it does not know. It knows "rules.imports", "rules.contracts".',
+    ],
+    [
+      'a preset it does not know',
+      { sourceRoots: ['src'], preset: 'toString' },
+      'monoverse.json "preset" is "toString"; use one of "default", "kabuki".',
+    ],
+    [
+      'no source roots',
+      { preset: 'default' },
+      'monoverse.json needs "sourceRoots".',
+    ],
+    [
+      'an empty list of source roots',
+      { sourceRoots: [], preset: 'default' },
+      'monoverse.json "sourceRoots" must name at least one folder.',
+    ],
+    [
+      'a source root outside the package',
+      { sourceRoots: ['../other'], preset: 'default' },
+      'monoverse.json "sourceRoots" has "../other", which is not inside the package.',
+    ],
+    [
+      'imports without doors',
+      { sourceRoots: ['src'], rules: { imports: {} } },
+      'monoverse.json "rules.imports.doors" must be a list of strings.',
+    ],
+  ])('refuses %s', (_, json, error) => {
+    expect(parse(json)).toEqual({ ok: false, error });
+  });
+
+  it('refuses text that is not JSON', () => {
+    const result = parseConfig('{ "preset": ');
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error).toMatch(/^monoverse.json is not JSON/);
+  });
+});
+
+describe('isChecked', () => {
+  const settings = config({
+    sourceRoots: ['src'],
+    ignore: ['**/tests/**', '**/*.test.ts'],
+    preset: 'default',
+  });
+
+  it('checks a file inside a source root', () => {
+    expect(isChecked(settings, 'src/app/start.ts')).toBe(true);
+  });
+
+  it('skips a file outside every source root', () => {
+    expect(isChecked(settings, 'scripts/seed.ts')).toBe(false);
+    expect(isChecked(settings, 'srcs/start.ts')).toBe(false);
+  });
+
+  it('skips a file an ignore glob matches', () => {
+    expect(isChecked(settings, 'src/app/tests/logic.ts')).toBe(false);
+    expect(isChecked(settings, 'src/app/start.test.ts')).toBe(false);
+  });
+
+  it('checks the whole package for a source root of "."', () => {
+    const whole = config({ sourceRoots: ['.'], preset: 'default' });
+    expect(isChecked(whole, 'scripts/seed.ts')).toBe(true);
+  });
+});
+
+describe('what parseConfig cleans and refuses', () => {
+  it('reads a file saved with a byte order mark', () => {
+    expect(parseConfig('﻿{"sourceRoots":["src"],"preset":"default"}').ok).toBe(
+      true,
+    );
+  });
+
+  it('writes doors, contract folders and ignore globs the way the rules match them', () => {
+    expect(
+      config({
+        sourceRoots: ['./src/'],
+        ignore: ['./**/tests/**', 'src/fixtures/'],
+        rules: {
+          imports: { doors: ['./shared/', 'ports/*/'] },
+          contracts: { folders: ['./ports/*'], required: ['ports/*/'] },
+        },
+      }),
+    ).toEqual({
+      sourceRoots: ['src'],
+      ignore: ['**/tests/**', 'src/fixtures/**'],
+      rules: {
+        imports: { doors: ['shared', 'ports/*'] },
+        contracts: { folders: ['ports/*'], required: ['ports/*'] },
+      },
+      exceptions: [],
+      restrictions: [],
+    });
+  });
+
+  it('refuses a source root that is absolute or has a ".." anywhere, as the schema does', () => {
+    for (const root of ['/abs', '../x', 'src/../..', 'a/../b'])
+      expect(parse({ sourceRoots: [root], preset: 'default' }).ok).toBe(false);
+    const pattern = new RegExp(
+      (
+        JSON.parse(
+          readFileSync(new URL('../../schema.json', import.meta.url), 'utf8'),
+        ) as {
+          properties: { sourceRoots: { items: { pattern: string } } };
+        }
+      ).properties.sourceRoots.items.pattern,
+    );
+    for (const root of ['/abs', '../x', 'src/../..', 'a/../b'])
+      expect(pattern.test(root)).toBe(false);
+    for (const root of ['src', '.', './src/', 'a/..b'])
+      expect(pattern.test(root)).toBe(true);
+  });
+
+  it('never checks a declaration file', () => {
+    const whole = config({ sourceRoots: ['.'], preset: 'default' });
+    expect(isChecked(whole, 'src/types.d.ts')).toBe(false);
+    expect(isChecked(whole, 'src/types.d.mts')).toBe(false);
+    expect(isChecked(whole, 'src/types.ts')).toBe(true);
+  });
+
+  it('refuses a door or contract folder that is empty, absolute or climbs out, as the schema does', () => {
+    for (const door of ['', './', '/shared', '../shared'])
+      expect(
+        parse({ sourceRoots: ['src'], rules: { imports: { doors: [door] } } })
+          .ok,
+      ).toBe(false);
+    const schema = JSON.parse(
+      readFileSync(new URL('../../schema.json', import.meta.url), 'utf8'),
+    ) as {
+      properties: {
+        rules: {
+          properties: {
+            imports: {
+              properties: { doors: { items: { pattern: string } } };
+            };
+          };
+        };
+      };
+    };
+    const pattern = new RegExp(
+      schema.properties.rules.properties.imports.properties.doors.items.pattern,
+    );
+    for (const door of ['', './', '/shared', '../shared'])
+      expect(pattern.test(door)).toBe(false);
+    for (const door of ['shared', './shared/', 'services/*/contract'])
+      expect(pattern.test(door)).toBe(true);
+  });
+
+  it('checks a source root that names a file, and never a minified file', () => {
+    const roots = config({
+      sourceRoots: ['index.ts', 'src'],
+      preset: 'default',
+    });
+    expect(isChecked(roots, 'index.ts')).toBe(true);
+    expect(isChecked(roots, 'src/vendor/lib.min.js')).toBe(false);
+  });
+});
+
+describe('exceptions and restrictions', () => {
+  const pass = { from: './src/cli/', to: 'src/app/*/server', reason: 'why' };
+
+  it('reads both beside a preset, their globs written the way they are matched', () => {
+    expect(
+      config({
+        sourceRoots: ['src'],
+        preset: 'kabuki',
+        exceptions: [pass],
+        restrictions: [
+          { from: 'src/**/logic/**', to: 'react', reason: 'pure' },
+        ],
+      }),
+    ).toEqual({
+      sourceRoots: ['src'],
+      ignore: [],
+      rules: presets.kabuki,
+      exceptions: [
+        { from: 'src/cli/**', to: 'src/app/*/server', reason: 'why' },
+      ],
+      restrictions: [{ from: 'src/**/logic/**', to: 'react', reason: 'pure' }],
+    });
+  });
+
+  it('reads both beside rules', () => {
+    const read = config({
+      sourceRoots: ['src'],
+      rules: { imports: { doors: ['shared'] } },
+      exceptions: [pass],
+      restrictions: [pass],
+    });
+    expect(read.exceptions).toHaveLength(1);
+    expect(read.restrictions).toHaveLength(1);
+  });
+
+  it.each([
+    [
+      'a list that is not one',
+      { exceptions: {} },
+      'monoverse.json "exceptions" must be a list.',
+    ],
+    [
+      'an entry that is not an object',
+      { restrictions: ['react'] },
+      'monoverse.json "restrictions[0]" must be an object.',
+    ],
+    [
+      'a key it does not know',
+      { exceptions: [{ ...pass, why: 'x' }] },
+      'monoverse.json has "exceptions[0].why", which it does not know. It knows "exceptions[0].from", "exceptions[0].to", "exceptions[0].reason".',
+    ],
+    [
+      'no reason',
+      { exceptions: [{ from: 'src/a', to: 'src/b' }] },
+      'monoverse.json "exceptions[0].reason" must say why.',
+    ],
+    [
+      'an empty reason',
+      { restrictions: [{ ...pass, reason: '  ' }] },
+      'monoverse.json "restrictions[0].reason" must say why.',
+    ],
+    [
+      'no "to"',
+      { restrictions: [{ from: 'src', reason: 'r' }] },
+      'monoverse.json "restrictions[0].to" must be a glob.',
+    ],
+    [
+      'a "from" outside the package',
+      { exceptions: [{ ...pass, from: '../other' }] },
+      'monoverse.json "exceptions[0].from" is "../other", which is not inside the package.',
+    ],
+    [
+      'an absolute "to"',
+      { restrictions: [{ ...pass, to: '/etc' }] },
+      'monoverse.json "restrictions[0].to" is "/etc", which is not inside the package.',
+    ],
+  ])('refuses %s', (_, extra, error) => {
+    expect(
+      parse({ sourceRoots: ['src'], preset: 'default', ...extra }),
+    ).toEqual({ ok: false, error });
+  });
+
+  it('refuses the paths the schema refuses, and takes the ones it takes', () => {
+    const schema = JSON.parse(
+      readFileSync(new URL('../../schema.json', import.meta.url), 'utf8'),
+    ) as {
+      properties: Record<
+        'exceptions' | 'restrictions',
+        {
+          items: {
+            properties: Record<'from' | 'to' | 'reason', { pattern: string }>;
+          };
+        }
+      >;
+    };
+    const refused = ['', '  ', '/abs', '../x', 'src/../..', 'a/../b'];
+    const taken = ['src', './src/', 'react', '@effect/*', 'src/**/logic/**'];
+    for (const list of ['exceptions', 'restrictions'] as const) {
+      for (const key of ['from', 'to'] as const) {
+        const pattern = new RegExp(
+          schema.properties[list].items.properties[key].pattern,
+        );
+        for (const path of refused) {
+          expect(pattern.test(path)).toBe(false);
+          expect(
+            parse({
+              sourceRoots: ['src'],
+              preset: 'default',
+              [list]: [{ ...pass, [key]: path }],
+            }).ok,
+          ).toBe(false);
+        }
+        for (const path of taken) {
+          expect(pattern.test(path)).toBe(true);
+          expect(
+            parse({
+              sourceRoots: ['src'],
+              preset: 'default',
+              [list]: [{ ...pass, [key]: path }],
+            }).ok,
+          ).toBe(true);
+        }
+      }
+      const reason = new RegExp(
+        schema.properties[list].items.properties.reason.pattern,
+      );
+      expect(reason.test(' ')).toBe(false);
+      expect(reason.test('why')).toBe(true);
+    }
+  });
+});
+
+describe('matches', () => {
+  it('matches a glob, and a folder covers everything inside it', () => {
+    expect(matches('src/cli/main.ts', 'src/cli')).toBe(true);
+    expect(matches('src/cli/main.ts', 'src/**/*.ts')).toBe(true);
+    expect(matches('src/client/main.ts', 'src/cli')).toBe(false);
+  });
+
+  it('matches a package name and its subpaths, and nothing else', () => {
+    expect(matches('react', 'react')).toBe(true);
+    expect(matches('react/jsx-runtime', 'react')).toBe(true);
+    expect(matches('react-dom', 'react')).toBe(false);
+    expect(matches('@effect/platform/Http', '@effect/*')).toBe(true);
+    expect(matches('effect', '@effect/*')).toBe(false);
+  });
+
+  it('matches the folder or package itself for a glob written with a trailing slash', () => {
+    const read = config({
+      sourceRoots: ['src'],
+      preset: 'default',
+      restrictions: [{ from: 'src', to: 'react/', reason: 'r' }],
+    });
+    const to = read.restrictions[0]?.to ?? '';
+    expect(to).toBe('react/**');
+    expect(matches('react', to)).toBe(true);
+    expect(matches('react/jsx-runtime', to)).toBe(true);
+    expect(matches('react-dom', to)).toBe(false);
+    expect(matches('src/cli', 'src/cli/**')).toBe(true);
+  });
+});

@@ -1,0 +1,344 @@
+import { Effect, Queue, Schema, Stream } from 'effect';
+import {
+  CodeApi,
+  AskFailed,
+  FolderExists,
+  FolderNotFound,
+  FolderUnreadable,
+  GitFailed,
+  HarnessFailed,
+  QuestionNotAsked,
+  InvalidAccount,
+  InvalidBinary,
+  InvalidFolderName,
+  ModelsUnavailable,
+  NotForkable,
+  OutsideHome,
+  PermissionDenied,
+  ProjectNotFound,
+  SessionNotFound,
+  SkillsUnavailable,
+  SpeechToTextNotReady,
+  TranscriptionFailed,
+  UnknownAccount,
+  type StartStep,
+} from '../../api/contract/index.js';
+import { Engine } from '../../engine/index.js';
+import { Speech } from '@kestack/ai-toolkit/speech';
+import { Harnesses, Models } from '@kestack/ai-toolkit/harness';
+import { JsonSchema } from '@kestack/ai-toolkit/contract';
+import * as Read from './feeds.js';
+
+/*
+ * The API's handlers. Commands go to the Engine, which hands them to its
+ * actors, and Speech to Text's to Speech; feeds read the Store; none
+ * decides anything itself. Their failures become the contract's errors of the same name.
+ *
+ * Browser-safe, as the Engine is: serve/ runs them on a computer, over its
+ * Node edges, and `@kestack/connect/browser` in a tab, over fakes.
+ */
+
+type Listed = Effect.Error<ReturnType<Engine['Service']['listFolder']>>;
+type Created = Effect.Error<ReturnType<Engine['Service']['createFolder']>>;
+
+/** A Folders failure as the contract's error of the same name. */
+function folderError(
+  error: Listed,
+): FolderNotFound | PermissionDenied | OutsideHome | FolderUnreadable;
+function folderError(
+  error: Created,
+):
+  | FolderNotFound
+  | PermissionDenied
+  | OutsideHome
+  | FolderExists
+  | InvalidFolderName;
+function folderError(error: Listed | Created) {
+  switch (error._tag) {
+    case 'FolderNotFound':
+      return new FolderNotFound({ path: error.path });
+    case 'PermissionDenied':
+      return new PermissionDenied({ path: error.path });
+    case 'FolderExists':
+      return new FolderExists({ path: error.path });
+    case 'InvalidFolderName':
+      return new InvalidFolderName({ name: error.name, reason: error.reason });
+    case 'OutsideHome':
+      return new OutsideHome({ path: error.path });
+    case 'FolderUnreadable':
+      return new FolderUnreadable({ path: error.path, message: error.message });
+  }
+}
+
+/** An engine failure as the contract's error of the same name. */
+const wire = {
+  ProjectNotFound: (error: { readonly id: string }) =>
+    new ProjectNotFound({ id: error.id }),
+  SessionNotFound: (error: { readonly id: string }) =>
+    new SessionNotFound({ id: error.id }),
+  HarnessFailed: (error: { readonly message: string }) =>
+    new HarnessFailed({ message: error.message }),
+};
+
+const decodeSchema = Schema.decodeUnknownEffect(Schema.NullOr(JsonSchema));
+
+/** The handlers of `CodeApi`, over the Engine, Speech, the Store and the harnesses. */
+export const CodeApiLive = CodeApi.toLayer(
+  Effect.gen(function* () {
+    const engine = yield* Engine;
+    const speech = yield* Speech;
+    const harnesses = yield* Harnesses;
+    const models = yield* Models;
+    return {
+      harnesses: () =>
+        Effect.gen(function* () {
+          const accounts = yield* engine.harnessAccounts;
+          return yield* Effect.forEach(
+            accounts,
+            (account) => {
+              const harness = harnesses.get(account.harness);
+              return models.defaultModel(harness).pipe(
+                engine.runAs(account.id),
+                Effect.orElseSucceed(() => harness.defaultModel),
+                Effect.map((defaultModel) => ({
+                  account: account.id,
+                  harness: harness.name,
+                  name: account.name,
+                  settings: harness.settings,
+                  defaultModel,
+                  available: account.resolved.error === null,
+                  unavailableReason: account.resolved.error,
+                })),
+              );
+            },
+            { concurrency: 'unbounded' },
+          );
+        }),
+      models: ({ account: id }) =>
+        Effect.gen(function* () {
+          const account = yield* engine.harnessAccount(id);
+          return yield* models
+            .list(harnesses.get(account.harness))
+            .pipe(engine.runAs(id));
+        }).pipe(
+          Effect.mapError(
+            (error) =>
+              new ModelsUnavailable({
+                message:
+                  error._tag === 'UnknownAccount'
+                    ? `No Harness Account ${id}`
+                    : error.message,
+              }),
+          ),
+        ),
+      addProject: ({ path }) =>
+        engine
+          .addProject(path)
+          .pipe(Effect.mapError((error) => new FolderNotFound(error))),
+      removeProject: ({ id }) =>
+        engine.removeProject(id).pipe(Effect.mapError(wire.ProjectNotFound)),
+      // A stream of its steps, Started last; the start goes on if the
+      // caller goes away.
+      startSession: (input) =>
+        Stream.callback<
+          StartStep,
+          ProjectNotFound | UnknownAccount | GitFailed | HarnessFailed
+        >((queue) =>
+          engine
+            .startSession({ ...input, id: input.id ?? undefined }, (step) =>
+              Effect.asVoid(Queue.offer(queue, step)),
+            )
+            .pipe(
+              Effect.mapError((error) =>
+                error._tag === 'ProjectNotFound'
+                  ? wire.ProjectNotFound(error)
+                  : error._tag === 'GitFailed'
+                    ? new GitFailed({
+                        step: error.step,
+                        message: error.message,
+                      })
+                    : error._tag === 'HarnessFailed'
+                      ? wire.HarnessFailed(error)
+                      : new UnknownAccount({ account: error.account }),
+              ),
+              Effect.flatMap((session) =>
+                Queue.offer(queue, { _tag: 'Started', session }),
+              ),
+              Effect.andThen(Queue.end(queue)),
+            ),
+        ),
+      branches: ({ projectId }) =>
+        engine.branches(projectId).pipe(Effect.mapError(wire.ProjectNotFound)),
+      send: ({ sessionId, ...message }) =>
+        engine
+          .send(sessionId, message)
+          .pipe(Effect.mapError(wire.SessionNotFound)),
+      cancel: ({ sessionId }) =>
+        engine.cancel(sessionId).pipe(Effect.mapError(wire.SessionNotFound)),
+      settleSession: ({ sessionId }) =>
+        engine
+          .settleSession(sessionId)
+          .pipe(Effect.mapError(wire.SessionNotFound)),
+      unsettleSession: ({ sessionId }) =>
+        engine
+          .unsettleSession(sessionId)
+          .pipe(Effect.mapError(wire.SessionNotFound)),
+      forkSession: ({ sessionId, afterTurnId }) =>
+        engine
+          .forkSession(sessionId, afterTurnId)
+          .pipe(
+            Effect.mapError((error) =>
+              error._tag === 'SessionNotFound'
+                ? wire.SessionNotFound(error)
+                : new NotForkable({ reason: error.reason }),
+            ),
+          ),
+      ask: ({ sessionId, question, schema }) =>
+        Effect.gen(function* () {
+          const json = yield* decodeSchema(schema).pipe(
+            Effect.mapError(
+              () => new AskFailed({ message: 'The schema given is not JSON' }),
+            ),
+          );
+          return yield* engine
+            .ask(sessionId, question, json)
+            .pipe(
+              Effect.mapError((error) =>
+                error._tag === 'SessionNotFound'
+                  ? wire.SessionNotFound(error)
+                  : new AskFailed({ message: error.message }),
+              ),
+            );
+        }),
+      regenerateTitle: ({ sessionId }) =>
+        engine
+          .regenerateTitle(sessionId)
+          .pipe(Effect.mapError(wire.SessionNotFound)),
+      skills: ({ projectId, account }) =>
+        engine
+          .skills(projectId, account)
+          .pipe(
+            Effect.mapError((error) =>
+              error._tag === 'ProjectNotFound'
+                ? wire.ProjectNotFound(error)
+                : new SkillsUnavailable({ message: error.message }),
+            ),
+          ),
+      mcpStatus: ({ sessionId }) =>
+        engine
+          .mcpStatus(sessionId)
+          .pipe(
+            Effect.mapError((error) =>
+              error._tag === 'SessionNotFound'
+                ? wire.SessionNotFound(error)
+                : wire.HarnessFailed(error),
+            ),
+          ),
+      contextUsage: ({ sessionId }) =>
+        engine
+          .contextUsage(sessionId)
+          .pipe(
+            Effect.mapError((error) =>
+              error._tag === 'SessionNotFound'
+                ? wire.SessionNotFound(error)
+                : wire.HarnessFailed(error),
+            ),
+          ),
+      backgroundJobs: () => engine.backgroundJobs,
+      stopBackgroundJob: ({ sessionId, jobId }) =>
+        engine
+          .stopBackgroundJob(sessionId, jobId)
+          .pipe(
+            Effect.mapError((error) =>
+              error._tag === 'SessionNotFound'
+                ? wire.SessionNotFound(error)
+                : wire.HarnessFailed(error),
+            ),
+          ),
+      backgroundJobOutput: ({ sessionId, jobId }) =>
+        engine
+          .backgroundJobOutput(sessionId, jobId)
+          .pipe(Stream.mapError(wire.SessionNotFound)),
+      agentQuestions: () => engine.agentQuestions,
+      answerQuestion: ({ sessionId, questionId, answer }) =>
+        engine
+          .answerQuestion(sessionId, questionId, answer)
+          .pipe(
+            Effect.mapError((error) =>
+              error._tag === 'SessionNotFound'
+                ? wire.SessionNotFound(error)
+                : error._tag === 'QuestionNotAsked'
+                  ? new QuestionNotAsked({ id: error.id })
+                  : wire.HarnessFailed(error),
+            ),
+          ),
+      harnessAccounts: () => engine.harnessAccounts,
+      saveHarnessAccount: (input) =>
+        engine
+          .saveHarnessAccount(input)
+          .pipe(
+            Effect.mapError((error) =>
+              error._tag === 'InvalidBinary'
+                ? new InvalidBinary({ message: error.message })
+                : new InvalidAccount({ message: error.message }),
+            ),
+          ),
+      removeHarnessAccount: ({ id }) =>
+        engine
+          .removeHarnessAccount(id)
+          .pipe(
+            Effect.mapError(
+              (error) => new InvalidAccount({ message: error.message }),
+            ),
+          ),
+      listFolder: (input) =>
+        engine
+          .listFolder(input)
+          .pipe(Effect.mapError((error) => folderError(error))),
+      createFolder: (input) =>
+        engine
+          .createFolder(input)
+          .pipe(Effect.mapError((error) => folderError(error))),
+      enableSpeechToText: () => speech.enable,
+      disableSpeechToText: () => speech.disable,
+      watchSpeechToText: () => speech.watch,
+      transcribe: ({ audio }) =>
+        speech
+          .transcribe(audio)
+          .pipe(
+            Effect.mapError((error) =>
+              error._tag === 'SpeechToTextNotReady'
+                ? new SpeechToTextNotReady({ state: error.state })
+                : new TranscriptionFailed({ message: error.message }),
+            ),
+          ),
+      watchTake: ({ id }) =>
+        speech
+          .watchTake(id)
+          .pipe(
+            Stream.mapError(
+              ({ message }) => new TranscriptionFailed({ message }),
+            ),
+          ),
+      addTakeAudio: ({ id, at, audio }) =>
+        speech
+          .addTakeAudio(id, at, audio)
+          .pipe(
+            Effect.mapError(
+              ({ message }) => new TranscriptionFailed({ message }),
+            ),
+          ),
+      endTake: ({ id, count }) =>
+        speech
+          .endTake(id, count)
+          .pipe(
+            Effect.mapError(
+              ({ message }) => new TranscriptionFailed({ message }),
+            ),
+          ),
+      projects: ({ after }) => Read.projects(after),
+      sessions: ({ after }) => Read.sessions(after),
+      messages: ({ sessionId, after }) => Read.messages(sessionId, after),
+    };
+  }),
+);

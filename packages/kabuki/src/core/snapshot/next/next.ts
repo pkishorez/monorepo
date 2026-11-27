@@ -38,6 +38,8 @@ export interface Played {
   readonly snapshot: Snapshot;
   /** The Commands the Update asked for, to run in the Instance it was for. */
   readonly commands: ReadonlyArray<unknown>;
+  /** What the Update Emitted, as it gave it, whether its parent hears it or not. */
+  readonly emits: ReadonlyArray<Tagged>;
   /** The parent's Messages what the Update Emitted became, to Send next. */
   readonly emitted: ReadonlyArray<Emitted>;
 }
@@ -59,6 +61,7 @@ const nothing = (
   outcome,
   snapshot: { root, at: entry.at },
   commands: [],
+  emits: [],
   emitted: [],
 });
 
@@ -120,6 +123,7 @@ export const next = (
       at,
     },
     commands: given.command === undefined ? [] : Arr.ensure(given.command),
+    emits,
     // 6. Emit
     emitted: emittedOf(path, emits),
   };

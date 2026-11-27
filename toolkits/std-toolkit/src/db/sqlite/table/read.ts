@@ -65,7 +65,7 @@ export const deleteEntityItems = (
 
 export const deleteAllItems = (database: SQLiteDriver, tableName: string) => {
   const remove = Statement.deleteAll(tableName);
-  return database.run(remove.sql).pipe(
+  return database.run(remove.sql, remove.parameters).pipe(
     Effect.map(({ changes }) => changes),
     Effect.mapError((cause) => new OperationFailure({ cause })),
   );

@@ -12,10 +12,28 @@
     "src/contract/projection": ["src/contract/wire"],
     "src/harness": ["src/contract"],
     "src/harness/claude/agent": ["src/harness/claude/project"],
-    "src/harness/codex/project": ["src/harness/codex/thread"],
-    "src/harness/codex/thread": ["src/harness/codex/catalog"],
+    "src/harness/codex/project": ["src/harness/codex/record-kinds"],
+    "src/harness/codex/thread": [
+      "src/harness/codex/catalog",
+      "src/harness/codex/record-kinds"
+    ],
     "src/speech/actor-speech-model": ["src/speech/capabilities"],
     "src/speech/sherpa": ["src/speech/contract"],
-    "src/speech/fake": ["src/speech/contract"]
+    "src/speech/fake": [
+      "src/speech/capabilities",
+      "src/speech/contract",
+      "src/speech/front"
+    ],
+    "src/speech/takes": ["src/speech/contract"],
+    "src/harness/fake": [
+      "src/harness/claude/project",
+      "src/harness/codex/project"
+    ],
+    "src/speech/front": [
+      "src/speech/actor-speech-model",
+      "src/speech/capabilities",
+      "src/speech/contract",
+      "src/speech/takes"
+    ]
   }
 }

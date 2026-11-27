@@ -124,7 +124,7 @@ export const HomeView = View.make(HomeLive, ({ root, model, children }) => {
   const projects = useChildren(children.projects, ({ model }) => model);
   // Until the list kept here and each Connection's projects held here are
   // read, nothing, so what it holds shows in one step; with no Connection
-  // listed, or none to be had from Cloud Connect, the Connections say why.
+  // listed, or none to be had from Connect Cloud, the Connections say why.
   // Projects the device holds draw at once, even of a Connection that does
   // not answer.
   const showing = showingOf(model, projects);

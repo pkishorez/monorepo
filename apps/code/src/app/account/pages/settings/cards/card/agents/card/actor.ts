@@ -65,7 +65,7 @@ const Model = Schema.Struct({
 });
 type Model = typeof Model.Type;
 
-const Card = Actor.define('Card', {
+const Card = Actor.define('HarnessAccount', {
   requires: [CodeClients, Connections, AccountList],
   input: Schema.Struct({
     connectionId: Schema.String,
@@ -74,15 +74,27 @@ const Card = Actor.define('Card', {
   }),
   props: Props,
   model: Model,
-  message: Schema.TaggedUnion({
-    Edited: { field: Field, value: Schema.String },
-    Save: {},
-    Cancel: {},
-    Remove: {},
+  message: {
+    Edited: Schema.Struct({ field: Field, value: Schema.String }).annotate({
+      description:
+        "Sets one field as typed: name (needed to save), binaryPath (empty runs it from PATH) or configFolder (empty uses its agent's own). Needs its Link linked.",
+    }),
+    Save: Schema.Struct({}).annotate({
+      description:
+        'Saves the Harness Account being edited, or adds the new one; refused unless its binary runs and its config folder exists. Needs its Link linked.',
+    }),
+    Cancel: Schema.Struct({}).annotate({
+      description:
+        'Drops what was typed and closes the card; a new account being added is dropped.',
+    }),
+    Remove: Schema.Struct({}).annotate({
+      description:
+        'Removes this added Harness Account at once, without asking; its sessions stop working. Never a Default Account. Needs its Link linked.',
+    }),
     Saved: {},
     Removed: {},
     Refused,
-  }),
+  },
 });
 
 /** What the card shows: what is typed in it, else the account as saved. */

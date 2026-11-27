@@ -1,11 +1,7 @@
-import { Effect, Layer, Queue, Schema, Stream } from 'effect';
+import { Clock, Effect, Layer, Queue, Schema, Stream } from 'effect';
 import { Accounts, type AccountsState } from '@kestack/auth-toolkit/client';
 import { CodeClients } from '@kestack/connect/code';
-import {
-  CloudClient,
-  Connection,
-  PluginMismatch,
-} from '@kestack/connect/cloud';
+import { CloudClient, Connection, isOutdated } from '@kestack/connect/cloud';
 import { Actor, Command } from '@kestack/kabuki';
 import { Page, Router } from '@kestack/kabuki/routing';
 import { OnOutdated, Replicas } from '@kestack/std-toolkit/replica';
@@ -19,12 +15,11 @@ import {
   Storage,
 } from '../storage/index.ts';
 import {
-  behindAll,
   Connection as ConnectionActor,
+  health,
   moves,
   Moves,
   reach,
-  Sockets,
   toNewest,
 } from './connection/index.ts';
 import {
@@ -73,9 +68,9 @@ import { Settings } from './pages/settings/index.ts';
  *             guess, it corrects (`../actor.ts`).
  * 2. Kept     while `Active`: the Connection List kept for the Account
  *             shows first, so the app opens on its Connections even while
- *             Cloud Connect is out of reach; once read, kept or not, it
+ *             Connect Cloud is out of reach; once read, kept or not, it
  *             says so.
- * 3. Fetch    then Cloud Connect's list, once, and again on Reload; each
+ * 3. Fetch    then Connect Cloud's list, once, and again on Reload; each
  *             answer is kept for next time. The first answer prunes: every
  *             database of a Connection of the Account not on it goes, all
  *             under it with it, its Saved Drafts too, and never the
@@ -84,27 +79,30 @@ import { Settings } from './pages/settings/index.ts';
  *             tab's never deletes a Connection that tab has just listed and
  *             reads, and a list that failed deletes nothing either.
  * 4. Links    one Connection each (`connection/`), which opens its own
- *             database, sync Store and socket, and says its link: one the
- *             Connection closed with `PLUGIN_MISMATCH`, as it runs another
- *             Release of the code Plugin than this Code calls, is kept as
- *             Mismatched until one is answered; who is behind is what
- *             Cloud Connect wants it to run (`link/reach/`): the
- *             Connection, Updating, while its Link keeps relinking; or
- *             this Code, Stale, which moves to its newest build.
- * 5. Recheck  while a listed Connection's link is not up, Cloud Connect is
- *             asked again: every few seconds for the first minute, then
- *             every half a minute, until every link is up; a link that
- *             drops starts it again. What the kept list says of each
- *             Connection's Last Seen is believed only once checked: Cloud
- *             Connect has answered, or `CHECK_FOR` passed without; until
+ *             database, sync Store and socket, and says its link, and, once it
+ *             closed one with `PLUGIN_MISMATCH`, what Connect Cloud said of
+ *             this Code's Release of the code Plugin (`link/reach/`). This Code
+ *             found Stale on any of them moves to its newest build, once.
+ * 5. Recheck  while a listed Connection's link is not up, Connect Cloud is
+ *             asked again, at the pace of the Connection that needs it
+ *             most (`recheckIn`): every few seconds for one on its way,
+ *             Outdated ones seen lately among them, every ten for one stuck
+ *             or down, never once every link is up; a link that drops
+ *             starts it again. A Connection whose Connection Key
+ *             rotated closes a socket offering the old one with `KEY_EXPIRED`:
+ *             that alone asks at once, unless an ask is already out, and the
+ *             socket's next connect offers the key as listed by then. What
+ *             the kept list says of each
+ *             Connection's Last Seen is believed only once checked: Connect
+ *             Cloud has answered, or `CHECK_FOR` passed without; until
  *             then a Connection on its way is only linking. The page back
  *             after `AWAY` or more hidden, the list is checked again, and
  *             asked at once.
- * 6. Forget   a Connection, asked from Settings: Cloud Connect forgets it,
+ * 6. Forget   a Connection, asked from Settings: Connect Cloud forgets it,
  *             it leaves the list, so its Connection stops, and an answer
  *             asked before never brings it back; then its database goes,
  *             and no other's.
- * 7. Rename   a Connection renamed from Settings, once Cloud Connect has
+ * 7. Rename   a Connection renamed from Settings, once Connect Cloud has
  *             it: its Display Name changes in the list at once, and is kept.
  * 8. Share    `Connections`, in every State, so the pages, which Kabuki
  *             keeps whatever the State, find it: nobody's until `Active`,
@@ -112,14 +110,15 @@ import { Settings } from './pages/settings/index.ts';
  *             socket and records, borrowed from the Connection that owns
  *             them while it runs (`reach`), and the Moves on their way to
  *             them; and the Dictation's asks (`voice`). No socket is open
- *             outside `Active`: each is its Connection's own.
+ *             outside `Active`: each is its Connection's own, opened by
+ *             the page's `Sockets`.
  * 9. Frame    while `Active`, once its keyboard is read from Preferences,
  *             so it draws at once (`frame/`).
  * 10. Pages   home, Settings, and a project of one Connection and its
  *             sessions (`pages/`), drawn inside the frame while `Active`.
  */
 
-/** How long a kept list's Last Seen waits for Cloud Connect's before it is believed anyway. */
+/** How long a kept list's Last Seen waits for Connect Cloud's before it is believed anyway. */
 export const CHECK_FOR = 10_000;
 
 /** How long the page may be hidden before what the list says is checked again. */
@@ -150,10 +149,79 @@ const back: Stream.Stream<void> =
         ),
       );
 
-/** How long to wait before asking Cloud Connect again, while a link is not up. */
-export const RECHECK = { fast: 3_000, slow: 30_000, fastFor: 20 } as const;
-
 const Link = Schema.Literals(['linking', 'linked', 'relinking']);
+
+// 5. Recheck: how soon Connect Cloud is asked for the list again, from where
+// each listed Connection stands. Only the list says when one comes up, a new
+// address or key with it, so one about to come up is asked after often; one
+// stuck or gone changes slowly, and is asked after less; one linked needs
+// nothing of the list (ADR 0011 of Connect).
+
+/**
+ * On its way: nothing believed yet, its tunnel downloading or opening, ready
+ * but not linked yet, or Outdated and seen lately, so it may come back
+ * updated at any moment.
+ */
+export const ON_ITS_WAY = 3_000;
+
+/**
+ * Stuck or gone: its tunnel failed or unreachable, or not seen for three
+ * Heartbeats. A Connection reports every 15 seconds, so asking faster
+ * rarely learns anything new.
+ */
+export const STUCK = 10_000;
+
+/** How soon one Connection needs the list asked again; null once it is linked. */
+const paceOf = (
+  connection: typeof Connection.schema.Type,
+  link: typeof Link.Type,
+  now: number,
+  checked: boolean,
+): number | null => {
+  const seen = health(connection, link, now, checked);
+  switch (seen._tag) {
+    case 'Linked':
+      return null;
+    case 'Unknown':
+      return ON_ITS_WAY;
+    case 'Down':
+      return STUCK;
+  }
+  // Never dialled while Outdated: its version, once updated, is what to see.
+  if (isOutdated(connection)) return ON_ITS_WAY;
+  const { status } = seen;
+  const stuck =
+    status._tag === 'SettingUp'
+      ? status.step._tag === 'Failed'
+      : status.check._tag === 'Unreachable';
+  return stuck ? STUCK : ON_ITS_WAY;
+};
+
+/**
+ * How long to wait before asking Connect Cloud for the list again, given the
+ * listed Connections, each one's link (linking until said), whether their
+ * Last Seen is believed (`checked`), and the time now: the soonest any of
+ * them needs; null when every one is linked, or none is listed.
+ */
+export const recheckIn = (
+  connections: ReadonlyArray<typeof Connection.schema.Type>,
+  links: Readonly<Record<string, typeof Link.Type>>,
+  checked: boolean,
+  now: number,
+): number | null =>
+  connections.reduce<number | null>((soonest, connection) => {
+    const pace = paceOf(
+      connection,
+      links[connection.id] ?? 'linking',
+      now,
+      checked,
+    );
+    return pace === null
+      ? soonest
+      : soonest === null
+        ? pace
+        : Math.min(soonest, pace);
+  }, null);
 
 // 1. Who
 /** An Account, by its id and email. */
@@ -264,10 +332,10 @@ const Model = Schema.Struct({
   signingIn: Schema.Boolean,
   /** The frame's keyboard, from Preferences; null until read. */
   keyboard: Schema.NullOr(Frame.Keys),
-  /** The list: kept on this device, or as Cloud Connect said it. */
+  /** The list: kept on this device, or as Connect Cloud said it. */
   list: Copy(Schema.Array(Connection.schema)),
   fetchedAt: Schema.NullOr(Schema.Number),
-  /** Whether the list's Last Seen is believed: Cloud Connect answered, or `CHECK_FOR` passed. */
+  /** Whether the list's Last Seen is believed: Connect Cloud answered, or `CHECK_FOR` passed. */
   checked: Schema.Boolean,
   forgetting: Schema.NullOr(
     Schema.Struct({
@@ -277,10 +345,6 @@ const Model = Schema.Struct({
   ),
   /** Each listed Connection's link, by id. */
   links: Schema.Record(Schema.String, Link),
-  /** Each listed Connection that closed its socket running another Release of the code Plugin, by id, until a socket to it is answered. */
-  mismatched: Schema.Record(Schema.String, PluginMismatch.schema),
-  /** How many times Cloud Connect was asked again since every link was last up. */
-  rechecks: Schema.Finite,
   /** What each Connection said of itself, by id. */
   said: Schema.Record(Schema.String, Said),
 });
@@ -293,8 +357,6 @@ const fresh = {
   checked: false,
   forgetting: null,
   links: {},
-  mismatched: {},
-  rechecks: 0,
   said: {},
 } satisfies Partial<Model>;
 
@@ -305,12 +367,17 @@ export const Account = Page.define({
   pages: { Home: Home.page, Settings: Settings.page, Project: Project.page },
   model: Model,
   state: State,
-  message: Schema.TaggedUnion({
+  message: {
     // 1. Who
     Heard: { who: Who },
-    /** An Account signed in here, chosen on the sign-in screen. */
-    ChooseAsked: { id: Schema.String },
-    SignInAsked: {},
+    ChooseAsked: Schema.Struct({ id: Schema.String }).annotate({
+      description:
+        "On the sign-in screen, makes the Account `id` from model.who.accounts the active one, going to its home unless it is this page's; waits for model.who.answered.",
+    }),
+    SignInAsked: Schema.Struct({}).annotate({
+      description:
+        "Signs one more Account in with Google from the sign-in screen, coming back to this page; under the Fake it waits for the Sign-in fake's SignInAs.",
+    }),
     /** A sign-in asked here ended without leaving the page, as under the Fake. */
     SignInEnded: {},
     /** Signing in, or a switch, asked here failed. */
@@ -325,7 +392,10 @@ export const Account = Page.define({
       at: Schema.Number,
     },
     Failed: { since: Schema.Finite, problem: Schema.String },
-    ReloadAsked: {},
+    ReloadAsked: Schema.Struct({}).annotate({
+      description:
+        'Asks Connect Cloud for the Connection list again, as Reload does where no Connection is listed.',
+    }),
     RecheckDue: {},
     CheckWaited: {},
     /** The page shows again after a while hidden. */
@@ -339,28 +409,21 @@ export const Account = Page.define({
     ForgetDismissed: {},
     // 7. Rename
     Renamed: { id: Schema.String, displayName: Schema.NullOr(Schema.String) },
-  }),
+  },
 });
 
 const idsOf = (model: Model) => (model.list.value ?? []).map(({ id }) => id);
 
-/** Whether Cloud Connect is being asked. */
+/** Whether Connect Cloud is being asked. */
 export const fetching = (model: Model) => copying.asking(model.list).length > 0;
 
-/** Whether a listed Connection's link is not up, so Cloud Connect is asked again. */
+/** Whether a listed Connection's link is not up, so Connect Cloud is asked again. */
 export const anyDown = (model: Model) =>
   idsOf(model).some((id) => model.links[id] !== 'linked');
 
-/** Whether `after` finds this Code Stale on a Connection `before` did not: it moves to its newest build. */
-const newlyStale = (before: Model, after: Model) => {
-  const was = behindAll(before.list.value, before.mismatched);
-  return Object.entries(behindAll(after.list.value, after.mismatched)).some(
-    ([id, behind]) => behind === 'Stale' && was[id] !== 'Stale',
-  );
-};
-
-const delayOf = (rechecks: number) =>
-  rechecks < RECHECK.fastFor ? RECHECK.fast : RECHECK.slow;
+/** Whether a Connection's answer found this Code Stale: it moves to its newest build. */
+const stale = ({ said }: Model) =>
+  Object.values(said).some(({ standing }) => standing?._tag === 'Older');
 
 /** 8. Share: what is known of the Account's Connections, nobody's until it is `Active`. */
 export const knownOf = ({
@@ -426,329 +489,332 @@ const signIn = Command.make('SignInHere', {
 
 /**
  * The Account's page, reaching each Connection, its socket and its
- * records, through `to`: `reach`, or a test's stand-in.
+ * records (`reach`); what opens each socket, `Sockets`, is the page's.
  */
-export const accountWith = (to: typeof reach) =>
-  Account.build({
-    init: () => ({
-      model: {
-        who: null,
-        leaving: null,
-        problem: null,
-        signingIn: false,
-        keyboard: null,
-        ...fresh,
-      },
-      state: { _tag: 'Away', why: { _tag: 'NotHere' } },
-    }),
-    pages: {
-      Home: Home.actor,
-      Settings: Settings.actor,
-      Project: Project.actor,
+export const AccountLive = Account.build({
+  init: () => ({
+    model: {
+      who: null,
+      leaving: null,
+      problem: null,
+      signingIn: false,
+      keyboard: null,
+      ...fresh,
     },
-    // 8. Share
-    provides: {
-      capabilities: [
-        Replicas,
-        CodeClients,
-        Sockets,
-        Moves,
-        ...Voice.capabilities,
-        Connections,
-      ],
-      layer: (self) =>
-        Layer.mergeAll(moves.pipe(Layer.provideMerge(to)), voice).pipe(
-          Layer.provideMerge(
-            Layer.effect(
-              Connections,
-              connectionsOf({
-                known: Stream.map(self.changes, knownOf),
-                current: Effect.map(self.get, knownOf),
-                send: self.send,
-              }),
+    state: { _tag: 'Away', why: { _tag: 'NotHere' } },
+  }),
+  pages: {
+    Home: Home.actor,
+    Settings: Settings.actor,
+    Project: Project.actor,
+  },
+  // 8. Share
+  provides: {
+    capabilities: [
+      Replicas,
+      CodeClients,
+      Moves,
+      ...Voice.capabilities,
+      Connections,
+    ],
+    layer: (self) =>
+      Layer.mergeAll(moves.pipe(Layer.provideMerge(reach)), voice).pipe(
+        Layer.provideMerge(
+          Layer.effect(
+            Connections,
+            connectionsOf({
+              known: Stream.map(self.changes, knownOf),
+              current: Effect.map(self.get, knownOf),
+              send: self.send,
+            }),
+          ),
+        ),
+      ),
+  },
+  workers: {
+    // 1. Who
+    accounts: {
+      run: (self) =>
+        Effect.flatMap(Accounts, ({ state }) =>
+          state.pipe(
+            Stream.mapEffect((now) =>
+              now._tag === 'Checking'
+                ? Effect.map(keptAccounts, (kept) => whoOf(now, kept))
+                : Effect.succeed(whoOf(now, [])),
             ),
+            Stream.runForEach((who) => self.send({ _tag: 'Heard', who })),
           ),
         ),
     },
-    workers: {
-      // 1. Who
-      accounts: {
-        run: (self) =>
-          Effect.flatMap(Accounts, ({ state }) =>
-            state.pipe(
-              Stream.mapEffect((now) =>
-                now._tag === 'Checking'
-                  ? Effect.map(keptAccounts, (kept) => whoOf(now, kept))
-                  : Effect.succeed(whoOf(now, [])),
-              ),
-              Stream.runForEach((who) => self.send({ _tag: 'Heard', who })),
-            ),
-          ),
-      },
-      // 9. Frame
-      keyboard: {
-        run: (self) =>
-          Stream.runForEach(Frame.keyboard, (keyboard) =>
-            self.send({ _tag: 'KeyboardRead', keyboard }),
-          ),
-      },
+    // 9. Frame
+    keyboard: {
+      run: (self) =>
+        Stream.runForEach(Frame.keyboard, (keyboard) =>
+          self.send({ _tag: 'KeyboardRead', keyboard }),
+        ),
     },
-    states: {
-      Active: {
-        workers: {
-          // 2. Kept
-          kept: {
-            while: ({ model }) => !model.list.keptRead,
-            run: (self) =>
-              Effect.gen(function* () {
-                const { props } = yield* self.get;
-                const connections = yield* (yield* Storage).cache.read(
-                  ListShelf,
-                  {
-                    accountId: props.params.accountId,
-                    connectionId: null,
-                    projectId: null,
-                  },
-                );
-                yield* self.send({ _tag: 'KeptRead', connections });
-              }),
-          },
-          // 3. Fetch
-          fetch: {
-            each: ({ model }) => copying.asking(model.list),
-            run: (self, since) =>
-              Effect.flatMap(list(Number(since)), self.send),
-          },
-          // 5. Recheck
-          recheck: {
-            while: ({ model }) => !fetching(model) && anyDown(model),
-            run: (self) =>
-              Effect.flatMap(self.get, ({ model }) =>
-                Effect.sleep(delayOf(model.rechecks)).pipe(
-                  Effect.andThen(self.send({ _tag: 'RecheckDue' })),
+  },
+  states: {
+    Active: {
+      workers: {
+        // 2. Kept
+        kept: {
+          while: ({ model }) => !model.list.keptRead,
+          run: (self) =>
+            Effect.gen(function* () {
+              const { props } = yield* self.get;
+              const connections = yield* (yield* Storage).cache.read(
+                ListShelf,
+                {
+                  accountId: props.params.accountId,
+                  connectionId: null,
+                  projectId: null,
+                },
+              );
+              yield* self.send({ _tag: 'KeptRead', connections });
+            }),
+        },
+        // 3. Fetch
+        fetch: {
+          each: ({ model }) => copying.asking(model.list),
+          run: (self, since) => Effect.flatMap(list(Number(since)), self.send),
+        },
+        // 5. Recheck: the wait starts over whenever the pace changes, so
+        // a Connection that comes on its way while another is down is
+        // asked after at its own pace.
+        recheck: {
+          while: ({ model }) => !fetching(model) && anyDown(model),
+          run: (self) =>
+            self.changes.pipe(
+              Stream.mapEffect(({ model }) =>
+                Effect.map(Clock.currentTimeMillis, (now) =>
+                  recheckIn(
+                    model.list.value ?? [],
+                    model.links,
+                    model.checked,
+                    now,
+                  ),
                 ),
               ),
-          },
-          // 5. Recheck: back after a while away, the list is checked again.
-          back: {
-            run: (self) =>
-              Stream.runForEach(back, () => self.send({ _tag: 'Back' })),
-          },
-          // 5. Recheck: the kept list believed anyway, once Cloud Connect
-          // has been waited on for long enough.
-          check: {
-            while: ({ model }) => !model.checked,
-            run: (self) =>
-              Effect.sleep(CHECK_FOR).pipe(
-                Effect.andThen(self.send({ _tag: 'CheckWaited' })),
+              Stream.changes,
+              Stream.switchMap((pace) =>
+                pace === null
+                  ? Stream.empty
+                  : Stream.fromEffect(
+                      Effect.sleep(pace).pipe(
+                        Effect.andThen(self.send({ _tag: 'RecheckDue' })),
+                      ),
+                    ),
               ),
-          },
+              Stream.runDrain,
+            ),
         },
-        children: {
-          // 4. Links: each listed Connection.
-          connection: Actor.child(ConnectionActor.actor, {
-            each: ({ model }) => idsOf(model),
-            input: ({ props }, connectionId) => ({
-              accountId: props.params.accountId,
-              connectionId,
-            }),
-          }),
-          // 9. Frame
-          frame: Actor.child(Frame.actor, {
-            while: ({ model }) => model.keyboard !== null,
-            input: ({ model }) => ({
-              keyboard: model.keyboard ?? Frame.keysOf(nothing),
-            }),
-            props: ({ state, props }) => ({
-              accountId: props.params.accountId,
-              email: state.email,
-              place: draftAt(props.route.page),
-            }),
-          }),
+        // 5. Recheck: back after a while away, the list is checked again.
+        back: {
+          run: (self) =>
+            Stream.runForEach(back, () => self.send({ _tag: 'Back' })),
         },
+        // 5. Recheck: the kept list believed anyway, once Connect Cloud
+        // has been waited on for long enough.
+        check: {
+          while: ({ model }) => !model.checked,
+          run: (self) =>
+            Effect.sleep(CHECK_FOR).pipe(
+              Effect.andThen(self.send({ _tag: 'CheckWaited' })),
+            ),
+        },
+      },
+      children: {
+        // 4. Links: each listed Connection.
+        connection: Actor.child(ConnectionActor.actor, {
+          each: ({ model }) => idsOf(model),
+          input: ({ props }, connectionId) => ({
+            accountId: props.params.accountId,
+            connectionId,
+          }),
+        }),
+        // 9. Frame
+        frame: Actor.child(Frame.actor, {
+          while: ({ model }) => model.keyboard !== null,
+          input: ({ model }) => ({
+            keyboard: model.keyboard ?? Frame.keysOf(nothing),
+          }),
+          props: ({ state, props }) => ({
+            accountId: props.params.accountId,
+            email: state.email,
+            place: draftAt(props.route.page),
+          }),
+        }),
       },
     },
-    on: {
-      // 1. Who: the list starts afresh each time the page is `Active`. A
-      // switch from the header, while `Active`, leaves for the new
-      // Account's home; so does one to another chosen here, once it is
-      // active.
-      Heard: ({ who }, { model, state, props }) => {
-        const now = standOf(props.params.accountId, who, state);
-        const anew = state._tag !== 'Active' && now._tag === 'Active';
-        const wanted = now._tag === 'Active' ? who.switchingTo : model.leaving;
-        // A switch seen under way that ended on another Account leaves
-        // nothing wanted, so a later switch elsewhere never moves this tab.
-        const ended =
-          model.who !== null &&
-          model.who.switchingTo !== null &&
-          who.switchingTo === null &&
-          who.active?.id !== wanted;
-        const leaving = ended ? null : wanted;
-        const arrived =
-          leaving !== null &&
-          who.active?.id === leaving &&
-          model.who?.active?.id !== leaving;
-        return {
-          model: { ...model, ...(anew ? fresh : {}), who, leaving },
-          state: now,
-          ...(arrived ? { command: Router.replace(home(leaving)) } : {}),
-        };
-      },
-      ChooseAsked: ({ id }, { model, props }) => {
-        const { who } = model;
-        if (who === null || !who.answered || who.switchingTo !== null)
-          return {};
-        const own = id === props.params.accountId;
-        if (who.active?.id === id)
-          return own
-            ? {}
-            : {
-                model: { ...model, leaving: id },
-                command: Router.replace(home(id)),
-              };
-        return {
-          model: { ...model, leaving: own ? null : id, problem: null },
-          command: switchTo({ id }),
-        };
-      },
-      SignInAsked: (_, { model }) =>
-        model.signingIn
-          ? {}
-          : {
-              model: { ...model, problem: null, signingIn: true },
-              command: signIn(),
-            },
-      SignInEnded: (_, { model }) => ({
-        model: { ...model, signingIn: false },
-      }),
-      Refused: ({ problem }, { model }) => ({
-        model: { ...model, leaving: null, signingIn: false, problem },
-      }),
-      KeyboardRead: ({ keyboard }, { model }) => ({
-        model: { ...model, keyboard },
-      }),
-      KeptRead: ({ connections }, { model }) => ({
-        model: { ...model, list: copying.read(model.list, connections) },
-      }),
-      // An answer asked before a later ask, or a Forget, is dropped.
-      Fetched: ({ since, connections, at }, { model, props }) => {
-        if (!copying.latest(model.list, since)) return {};
-        const { accountId } = props.params;
-        const next = {
-          ...model,
-          list: copying.answered(model.list, since, connections),
-          fetchedAt: at,
-          checked: true,
-        };
-        return {
-          model: next,
-          command: [
-            keepList({ accountId, connections }),
-            // 4. Links: Cloud Connect now wants another Release than this
-            // Code calls, of a Connection that refused it.
-            ...(newlyStale(model, next) ? [toNewest({})] : []),
-            ...(model.fetchedAt === null
-              ? [
-                  pruneUnlisted({
-                    accountId,
-                    connectionIds: connections.map(({ id }) => id),
-                  }),
-                ]
-              : []),
-          ],
-        };
-      },
-      Failed: ({ since, problem }, { model }) => ({
-        model: { ...model, list: copying.refused(model.list, since, problem) },
-      }),
-      // Reload: asked at once, and quickly again while a link is not up.
-      ReloadAsked: (_, { model }) => ({
-        model: { ...model, list: copying.ask(model.list), rechecks: 0 },
-      }),
-      CheckWaited: (_, { model }) => ({ model: { ...model, checked: true } }),
-      Back: (_, { model }) => ({
-        model: {
-          ...model,
-          checked: false,
-          list: copying.ask(model.list),
-          rechecks: 0,
-        },
-      }),
-      RecheckDue: (_, { model }) => ({
-        model: {
-          ...model,
-          list: copying.ask(model.list),
-          rechecks: model.rechecks + 1,
-        },
-      }),
-      // 4. Links: what a Connection says, its link and its mismatch with it,
-      // kept until a socket is answered; this Code found Stale moves to its
-      // newest build.
-      Said: ({ connectionId, said }, { model }) => {
-        const { [connectionId]: _was, ...rest } = model.mismatched;
-        const next = {
-          ...model,
-          said: { ...model.said, [connectionId]: said },
-          links: { ...model.links, [connectionId]: said.link },
-          mismatched:
-            said.mismatch === null
-              ? rest
-              : { ...rest, [connectionId]: said.mismatch },
-        };
-        const up = anyDown(next) ? next : { ...next, rechecks: 0 };
-        return {
-          model: up,
-          ...(newlyStale(model, up) ? { command: toNewest({}) } : {}),
-        };
-      },
-      // 6. Forget
-      ForgetAsked: ({ id }, { model }) =>
-        model.forgetting !== null && model.forgetting.problem === null
-          ? {}
-          : {
-              model: { ...model, forgetting: { id, problem: null } },
-              command: forget({ id }),
-            },
-      // Out of the list first, so its Connection stops and no Query reads its
-      // Instance as it goes.
-      Forgot: ({ id }, { model, props }) => {
-        const { accountId } = props.params;
-        const connections = (model.list.value ?? []).filter(
-          (each) => each.id !== id,
-        );
-        const { [id]: _said, ...said } = model.said;
-        return {
-          model: {
-            ...model,
-            list: copying.changed(model.list, connections),
-            forgetting: null,
-            said,
-          },
-          command: [
-            keepList({ accountId, connections }),
-            dropForgotten({ accountId, id }),
-          ],
-        };
-      },
-      ForgetFailed: ({ id, problem }, { model }) =>
-        model.forgetting?.id === id
-          ? { model: { ...model, forgetting: { id, problem } } }
-          : {},
-      ForgetDismissed: (_, { model }) => ({
-        model: { ...model, forgetting: null },
-      }),
-      // 7. Rename
-      Renamed: ({ id, displayName }, { model, props }) => {
-        const connections = (model.list.value ?? []).map((each) =>
-          each.id === id ? { ...each, displayName } : each,
-        );
-        return {
-          model: { ...model, list: copying.changed(model.list, connections) },
-          command: keepList({ accountId: props.params.accountId, connections }),
-        };
-      },
+  },
+  on: {
+    // 1. Who: the list starts afresh each time the page is `Active`. A
+    // switch from the header, while `Active`, leaves for the new
+    // Account's home; so does one to another chosen here, once it is
+    // active.
+    Heard: ({ who }, { model, state, props }) => {
+      const now = standOf(props.params.accountId, who, state);
+      const anew = state._tag !== 'Active' && now._tag === 'Active';
+      const wanted = now._tag === 'Active' ? who.switchingTo : model.leaving;
+      // A switch seen under way that ended on another Account leaves
+      // nothing wanted, so a later switch elsewhere never moves this tab.
+      const ended =
+        model.who !== null &&
+        model.who.switchingTo !== null &&
+        who.switchingTo === null &&
+        who.active?.id !== wanted;
+      const leaving = ended ? null : wanted;
+      const arrived =
+        leaving !== null &&
+        who.active?.id === leaving &&
+        model.who?.active?.id !== leaving;
+      return {
+        model: { ...model, ...(anew ? fresh : {}), who, leaving },
+        state: now,
+        ...(arrived ? { command: Router.replace(home(leaving)) } : {}),
+      };
     },
-  });
-
-export const AccountLive = accountWith(reach);
+    ChooseAsked: ({ id }, { model, props }) => {
+      const { who } = model;
+      if (who === null || !who.answered || who.switchingTo !== null) return {};
+      const own = id === props.params.accountId;
+      if (who.active?.id === id)
+        return own
+          ? {}
+          : {
+              model: { ...model, leaving: id },
+              command: Router.replace(home(id)),
+            };
+      return {
+        model: { ...model, leaving: own ? null : id, problem: null },
+        command: switchTo({ id }),
+      };
+    },
+    SignInAsked: (_, { model }) =>
+      model.signingIn
+        ? {}
+        : {
+            model: { ...model, problem: null, signingIn: true },
+            command: signIn(),
+          },
+    SignInEnded: (_, { model }) => ({
+      model: { ...model, signingIn: false },
+    }),
+    Refused: ({ problem }, { model }) => ({
+      model: { ...model, leaving: null, signingIn: false, problem },
+    }),
+    KeyboardRead: ({ keyboard }, { model }) => ({
+      model: { ...model, keyboard },
+    }),
+    KeptRead: ({ connections }, { model }) => ({
+      model: { ...model, list: copying.read(model.list, connections) },
+    }),
+    // An answer asked before a later ask, or a Forget, is dropped.
+    Fetched: ({ since, connections, at }, { model, props }) => {
+      if (!copying.latest(model.list, since)) return {};
+      const { accountId } = props.params;
+      const next = {
+        ...model,
+        list: copying.answered(model.list, since, connections),
+        fetchedAt: at,
+        checked: true,
+      };
+      return {
+        model: next,
+        command: [
+          keepList({ accountId, connections }),
+          ...(model.fetchedAt === null
+            ? [
+                pruneUnlisted({
+                  accountId,
+                  connectionIds: connections.map(({ id }) => id),
+                }),
+              ]
+            : []),
+        ],
+      };
+    },
+    Failed: ({ since, problem }, { model }) => ({
+      model: { ...model, list: copying.refused(model.list, since, problem) },
+    }),
+    // Reload: asked at once.
+    ReloadAsked: (_, { model }) => ({
+      model: { ...model, list: copying.ask(model.list) },
+    }),
+    CheckWaited: (_, { model }) => ({ model: { ...model, checked: true } }),
+    Back: (_, { model }) => ({
+      model: { ...model, checked: false, list: copying.ask(model.list) },
+    }),
+    RecheckDue: (_, { model }) => ({
+      model: { ...model, list: copying.ask(model.list) },
+    }),
+    // 4. Links: what a Connection says, its link with it; this Code found
+    // Stale moves to its newest build.
+    Said: ({ connectionId, said }, { model }) => {
+      const next = {
+        ...model,
+        said: { ...model.said, [connectionId]: said },
+        links: { ...model.links, [connectionId]: said.link },
+      };
+      // 5. Recheck: a Connection whose key just expired asks at once,
+      // unless an ask is already out; one that answers with the old key
+      // leaves it relinking, so the recheck asks again at its pace.
+      const expired =
+        said.expired && model.said[connectionId]?.expired !== true;
+      return {
+        model:
+          expired && !fetching(next)
+            ? { ...next, list: copying.ask(next.list) }
+            : next,
+        ...(stale(next) && !stale(model) ? { command: toNewest({}) } : {}),
+      };
+    },
+    // 6. Forget
+    ForgetAsked: ({ id }, { model }) =>
+      model.forgetting !== null && model.forgetting.problem === null
+        ? {}
+        : {
+            model: { ...model, forgetting: { id, problem: null } },
+            command: forget({ id }),
+          },
+    // Out of the list first, so its Connection stops and no Query reads its
+    // Instance as it goes.
+    Forgot: ({ id }, { model, props }) => {
+      const { accountId } = props.params;
+      const connections = (model.list.value ?? []).filter(
+        (each) => each.id !== id,
+      );
+      const { [id]: _said, ...said } = model.said;
+      return {
+        model: {
+          ...model,
+          list: copying.changed(model.list, connections),
+          forgetting: null,
+          said,
+        },
+        command: [
+          keepList({ accountId, connections }),
+          dropForgotten({ accountId, id }),
+        ],
+      };
+    },
+    ForgetFailed: ({ id, problem }, { model }) =>
+      model.forgetting?.id === id
+        ? { model: { ...model, forgetting: { id, problem } } }
+        : {},
+    ForgetDismissed: (_, { model }) => ({
+      model: { ...model, forgetting: null },
+    }),
+    // 7. Rename
+    Renamed: ({ id, displayName }, { model, props }) => {
+      const connections = (model.list.value ?? []).map((each) =>
+        each.id === id ? { ...each, displayName } : each,
+      );
+      return {
+        model: { ...model, list: copying.changed(model.list, connections) },
+        command: keepList({ accountId: props.params.accountId, connections }),
+      };
+    },
+  },
+});

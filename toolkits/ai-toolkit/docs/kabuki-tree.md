@@ -3,30 +3,34 @@
 ai-toolkit gives Coding Harnesses as plain Effects and has no Actor in its
 doors. One Kabuki tree is left, private behind `@kestack/ai-toolkit/speech`:
 it keeps the Speech to Text model on this computer. It downloads the model,
-deletes it, and turns audio into text with it. `speech.ts` is its front door
-and runs the root with `Runtime.scoped`; the speech Layer gives
-`SpeechHost`.
+deletes it, and turns audio into text with it. `front/` is its front door
+and runs the root with `Runtime.scoped` on a `SpeechHost`: `speech.ts`
+gives one over a folder on Node, the Speech fake (`fake/`) one over its
+state in a browser.
 Changed through `/kabukifi`; edit by hand and it drifts.
 
 ## Tree
 
 ```
 src/speech/
-  speech.ts                  the front door: enable, disable, watch, transcribe; builds SpeechHost
+  front/                     the front door: enable, disable, watch, transcribe, Takes; over a SpeechHost
+  speech.ts                  builds SpeechHost on Node, from SpeechToText and a folder
   capabilities/              SpeechHost
   actor-speech-model/        root; States: Loading | Off | Downloading | Ready | Failed
 ```
 
 Around the tree, `src/speech/contract/` is the SpeechToText contract,
-`src/speech/sherpa/` is sherpa-onnx with Parakeet, and `src/speech/fake/` is
-the fake for tests. The caller gives one of them as `SpeechToText`.
+`src/speech/sherpa/` is sherpa-onnx with Parakeet, and `src/speech/fake/`'s
+`makeFakeSpeech` is the fake for tests. The caller gives one of them as
+`SpeechToText`. `src/speech/fake/` is also the Speech fake, a SpeechHost
+over a state of its own that its one control changes.
 
 ## How it connects
 
 Down, from the root:
 
 ```
-speech Layer ─ SpeechHost ───────▶ actor-speech-model
+speech Layer, Speech fake ─ SpeechHost ─▶ actor-speech-model
 ```
 
 Up, from the leaves:
@@ -62,7 +66,7 @@ times, then Downloaded or DownloadFailed.
 **Requires**: SpeechHost: all three Workers and the transcribe Query.
 **Provides**: none.
 **Services**: none in the tree: speech.ts builds SpeechHost from SpeechToText
-and the folder the caller names.
+and the folder the caller names; the Speech fake from its state.
 **Children**: none.
 **View**: none.
 
@@ -70,7 +74,7 @@ and the folder the caller names.
 
 - **The tree is private behind a plain service, not a door of its own**,
   because the caller wants to switch Speech to Text on, watch it and
-  transcribe, not to run an Actor. Caveat: `Speech.layer` starts a Runtime
+  transcribe, not to run an Actor. Caveat: `speechLayer` starts a Runtime
   of its own beside the caller's.
 - **The State is what is on disk, not a Model field beside a status**,
   because each State holds different data and owns the Worker that makes the

@@ -23,7 +23,7 @@ import { ask, keepForgetting } from './commands.ts';
  *            setup again, as the sidebar's does.
  * 2. Ask     Forget, asked by a card (`ConnectionCards`), asks first, saying
  *            when the Connection was last seen and how its tunnel stands.
- * 3. Forget  confirmed, the Connection List forgets it: Cloud Connect first,
+ * 3. Forget  confirmed, the Connection List forgets it: Connect Cloud first,
  *            then its records on this device. Once it is gone from the
  *            list the question closes; refused, it says why.
  */
@@ -82,13 +82,22 @@ type Model = typeof Model.Type;
 export const Cards = Actor.define('Cards', {
   requires: [Connections],
   model: Model,
-  message: Schema.TaggedUnion({
+  message: {
     Known: Known.fields,
     Ask: { id: Schema.String },
-    Keep: {},
-    Forget: {},
-    Reload: {},
-  }),
+    Keep: Schema.Struct({}).annotate({
+      description:
+        'Answers the Forget question with Keep it: closes it and keeps the Connection; after a refused Forget, also clears why.',
+    }),
+    Forget: Schema.Struct({}).annotate({
+      description:
+        "Confirms the Forget question a ConnectionCard's ForgetAsked opened: the Connection is signed out and stops, and this device deletes what it kept of it.",
+    }),
+    Reload: Schema.Struct({}).annotate({
+      description:
+        'Asks Connect Cloud for the Connection List, and every Connection for its Setup, again.',
+    }),
+  },
 });
 
 /**
@@ -125,8 +134,8 @@ const readKeysOf = (model: Model) =>
   keysOf(model).filter((key) => setupOf(model, key) !== undefined);
 
 /**
- * Whether what this device kept has been read: the list, unless Cloud
- * Connect's came first, and each listed Connection's setup.
+ * Whether what this device kept has been read: the list, unless Connect
+ * Cloud's came first, and each listed Connection's setup.
  */
 const readAll = (model: Model) =>
   (model.savedRead || model.connections !== null) &&

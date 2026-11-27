@@ -1,5 +1,3 @@
-import { access, mkdir, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { Deferred, Effect, Layer } from 'effect';
 import { SpeechToText, SpeechToTextError } from '../contract/index.js';
 
@@ -8,13 +6,12 @@ import { SpeechToText, SpeechToTextError } from '../contract/index.js';
  * halves of 50 bytes; held, the fetch stops at the first half until
  * `release()`. A failure queued with `failNext` fails the next fetch at
  * that half. A loaded model hears how many samples it was given:
- * `heard <n> samples`.
+ * `heard <n> samples`. The folders a fetch filled are kept in memory, so
+ * it runs in a browser too.
  */
 
 /** The bytes the fake model is. */
 export const FAKE_MODEL_BYTES = 100;
-
-const MODEL = 'model.txt';
 
 export interface FakeSpeech {
   readonly layer: Layer.Layer<SpeechToText>;
@@ -33,14 +30,10 @@ export const makeFakeSpeech = (): FakeSpeech => {
   let gate: Deferred.Deferred<void> | undefined;
   let installs = 0;
   let loads = 0;
-  const layer = Layer.succeed(SpeechToText, {
-    installed: (folder) =>
-      Effect.promise(() =>
-        access(join(folder, MODEL)).then(
-          () => true,
-          () => false,
-        ),
-      ),
+  /** The folders a fetch filled. */
+  const filled = new Set<string>();
+  const speech = Layer.succeed(SpeechToText, {
+    installed: (folder) => Effect.sync(() => filled.has(folder)),
     install: (folder, progress) =>
       Effect.gen(function* () {
         installs++;
@@ -51,10 +44,7 @@ export const makeFakeSpeech = (): FakeSpeech => {
         const failure = failures.shift();
         if (failure !== undefined)
           return yield* new SpeechToTextError({ message: failure });
-        yield* Effect.promise(async () => {
-          await mkdir(folder, { recursive: true });
-          await writeFile(join(folder, MODEL), 'x'.repeat(total));
-        });
+        filled.add(folder);
         yield* progress({ done: total, total });
       }),
     load: () =>
@@ -66,6 +56,11 @@ export const makeFakeSpeech = (): FakeSpeech => {
         };
       }),
   });
+  const layer = Layer.merge(
+    speech,
+    // The mark every fake carries: a production build that has it fails.
+    Layer.effectDiscard(Effect.logDebug('kestack-fake: the fake Speech')),
+  );
   return {
     layer,
     installs: () => installs,

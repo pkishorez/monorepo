@@ -4,7 +4,7 @@ import { CODE, where } from './stage.ts';
 
 /*
  * The site, as the Web Platform deploys a Kabuki Start app. How it signs
- * in and where Cloud Connect is are `VITE_*` env entries, which Vite
+ * in and where Connect Cloud is are `VITE_*` env entries, which Vite
  * inlines into the browser's code, under `alchemy dev` and in a deploy
  * alike.
  */

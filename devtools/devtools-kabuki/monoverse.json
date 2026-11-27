@@ -1,0 +1,18 @@
+{
+  "$schema": "../monoverse/schema.json",
+  "sourceRoots": ["src"],
+  "ignore": ["**/tests/**", "**/*.test.ts", "**/*.test.tsx"],
+  "preset": "kabuki",
+  "restrictions": [
+    {
+      "from": "src/**/logic/**",
+      "to": "react",
+      "reason": "logic/ is pure and imports no React; components go in view/."
+    },
+    {
+      "from": "src/{server,services}/**",
+      "to": "react",
+      "reason": "A Kabuki Session's calls and the DevTools Server's routes run outside React, on a server too; only a View draws."
+    }
+  ]
+}

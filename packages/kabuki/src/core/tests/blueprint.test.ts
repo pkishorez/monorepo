@@ -1,6 +1,7 @@
-import { Effect, Schema } from 'effect';
-import { describe, expect, it } from 'vitest';
+import { Effect, Schema, SchemaAST } from 'effect';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 import { Actor, Blueprint } from '../index.ts';
+import type { LiveInstance } from '../types.ts';
 import {
   Auth,
   AuthState,
@@ -156,5 +157,86 @@ describe('Blueprint.at', () => {
       Blueprint.at(Auth.blueprint, 'Auth/Anonymous:login/deeper'),
     ).toBeUndefined();
     expect(Blueprint.at(Board.blueprint, 'Board/toString')).toBeUndefined();
+  });
+});
+
+describe('what an Actor is about', () => {
+  const Lamp = Actor.define('Lamp', {
+    description: 'One lamp in a room',
+    state: { Off: {}, On: {} },
+    message: {
+      Switched: Schema.Struct({
+        on: Schema.Boolean.annotate({ description: 'Whether it is lit' }),
+      }).annotate({ description: 'Turn the lamp on or off' }),
+      Dimmed: Schema.Struct({ level: Schema.Number }).check(
+        Schema.makeFilter(({ level }) => level >= 0 && level <= 1),
+      ),
+      Broke: {},
+    },
+  }).build({
+    init: () => ({ state: { _tag: 'Off' } }),
+    on: { Broke: () => ({}) },
+    states: {
+      Off: { on: { Switched: () => ({ state: { _tag: 'On' } }) } },
+      On: {
+        on: {
+          Switched: () => ({ state: { _tag: 'Off' } }),
+          Dimmed: () => ({}),
+        },
+      },
+    },
+  });
+
+  it('holds the description `define` was given, and none when it was not', () => {
+    expect(Lamp.blueprint.description).toBe('One lamp in a room');
+    expect(Counter.blueprint).not.toHaveProperty('description');
+  });
+
+  it('keeps each Message’s own Schema, with the description it is annotated with', () => {
+    const switched = Lamp.blueprint.state['Off']!.on['Switched']!;
+    expect(SchemaAST.resolveDescription(switched.ast)).toBe(
+      'Turn the lamp on or off',
+    );
+  });
+
+  it('tags a case written as a struct with its key, and keeps its checks', () => {
+    const dimmed = Schema.decodeUnknownSync(
+      Lamp.blueprint.state['On']!.on['Dimmed'] as Schema.Codec<unknown>,
+    );
+    expect(dimmed({ _tag: 'Dimmed', level: 0.5 })).toEqual({
+      _tag: 'Dimmed',
+      level: 0.5,
+    });
+    expect(() => dimmed({ _tag: 'Dimmed', level: 2 })).toThrow();
+    expectTypeOf<
+      Parameters<LiveInstance<typeof Lamp>['send']>[0]
+    >().toEqualTypeOf<
+      | { readonly _tag: 'Switched'; readonly on: boolean }
+      | { readonly _tag: 'Dimmed'; readonly level: number }
+      | { readonly _tag: 'Broke' }
+    >();
+  });
+
+  it('refuses a case written as a Schema that is not a struct', () => {
+    expect(() =>
+      Actor.define('Odd', {
+        message: { Said: Schema.String as never },
+      }),
+    ).toThrow(
+      'the case "Said" is written as its fields or a `Schema.Struct` of them',
+    );
+  });
+
+  it('Blueprint.handles: the top’s Messages, then the State’s own', () => {
+    expect(Blueprint.handles(Lamp.blueprint, 'Off')).toEqual([
+      'Broke',
+      'Switched',
+    ]);
+    expect(Blueprint.handles(Lamp.blueprint, 'On')).toEqual([
+      'Broke',
+      'Switched',
+      'Dimmed',
+    ]);
+    expect(Blueprint.handles(Lamp.blueprint, 'Gone')).toEqual(['Broke']);
   });
 });

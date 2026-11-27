@@ -10,7 +10,7 @@ Connections (through [ai-toolkit](../../toolkits/ai-toolkit/README.md), as the
 [v1 spec](../../toolkits/ai-toolkit/docs/v1-spec.md) says), and the app
 follows each Session live: what you asked, the agent's words, its tool
 calls and subagents, and how each turn ended. You sign in with
-auth-toolkit's `Accounts`; Cloud Connect lists the Connections signed in as
+auth-toolkit's `Accounts`; Connect Cloud lists the Connections signed in as
 you, and the app is on all of them at once
 ([ADR 0018](../../toolkits/ai-toolkit/docs/adr/0018-an-app-is-on-every-connection-at-once.md)).
 
@@ -35,7 +35,7 @@ reload shows what this device last saw at once. The sidebar keeps every
 Session it shows in sync ahead, so opening one draws its messages at once.
 Every write is a Command an Actor asks of one Connection. While a Connection's
 code Plugin is Updating or stopped, or it runs a `ke-connect` older than
-Cloud Connect names, a pill in the header of a page on it says so and
+Connect Cloud names, a pill in the header of a page on it says so and
 opens Settings, whose card for it shows how far the update got, the
 stopped Plugin's last lines to copy, or the command that updates it.
 
@@ -43,7 +43,7 @@ The app is one tree of Kabuki Actors, and `src/app/` tells it as one
 story, top down, each level with at most three parts: the root page, with
 `storage/`, `sign-in/` and the Account's page; then the Account's
 `connection/` for each Connection, its `frame/` (the sidebar, the header
-with Voice, and the Pickers) and its `pages/`. [docs/kabuki-tree.md](docs/kabuki-tree.md)
+with Voice, and the Pickers) and its `pages/`. [docs/design.md](docs/design.md)
 walks it, with the addresses and what each level keeps in storage. Voice is global: a
 Dictation starts from the field you dictate into, the Draft or a
 question's own answer, keeps going as you move, and its text goes back
@@ -63,36 +63,50 @@ waits for "Reload" before taking a new version.
 
 ## Usage
 
-### Run the app on this branch's Connect
+### Run the app in fake mode
 
-`pnpm dev` makes sure this branch's Connect runs, starting it or reusing
-the one another App started, then runs the site against it. It signs in
-with auth-toolkit's Fake: sign in as any `@kestack.test` email
-(`dev@kestack.test` is the Connection's), and the branch's Connection shows up in
-the app; it reports itself to Cloud Connect every 15 seconds. Every backend
-is on the site's own origin, so a tunnel to it, such as
-`cloudflared tunnel --url http://localhost:<port>`, opens the whole app on
-a phone. `pnpm dev:real` signs in through the Auth Worker instead.
+`pnpm dev` runs the whole app in the browser tab, with nothing behind it:
+the sign-in, Connect Cloud and each computer's code Plugin run for real in
+the tab, over Fakes of the outside world (who signs in, the computers, the
+agents, Speech to Text, the microphone, new builds), together in one
+FakeWorld ([Fakes](../../docs/fakes.md), `src/fake.ts`). Each page load
+starts every Fake afresh: nobody signed in, no computer. The page shows no
+controls of its own: the sign-in waits until a control of the Sign-in fake
+answers it, run through the FakeWorld (`world.control`).
 
 ```sh
-pnpm --filter code dev           # this branch's Connect, then the site, signed in with the Fake
-pnpm --filter code dev:real      # the same through the Auth Worker; the Device Screen on a new branch
+pnpm --filter code dev           # fake mode: the whole app in the tab, over its Fakes
+pnpm --filter code dev:connect   # real mode: this branch's Connect, then the site, signed in through the Auth Worker
 pnpm --filter code deploy        # your own stage, at its workers.dev URLs
 pnpm --filter code deploy:prod   # ALLOW_DEPLOY=true: code.kishore.app
 ```
 
-- `pnpm dev` calls `withConnect` from `@kestack/connect/dev`
+- `pnpm dev` builds the packages Code uses, then runs `vp dev` through
+  Portless with `VITE_MODE=fake`, at `https://code.kishore.computer` (the
+  branch in front in a linked git worktree); nothing else starts. Fake mode is read
+  only while developing (`import.meta.env.DEV`), so a production build
+  never carries it, and fails if anything brings a fake in (`kestack-fake`).
+  A reload starts the Fakes afresh, and keeps the Middle's tables and
+  Code's own databases in IndexedDB.
+- `pnpm dev:connect` calls `withConnect` from `@kestack/connect/dev`
   ([Connect in development](../connect/docs/dev.md)), then runs
   `alchemy dev` (`alchemy.run.ts`, `src/deploy/infra/`) through Portless,
   the site at `https://code.kishore.computer` (the branch in front in a
-  linked git worktree), handed the branch's Cloud Connect in
-  `CONNECT_URL`. Connect stops once no App on the branch runs.
+  linked git worktree), handed the branch's Connect Cloud in
+  `CONNECT_URL`. It signs in through the Auth Worker, and the branch's
+  Connection signs in as a Device (the Device Screen on a new branch), then
+  shows up in the app; it reports itself to Connect Cloud every 15 seconds.
+  Connect stops once no App on the branch runs.
 - The site gets `VITE_AUTH_URL` and `VITE_CONNECT_URL`. A deployed stage
   uses `https://connect.kishore.app`, where your Connections are.
 - With no Connection, home says what to run; each Connection that signs in
   shows up beside the others.
 - A deployed stage (`prod`, `demo`, `pr<N>`) needs `ALLOW_DEPLOY=true` and
   keeps its state in Cloudflare; a personal stage keeps it in `.alchemy/`.
+- CI deploys it in `deploy:connect`, after Connect Cloud
+  (`.github/workflows/deploy-connect.yml`), and never on prod while
+  `@kestack/connect` waits for its release. A pull request's preview deploys
+  Code alone, against production Connect Cloud.
 - `pnpm --filter code lint` checks types, the Laymos Rules and the tree's
   shape (`pnpm --filter code tree`); `pnpm --filter code test` runs the
   tests. Videos recorded under `qa/` stay local.

@@ -1,6 +1,6 @@
 # One table test, and `-u` cannot approve a breaking change
 
-Amended by ADR 0019: `acceptBreaking` is removed, and the test is for persistent tables; a table kept only in disposable tables needs none.
+Amended by ADR 0019: `acceptBreaking` is removed, and the test is for persistent tables; a table kept only in disposable tables needs none. Amended by ADR 0020: there is no deploy guard; what a hand-edited file cannot fool is the check against the snapshot each table keeps inside itself.
 
 `expectTableSnapshot` is replaced by `expectTableShippable(table, file, options)`, the one test a table needs. This supersedes ADR 0013's "`vitest -u` accepts the current document" and ADR 0016's "checks are never compared".
 

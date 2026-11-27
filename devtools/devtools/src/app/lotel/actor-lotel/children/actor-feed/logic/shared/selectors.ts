@@ -1,0 +1,293 @@
+import type { DataOf } from '@kestack/kabuki/types';
+import type { OtelSpan } from '../../../../../services/telemetry/contract/index.js';
+import { groupByTrace } from '../../../../logic/shared/index.js';
+import type { TraceGroup } from '../../../../logic/shared/index.js';
+import {
+  GROUP_BY_TRACE_NAME,
+  NO_ROOT_SERVICE,
+  SERVICE_ATTR_KEY,
+} from './shape.js';
+import type { FeedShape, Filters } from './shape.js';
+
+const NO_ROOT_LABEL = '(no root)';
+
+function effectiveService(trace: TraceGroup): string | null {
+  if (trace.missingRoot) return NO_ROOT_SERVICE;
+  return trace.serviceName;
+}
+
+export function formatServiceName(name: string): string {
+  return name === NO_ROOT_SERVICE ? NO_ROOT_LABEL : name;
+}
+
+export function discoverAttributeKeys(spans: readonly OtelSpan[]): string[] {
+  const keys = new Set<string>();
+  for (const span of spans) {
+    for (const key of Object.keys(span.attributes)) keys.add(key);
+  }
+  return Array.from(keys)
+    .filter((k) => k !== SERVICE_ATTR_KEY)
+    .sort();
+}
+
+export function discoverAttributeValues(
+  spans: readonly OtelSpan[],
+  key: string,
+): string[] {
+  const values = new Set<string>();
+  for (const span of spans) {
+    const val = span.attributes[key];
+    if (val !== undefined && val !== null) values.add(String(val));
+  }
+  return Array.from(values).sort();
+}
+
+const tracesBySpans = new WeakMap<readonly OtelSpan[], TraceGroup[]>();
+
+export function tracesOf(spans: readonly OtelSpan[]): readonly TraceGroup[] {
+  let traces = tracesBySpans.get(spans);
+  if (traces === undefined) {
+    traces = groupByTrace(spans).sort((a, b) => b.startTime - a.startTime);
+    tracesBySpans.set(spans, traces);
+  }
+  return traces;
+}
+
+export function servicesOf(traces: readonly TraceGroup[]): string[] {
+  return Array.from(
+    new Set(
+      traces
+        .map(effectiveService)
+        .filter((service): service is string => service !== null),
+    ),
+  ).sort();
+}
+
+export function selectedServiceOf(filters: Filters): string | null {
+  return (
+    filters.attributeFilters.find((filter) => filter.key === SERVICE_ATTR_KEY)
+      ?.value ?? null
+  );
+}
+
+function listTraces(
+  spans: readonly OtelSpan[],
+  filters: Filters,
+  search: string,
+): TraceGroup[] {
+  const filtered = applyFilters(tracesOf(spans), spans, filters).visible;
+  const query = search.trim().toLowerCase();
+  if (!query) return filtered;
+  return filtered.filter(
+    (trace) =>
+      trace.name.toLowerCase().includes(query) ||
+      trace.traceId.toLowerCase().includes(query) ||
+      trace.serviceName?.toLowerCase().includes(query),
+  );
+}
+
+function applyFilters(
+  traces: readonly TraceGroup[],
+  spans: readonly OtelSpan[],
+  filters: Filters,
+): { visible: TraceGroup[]; hiddenBySinceNow: number } {
+  const spansByTrace = new Map<string, OtelSpan[]>();
+  for (const span of spans) {
+    let arr = spansByTrace.get(span.traceId);
+    if (!arr) {
+      arr = [];
+      spansByTrace.set(span.traceId, arr);
+    }
+    arr.push(span);
+  }
+
+  const filtersByKey = new Map<string, string[]>();
+  for (const f of filters.attributeFilters) {
+    let arr = filtersByKey.get(f.key);
+    if (!arr) {
+      arr = [];
+      filtersByKey.set(f.key, arr);
+    }
+    arr.push(f.value);
+  }
+
+  const serviceValues = filtersByKey.get(SERVICE_ATTR_KEY);
+  const statusFilter = filters.status ?? 'all';
+
+  let hiddenBySinceNow = 0;
+  const visible: TraceGroup[] = [];
+
+  for (const trace of traces) {
+    if (serviceValues) {
+      const svc = effectiveService(trace);
+      if (svc === null || !serviceValues.includes(svc)) continue;
+    }
+
+    if (statusFilter === 'error' && trace.status !== 'error') continue;
+    if (statusFilter === 'running' && trace.status !== 'running') continue;
+
+    const traceSpans = spansByTrace.get(trace.traceId) ?? [];
+
+    let matchesAttrs = true;
+    for (const [key, values] of filtersByKey) {
+      if (key === SERVICE_ATTR_KEY) continue;
+      const ok = traceSpans.some((s) => {
+        const v = s.attributes[key];
+        return v !== undefined && values.includes(String(v));
+      });
+      if (!ok) {
+        matchesAttrs = false;
+        break;
+      }
+    }
+    if (!matchesAttrs) continue;
+
+    if (filters.sinceNow !== null && trace.startTime < filters.sinceNow) {
+      hiddenBySinceNow++;
+      continue;
+    }
+
+    visible.push(trace);
+  }
+
+  return { visible, hiddenBySinceNow };
+}
+
+type TraceNameGroup = {
+  name: string;
+  traces: TraceGroup[];
+  count: number;
+  errorCount: number;
+  services: string[];
+  p50: number | null;
+  p99: number | null;
+};
+
+const GROUP_NONE_LABEL = '(none)';
+
+export function groupTracesBy(
+  traces: readonly TraceGroup[],
+  spans: readonly OtelSpan[],
+  groupBy: string,
+): TraceNameGroup[] {
+  if (groupBy === GROUP_BY_TRACE_NAME) {
+    return groupByTraceName(traces);
+  }
+
+  const valueByTrace = new Map<string, string>();
+  for (const span of spans) {
+    if (valueByTrace.has(span.traceId)) continue;
+    const v = span.attributes[groupBy];
+    if (v !== undefined && v !== null) {
+      valueByTrace.set(span.traceId, String(v));
+    }
+  }
+
+  const byValue = new Map<string, TraceGroup[]>();
+  for (const t of traces) {
+    const key = valueByTrace.get(t.traceId) ?? GROUP_NONE_LABEL;
+    let arr = byValue.get(key);
+    if (!arr) {
+      arr = [];
+      byValue.set(key, arr);
+    }
+    arr.push(t);
+  }
+
+  return buildNameGroups(byValue);
+}
+
+function groupByTraceName(traces: readonly TraceGroup[]): TraceNameGroup[] {
+  const byName = new Map<string, TraceGroup[]>();
+  for (const t of traces) {
+    let arr = byName.get(t.name);
+    if (!arr) {
+      arr = [];
+      byName.set(t.name, arr);
+    }
+    arr.push(t);
+  }
+  return buildNameGroups(byName);
+}
+
+function buildNameGroups(byName: Map<string, TraceGroup[]>): TraceNameGroup[] {
+  const groups: TraceNameGroup[] = [];
+  for (const [name, list] of byName) {
+    const durations: number[] = [];
+    let errorCount = 0;
+    const services = new Set<string>();
+    let latestStart = -Infinity;
+
+    for (const t of list) {
+      if (t.status === 'error') errorCount++;
+      if (t.serviceName) services.add(t.serviceName);
+      if (t.duration !== null) durations.push(t.duration);
+      if (t.startTime > latestStart) latestStart = t.startTime;
+    }
+
+    durations.sort((a, b) => a - b);
+
+    groups.push({
+      name,
+      traces: list,
+      count: list.length,
+      errorCount,
+      services: Array.from(services).sort(),
+      p50: percentile(durations, 0.5),
+      p99: percentile(durations, 0.99),
+    });
+  }
+
+  groups.sort((a, b) => latestStartOf(b) - latestStartOf(a));
+  return groups;
+}
+
+function latestStartOf(g: TraceNameGroup): number {
+  let max = -Infinity;
+  for (const t of g.traces) if (t.startTime > max) max = t.startTime;
+  return max;
+}
+
+function percentile(sorted: number[], p: number): number | null {
+  if (sorted.length === 0) return null;
+  const idx = Math.min(
+    sorted.length - 1,
+    Math.max(0, Math.floor(p * sorted.length)),
+  );
+  return sorted[idx]!;
+}
+
+export const tracesListed = ({
+  model,
+}: DataOf<typeof FeedShape>): ReadonlyArray<TraceGroup> =>
+  listTraces(model.spans, model.filters, model.search);
+
+export const listedCount = (data: DataOf<typeof FeedShape>) =>
+  tracesListed(data).length;
+
+export const idsOf = (traces: ReadonlyArray<TraceGroup>) =>
+  traces.map((trace) => trace.traceId);
+
+export const holding = (
+  listed: ReadonlyArray<string>,
+  shown: ReadonlySet<string>,
+  ready: boolean,
+  opened: string | null,
+) => ready && opened !== null && listed.some((id) => shown.has(id));
+
+export const listingOf = (data: DataOf<typeof FeedShape>) => {
+  const { model, props } = data;
+  const listed = tracesListed(data);
+  const shown = new Set(model.shown);
+  const held = holding(idsOf(listed), shown, model.ready, props.opened)
+    ? listed.filter((trace) => !shown.has(trace.traceId)).length
+    : 0;
+  const visible =
+    held === 0 ? listed : listed.filter((trace) => shown.has(trace.traceId));
+  return {
+    listed,
+    traces: visible.slice(0, model.count),
+    held,
+    hasMore: listed.length - held > model.count,
+  };
+};

@@ -17,6 +17,8 @@ const FLOAT =
  * edges as its corners round, its shadow and backdrop fade in, and back.
  * It is the same in Vim Mode and out of it, so turning Vim Mode on or off
  * never moves the page.
+ * It is the screen's height, or less where it is given less: in a box with
+ * a height, such as the page area a docked bar leaves, it fits the box.
  * With `on`, `statusLine` eases in as its bottom edge. Its shadow and
  * backdrop are the theme's `--vim-window-*`.
  */
@@ -33,7 +35,7 @@ export function VimWindow(props: {
       data-slot="vim-window"
       data-floating={floating}
       data-on={on}
-      className={`relative flex h-dvh items-center justify-center bg-background transition-[padding] min-[1624px]:data-floating:p-3 ${FLOAT}`}
+      className={`relative flex h-dvh max-h-full items-center justify-center bg-background transition-[padding] min-[1624px]:data-floating:p-3 ${FLOAT}`}
     >
       <div
         aria-hidden="true"

@@ -123,5 +123,5 @@ jobs:
             echo ""
             echo "| App | Status |"
             echo "| --- | --- |"
-            echo "| Cloud Connect | $status |"
+            echo "| Connect Cloud | $status |"
           } >> "$GITHUB_STEP_SUMMARY"

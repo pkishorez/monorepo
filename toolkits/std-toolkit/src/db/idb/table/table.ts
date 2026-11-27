@@ -2,6 +2,7 @@ import { Effect, Schema } from 'effect';
 import {
   checkFailed,
   conditionFailed,
+  isInternalEntity,
   transactItemKey,
   type StdTableContract,
 } from '../../std-table/contract/index.js';
@@ -11,25 +12,9 @@ import { queryItems } from './query.js';
 import { nativeFailure, requestPromise } from './request.js';
 import { scanItems } from './scan.js';
 import { transactionPromise } from './transaction.js';
+import { abortQuietly, withConnection } from './connection.js';
 import { storedConditionHolds, writeFailure } from './write.js';
 import { toNativeKey, itemSchema } from '../item-schema/index.js';
-
-const abortQuietly = (transaction: IDBTransaction) => {
-  try {
-    transaction.abort();
-  } catch {
-    return;
-  }
-};
-
-// A version change (another table of the same database adding its store,
-// in this tab or another) closes the connection under whatever was running
-// on it. That ran nothing, so it runs again on the connection opened next.
-const closedUnderneath = (cause: unknown) =>
-  typeof cause === 'object' &&
-  cause !== null &&
-  'name' in cause &&
-  (cause.name === 'InvalidStateError' || cause.name === 'AbortError');
 
 export const makeTableContract = (
   database: IDBConnection,
@@ -42,16 +27,8 @@ export const makeTableContract = (
   const schema = itemSchema(table);
   const decodeItem = Schema.decodeSync(schema);
   const encodeItem = Schema.encodeSync(schema);
-  const onConnection = async <A>(
-    run: (connection: IDBDatabase) => Promise<A>,
-  ): Promise<A> => {
-    try {
-      return await run(await database.open());
-    } catch (cause) {
-      if (!closedUnderneath(cause)) throw cause;
-      return run(await database.open());
-    }
-  };
+  const onConnection = <A>(run: (connection: IDBDatabase) => Promise<A>) =>
+    withConnection(database, run);
   return {
     getItem: (key) =>
       Effect.tryPromise({
@@ -150,8 +127,20 @@ export const makeTableContract = (
           onConnection(async (connection) => {
             const transaction = connection.transaction(storeName, 'readwrite');
             const store = transaction.objectStore(storeName);
-            const removed = await requestPromise(store.count());
-            store.clear();
+            const cursor = store.index('_entity').openKeyCursor();
+            let removed = 0;
+            await new Promise<void>((resolve, reject) => {
+              cursor.onerror = () => reject(cursor.error);
+              cursor.onsuccess = () => {
+                const current = cursor.result;
+                if (current === null) return resolve();
+                if (!isInternalEntity(String(current.key))) {
+                  store.delete(current.primaryKey);
+                  removed++;
+                }
+                current.continue();
+              };
+            });
             await transactionPromise(transaction);
             return removed;
           }),

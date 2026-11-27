@@ -1,89 +1,19 @@
 import { access, mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { Context, Data, Effect, Layer, Semaphore, Stream } from 'effect';
-import { Runtime } from '@kestack/kabuki';
-import { SpeechToText, type Recognizer } from './contract/index.js';
-import { SpeechModel } from './actor-speech-model/index.js';
-import { SpeechHost } from './capabilities/index.js';
-import { makeTakes, type TakeHeard } from './takes/index.js';
-
-export type { TakeHeard } from './takes/index.js';
-
-// What a program gives Speech: a SpeechToText, sherpa-onnx's unless a fake.
-export { SpeechToText, type Recognizer } from './contract/index.js';
-export { sherpa } from './sherpa/index.js';
+import { Effect, Layer, Semaphore } from 'effect';
+import { Speech, SpeechToText, type Recognizer } from './contract/index.js';
+import type { SpeechHost } from './capabilities/index.js';
+import { speechOver } from './front/index.js';
 
 /*
- * Speech to Text's front door, as the API reaches it (ADR 0017). Switching
- * it on or off is a Message to the speech model; how it stands is the
- * model's State; a transcription is a Query of the model while Ready.
+ * Speech to Text on Node: the front door (`./front`, ADR 0017) over a
+ * SpeechHost on a folder.
  *
  * Everything lives in one folder of the Connection's data folder: the wish,
  * `on`, kept while Speech to Text is switched on, and the model's files in
  * `model/`. Switching off deletes the folder. speech.ts builds the
  * SpeechHost the model stands on from SpeechToText and that folder.
  */
-
-/** Speech to Text is not ready on this Connection: off, still downloading, or failed. */
-export class SpeechToTextNotReady extends Data.TaggedError(
-  'SpeechToTextNotReady',
-)<{
-  readonly state: 'Off' | 'Downloading' | 'Failed';
-}> {}
-
-/** The model would not load, or could not make out the audio. */
-export class TranscriptionFailed extends Data.TaggedError(
-  'TranscriptionFailed',
-)<{
-  readonly message: string;
-}> {}
-
-/** How Speech to Text stands on this Connection. */
-export type SpeechToTextStatus =
-  | { readonly _tag: 'Off' }
-  /** Bytes of the model downloaded, of `total` once the server says it. */
-  | {
-      readonly _tag: 'Downloading';
-      readonly done: number;
-      readonly total: number | null;
-    }
-  | { readonly _tag: 'Ready' }
-  /** Enabling again tries again. */
-  | { readonly _tag: 'Failed'; readonly reason: string };
-
-export interface SpeechService {
-  /** Switches it on, at once; the model downloads after, unless it is there. */
-  readonly enable: Effect.Effect<void>;
-  /** Switches it off, deleting the model. */
-  readonly disable: Effect.Effect<void>;
-  /** How it stands now, then each change. */
-  readonly watch: Stream.Stream<SpeechToTextStatus>;
-  /** The text spoken in 16 kHz mono PCM, each sample 16-bit signed little-endian. */
-  readonly transcribe: (
-    pcm: Uint8Array,
-  ) => Effect.Effect<string, SpeechToTextNotReady | TranscriptionFailed>;
-  /**
-   * What Take `id`, a Dictation sent as it is recorded, has heard now,
-   * then each change, ending with Done. Speech to Text off, it is
-   * switched on, and the download's progress comes first. A Take watched
-   * is never dropped; one dropped or broken before Done fails its
-   * watchers.
-   */
-  readonly watchTake: (
-    id: string,
-  ) => Stream.Stream<TakeHeard, TranscriptionFailed>;
-  /** Stretch `at`, from 0, of Take `id`: 16 kHz mono PCM, as `transcribe` takes. */
-  readonly addTakeAudio: (
-    id: string,
-    at: number,
-    pcm: Uint8Array,
-  ) => Effect.Effect<void, TranscriptionFailed>;
-  /** Take `id` has `count` stretches; once all are in, it is Done. */
-  readonly endTake: (
-    id: string,
-    count: number,
-  ) => Effect.Effect<void, TranscriptionFailed>;
-}
 
 export interface SpeechOptions {
   /** The folder Speech to Text keeps its wish and model in. */
@@ -97,15 +27,6 @@ const exists = (path: string) =>
       () => false,
     ),
   );
-
-/** 16-bit signed little-endian samples as floats in [-1, 1]. */
-const samplesOf = (pcm: Uint8Array) => {
-  const view = new DataView(pcm.buffer, pcm.byteOffset, pcm.byteLength);
-  const samples = new Float32Array(pcm.byteLength / 2);
-  for (let at = 0; at < samples.length; at++)
-    samples[at] = view.getInt16(at * 2, true) / 32768;
-  return samples;
-};
 
 const host = (folder: string) =>
   Effect.gen(function* () {
@@ -163,95 +84,10 @@ const host = (folder: string) =>
   });
 
 const make = (options: SpeechOptions) =>
-  Effect.gen(function* () {
-    const running = yield* Runtime.scoped(SpeechModel, {
-      layer: Layer.succeed(SpeechHost, yield* host(options.folder)),
-    });
-    const root = running.root;
-    // The model reads the wish and the files first; it is open once it knows.
-    yield* running.changes.pipe(
-      Stream.filter(() => root._tag !== 'Loading'),
-      Stream.runHead,
-    );
+  Effect.flatMap(host(options.folder), speechOver);
 
-    const status = (): SpeechToTextStatus | null =>
-      root._tag === 'Loading' ? null : root.state;
-    const notReady = () =>
-      new SpeechToTextNotReady({
-        state:
-          root._tag === 'Downloading' || root._tag === 'Failed'
-            ? root._tag
-            : 'Off',
-      });
-
-    const enable = Effect.sync(() => void root.send({ _tag: 'Enable' }));
-    const watch = running.changes.pipe(
-      Stream.map(status),
-      Stream.filter((now) => now !== null),
-      Stream.changesWith((a, b) => JSON.stringify(a) === JSON.stringify(b)),
-    );
-    const takes = yield* makeTakes({
-      now: watch,
-      enable,
-      transcribe: (samples) =>
-        root._tag === 'Ready'
-          ? root.queries
-              .transcribe(samples)
-              .pipe(
-                Effect.mapError((error) =>
-                  typeof error === 'string'
-                    ? error
-                    : 'Speech to Text stopped while it was hearing',
-                ),
-              )
-          : Effect.fail('Speech to Text stopped while it was hearing'),
-    });
-    const failed = (error: { readonly message: string }) =>
-      new TranscriptionFailed({ message: error.message });
-
-    const service: SpeechService = {
-      enable,
-      disable: Effect.sync(() => void root.send({ _tag: 'Disable' })),
-      watch,
-      transcribe: (pcm) =>
-        Effect.suspend(() => {
-          if (pcm.byteLength % 2 !== 0)
-            return Effect.fail(
-              new TranscriptionFailed({
-                message: 'The audio is not 16-bit PCM: its length is odd',
-              }),
-            );
-          if (root._tag !== 'Ready') return Effect.fail(notReady());
-          return root.queries
-            .transcribe(samplesOf(pcm))
-            .pipe(
-              Effect.mapError((error) =>
-                typeof error === 'string'
-                  ? new TranscriptionFailed({ message: error })
-                  : notReady(),
-              ),
-            );
-        }),
-      watchTake: (id) => Stream.mapError(takes.watch(id), failed),
-      addTakeAudio: (id, at, pcm) =>
-        pcm.byteLength % 2 !== 0
-          ? Effect.fail(
-              new TranscriptionFailed({
-                message: 'The audio is not 16-bit PCM: its length is odd',
-              }),
-            )
-          : Effect.mapError(takes.add(id, at, samplesOf(pcm)), failed),
-      endTake: (id, count) => Effect.mapError(takes.end(id, count), failed),
-    };
-    return service;
-  });
-
-export class Speech extends Context.Service<Speech, SpeechService>()(
-  '@kestack/ai-toolkit/Speech',
-) {
-  /** Runs Speech to Text until its Scope closes, from the wish and files in `folder`. */
-  static readonly layer = (
-    options: SpeechOptions,
-  ): Layer.Layer<Speech, never, SpeechToText> =>
-    Layer.effect(Speech, make(options));
-}
+/** `Speech`, run until its Scope closes from the wish and files in `options.folder`. */
+export const speechLayer = (
+  options: SpeechOptions,
+): Layer.Layer<Speech, never, SpeechToText> =>
+  Layer.effect(Speech, make(options));

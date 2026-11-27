@@ -1,5 +1,6 @@
 import 'fake-indexeddb/auto';
 import {
+  Clock,
   Context,
   Deferred,
   Effect,
@@ -15,11 +16,16 @@ import {
   AccountsState,
   AuthWorkerRejected,
 } from '@kestack/auth-toolkit/client';
-import { CodeClient, CodeClients } from '@kestack/connect/code';
+import {
+  CodeClient,
+  CodeClients,
+  type ConnectionAddress,
+  KEY_EXPIRED,
+  PLUGIN_MISMATCH,
+} from '@kestack/connect/code';
 import {
   CloudClient,
   type Connection as ConnectionSchema,
-  PLUGIN_MISMATCH,
 } from '@kestack/connect/cloud';
 import { OnOutdated } from '@kestack/std-toolkit/replica';
 import { Actor, Runtime } from '@kestack/kabuki';
@@ -46,40 +52,40 @@ import {
   type SetupParts,
 } from '../account.ts';
 import {
-  accountWith,
+  AccountLive,
   CHECK_FOR,
   knownOf,
-  RECHECK,
+  ON_ITS_WAY,
   standOf,
+  STUCK,
   type Who,
   whoOf,
 } from '../actor.ts';
-import { PLUGIN_CODE } from '../connection/link/index.ts';
-import {
-  borrowing,
-  byConnection,
-  Sockets,
-} from '../connection/link/reach/index.ts';
+import { RELINK_SLOWLY, Sockets } from '../connection/link/reach/index.ts';
+import { Recorder, recorder } from '../frame/header/voice/recorder/index.ts';
 import { ListShelf } from '../commands.ts';
 import { SetupShelf } from '../connection/commands.ts';
 
 /*
- * The Account's page with Cloud Connect, who is signed in and the databases
+ * The Account's page with Connect Cloud, who is signed in and the databases
  * stood in for. Active, the list kept in the Account's database shows first
- * and Cloud Connect's answer replaces it and is kept; only the first answer
+ * and Connect Cloud's answer replaces it and is kept; only the first answer
  * prunes, and only the Account's own Connections not on it, by database,
- * never the Account; a list that failed prunes nothing. Forget asks Cloud
- * Connect, takes the Connection out of the list, then stops its records and
+ * never the Account; a list that failed prunes nothing. Forget asks Connect
+ * Cloud, takes the Connection out of the list, then stops its records and
  * deletes its database alone, its Saved Drafts with it; and while a
- * Connection's link is not up Cloud Connect is asked again, every few
- * seconds, until every link is. A kept list's Last Seen is believed only
- * once Cloud Connect answers, or `CHECK_FOR` passes without. Not the
+ * Connection's link is not up Connect Cloud is asked again, at the pace of
+ * the Connection that needs it most, until every link is; an Outdated
+ * Connection is never dialled until a list says it was updated. A kept list's Last Seen is believed only
+ * once Connect Cloud answers, or `CHECK_FOR` passes without. Not the
  * Account active, it is Away: it asks nothing, shares nobody's
  * Connections, opens no socket, and says why: signed out, switched
  * elsewhere, another active, or not signed in here. It never moves by
  * itself: only a switch asked in this tab, from the header or the sign-in
  * screen, goes to the new Account's home. Its sockets are its
- * Connections' own, closed as it leaves Active.
+ * Connections' own, closed as it leaves Active. A socket refused with an
+ * expired Connection Key alone asks the list at once, and connects again with
+ * the key listed.
  */
 
 type Connection = typeof ConnectionSchema.Type;
@@ -95,10 +101,9 @@ const connection = (
   version: '0.0.1',
   status:
     url === null
-      ? { _tag: 'Opening' }
-      : { _tag: 'Reachable', url, at: lastSeen },
+      ? { _tag: 'SettingUp', step: { _tag: 'Opening' } }
+      : { _tag: 'Ready', url, check: { _tag: 'Reachable', at: lastSeen } },
   lastSeen,
-  plugins: {},
   wanted: {},
   minConnect: null,
   displayName: null,
@@ -110,7 +115,6 @@ const person = (id: string): Signed => ({
   email: `${id}@example.com`,
   name: id,
   image: null,
-  test: false,
 });
 
 /** Signed in as `active`, beside `others`. */
@@ -120,34 +124,33 @@ const signedIn = (active: string, ...others: ReadonlyArray<string>) =>
     accounts: [active, ...others].map(person),
   });
 
-/** The page of `a1`, at `page` under it, as the root page holds it. */
+/**
+ * The page of `a1`, at `page` under it, as the root page holds it, with
+ * what the page's root Layer gives it: what opens each socket, `clients`
+ * at the address asked, and the browser's microphone.
+ */
 const OwnerOf = (
-  clients: Layer.Layer<CodeClients, never, never>,
+  clients: Layer.Layer<CodeClients, never, ConnectionAddress>,
   page: unknown,
 ) =>
   Actor.define('Owner', {}).build({
+    provides: {
+      capabilities: [Sockets, Recorder],
+      layer: () => Layer.merge(Sockets.from(clients), recorder),
+    },
     children: {
-      account: Actor.child(
-        accountWith(
-          Layer.mergeAll(
-            byConnection,
-            borrowing,
-            Sockets.from(clients),
-          ) as never,
-        ),
-        {
-          props: () => ({
+      account: Actor.child(AccountLive, {
+        props: () => ({
+          params: { accountId: 'a1' },
+          query: {},
+          route: {
+            name: 'Account',
             params: { accountId: 'a1' },
-            query: {},
-            route: {
-              name: 'Account',
-              params: { accountId: 'a1' },
-              ...(page === undefined ? {} : { page: page as never }),
-              notFound: null,
-            },
-          }),
-        },
-      ),
+            ...(page === undefined ? {} : { page: page as never }),
+            notFound: null,
+          },
+        }),
+      }),
     },
   });
 
@@ -193,6 +196,12 @@ const world = (
   /** Each sign-in asked, with its options. */
   const signIns: Array<unknown> = [];
   let lists = 0;
+  /** What Connect Cloud says of this Code's Release, and how many times it was asked. */
+  const standing = {
+    answer: (): Effect.Effect<unknown, unknown> =>
+      Effect.succeed({ _tag: 'Latest' }),
+    asks: 0,
+  };
   /** How many reads of a job's output were opened, and how many ended. */
   const output = { opened: 0, ended: 0 };
   /** What each Connection's sockets tell the app as they answer and close. */
@@ -287,6 +296,11 @@ const world = (
         ),
       Forget: ({ id }: { readonly id: string }) =>
         Effect.sync(() => void forgotten.push(id)),
+      Standing: () =>
+        Effect.suspend(() => {
+          standing.asks++;
+          return standing.answer();
+        }),
     } as never),
   );
   // What is kept, in memory; what is pruned and dropped, said.
@@ -325,12 +339,19 @@ const world = (
     watches,
     sockets,
     output,
+    standing,
     lists: () => lists,
   };
 };
 
 const wait = (ms = 20) =>
   Effect.promise(() => new Promise((done) => setTimeout(done, ms)));
+
+/** Waits, a little at a time, until `holds`, for a few seconds at most. */
+const until = (holds: () => boolean) =>
+  Effect.gen(function* () {
+    for (let tries = 0; tries < 150 && !holds(); tries++) yield* wait();
+  });
 
 /** The cache alone, as `Storage` holds it, for a test to read and write. */
 class Cache extends Context.Service<Cache, Storage['Service']['cache']>()(
@@ -406,7 +427,7 @@ const listModel = (app: Runtime) => {
 };
 
 describe('the Account, active', () => {
-  it('shows the saved list first, then Cloud Connect’s, and keeps it', async () => {
+  it('shows the saved list first, then Connect Cloud’s, and keeps it', async () => {
     const answer = await Effect.runPromise(
       Deferred.make<ReadonlyArray<Connection>>(),
     );
@@ -471,7 +492,7 @@ describe('the Account, active', () => {
     );
   });
 
-  it('keeps nothing less when Cloud Connect cannot be asked', async () => {
+  it('keeps nothing less when Connect Cloud cannot be asked', async () => {
     const { OwnerLive, layer, over, kept } = world(
       Effect.fail(new Error('offline')),
     );
@@ -487,7 +508,7 @@ describe('the Account, active', () => {
     );
   });
 
-  it('forgets a Connection at Cloud Connect, takes it out of the list, then deletes its database here, and no other', async () => {
+  it('forgets a Connection at Connect Cloud, takes it out of the list, then deletes its database here, and no other', async () => {
     const {
       OwnerLive,
       layer,
@@ -524,7 +545,7 @@ describe('the Account, active', () => {
       Deferred.make<ReadonlyArray<Connection>>(),
     );
     const before = [connection('m1', 1), connection('m2', 2)];
-    // The first ask, then one that answers late, then Cloud Connect renamed.
+    // The first ask, then one that answers late, then Connect Cloud renamed.
     const answers = [
       Effect.succeed(before),
       Deferred.await(stale),
@@ -759,7 +780,9 @@ describe('the Account, by who is active', () => {
         );
         const the = world(Effect.succeed([]), null, stream);
         const app = yield* start(the);
-        yield* wait();
+        // Active comes from the device's own IndexedDB table, whose setup
+        // checks its stored snapshot first, so it is not there at once.
+        yield* until(() => stateOf(app)._tag === 'Active');
         expect(stateOf(app)._tag).toBe('Active');
         yield* SubscriptionRef.set(ref, signedIn('a2', 'a1'));
         yield* wait();
@@ -957,12 +980,6 @@ describe('the Account, Active again', () => {
   const sessionOf = (app: Runtime) =>
     walk(app.snapshot.root).find(({ actor }) => actor === 'Session')!;
 
-  /** Waits, a little at a time, until `holds`, for a few seconds at most. */
-  const until = (holds: () => boolean) =>
-    Effect.gen(function* () {
-      for (let tries = 0; tries < 150 && !holds(); tries++) yield* wait();
-    });
-
   it('closes every socket as it leaves Active, the page open, and reads its page’s records anew over a new one once it is Active again', async () => {
     await run(
       Effect.gen(function* () {
@@ -1029,7 +1046,7 @@ describe('the Account rechecks', () => {
       ) as Effect.Effect<A>,
     );
 
-  it('asks Cloud Connect again while a link is not up, and stops once every link is', () =>
+  it('asks Connect Cloud again while a link is not up, and stops once every link is', () =>
     timed(
       Effect.gen(function* () {
         const down = yield* SubscriptionRef.make<ReadonlySet<string>>(
@@ -1042,50 +1059,58 @@ describe('the Account rechecks', () => {
         yield* start({ OwnerLive, layer, over });
         yield* settle;
         expect(lists()).toBe(1);
-        yield* TestClock.adjust(RECHECK.fast);
+        yield* TestClock.adjust(ON_ITS_WAY);
         yield* settle;
         expect(lists()).toBe(2);
         // Every link up: nothing more is asked.
         yield* SubscriptionRef.set(down, new Set());
         yield* settle;
-        yield* TestClock.adjust(RECHECK.slow * 2);
+        yield* TestClock.adjust(STUCK * 2);
         yield* settle;
         expect(lists()).toBe(2);
         // A link drops: asked again.
         yield* SubscriptionRef.set(down, new Set(['m2']));
         yield* settle;
-        yield* TestClock.adjust(RECHECK.fast);
+        yield* TestClock.adjust(ON_ITS_WAY);
         yield* settle;
         expect(lists()).toBe(3);
       }),
     ));
 
-  it('asks less often after the first minute, and at once on Reload', () =>
+  it('asks less often while the one Connection down is gone, faster once another is on its way, and at once on Reload', () =>
     timed(
       Effect.gen(function* () {
         const down = yield* SubscriptionRef.make<ReadonlySet<string>>(
           new Set(['m1']),
         );
+        const now = yield* Clock.currentTimeMillis;
+        // m1 not seen for a minute: Down.
         const { OwnerLive, layer, over, lists } = world(
-          Effect.succeed([connection('m1', 1)]),
+          Effect.succeed([
+            connection('m1', now - 60_000),
+            connection('m2', now),
+          ]),
           down,
         );
         const app = yield* start({ OwnerLive, layer, over });
         yield* settle;
-        for (let at = 0; at < RECHECK.fastFor; at++) {
-          yield* TestClock.adjust(RECHECK.fast);
-          yield* settle;
-        }
-        expect(lists()).toBe(1 + RECHECK.fastFor);
-        yield* TestClock.adjust(RECHECK.fast);
+        expect(lists()).toBe(1);
+        yield* TestClock.adjust(ON_ITS_WAY);
         yield* settle;
-        expect(lists()).toBe(1 + RECHECK.fastFor);
-        yield* TestClock.adjust(RECHECK.slow - RECHECK.fast);
+        expect(lists()).toBe(1);
+        yield* TestClock.adjust(STUCK - ON_ITS_WAY);
         yield* settle;
-        expect(lists()).toBe(2 + RECHECK.fastFor);
+        expect(lists()).toBe(2);
+        // m2 drops while m1's wait runs: its own pace, the faster, sets it.
+        yield* TestClock.adjust(1_000);
+        yield* SubscriptionRef.set(down, new Set(['m1', 'm2']));
+        yield* settle;
+        yield* TestClock.adjust(ON_ITS_WAY);
+        yield* settle;
+        expect(lists()).toBe(3);
         app.at(list(app).address)?.send({ _tag: 'ReloadAsked' });
         yield* settle;
-        expect(lists()).toBe(3 + RECHECK.fastFor);
+        expect(lists()).toBe(4);
       }),
     ));
 });
@@ -1097,7 +1122,7 @@ describe('the Account checks', () => {
     for (let at = 0; at < 20; at++) yield* Effect.yieldNow;
   });
 
-  it('believes the kept list’s Last Seen only once Cloud Connect answers', async () => {
+  it('believes the kept list’s Last Seen only once Connect Cloud answers', async () => {
     const answer = await Effect.runPromise(
       Deferred.make<ReadonlyArray<Connection>>(),
     );
@@ -1134,7 +1159,7 @@ describe('the Account checks', () => {
         yield* Deferred.succeed(answers[0], [connection('m1', 2)]);
         yield* wait();
         expect(checkedOf(app)).toBe(true);
-        // Back: not believed again until Cloud Connect answers anew.
+        // Back: not believed again until Connect Cloud answers anew.
         answer = answers[1];
         app.at(list(app).address)?.send({ _tag: 'Back' });
         yield* wait();
@@ -1146,7 +1171,7 @@ describe('the Account checks', () => {
     );
   });
 
-  it('believes it anyway once Cloud Connect has been waited on for long enough', () =>
+  it('believes it anyway once Connect Cloud has been waited on for long enough', () =>
     Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
@@ -1172,30 +1197,29 @@ describe('the Account checks', () => {
 });
 
 describe('the Account mismatched', () => {
-  /** A Connection Cloud Connect wants to run the code Plugin at `wanted`. */
-  const wanting = (wanted: string): Connection => ({
-    ...connection('m1', Date.now()),
-    wanted: { code: { hash: wanted, url: `file:///${wanted}.mjs` } },
-  });
-
-  /** The close reason of a Connection running `running`, as its router says it. */
+  /** The close reason of a Connection running `running`, as its server says it. */
   const mismatchReason = (running: string | null) =>
     JSON.stringify({ running });
 
   const OLDER = 'b'.repeat(64);
   const NEWER = 'c'.repeat(64);
 
-  /** The Connections' Links and mismatches, as it holds them. */
-  const linksOf = (app: Runtime) =>
-    list(app).model as {
+  /** The Connections' Links and what each said of a mismatch, as it holds them. */
+  const linksOf = (app: Runtime) => {
+    const { links, said } = list(app).model as {
       readonly links: Readonly<Record<string, string>>;
-      readonly mismatched: Readonly<Record<string, unknown>>;
+      readonly said: Readonly<
+        Record<string, { readonly standing: unknown; readonly held: boolean }>
+      >;
     };
+    return { links, standing: said['m1']?.standing, held: said['m1']?.held };
+  };
 
-  /** The app, counting each move to Code's newest build. */
-  const started = (wanted: string) => {
+  /** The app, as Connect Cloud says `standing`, counting each ask and each move to Code's newest build. */
+  const started = (standing: () => Effect.Effect<unknown, unknown>) => {
     let moves = 0;
-    const the = world(Effect.succeed([wanting(wanted)]));
+    const the = world(Effect.succeed([connection('m1', Date.now())]));
+    the.standing.answer = standing;
     const { watches, lists } = the;
     const told = Layer.succeed(
       OnOutdated,
@@ -1206,11 +1230,30 @@ describe('the Account mismatched', () => {
       watches,
       lists,
       moves: () => moves,
+      asks: () => the.standing.asks,
     };
   };
 
-  it('is Updating while Cloud Connect wants this Code’s Release: it keeps relinking, until a socket is answered', async () => {
-    const { app: starting, watches, lists, moves } = started(PLUGIN_CODE);
+  /** Runs `effect` with its clock the test's own, for what waits `RELINK_SLOWLY`. */
+  const timed = (effect: Effect.Effect<void, unknown, Scope.Scope | Cache>) =>
+    Effect.runPromise(
+      Effect.scoped(effect).pipe(
+        Effect.provide(cacheMemory()),
+        Effect.provide(TestClock.layer()),
+      ) as Effect.Effect<void>,
+    );
+
+  /** `RELINK_SLOWLY` passed, and everything it set off done. */
+  const slowlyPassed = Effect.andThen(TestClock.adjust(RELINK_SLOWLY), wait());
+
+  it('is Updating while Connect Cloud names this Code’s Release: it relinks at once, until a socket is answered', async () => {
+    const {
+      app: starting,
+      watches,
+      lists,
+      moves,
+      asks,
+    } = started(() => Effect.succeed({ _tag: 'Latest' }));
     await run(
       Effect.gen(function* () {
         const app = yield* starting;
@@ -1223,36 +1266,41 @@ describe('the Account mismatched', () => {
         });
         yield* wait();
         expect(linksOf(app).links).toEqual({ m1: 'relinking' });
-        expect(linksOf(app).mismatched).toEqual({ m1: { running: OLDER } });
+        expect(linksOf(app).standing).toEqual({ _tag: 'Latest' });
+        expect(linksOf(app).held).toBe(false);
+        expect(asks()).toBe(1);
         expect(moves()).toBe(0);
-        // Relinking: Cloud Connect is asked again, as for any Link down.
+        // Relinking: the list is asked again, as for any Link down.
         const asked = lists();
-        yield* wait(RECHECK.fast + 200);
+        yield* wait(ON_ITS_WAY + 200);
         expect(lists()).toBeGreaterThan(asked);
+        // Closed again, Connect Cloud is asked afresh.
+        watches.get('m1')!.closed!({
+          code: PLUGIN_MISMATCH,
+          reason: mismatchReason(OLDER),
+        });
+        yield* wait();
+        expect(asks()).toBe(2);
         // Updated: a socket to it is answered, and it is linked.
         watches.get('m1')!.answered!();
         yield* wait();
         expect(linksOf(app).links).toEqual({ m1: 'linked' });
-        expect(linksOf(app).mismatched).toEqual({});
+        expect(linksOf(app).standing).toBeNull();
         expect(moves()).toBe(0);
       }),
     );
   });
 
-  it('is Updating too while Cloud Connect wants no Release of the code Plugin', async () => {
-    const { OwnerLive, layer, over, watches } = world(
-      Effect.succeed([connection('m1', Date.now())]),
-    );
-    let moves = 0;
-    await run(
+  it('holds the Link, then relinks slowly and asks again, while Connect Cloud has not heard of this Code’s Release', async () => {
+    const {
+      app: starting,
+      watches,
+      moves,
+      asks,
+    } = started(() => Effect.succeed({ _tag: 'Unknown' }));
+    await timed(
       Effect.gen(function* () {
-        const app = yield* start(
-          { OwnerLive, layer, over },
-          Layer.succeed(
-            OnOutdated,
-            Effect.sync(() => void moves++),
-          ),
-        );
+        const app = yield* starting;
         yield* wait();
         watches.get('m1')!.closed!({
           code: PLUGIN_MISMATCH,
@@ -1260,14 +1308,30 @@ describe('the Account mismatched', () => {
         });
         yield* wait();
         expect(linksOf(app).links).toEqual({ m1: 'relinking' });
-        expect(moves).toBe(0);
+        expect(linksOf(app).standing).toEqual({ _tag: 'Unknown' });
+        expect(linksOf(app).held).toBe(true);
+        expect(moves()).toBe(0);
+        yield* slowlyPassed;
+        expect(linksOf(app).held).toBe(false);
+        // Dialled again and closed the same way, it asks again.
+        watches.get('m1')!.closed!({
+          code: PLUGIN_MISMATCH,
+          reason: mismatchReason(null),
+        });
+        yield* wait();
+        expect(asks()).toBe(2);
+        expect(linksOf(app).held).toBe(true);
       }),
     );
   });
 
-  it('moves this Code to its newest build when Cloud Connect wants another Release', async () => {
-    const { app: starting, watches, moves } = started(NEWER);
-    await run(
+  it('decides nothing while Connect Cloud is out of reach: it relinks slowly', async () => {
+    const {
+      app: starting,
+      watches,
+      moves,
+    } = started(() => Effect.fail({ _tag: 'RpcClientError' }));
+    await timed(
       Effect.gen(function* () {
         const app = yield* starting;
         yield* wait();
@@ -1276,31 +1340,361 @@ describe('the Account mismatched', () => {
           reason: mismatchReason(NEWER),
         });
         yield* wait();
-        expect(linksOf(app).mismatched).toEqual({ m1: { running: NEWER } });
-        expect(moves()).toBe(1);
-        // Told again, it moves once: it is moving already.
+        expect(linksOf(app).standing).toBeNull();
+        expect(linksOf(app).held).toBe(true);
+        expect(moves()).toBe(0);
+        yield* slowlyPassed;
+        expect(linksOf(app).held).toBe(false);
+      }),
+    );
+  });
+
+  it('moves this Code to its newest build, once, and holds the Link for good, when its Release is Older', async () => {
+    const {
+      app: starting,
+      watches,
+      moves,
+      asks,
+    } = started(() => Effect.succeed({ _tag: 'Older' }));
+    await timed(
+      Effect.gen(function* () {
+        const app = yield* starting;
+        yield* wait();
         watches.get('m1')!.closed!({
           code: PLUGIN_MISMATCH,
           reason: mismatchReason(NEWER),
         });
         yield* wait();
+        expect(linksOf(app).standing).toEqual({ _tag: 'Older' });
         expect(moves()).toBe(1);
+        // Told again, it neither moves nor asks: it is moving already.
+        watches.get('m1')!.closed!({
+          code: PLUGIN_MISMATCH,
+          reason: mismatchReason(NEWER),
+        });
+        yield* slowlyPassed;
+        expect(moves()).toBe(1);
+        expect(asks()).toBe(1);
+        expect(linksOf(app).held).toBe(true);
       }),
     );
   });
 
   it('is not mismatched by a socket that closes another way', async () => {
-    const { app: starting, watches, moves } = started(NEWER);
-    await run(
+    const {
+      app: starting,
+      watches,
+      moves,
+    } = started(() => Effect.succeed({ _tag: 'Older' }));
+    await timed(
       Effect.gen(function* () {
         const app = yield* starting;
         yield* wait();
         watches.get('m1')!.closed!({ code: 1006, reason: '' });
         yield* wait();
         expect(linksOf(app).links).toEqual({ m1: 'linked' });
-        expect(linksOf(app).mismatched).toEqual({});
+        expect(linksOf(app).standing).toBeNull();
         expect(moves()).toBe(0);
       }),
     );
+  });
+
+  it('is not mismatched by a socket closed with an expired key', async () => {
+    const {
+      app: starting,
+      watches,
+      moves,
+    } = started(() => Effect.succeed({ _tag: 'Older' }));
+    await timed(
+      Effect.gen(function* () {
+        const app = yield* starting;
+        yield* wait();
+        watches.get('m1')?.closed?.({
+          code: KEY_EXPIRED,
+          reason: 'key expired',
+        });
+        yield* wait();
+        expect(linksOf(app).standing).toBeNull();
+        expect(moves()).toBe(0);
+      }),
+    );
+  });
+});
+
+describe('the Account, its socket refused for its Release', () => {
+  /** A stand-in WebSocket that opens, then closes with `PLUGIN_MISMATCH`, counting each dial. */
+  const refusing = () => {
+    const dials: Array<number> = [];
+    return {
+      dials,
+      WebSocket: class extends EventTarget {
+        static readonly OPEN = 1;
+        readyState = 0;
+        protocol = 'ke-connect';
+        constructor() {
+          super();
+          dials.push(Date.now());
+          setTimeout(() => {
+            this.readyState = 1;
+            this.dispatchEvent(new Event('open'));
+            setTimeout(() => {
+              this.readyState = 3;
+              this.dispatchEvent(
+                Object.assign(new Event('close'), {
+                  code: PLUGIN_MISMATCH,
+                  reason: JSON.stringify({ running: null }),
+                }),
+              );
+            }, 1);
+          }, 1);
+        }
+        send() {}
+        close() {}
+      },
+    };
+  };
+
+  /** How many dials the socket made in a while, as Connect Cloud says `tag`. */
+  const dialsWhile = async (tag: 'Latest' | 'Unknown' | 'Older') => {
+    const { dials, WebSocket } = refusing();
+    vi.stubGlobal('WebSocket', WebSocket);
+    const the = world(Effect.succeed([connection('m1', Date.now())]));
+    the.standing.answer = () => Effect.succeed({ _tag: tag });
+    const OwnerLive = OwnerOf(CodeClients.layer, undefined);
+    await run(
+      Effect.gen(function* () {
+        yield* start({ OwnerLive, layer: the.layer, over: the.over });
+        yield* wait(1_000);
+      }),
+    ).finally(() => vi.unstubAllGlobals());
+    return dials.length;
+  };
+
+  it('dials again when its Release is Latest, as the Connection catches up', async () => {
+    expect(await dialsWhile('Latest')).toBeGreaterThan(1);
+  });
+
+  it('holds its dial while Connect Cloud has not heard of its Release', async () => {
+    expect(await dialsWhile('Unknown')).toBe(1);
+  });
+
+  it('holds its dial once its Release is Older', async () => {
+    expect(await dialsWhile('Older')).toBe(1);
+  });
+});
+
+describe('the Account, a Connection Outdated', () => {
+  it('never dials it, until a list says it was updated', async () => {
+    const dials: Array<string | undefined> = [];
+    /** A Connection that answers every socket, saying each key offered. */
+    class Answering extends EventTarget {
+      readyState = 0;
+      binaryType = 'blob';
+      constructor(_url: string, protocols?: ReadonlyArray<string>) {
+        super();
+        dials.push(
+          protocols
+            ?.find((each) => each.startsWith('key.'))
+            ?.slice('key.'.length),
+        );
+        setTimeout(() => {
+          this.readyState = 1;
+          this.dispatchEvent(new Event('open'));
+          this.dispatchEvent(
+            new MessageEvent('message', { data: '{"_tag":"Pong"}' }),
+          );
+        }, 1);
+      }
+      send() {}
+      close() {}
+    }
+    vi.stubGlobal('WebSocket', Answering);
+    let version = '0.0.1';
+    const { layer, over } = world(
+      Effect.sync(() => [
+        { ...connection('m1', Date.now()), version, minConnect: '0.0.2' },
+      ]),
+    );
+    const OwnerLive = OwnerOf(CodeClients.layer, undefined);
+    const linkOf = (app: Runtime) =>
+      (list(app).model as { readonly links: Readonly<Record<string, string>> })
+        .links.m1;
+    await run(
+      Effect.gen(function* () {
+        const app = yield* start({ OwnerLive, layer, over });
+        yield* wait(300);
+        expect(dials).toEqual([]);
+        expect(linkOf(app)).not.toBe('linked');
+        // ke-connect updated, and the list says so.
+        version = '0.0.2';
+        app.at(list(app).address)?.send({ _tag: 'ReloadAsked' });
+        yield* wait(300);
+        expect(dials).toEqual(['key-m1']);
+        expect(linkOf(app)).toBe('linked');
+      }),
+    ).finally(() => vi.unstubAllGlobals());
+  });
+});
+
+describe('the Account, its Connection Key expired', () => {
+  /** The Account's link to `m1`. */
+  const linkOf = (app: Runtime) =>
+    (list(app).model as { readonly links: Readonly<Record<string, string>> })
+      .links.m1;
+
+  it('asks Connect Cloud at once, once, though a link that only drops waits', async () => {
+    const down = await Effect.runPromise(
+      SubscriptionRef.make<ReadonlySet<string>>(new Set()),
+    );
+    const { OwnerLive, layer, over, lists, watches } = world(
+      Effect.succeed([connection('m1', Date.now())]),
+      down,
+    );
+    await run(
+      Effect.gen(function* () {
+        const app = yield* start({ OwnerLive, layer, over });
+        yield* wait();
+        expect(linkOf(app)).toBe('linked');
+        const first = lists();
+        // Only a drop: nothing is asked until the recheck is due.
+        yield* SubscriptionRef.set(down, new Set(['m1']));
+        watches.get('m1')?.closed?.({ code: 1006, reason: '' });
+        yield* wait();
+        expect(linkOf(app)).toBe('relinking');
+        expect(lists()).toBe(first);
+        yield* SubscriptionRef.set(down, new Set());
+        yield* wait();
+        expect(linkOf(app)).toBe('linked');
+        expect(lists()).toBe(first);
+        // Its key refused: relinking, though the socket is open, and asked now.
+        const close = { code: KEY_EXPIRED, reason: 'key expired' };
+        watches.get('m1')?.closed?.(close);
+        yield* wait();
+        expect(linkOf(app)).toBe('relinking');
+        expect(lists()).toBe(first + 1);
+        // Refused again before any answer: no more asked.
+        watches.get('m1')?.closed?.(close);
+        yield* wait();
+        expect(lists()).toBe(first + 1);
+        // Answered: linked; a later refusal asks again.
+        watches.get('m1')?.answered?.();
+        yield* wait();
+        expect(linkOf(app)).toBe('linked');
+        watches.get('m1')?.closed?.(close);
+        yield* wait();
+        expect(lists()).toBe(first + 2);
+      }),
+    );
+  });
+
+  it('leaves an ask already out to answer', async () => {
+    const answer = await Effect.runPromise(
+      Deferred.make<ReadonlyArray<Connection>>(),
+    );
+    const { OwnerLive, layer, over, lists, watches } = world(
+      Deferred.await(answer),
+    );
+    await run(
+      Effect.gen(function* () {
+        yield* (yield* Cache).write(ListShelf, a1, [connection('m1', 1)]);
+        yield* start({ OwnerLive, layer, over });
+        yield* wait();
+        expect(lists()).toBe(1);
+        watches.get('m1')?.closed?.({
+          code: KEY_EXPIRED,
+          reason: 'key expired',
+        });
+        yield* wait();
+        expect(lists()).toBe(1);
+      }),
+    );
+  });
+
+  /**
+   * A Connection behind a stand-in WebSocket, the app's own sockets over it: it
+   * accepts each socket, and closes one offering a key other than `current` at
+   * once with `KEY_EXPIRED`, so a browser sees it open, then close; it answers
+   * any other. It says each key offered, and when it closed a socket.
+   */
+  const serving = (current: string) => {
+    const dials: Array<string | undefined> = [];
+    const closes: Array<number> = [];
+    return {
+      dials,
+      closes,
+      WebSocket: class extends EventTarget {
+        readyState = 0;
+        binaryType = 'blob';
+        constructor(_url: string, protocols?: ReadonlyArray<string>) {
+          super();
+          const key = protocols
+            ?.find((each) => each.startsWith('key.'))
+            ?.slice('key.'.length);
+          dials.push(key);
+          setTimeout(() => {
+            this.readyState = 1;
+            this.dispatchEvent(new Event('open'));
+            if (key === current) {
+              this.dispatchEvent(
+                new MessageEvent('message', { data: '{"_tag":"Pong"}' }),
+              );
+              return;
+            }
+            setTimeout(() => {
+              closes.push(Date.now());
+              this.finish(KEY_EXPIRED, 'key expired');
+            }, 1);
+          }, 1);
+        }
+        send() {}
+        close() {
+          this.finish(1000, '');
+        }
+        private finish(code: number, reason: string) {
+          if (this.readyState === 3) return;
+          this.readyState = 3;
+          this.dispatchEvent(
+            Object.assign(new Event('close'), { code, reason }),
+          );
+        }
+      },
+    };
+  };
+
+  it('asks Connect Cloud again without waiting, and reconnects with the new key', async () => {
+    const { dials, closes, WebSocket } = serving('key-new');
+    vi.stubGlobal('WebSocket', WebSocket);
+    // Connect Cloud knows only the old key at first, then the new one.
+    const asked: Array<number> = [];
+    const { layer, over } = world(
+      Effect.sync(() => {
+        asked.push(Date.now());
+        return [
+          {
+            ...connection('m1', Date.now()),
+            key: asked.length === 1 ? 'key-old' : 'key-new',
+          },
+        ];
+      }),
+    );
+    const OwnerLive = OwnerOf(CodeClients.layer, undefined);
+    await run(
+      Effect.gen(function* () {
+        const app = yield* start({ OwnerLive, layer, over });
+        yield* wait(100);
+        // The key listed first was refused, and the list asked at once.
+        expect(dials).toEqual(['key-old']);
+        expect(closes).toHaveLength(1);
+        expect(asked).toHaveLength(2);
+        expect((asked[1] ?? Infinity) - (closes[0] ?? 0)).toBeLessThan(
+          ON_ITS_WAY / 10,
+        );
+        // The socket's next connect offers the key as listed now, and stays.
+        yield* wait(600);
+        expect(dials).toEqual(['key-old', 'key-new']);
+        expect(closes).toHaveLength(1);
+        expect(linkOf(app)).toBe('linked');
+      }),
+    ).finally(() => vi.unstubAllGlobals());
   });
 });

@@ -23,6 +23,10 @@ trustPolicyExclude:
   # A 2023 backport to the 6.x line Babel requires; semver added provenance
   # later, on 7.x only.
   - semver@6.3.1
+  # Vite+'s type-aware lint backend. Only its 0.0.0-bootstrap.0 placeholder
+  # was a staged publish; every release since is a trusted publish with
+  # provenance from oxc-project/tsrs.
+  - tsrs@7.1.0-beta.tsrs4
 
 # Vite+ requires its bundled Vite and Vitest across the dependency graph.
 overrides:
@@ -31,8 +35,6 @@ overrides:
 
 peerDependencyRules:
   allowedVersions:
-    # The Vite+ core alias reports 1.4.0 but bundles Vite 8.3.5.
-    vite: '1.4.0'
     # bun-ffi-structs works with the workspace's TypeScript 7 toolchain.
     'bun-ffi-structs>typescript': '7'
     # capnp-es, through alchemy's Cloudflare runtime, works with TypeScript 7 too.
@@ -92,6 +94,7 @@ catalog:
   '@opentelemetry/sdk-trace-base': 2.12.0
   '@opentelemetry/sdk-trace-node': 2.12.0
   '@opentelemetry/semantic-conventions': 1.43.0
+  '@oxlint/plugins': 1.94.0
   '@shadcn/react': 0.3.1
   '@shikijs/langs': 4.5.0
   '@shikijs/rehype': 4.5.0
@@ -109,6 +112,7 @@ catalog:
   '@tanstack/react-db': 0.5.12
   '@tanstack/react-query': 5.104.5
   '@tanstack/react-router': 1.170.46
+  '@tanstack/react-virtual': 3.14.27
   '@tsconfig/node22': 22.0.6
   '@types/better-sqlite3': 9.6.0
   '@types/bun': 1.4.4
@@ -146,6 +150,7 @@ catalog:
   motion: 14.6.0
   oxc-parser: 0.155.0
   oxc-resolver: 11.24.2
+  oxlint: 1.94.0
   playwright-core: 1.64.1
   react: 19.3.1
   react-cosmos: 7.4.1
@@ -166,9 +171,9 @@ catalog:
   type-fest: 5.10.0
   typescript: 7.0.2
   ulidx: 2.4.1
-  vite: npm:@voidzero-dev/vite-plus-core@1.4.0
-  vite-plus: 1.4.0
-  vitest: 5.0.5
+  vite: npm:@voidzero-dev/vite-plus-core@8.3.8001
+  vite-plus: 1.8.0
+  vitest: 5.1.1
   yaml: 2.9.1
   yoctocolors: 2.2.0
   zustand: 5.0.16

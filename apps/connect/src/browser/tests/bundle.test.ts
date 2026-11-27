@@ -1,0 +1,102 @@
+import { builtinModules } from 'node:module';
+import { fileURLToPath } from 'node:url';
+import { rolldown, type Plugin } from 'vite/rolldown';
+import { describe, expect, it } from 'vitest';
+
+/*
+ * `@kestack/connect/browser` and `@kestack/connect/fake` bundled as a
+ * browser bundles them, from their source and every package they reach: not one import of a Node built-in,
+ * nor of a package that only runs on Node, nor one the bundle could not
+ * find. Each one found is named with the file that imports it. The real
+ * engine's edges, `engine/node.ts`, bundled the same way, are caught. Both
+ * doors carry the mark every fake does, `kestack-fake`, so a production
+ * build that brings either in fails; the real engine does not.
+ */
+
+const FAKE_MARK = 'kestack-fake';
+
+const at = (path: string) => fileURLToPath(new URL(path, import.meta.url));
+
+const builtins = new Set([
+  ...builtinModules,
+  ...builtinModules.map((name) => `node:${name}`),
+]);
+
+/** Packages that only run on Node, though they import no built-in a bundler sees. */
+const NODE_ONLY = [
+  '@effect/platform-node',
+  '@effect/platform-node-shared',
+  'better-sqlite3',
+  'cloudflared',
+  'sherpa-onnx-node',
+  'undici',
+  'ws',
+];
+
+const nodeOnly = (source: string) =>
+  source.startsWith('node:') ||
+  builtins.has(source) ||
+  NODE_ONLY.some((name) => source === name || source.startsWith(`${name}/`));
+
+/** Every Node-only import, kept out of the bundle and named with its importer. */
+const watched = (found: Array<string>): Plugin => ({
+  name: 'node-only',
+  resolveId: (source, importer) => {
+    if (!nodeOnly(source)) return null;
+    found.push(`${source} <- ${importer ?? 'the entry'}`);
+    return { id: source, external: true };
+  },
+});
+
+/** What `entry` reaches that a browser cannot load: Node-only imports, and imports never found; and whether its bundle carries the fake mark. */
+const bundled = async (entry: string) => {
+  const found: Array<string> = [];
+  let marked = false;
+  const bundle = await rolldown({
+    input: entry,
+    platform: 'browser',
+    resolve: { extensionAlias: { '.js': ['.ts', '.js'] } },
+    plugins: [watched(found)],
+    onLog: (_, log) => {
+      if (log.code === 'UNRESOLVED_IMPORT') found.push(log.message);
+    },
+  });
+  try {
+    const { output } = await bundle.generate({ format: 'esm' });
+    expect(output[0].moduleIds.length).toBeGreaterThan(100);
+    marked = output.some(
+      (file) => file.type === 'chunk' && file.code.includes(FAKE_MARK),
+    );
+  } finally {
+    await bundle.close();
+  }
+  return { found, marked };
+};
+
+describe('@kestack/connect/browser', () => {
+  it('bundles for the browser without reaching Node, marked a fake', async () => {
+    expect(await bundled(at('../index.ts'))).toEqual({
+      found: [],
+      marked: true,
+    });
+  }, 60_000);
+
+  it('bundles the Computers fake, `./fake`, without reaching Node, marked a fake', async () => {
+    expect(await bundled(at('../fake/index.ts'))).toEqual({
+      found: [],
+      marked: true,
+    });
+  }, 60_000);
+
+  it("catches what reaches Node, as the real engine's edges do, unmarked", async () => {
+    const engine = await bundled(
+      at('../../connection/plugins/code/engine/node.ts'),
+    );
+    expect(engine.marked).toBe(false);
+    expect(engine.found).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/^node:child_process <- .*git\.ts$/),
+      ]),
+    );
+  }, 60_000);
+});

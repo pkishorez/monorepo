@@ -422,7 +422,9 @@ export const makeFakeHarness = (
     },
   };
 
-  const layer = Layer.merge(
+  const layer = Layer.mergeAll(
+    // The mark every fake carries: a production build that has it fails.
+    Layer.effectDiscard(Effect.logDebug('kestack-fake: the fake harness')),
     Layer.succeed(Harnesses, {
       all: [harness],
       get: (name) => {

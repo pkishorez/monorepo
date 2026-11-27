@@ -55,7 +55,5 @@ const decodeReply = Schema.decodeUnknownOption(CommandReply);
 export const matchCommand = (data: unknown): Option.Option<Command> =>
   isCommandEnvelope(data) ? decodeCommand(data) : Option.none();
 
-export const matchCommandReply = (
-  data: unknown,
-): Option.Option<CommandReply> =>
+export const matchCommandReply = (data: unknown): Option.Option<CommandReply> =>
   isCommandEnvelope(data) ? decodeReply(data) : Option.none();

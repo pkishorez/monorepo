@@ -45,6 +45,7 @@ export type {
   BatchWriteItemOutput,
   CreateTableInput,
   GetItemOutput,
+  KeySchemaElement,
   ScanOutput,
   TransactWriteItem,
   UpdateItemOutput,

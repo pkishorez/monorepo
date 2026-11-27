@@ -22,7 +22,8 @@ import {
 import {
   addressOf,
   type Connection as ConnectionSchema,
-  PluginMismatch,
+  isOutdated,
+  ReleaseStanding,
 } from '@kestack/connect/cloud';
 
 /*
@@ -57,6 +58,34 @@ export const tunnelOf = (url: string | null) =>
   url?.startsWith('https://') === true
     ? `wss://${url.slice('https://'.length).replace(/\/+$/, '')}`
     : null;
+
+/** The words an error says, if it is one that says any. */
+const wordsOf = (error: unknown) =>
+  typeof error === 'object' && error !== null && 'message' in error
+    ? String(error.message).trim()
+    : '';
+
+/**
+ * Why Connect Cloud could not be asked, as a person reads it: what the error
+ * says, or, for an RPC client's failed HTTP call, whose reason says nothing
+ * (so the error only `HttpError:`), what its cause says, as
+ * `Transport: Failed to fetch (POST https://…)`.
+ */
+export const cloudProblemOf = (error: unknown): string => {
+  const reason =
+    typeof error === 'object' && error !== null && 'reason' in error
+      ? error.reason
+      : null;
+  const cause =
+    typeof reason === 'object' && reason !== null && 'cause' in reason
+      ? reason.cause
+      : null;
+  const said =
+    reason !== null && wordsOf(reason) === '' && wordsOf(cause) !== ''
+      ? wordsOf(cause)
+      : wordsOf(error);
+  return said || 'Connect Cloud could not be reached';
+};
 
 /** A Connection's link, its socket, now. */
 export type Link = 'linking' | 'linked' | 'relinking';
@@ -170,10 +199,10 @@ export interface Known {
   readonly connections: ReadonlyArray<Connection> | null;
   /** Whether the list kept on this device has been read, kept or not. */
   readonly savedRead: boolean;
-  /** When Cloud Connect last answered, epoch ms; null before it has. */
+  /** When Connect Cloud last answered, epoch ms; null before it has. */
   readonly fetchedAt: number | null;
   /**
-   * Whether the Connections' Last Seen can be believed: Cloud Connect has
+   * Whether the Connections' Last Seen can be believed: Connect Cloud has
    * answered, or long enough passed without (`CHECK_FOR`). Until then a
    * Connection whose socket is on its way is only linking, never down.
    */
@@ -187,6 +216,8 @@ export interface Known {
   } | null;
   /** Each listed Connection's link, by id; one not followed yet is linking. */
   readonly links: Readonly<Record<string, Link>>;
+  /** The Connections whose Link waits to relink, after a mismatch, until Connect Cloud says it may. */
+  readonly held: ReadonlyArray<string>;
   /** Each listed Connection's setup, by id, while it lives. */
   readonly setups: Readonly<Record<string, Setup>>;
   /** Each listed Connection's Unseen marks (`Marks`), by id, once read, while it lives. */
@@ -213,6 +244,7 @@ export const nobody: Known = {
   problem: null,
   forgetting: null,
   links: {},
+  held: [],
   setups: {},
   seen: {},
   questions: {},
@@ -223,8 +255,12 @@ export const nobody: Known = {
 /** What a Connection says of itself, for the Account's page to share. */
 export const Said = Schema.Struct({
   link: Schema.Literals(['linking', 'linked', 'relinking']),
-  /** The Release it said it runs as it closed a socket, until one is answered. */
-  mismatch: Schema.NullOr(PluginMismatch.schema),
+  /** Where Connect Cloud said this Code's Release stands, once it closed a socket for running another, until one is answered. */
+  standing: Schema.NullOr(ReleaseStanding.schema),
+  /** Whether its Link waits to relink, after such a close. */
+  held: Schema.Boolean,
+  /** Whether it closed a socket for offering a key it no longer holds, until one is answered. */
+  expired: Schema.Boolean,
   setup: Setup,
   /** Its Unseen marks; null until read. */
   seen: Schema.NullOr(Schema.Record(Schema.String, Schema.Finite)),
@@ -239,7 +275,10 @@ export type Said = typeof Said.Type;
 export const saidOf = (
   said: Readonly<Record<string, Said>>,
   running: ReadonlyArray<string>,
-): Pick<Known, 'setups' | 'seen' | 'questions' | 'answering' | 'jobs'> => {
+): Pick<
+  Known,
+  'held' | 'setups' | 'seen' | 'questions' | 'answering' | 'jobs'
+> => {
   const each = running.flatMap((id) => {
     const one = said[id];
     return one === undefined ? [] : [[id, one] as const];
@@ -252,6 +291,7 @@ export const saidOf = (
       }),
     ) as Record<string, A>;
   return {
+    held: each.flatMap(([id, { held }]) => (held ? [id] : [])),
     setups: by(({ setup }) => setup),
     seen: by(({ seen }) => seen),
     questions: by(({ questions }) => questions),
@@ -332,17 +372,23 @@ export class Connections extends Context.Service<
     readonly clients: (
       id: string,
     ) => Stream.Stream<CodeClients['Service'] | null>;
-    /** Where the Connection's sockets go, `wss://…` (`tunnelOf`), and its Key, once it is listed at an `https://` address; waits until it is. */
+    /**
+     * Where the Connection's sockets go, `wss://…` (`tunnelOf`), and its Key,
+     * once it is listed at an `https://` address, its Link is not held, and it
+     * is not Outdated; waits until then. Asked before every connect, so an
+     * Outdated Connection is never dialled, nor dialled again as it relinks,
+     * until a list says it was updated.
+     */
     readonly reachable: (
       id: string,
     ) => Effect.Effect<{ readonly tunnel: string; readonly key: string }>;
-    /** Asks Cloud Connect for the list again now, and every Connection for its setup. */
+    /** Asks Connect Cloud for the list again now, and every Connection for its setup. */
     readonly reload: Effect.Effect<void>;
     /** Forgets the Connection for good, and its records on this device. */
     readonly forget: (id: string) => Effect.Effect<void>;
     /** Done with a Forget that failed. */
     readonly keepForgetting: Effect.Effect<void>;
-    /** Tells the list Cloud Connect renamed the Connection, for every name of it to show at once. */
+    /** Tells the list Connect Cloud renamed the Connection, for every name of it to show at once. */
     readonly renamed: (
       id: string,
       displayName: string | null,
@@ -456,10 +502,15 @@ export const connectionsOf = ({ known, current, send }: Source) =>
           Stream.changes,
         ),
       reachable: (id) =>
-        first(id, ({ status, key }) => {
-          const tunnel = tunnelOf(addressOf(status));
-          return tunnel === null ? null : { tunnel, key };
-        }),
+        firstOf(
+          Stream.map(known, ({ connections, held }) => {
+            const listed = connections?.find((each) => each.id === id);
+            if (listed === undefined || held.includes(id) || isOutdated(listed))
+              return null;
+            const tunnel = tunnelOf(addressOf(listed.status));
+            return tunnel === null ? null : { tunnel, key: listed.key };
+          }),
+        ),
       reload: Effect.andThen(
         send({ _tag: 'ReloadAsked' }),
         ask(null, { _tag: 'Asked' }),

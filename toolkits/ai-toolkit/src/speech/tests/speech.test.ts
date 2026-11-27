@@ -5,6 +5,7 @@ import { Context, Effect, Fiber, Layer, Stream } from 'effect';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { makeFakeSpeech, type FakeSpeech } from '../fake/index.js';
 import { Speech, type SpeechToTextStatus } from '../index.js';
+import { speechLayer } from '../node.js';
 
 /*
  * Speech to Text's front door over the fake model: switched on, it keeps
@@ -29,7 +30,7 @@ const eventually = (assertion: () => void) =>
 const start = (fake: FakeSpeech, folder: string) =>
   Effect.gen(function* () {
     const context = yield* Layer.build(
-      Speech.layer({ folder }).pipe(Layer.provide(fake.layer)),
+      speechLayer({ folder }).pipe(Layer.provide(fake.layer)),
     );
     const speech = Context.get(context, Speech);
     const seen: Array<SpeechToTextStatus> = [];

@@ -11,7 +11,10 @@ import { OUTPUT_LIMIT, project } from '../project.js';
 // AI_TOOLKIT_CAPTURE set).
 const fixture = (name: string): ReadonlyArray<RawOut> =>
   JSON.parse(
-    readFileSync(new URL(`./fixtures/${name}.json`, import.meta.url), 'utf8'),
+    readFileSync(
+      new URL(`../../../fake/recordings/codex/${name}.json`, import.meta.url),
+      'utf8',
+    ),
   ) as ReadonlyArray<RawOut>;
 
 const toRaw = (out: RawOut, index = 0): Raw => ({

@@ -93,19 +93,40 @@ export const Question = Actor.define('Question', {
     sessionId: Schema.String,
   }),
   model: Model,
-  message: Schema.TaggedUnion({
+  message: {
     Asked: { questions: Questions },
     Restored: { answering: Answering },
-    Minimised: {},
-    Expanded: {},
-    Chose: { ...Item, label: Schema.String },
-    ChoseOther: Item,
-    Typed: { ...Item, text: Schema.String },
-    SendAsked: {},
-    DeclineAsked: {},
+    Minimised: Schema.Struct({}).annotate({
+      description:
+        "Minimises the Agent Question shown to a bar in the Draft's place, its answers so far kept, so the transcript can be read.",
+    }),
+    Expanded: Schema.Struct({}).annotate({
+      description:
+        'Expands the minimised Agent Question back into its dialog of steps over the transcript.',
+    }),
+    Chose: Schema.Struct({ ...Item, label: Schema.String }).annotate({
+      description:
+        'Chooses an option of an Item, or of several lets a chosen one go: ids from model.questions[].id and its items[].id, label an options[].label.',
+    }),
+    ChoseOther: Schema.Struct(Item).annotate({
+      description:
+        "Chooses the Item's own typed answer, Other, in place of its option, or beside them when it takes several; only where items[].other allows it.",
+    }),
+    Typed: Schema.Struct({ ...Item, text: Schema.String }).annotate({
+      description:
+        "Sets an Item's typed answer to the whole text, choosing it; the only answer to an Item with no options.",
+    }),
+    SendAsked: Schema.Struct({}).annotate({
+      description:
+        'Sends the answers to the Agent Question shown, and the agent carries on; with an Item unanswered it sends nothing and marks it in model.tried.',
+    }),
+    DeclineAsked: Schema.Struct({}).annotate({
+      description:
+        'Skips the Agent Question shown: the agent carries on without an answer.',
+    }),
     Answered: { questionId: Schema.String },
     Refused,
-  }),
+  },
 });
 
 type Change =

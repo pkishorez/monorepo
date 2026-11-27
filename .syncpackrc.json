@@ -19,6 +19,7 @@
         "@kestack/devtools",
         "@kestack/effect-tracer",
         "@kestack/devtools-kabuki",
+        "@kestack/monoverse",
         "laymos",
         "@kestack/use-gesture",
         "@kestack/use-keys",
@@ -52,6 +53,12 @@
       "dependencies": ["vitest"],
       "dependencyTypes": ["peer"],
       "pinVersion": "^5.0.0"
+    },
+    {
+      "label": "Oxlint plugin peers accept the Oxlint 1 releases with this plugin API",
+      "dependencies": ["@oxlint/plugins"],
+      "dependencyTypes": ["peer"],
+      "pinVersion": "^1.94.0"
     },
     {
       "label": "React peers accept any React 19 release",
@@ -89,6 +96,7 @@
         "@kestack/devtools",
         "@kestack/effect-tracer",
         "@kestack/devtools-kabuki",
+        "@kestack/monoverse",
         "laymos",
         "@kestack/use-gesture",
         "@kestack/use-keys",

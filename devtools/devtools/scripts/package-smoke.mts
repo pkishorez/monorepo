@@ -15,11 +15,11 @@ const testRoot = await mkdtemp(path.join(tmpdir(), 'devtools-package-smoke-'));
 const server = spawn(
   process.execPath,
   [
-    'dist/server/main.mjs',
+    'dist/cli/main.mjs',
     '--port',
     String(port),
     '--db',
-    path.join(testRoot, 'lotel.sqlite'),
+    path.join(testRoot, 'devtools.sqlite'),
   ],
   { stdio: 'ignore' },
 );
@@ -27,27 +27,41 @@ const server = spawn(
 try {
   const health = await waitForServer(`${origin}/health`);
   assert.equal(health.status, 200);
-  assert.deepEqual(await health.json(), {
-    name: 'devtools',
-    version,
-    endpoints: {
+  const { endpoints, ...about } = (await health.json()) as {
+    name: string;
+    version: string;
+    endpoints: Record<string, string>;
+  };
+  assert.deepEqual(about, { name: 'devtools', version });
+  assert.deepEqual(
+    {
+      '/': endpoints['/'],
+      '/lotel': endpoints['/lotel'],
+      '/monoverse': endpoints['/monoverse'],
+      '/kabuki': endpoints['/kabuki'],
+    },
+    {
       '/': 'DevTools browser application.',
       '/lotel': 'Lotel Tool.',
-      '/monoverse': 'Monoverse Tool.',
+      '/monoverse': 'Monoverse Tool: ?project= opens a Project.',
       '/kabuki': 'Kabuki Tool: the live Kabuki Sessions, ?session= opens one.',
-      '/kabuki/connect':
-        'WebSocket a running Kabuki app dials as a Kabuki Session: ?name=&url=&app=. Any origin.',
-      '/kabuki/sessions':
-        'WebSocket RPC: the live Kabuki Sessions, listed and watched.',
-      '/kabuki/session/:name':
-        "WebSocket RPC: one Kabuki Session's Kabuki Session Api, forwarded to its app.",
-      '/rpc': 'Typed RPC endpoint.',
-      '/story-evidence':
-        'One Evidence file of a Proof run: ?project=<abs path>&proof=<Proof id>&file=<relative file>.',
-      '/v1/traces': 'OTLP/HTTP Trace ingestion.',
-      '/v1/logs': 'OTLP/HTTP Log Record ingestion.',
     },
-  });
+  );
+  for (const endpoint of [
+    '/rpc/lotel',
+    '/v1/traces',
+    '/v1/logs',
+    '/rpc/monoverse',
+    '/kabuki/connect',
+    '/kabuki/sessions',
+    '/kabuki/session/:name',
+  ]) {
+    assert.equal(
+      typeof endpoints[endpoint],
+      'string',
+      `/health lists ${endpoint}`,
+    );
+  }
 
   for (const route of ['/', '/lotel', '/monoverse', '/kabuki', '/not-found']) {
     const response = await fetch(`${origin}${route}`, {
@@ -70,13 +84,6 @@ try {
   }
 
   assert.equal((await fetch(`${origin}/rpc/not-found`)).status, 404);
-  const evidence = path.join(testRoot, '.laymos', 'stories', 'a');
-  await mkdir(evidence, { recursive: true });
-  await writeFile(path.join(evidence, 'report.json'), '{}');
-  const evidenceUrl = (file: string) =>
-    `${origin}/story-evidence?project=${encodeURIComponent(testRoot)}&proof=a&file=${encodeURIComponent(file)}`;
-  assert.equal((await fetch(evidenceUrl('report.json'))).status, 200);
-  assert.equal((await fetch(evidenceUrl('../../../../x'))).status, 404);
   assert.equal(
     (
       await fetch(`${origin}/health`, {
@@ -86,7 +93,6 @@ try {
     403,
   );
   assert.equal(await statusWithHost(`${origin}/health`, 'example.test'), 403);
-  // DevTools opened at `localhost`: its page's own origin, trusted as 127.0.0.1's.
   assert.equal(
     (
       await fetch(`${origin}/health`, {
@@ -139,31 +145,41 @@ try {
     dialing.headers.get('access-control-allow-private-network'),
     'true',
   );
-  const sessions = await runClient(['kabuki', 'sessions', '--url', origin]);
-  assert.deepEqual(JSON.parse(sessions), { apps: [] });
-
-  const skills = await runClient(['skills', '--format', 'json']);
+  const project = path.join(testRoot, 'project');
+  for (const [file, text] of Object.entries({
+    'package.json': '{"name":"smoke"}',
+    'monoverse.json': '{"sourceRoots":["src"],"preset":"default"}',
+    'src/a/b.ts': 'export const b = 1;',
+    'src/a/index.ts': "export * from './b.ts';",
+    'src/main.ts': "import { b } from './a/b.ts';",
+  })) {
+    await mkdir(path.dirname(path.join(project, file)), { recursive: true });
+    await writeFile(path.join(project, file), text);
+  }
+  const read = await fetch(`${origin}/rpc/monoverse`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/ndjson' },
+    body: `${JSON.stringify({
+      _tag: 'Request',
+      id: '1',
+      tag: 'ReadPackage',
+      payload: { root: project, branch: null, path: '.' },
+      headers: [],
+    })}\n`,
+  });
+  const [answer] = (await read.text())
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as { exit?: unknown });
   assert.deepEqual(
-    JSON.parse(skills).map((skill: { name: string }) => skill.name),
-    ['devtools'],
+    (
+      answer?.exit as {
+        value?: { check?: { violations?: Array<{ reason: string }> } };
+      }
+    )?.value?.check?.violations?.map(({ reason }) => reason),
+    ['inside'],
+    'the packaged engine worker checks a Package',
   );
-  const skill = await runClient(['skills', 'devtools']);
-  assert.match(skill, /^---\nname: devtools\n/);
-  await runClient([
-    'skills',
-    'devtools',
-    '--install',
-    path.join(testRoot, 'skills'),
-  ]);
-  assert.match(
-    await readFile(
-      path.join(testRoot, 'skills', 'devtools', 'SKILL.md'),
-      'utf8',
-    ),
-    /^---\nname: devtools\n/,
-  );
-  const traces = await runClient(['list-traces', '--url', origin]);
-  assert.deepEqual(JSON.parse(traces), { items: [] });
 
   console.log('packaged DevTools server smoke test passed');
 } finally {
@@ -179,35 +195,6 @@ try {
     }),
   ]);
   await rm(testRoot, { recursive: true, force: true });
-}
-
-async function runClient(args: string[]): Promise<string> {
-  const result = await runClientResult(args);
-  if (result.code !== 0) {
-    throw new Error(`devtools ${args.join(' ')} exited with ${result.code}`);
-  }
-  return result.stdout;
-}
-
-async function runClientResult(
-  args: string[],
-): Promise<{ code: number; stdout: string; stderr: string }> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, ['dist/server/main.mjs', ...args], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    let stdout = '';
-    let stderr = '';
-    child.stdout.on('data', (chunk: Buffer) => {
-      stdout += chunk.toString();
-    });
-    child.stderr.on('data', (chunk: Buffer) => {
-      stderr += chunk.toString();
-      process.stderr.write(chunk);
-    });
-    child.once('error', reject);
-    child.once('exit', (code) => resolve({ code: code ?? 1, stdout, stderr }));
-  });
 }
 
 async function availablePort(): Promise<number> {

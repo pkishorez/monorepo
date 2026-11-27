@@ -12,6 +12,7 @@ export {
   status,
   type ConnectionSlot,
   type ConnectionStatus,
+  type Dial,
   type HibernatingSocket,
   type HibernationState,
   type SavedSocket,

@@ -29,7 +29,7 @@ import { drawnOf, type Read } from './list/order/drawn.ts';
  * Connection, and what this device marks of them.
  *
  * 1. Connections  the list, as `Connections` says it, for the Connection Filter at
- *              its top, and Reload, which asks Cloud Connect again.
+ *              its top, and Reload, which asks Connect Cloud again.
  * 2. Choose    the Connection chosen is the Account's Connection Filter, kept
  *              in its database; one no longer listed shows every Connection.
  *              Nothing is chosen until both the list kept on this device
@@ -51,7 +51,10 @@ import { drawnOf, type Read } from './list/order/drawn.ts';
  *              which asks its Connection at once. Every Session is drawn
  *              where `Moves` says it goes until the Session as synced
  *              agrees; a swipe is said with its Undo, which asks the
- *              Connection back, and a refusal says why.
+ *              Connection back, and a refusal says why. A row brought
+ *              back, by an Undo, an Un-settle or a refusal, is drawn
+ *              afresh: one undone while still on its way out would stay
+ *              gone.
  * 6. Width     its width on a wide screen, kept in Preferences: nothing
  *              is drawn until it is read; dragged, it shows at once and
  *              is kept once the drag rests.
@@ -61,7 +64,7 @@ import { drawnOf, type Read } from './list/order/drawn.ts';
  * 8. Ready     once its width and every Connection shown are read from this
  *              device, rows and marks, it can be drawn whole, and its View
  *              says so (`readyOf`), once: the frame waits for it, never for
- *              Cloud Connect or a Connection to answer.
+ *              Connect Cloud or a Connection to answer.
  */
 
 const Listed = Schema.Struct({ id: Schema.String, name: Schema.String });
@@ -80,7 +83,7 @@ const Model = Schema.Struct({
   listRead: Schema.Boolean,
   /** The listed Connections; null before any list. */
   connections: Schema.NullOr(Schema.Array(Listed)),
-  /** Why Cloud Connect could not list them, while nothing is listed. */
+  /** Why Connect Cloud could not list them, while nothing is listed. */
   problem: Schema.NullOr(Schema.String),
   /** Whether the Connection Filter has been read. */
   filterRead: Schema.Boolean,
@@ -107,8 +110,11 @@ const Model = Schema.Struct({
       reason: Schema.String,
     }),
   ),
-  /** How many of each Session's Moves were refused, by `refusedKey`. */
-  refusals: Schema.Record(Schema.String, Schema.Finite),
+  /**
+   * How many times each Session's row was brought back, by `backKey`: a
+   * Move refused, or a swipe undone. Each draws it afresh.
+   */
+  back: Schema.Record(Schema.String, Schema.Finite),
   /** Whether it could once be drawn whole, from this device (8. Ready). */
   ready: Schema.Boolean,
   /** The Sessions whose agent waits on an Agent Question, by Connection id. */
@@ -117,10 +123,23 @@ const Model = Schema.Struct({
   working: Schema.Record(Schema.String, Schema.Array(Schema.String)),
 });
 
-/** A Session's key among the refusals: its Connection's and its own id. */
-export const refusedKey = (connectionId: string, sessionId: string) =>
+/** A Session's key among the rows brought back: its Connection's and its own id. */
+export const backKey = (connectionId: string, sessionId: string) =>
   `${connectionId} ${sessionId}`;
 type Model = typeof Model.Type;
+
+/** The Session's row brought back once more, so it is drawn afresh. */
+const broughtBack = (
+  model: Model,
+  connectionId: string,
+  sessionId: string,
+): Model => {
+  const key = backKey(connectionId, sessionId);
+  return {
+    ...model,
+    back: { ...model.back, [key]: (model.back[key] ?? 0) + 1 },
+  };
+};
 
 const Sidebar = Actor.define('Sidebar', {
   requires: [Connections, ConnectionFilter, Preferences, Moves, Navigation],
@@ -129,7 +148,7 @@ const Sidebar = Actor.define('Sidebar', {
     accountId: Schema.String,
   }),
   model: Model,
-  message: Schema.TaggedUnion({
+  message: {
     ConnectionsKnown: {
       read: Schema.Boolean,
       connections: Schema.NullOr(Schema.Array(Listed)),
@@ -138,30 +157,43 @@ const Sidebar = Actor.define('Sidebar', {
     },
     FilterRead: { chosen: Schema.NullOr(Schema.String) },
     CollapsedRead: { connectionIds: Schema.Array(Schema.String) },
-    /** A Connection's name clicked, or Enter on it: its Projects hidden, or shown again. */
-    CollapseToggled: { connectionId: Schema.String },
+    CollapseToggled: Schema.Struct({ connectionId: Schema.String }).annotate({
+      description:
+        "Hides a Connection's Projects under its name, or shows them again, as clicking the name does; kept on this device.",
+    }),
     AskingKnown: { asking: Model.fields.asking },
     WorkingKnown: { working: Model.fields.working },
     WidthRead: { width: Schema.Finite },
-    /** Dragged to a new width, once the drag rests. */
-    Resized: { width: Schema.Finite },
-    ConnectionChosen: { connectionId: Schema.NullOr(Schema.String) },
-    ReloadAsked: {},
-    SessionOpened: {
+    Resized: Schema.Struct({ width: Schema.Finite }).annotate({
+      description:
+        "Sets the sidebar's width on a wide screen, in pixels, as dragging its edge does; kept in Preferences.",
+    }),
+    ConnectionChosen: Schema.Struct({
+      connectionId: Schema.NullOr(Schema.String),
+    }).annotate({
+      description:
+        'Sets the Connection Filter: the Connection whose Projects and Sessions are shown, or null for every Connection; kept for the Account.',
+    }),
+    ReloadAsked: Schema.Struct({}).annotate({
+      description:
+        'Asks Connect Cloud for the Connection list again, as Reload or pulling the sidebar down does.',
+    }),
+    SessionOpened: Schema.Struct({
       connectionId: Schema.String,
       projectId: Schema.String,
       sessionId: Schema.String,
-    },
-    /**
-     * A Session put: by a swipe, which titles it to say with its Undo, or
-     * by its Undo or the Settled List's Un-settle, which do not.
-     */
-    MoveAsked: {
+    }).annotate({
+      description: "Opens a Session's page, as clicking its row does.",
+    }),
+    MoveAsked: Schema.Struct({
       connectionId: Schema.String,
       sessionId: Schema.String,
       settled: Schema.Boolean,
       title: Schema.NullOr(Schema.String),
-    },
+    }).annotate({
+      description:
+        "Settles a Session (settled: true) or Un-settles it, as a swipe does; title: the Session's title, said with an Undo, or null to say nothing.",
+    }),
     MovesShown: { moving: Schema.Array(Intent) },
     MoveRefused: {
       connectionId: Schema.String,
@@ -177,7 +209,7 @@ const Sidebar = Actor.define('Sidebar', {
     },
     /** Its width and every Connection shown are read: it can be drawn whole. */
     Ready: {},
-  }),
+  },
 });
 
 /** The Connection shown: the one chosen while it is listed, else none, for every Connection. */
@@ -237,7 +269,7 @@ export const SidebarLive = Sidebar.build({
       moving: [],
       told: null,
       refused: null,
-      refusals: {},
+      back: {},
       ready: false,
       asking: {},
       working: {},
@@ -388,10 +420,10 @@ export const SidebarLive = Sidebar.build({
   on: {
     // 5. Move
     MoveAsked: ({ connectionId, sessionId, settled, title }, { model }) => ({
-      ...(title === null
-        ? {}
-        : {
-            model: {
+      model:
+        title === null
+          ? broughtBack(model, connectionId, sessionId)
+          : {
               ...model,
               told: {
                 n: (model.told?.n ?? 0) + 1,
@@ -401,23 +433,15 @@ export const SidebarLive = Sidebar.build({
                 title,
               },
             },
-          }),
       command: putMove({ connectionId, sessionId, settled }),
     }),
     MovesShown: ({ moving }, { model }) => ({ model: { ...model, moving } }),
-    MoveRefused: ({ connectionId, sessionId, settled, reason }, { model }) => {
-      const key = refusedKey(connectionId, sessionId);
-      return {
-        model: {
-          ...model,
-          refused: { n: (model.refused?.n ?? 0) + 1, settled, reason },
-          refusals: {
-            ...model.refusals,
-            [key]: (model.refusals[key] ?? 0) + 1,
-          },
-        },
-      };
-    },
+    MoveRefused: ({ connectionId, sessionId, settled, reason }, { model }) => ({
+      model: {
+        ...broughtBack(model, connectionId, sessionId),
+        refused: { n: (model.refused?.n ?? 0) + 1, settled, reason },
+      },
+    }),
     MoveSeen: (seen) => ({ command: agreed(seen) }),
     ConnectionsKnown: ({ read, connections, problem, unseen }, { model }) => ({
       model: { ...model, listRead: read, connections, problem, unseen },

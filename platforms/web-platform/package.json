@@ -78,6 +78,10 @@
       "types": "./dist/pwa/worker/index.d.ts",
       "default": "./dist/pwa/worker/index.js"
     },
+    "./pwa/fake": {
+      "types": "./dist/pwa/fake/index.d.ts",
+      "default": "./dist/pwa/fake/index.js"
+    },
     "./recipes/*": {
       "types": "./dist/recipes/*/index.d.ts",
       "default": "./dist/recipes/*/index.js"
@@ -142,6 +146,7 @@
     "@cloudflare/workers-types": "catalog:",
     "@kestack/auth-toolkit": "workspace:*",
     "@kestack/kabuki": "workspace:*",
+    "@kestack/std-toolkit": "workspace:*",
     "@kestack/use-gesture": "workspace:*",
     "@kestack/use-keys": "workspace:*",
     "@tailwindcss/vite": "catalog:",
@@ -170,6 +175,7 @@
     "@kestack/use-keys": "workspace:*",
     "effect": "^4.0.0",
     "@kestack/kabuki": "workspace:*",
+    "@kestack/std-toolkit": "workspace:*",
     "laymos": "workspace:*",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -190,6 +196,9 @@
       "optional": true
     },
     "@kestack/kabuki": {
+      "optional": true
+    },
+    "@kestack/std-toolkit": {
       "optional": true
     },
     "laymos": {

@@ -10,6 +10,8 @@
     "src/contract/index.ts",
     "src/harness/index.ts",
     "src/harness/fake/index.ts",
+    "src/harness/node.ts",
+    "src/speech/node.ts",
     "src/speech/index.ts",
     "src/speech/fake/index.ts",
     "src/speech/sherpa/sherpa-onnx-node.d.ts"

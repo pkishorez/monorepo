@@ -22,8 +22,8 @@ import { device } from '../../database/index.ts';
  *              Worker is asked.
  */
 
-/** The `accounts` table of this device's database. */
-const table = Layer.unwrap(
+/** The `accounts` table of this device's database; fake mode's Sign-in fake keeps it too. */
+export const accountsTable = Layer.unwrap(
   Effect.sync(
     () =>
       IDB.make(browserAccountsTable, {
@@ -40,7 +40,7 @@ export const accounts = Layer.unwrap(
   Effect.sync(() =>
     browser({
       url: import.meta.env.VITE_AUTH_URL,
-      cache: table,
+      cache: accountsTable,
       returnTo: new URL('/', window.location.href).href,
     }),
   ),
@@ -55,6 +55,6 @@ export const keptAccounts: Effect.Effect<
   ReadonlyArray<{ readonly id: string; readonly email: string }>
 > = rememberedAccounts.pipe(
   Effect.map((kept) => kept.map(({ id, email }) => ({ id, email }))),
-  Effect.provide(table),
+  Effect.provide(accountsTable),
   Effect.catchCause(() => Effect.succeed([])),
 );

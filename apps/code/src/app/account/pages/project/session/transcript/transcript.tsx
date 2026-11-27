@@ -85,7 +85,6 @@ export const useFacts = (
     [rows, forked, wanted],
   );
   const key = JSON.stringify(told);
-  // oxlint-disable-next-line react-hooks/exhaustive-deps
   return useMemo(() => factsOf(told), [key]);
 };
 
@@ -169,7 +168,6 @@ export function Rows({
   // What every turn's details read, worked out again only as it changes.
   const told = useMemo(() => toldOf(turns, forked), [turns, forked]);
   const toldKey = JSON.stringify(told);
-  // oxlint-disable-next-line react-hooks/exhaustive-deps
   const facts = useMemo(() => factsOf(told), [toldKey]);
   const session = use(SessionOpener);
   const details = useMemo(() => ({ facts, session }), [facts, session]);

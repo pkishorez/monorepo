@@ -44,7 +44,7 @@ describe('resolver', () => {
 
   it('resolves a Sign-in Principal from a cookie', async () => {
     expect(await resolveWith({ url }, { cookie: 'session=abc' })).toEqual({
-      principal: { kind: 'session', session: signIn, user, test: false },
+      principal: { kind: 'session', session: signIn, user },
       refreshedCookies: ['a=1'],
     });
     expect(mocks.verifyAccessToken).not.toHaveBeenCalled();
@@ -61,7 +61,6 @@ describe('resolver', () => {
         user,
         client: { id: 'cli' },
         scopes: ['notes:read'],
-        test: false,
       },
       refreshedCookies: [],
     });
@@ -104,7 +103,6 @@ describe('resolver', () => {
         kind: 'session',
         session: signIn,
         user,
-        test: false,
       });
     }
     expect(mocks.verifyAccessToken).toHaveBeenCalledOnce();
@@ -123,7 +121,6 @@ describe('resolver', () => {
       kind: 'session',
       session: { id: 's1', expiresAt },
       user,
-      test: false,
     });
   });
 
@@ -132,42 +129,5 @@ describe('resolver', () => {
     await expect(
       resolveWith({ url }, { cookie: 'session=abc' }),
     ).rejects.toThrow();
-  });
-});
-
-describe('Test Users', () => {
-  const tess = { id: 't1', email: 'Tess@Example.TEST', name: 'Tess' };
-
-  beforeEach(() => {
-    mocks.verifySignIn.mockReset();
-    mocks.verifyAccessToken.mockReset();
-    mocks.verifySignIn.mockResolvedValue({
-      session,
-      user: tess,
-      refreshedCookies: [],
-    });
-    mocks.verifyAccessToken.mockResolvedValue({
-      user: tess,
-      client: { id: 'cli' },
-      scopes: [],
-    });
-  });
-
-  it('marks a Test User on every credential by their email', async () => {
-    const cookie = await resolveWith({ url }, { cookie: 'session=abc' });
-    expect(cookie?.principal).toMatchObject({ kind: 'session', test: true });
-
-    mocks.verifyAccessToken.mockResolvedValueOnce(null);
-    const device = await resolveWith(
-      { url, resource },
-      { authorization: 'Bearer opaque-session-token' },
-    );
-    expect(device?.principal).toMatchObject({ kind: 'session', test: true });
-
-    const token = await resolveWith(
-      { url, resource },
-      { authorization: `Bearer ${jwt}` },
-    );
-    expect(token?.principal).toMatchObject({ kind: 'token', test: true });
   });
 });

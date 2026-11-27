@@ -1,19 +1,41 @@
 import { Effect } from 'effect';
-import type { TableDefinition } from '../../std-table/definition/index.js';
-import { OperationFailure } from '../../std-table/contract/index.js';
+import type { TableSnapshot } from '../../../snapshot/index.js';
+import { Migrations } from '../../../migrations/index.js';
 import {
-  planSetup,
-  SetupRefused,
-  type CurrentContract,
-} from '../../stored-contract/index.js';
+  SnapshotEntities,
+  type TableDefinition,
+} from '../../std-table/definition/index.js';
+import {
+  ConditionFailure,
+  conditionFailed,
+  OperationFailure,
+  type StdTableContract,
+} from '../../std-table/contract/index.js';
+import {
+  checkTableSnapshot,
+  type SetupRefused,
+  type StoredSnapshot,
+  type TableMode,
+} from '../../table-snapshot/index.js';
 import { SQLiteChangesMismatch, type SQLiteDriver } from '../database/index.js';
-import { CONTRACT_TABLE, Statement } from '../statement/index.js';
-import { reconcileSQLiteTopology } from './topology.js';
+import { Statement } from '../statement/index.js';
+import { makeTableContract } from '../table/index.js';
+import {
+  invalidBaseColumns,
+  numberValue,
+  reconcileSQLiteTopology,
+  validateSQLiteTopology,
+} from './topology.js';
 
 type SQLiteTable = Pick<
   TableDefinition,
   'primary' | 'localSecondaryIndexes' | 'globalSecondaryIndexes'
 >;
+
+type Primary = SQLiteTable['primary'];
+
+const failed = (cause: unknown) =>
+  cause instanceof OperationFailure ? cause : new OperationFailure({ cause });
 
 /** Creates the physical table when it is missing; never alters an existing one. */
 export const ensureSQLiteTable = (
@@ -21,10 +43,9 @@ export const ensureSQLiteTable = (
   table: SQLiteTable,
   tableName: string,
 ) =>
-  database.run(Statement.createTable(tableName, table).sql).pipe(
-    Effect.asVoid,
-    Effect.mapError((cause) => new OperationFailure({ cause })),
-  );
+  database
+    .run(Statement.createTable(tableName, table).sql)
+    .pipe(Effect.asVoid, Effect.mapError(failed));
 
 /** Adds missing index columns and indexes, and replaces incompatible ones. */
 export const reconcileSQLiteTable = (
@@ -33,134 +54,195 @@ export const reconcileSQLiteTable = (
   tableName: string,
 ) =>
   reconcileSQLiteTopology(database, table, tableName).pipe(
-    Effect.mapError((cause) => new OperationFailure({ cause })),
+    Effect.mapError(failed),
   );
 
-const failed = (cause: unknown) => new OperationFailure({ cause });
-
-const readStoredContract = (database: SQLiteDriver, tableName: string) =>
+/**
+ * The physical table's primary key columns. The check reads through them,
+ * since a table set up under another primary key must still be read before
+ * it is refused or wiped. Fails when the table is no std-toolkit table.
+ */
+const physicalPrimary = (database: SQLiteDriver, tableName: string) =>
   Effect.gen(function* () {
-    yield* database.run(Statement.createContractTable().sql);
-    const read = Statement.readContract(tableName);
-    const row = (yield* database.all(read.sql, read.parameters)).at(0);
-    if (row === undefined) return undefined;
-    const { mode, hash } = row;
-    if (
-      (mode !== 'persistent' && mode !== 'disposable') ||
-      typeof hash !== 'string'
-    )
+    const columns = yield* database.all(Statement.tableInfo(tableName).sql);
+    const at = (position: number) =>
+      columns.find((column) => numberValue(column.pk) === position)?.name;
+    const [pk, sk, extra] = [at(1), at(2), at(3)];
+    if (typeof pk !== 'string' || typeof sk !== 'string' || extra !== undefined)
       return yield* Effect.fail(
-        new Error(`SQLite stored contract of "${tableName}" is malformed`),
+        new Error(
+          `SQLite table "${tableName}" has an incompatible primary index`,
+        ),
       );
-    return { mode, hash } as const;
+    const primary: Primary = { pk, sk };
+    const invalid = invalidBaseColumns({ primary }, columns);
+    if (invalid.length > 0)
+      return yield* Effect.fail(
+        new Error(
+          `SQLite table "${tableName}" has an incompatible base schema: ${invalid.join(', ')}`,
+        ),
+      );
+    return primary;
   }).pipe(Effect.mapError(failed));
 
-const readStoredSnapshot = (database: SQLiteDriver, tableName: string) =>
-  Effect.gen(function* () {
-    const read = Statement.readContractSnapshot(tableName);
-    const row = (yield* database.all(read.sql, read.parameters)).at(0);
-    if (typeof row?.snapshot !== 'string')
-      return yield* Effect.fail(
-        new Error(`SQLite stored contract of "${tableName}" has no snapshot`),
-      );
-    return JSON.parse(row.snapshot) as unknown;
-  });
+// The internal entities have no secondary keys, so the check writes only the
+// base columns: an index column the topology still has to add is not needed.
+const baseTopology = (primary: Primary): SQLiteTable => ({
+  primary,
+  localSecondaryIndexes: {},
+  globalSecondaryIndexes: {},
+});
 
-// Another setup recorded a contract after this one read it: start over.
-class ContractMoved extends Error {}
+/**
+ * The StdTable contract over the physical table's base columns, switched to
+ * the code's primary key once a wipe has recreated the table under it.
+ */
+const checkContract = (
+  database: SQLiteDriver,
+  tableName: string,
+  primary: Primary,
+) => {
+  let physical = primary;
+  let current = makeTableContract(database, baseTopology(primary), tableName);
+  const contract: StdTableContract = {
+    getItem: (key, options) => current.getItem(key, options),
+    queryItems: (request) => current.queryItems(request),
+    scanItems: (request) => current.scanItems(request),
+    writeItem: (put) => current.writeItem(put),
+    transactWriteItems: (items) => current.transactWriteItems(items),
+    hardDeleteItem: (key) => current.hardDeleteItem(key),
+    hardDeleteEntityItems: (entity) => current.hardDeleteEntityItems(entity),
+    hardDeleteAllItems: () => current.hardDeleteAllItems(),
+  };
+  const recreatedUnder = (next: Primary) => {
+    physical = next;
+    current = makeTableContract(database, baseTopology(next), tableName);
+  };
+  return { contract, recreatedUnder, currentPrimary: () => physical };
+};
 
-const ATTEMPTS = 3;
-
-const setUpOnce = (
+/**
+ * Drops and recreates the table under the code's topology, in one
+ * transaction that holds only while `__snapshot` is still the one the plan
+ * was made from: a setup deciding on a stale read never wipes a table another
+ * setup changed meanwhile, and starts over instead.
+ */
+const wipeTable = (
   database: SQLiteDriver,
   table: SQLiteTable,
   tableName: string,
-  contract: CurrentContract,
+  stored: StoredSnapshot,
 ) =>
-  Effect.gen(function* () {
-    const stored = yield* readStoredContract(database, tableName);
-    const plan = yield* planSetup({
-      current: contract,
-      stored,
-      loadStoredSnapshot: readStoredSnapshot(database, tableName),
-    }).pipe(
+  database
+    .transaction([
+      Statement.entityGuard(
+        tableName,
+        SnapshotEntities.snapshot.name,
+        stored.snapshot?.meta._u,
+      ),
+      Statement.dropTable(tableName),
+      Statement.createTable(tableName, table),
+    ])
+    .pipe(
       Effect.mapError((cause) =>
-        cause instanceof SetupRefused ? cause : failed(cause),
+        cause instanceof SQLiteChangesMismatch
+          ? conditionFailed()
+          : failed(cause),
       ),
     );
-    const next = {
-      mode: contract.record.mode,
-      hash: contract.record.hash,
-      snapshot: JSON.stringify(contract.record.snapshot),
-    };
-    // Every write of the contract holds only while it is the one read above,
-    // so a setup deciding on a stale read never wipes or overwrites.
-    const record =
-      stored === undefined
-        ? Statement.insertContract(tableName, next)
-        : Statement.swapContract(tableName, stored, next);
-    if (plan.kind === 'wipe') {
-      yield* Effect.logWarning(
-        `std-toolkit: wiped disposable table "${tableName}" for a change its stored rows cannot take`,
-      );
-      yield* database
-        .transaction([
-          { ...record, expectedChanges: 1 },
-          Statement.dropTable(tableName),
-        ])
-        .pipe(
-          Effect.mapError((cause) =>
-            cause instanceof SQLiteChangesMismatch
-              ? new ContractMoved()
-              : failed(cause),
-          ),
-        );
-    }
-    yield* ensureSQLiteTable(database, table, tableName);
-    yield* reconcileSQLiteTable(database, table, tableName);
-    if (plan.kind !== 'apply') return;
-    const { changes } = yield* database
-      .run(record.sql, record.parameters)
-      .pipe(Effect.mapError(failed));
-    if (changes !== 1) return yield* Effect.fail(new ContractMoved());
-  });
+
+const hasRows = (database: SQLiteDriver, tableName: string) => {
+  const statement = Statement.hasRows(tableName);
+  return database.all(statement.sql, statement.parameters).pipe(
+    Effect.map((rows) => rows.length > 0),
+    Effect.mapError(failed),
+  );
+};
+
+const samePrimary = (left: Primary, right: Primary) =>
+  left.pk === right.pk && left.sk === right.sk;
 
 /**
- * Prepares the physical table under its Stored contract: compares the
- * current contract with the one stored beside the data, refuses a persistent
- * table's breaking change, wipes a disposable table's, then applies the
- * topology and records the new contract. An unchanged contract is one read
- * and skips the comparison; the physical table is still checked. A setup
- * that loses a race with another starts over from the contract it recorded.
+ * SQLite cannot change a primary key in place, and only a wipe recreates the
+ * table: a plan that keeps a table under another primary key could neither
+ * reconcile it nor be undone once its snapshot claimed the code's.
+ */
+const refuseOtherPrimary = (
+  tableName: string,
+  physical: Primary,
+  code: Primary,
+) =>
+  Effect.fail(
+    failed(
+      new Error(
+        `SQLite table "${tableName}" has the primary key (${physical.pk}, ${physical.sk}), not the code's (${code.pk}, ${code.sk}), and SQLite cannot change it in place. Nothing was changed. Declare the primary key the table has, or move its data to a new table.`,
+      ),
+    ),
+  );
+
+/**
+ * Prepares the physical table under the snapshot it keeps in its own
+ * internal entities (ADR 0020), in this order:
+ *
+ * 1. Creates the table when it is missing; an existing one is left as it is.
+ * 2. Checks, changing nothing, that the table can take the topology.
+ * 3. Runs the registered migrations.
+ * 4. Checks the stored snapshot against the code's: a refusal writes
+ *    nothing; a disposable table's wipe drops and recreates it; a table
+ *    still under another primary key is refused; otherwise the changed
+ *    snapshot items are written.
+ * 5. Adds missing index columns and indexes, and replaces incompatible ones.
+ *
+ * Index changes wait for step 5, so a refused change leaves the table, its
+ * indexes and its rows as they were.
  */
 export const setUpSQLiteTable = (
   database: SQLiteDriver,
   table: SQLiteTable,
   tableName: string,
-  contract: CurrentContract,
+  snapshot: TableSnapshot,
+  mode: TableMode,
 ): Effect.Effect<void, OperationFailure | SetupRefused> =>
   Effect.gen(function* () {
-    if (tableName.toLowerCase() === CONTRACT_TABLE)
-      return yield* Effect.fail(
-        failed(new Error(`SQLite table name "${CONTRACT_TABLE}" is reserved`)),
+    yield* ensureSQLiteTable(database, table, tableName);
+    const primary = yield* physicalPrimary(database, tableName);
+    // A table under another primary key is checked once it is recreated,
+    // which only a wipe does; any other plan for it is refused before the
+    // snapshot is written.
+    if (samePrimary(primary, table.primary))
+      yield* validateSQLiteTopology(database, table, tableName).pipe(
+        Effect.mapError(failed),
       );
-    for (let attempt = 1; ; attempt++) {
-      const result = yield* setUpOnce(
-        database,
-        table,
-        tableName,
-        contract,
-      ).pipe(Effect.result);
-      if (result._tag === 'Success') return;
-      if (!(result.failure instanceof ContractMoved))
-        return yield* Effect.fail(result.failure);
-      if (attempt === ATTEMPTS)
-        return yield* Effect.fail(
-          failed(
-            new Error(
-              `SQLite setup for table "${tableName}" kept racing another setup`,
-            ),
-          ),
-        );
-    }
+    const { contract, recreatedUnder, currentPrimary } = checkContract(
+      database,
+      tableName,
+      primary,
+    );
+    yield* Migrations.sqlite({ database, tableName, contract });
+    yield* checkTableSnapshot({
+      contract,
+      snapshot,
+      mode,
+      localIndexOrder: Object.keys(table.localSecondaryIndexes),
+      hasRows: hasRows(database, tableName),
+      wipe: (stored) =>
+        wipeTable(database, table, tableName, stored).pipe(
+          Effect.tap(() => Effect.sync(() => recreatedUnder(table.primary))),
+        ),
+      prepare: () =>
+        samePrimary(currentPrimary(), table.primary)
+          ? Effect.void
+          : refuseOtherPrimary(tableName, currentPrimary(), table.primary),
+    }).pipe(
+      Effect.mapError((cause) =>
+        cause instanceof ConditionFailure
+          ? failed(
+              new Error(
+                `SQLite setup for table "${tableName}" kept racing another setup`,
+              ),
+            )
+          : cause,
+      ),
+    );
+    yield* reconcileSQLiteTable(database, table, tableName);
   });

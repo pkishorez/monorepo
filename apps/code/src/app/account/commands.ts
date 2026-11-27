@@ -2,24 +2,19 @@ import { Effect, Schema } from 'effect';
 import { CloudClient, Connection } from '@kestack/connect/cloud';
 import { Command } from '@kestack/kabuki';
 import { shelf, Storage } from '../storage/index.ts';
+import { cloudProblemOf } from './account.ts';
 
 /*
- * What Connections asks of Cloud Connect, and what it keeps on this device.
- * The Connection List is read from Cloud Connect, over HTTP and signed by the
+ * What Connections asks of Connect Cloud, and what it keeps on this device.
+ * The Connection List is read from Connect Cloud, over HTTP and signed by the
  * Account signed in (`list`). Each command ends in one Message, but for
  * `keepList`, `dropForgotten` and `pruneUnlisted`. A Connection forgotten
  * has its Instance stopped, in every tab, and its database deleted, all
- * under it with it; one gone from Cloud Connect's first list has its
+ * under it with it; one gone from Connect Cloud's first list has its
  * database pruned. `Storage` does both.
  */
 
-/** Why Cloud Connect could not be asked, as a person reads it. */
-export const problemOf = (error: unknown) =>
-  typeof error === 'object' && error !== null && 'message' in error
-    ? String(error.message) || 'Cloud Connect could not be reached'
-    : 'Cloud Connect could not be reached';
-
-/** The Account's Connections as Cloud Connect lists them now, or why it could not, answering the ask `since`. */
+/** The Account's Connections as Connect Cloud lists them now, or why it could not, answering the ask `since`. */
 export const list = (since: number) =>
   CloudClient.use((client) => client.List({})).pipe(
     Effect.map((connections) => ({
@@ -32,7 +27,7 @@ export const list = (since: number) =>
       Effect.succeed({
         _tag: 'Failed' as const,
         since,
-        problem: problemOf(error),
+        problem: cloudProblemOf(error),
       }),
     ),
   );
@@ -69,7 +64,7 @@ export const forget = Command.make('ForgetConnection', {
         Effect.succeed({
           _tag: 'ForgetFailed' as const,
           id,
-          problem: problemOf(error),
+          problem: cloudProblemOf(error),
         }),
       ),
     ),

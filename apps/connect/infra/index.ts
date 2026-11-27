@@ -1,1 +1,1 @@
-export { CloudConnect } from './cloud-connect.ts';
+export { ConnectCloud } from './connect-cloud.ts';

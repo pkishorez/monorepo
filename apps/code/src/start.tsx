@@ -1,13 +1,15 @@
 import type { ReactNode } from 'react';
 import { Effect, Layer } from 'effect';
 import { CloudClient } from '@kestack/connect/cloud';
-import { connect } from '@kestack/devtools-kabuki/session';
+import { connect } from '@kestack/devtools-kabuki/app';
 import { Start } from '@kestack/kabuki/start';
 import { OnOutdated } from '@kestack/std-toolkit/replica';
 import { document } from '@kestack/web-platform/app/document';
 import { App } from './app/index.ts';
 import { WaitScreen } from './app/sign-in/index.ts';
 import { fitted } from './app/account/frame/commands.ts';
+import { sockets } from './app/account/connection/index.ts';
+import { recorder } from './app/account/frame/header/voice/recorder/index.ts';
 import { accounts, preferencesIdb, storageIdb } from './app/storage/index.ts';
 import { Devtools } from './ui/page/devtools/index.ts';
 import { Theme } from './ui/page/theme/index.ts';
@@ -16,20 +18,29 @@ import './styles.css';
 /*
  * The app as Start draws it: the router, the root page's View, the
  * Document, and the browser's Layer, what lives as long as the page:
- * who is signed in (`Accounts`, which also signs every call to Cloud
- * Connect), Cloud Connect at `VITE_CONNECT_URL`, this device's
+ * who is signed in (`Accounts`, which also signs every call to Connect
+ * Cloud), Connect Cloud at `VITE_CONNECT_URL`, this device's
  * Preferences, their Bindings kept to what the keys still take, what this
  * device keeps of each Account and Connection, in databases named by their
  * place (`Storage`: the Unseen marks and Saved Drafts, the cache, the sync
  * Stores, and what deletes what a level no longer lists, all from
- * `app/storage/`), and `OnOutdated` (`newestBuild`). Who is signed in is
- * the root page's to say (`app/`); what an Account has, its own page's
- * (`app/account/`). No Connection's socket is here: each is its
+ * `app/storage/`), `OnOutdated` (`newestBuild`), and the page's edges to
+ * the outside world: the browser's microphone (`Recorder`) and what opens
+ * a Connection's WebSocket (`Sockets`). Who is signed in is the root
+ * page's to say (`app/`); what an Account has, its own page's
+ * (`app/account/`). No Connection's socket is open here: each is its
  * Connection's own, open only while its Account is the one active.
  *
  * Attached beside it while developing, the DevTools Server, as a Kabuki
  * Session: at `/__devtools` on the app's own origin, which Vite pipes to
  * the server its config names, so a tunnel to the app reaches it too.
+ *
+ * Two modes. Real, the Layer below: a deploy, and `pnpm dev:connect`
+ * against this branch's Connect. Fake, `pnpm dev` (`VITE_MODE=fake`): the
+ * whole app in the tab over its Fakes, its root Layer from `fake.ts`. Fake
+ * mode is read only while developing, and `fake.ts` imported only then,
+ * written out where it is read so a production build drops it whole: a
+ * build carrying a fake fails.
  */
 
 /*
@@ -46,7 +57,7 @@ const newestBuild = Layer.succeed(
   ),
 );
 
-const layer = Layer.mergeAll(
+const real = Layer.mergeAll(
   // Where Connect is, read once the Layer is built, in the browser, never
   // as the module loads: a build runs this module too, to draw the static
   // pages, and only a deploy says where Connect is.
@@ -56,7 +67,26 @@ const layer = Layer.mergeAll(
   preferencesIdb(fitted),
   storageIdb,
   newestBuild,
+  recorder,
+  sockets,
 ).pipe(Layer.provideMerge(accounts));
+
+const layer =
+  import.meta.env.DEV && import.meta.env.VITE_MODE === 'fake'
+    ? Layer.unwrap(
+        Effect.map(
+          Effect.promise(() => import('./fake.ts')),
+          (fake) => fake.layer,
+        ),
+      )
+    : real;
+
+// In fake mode, the FakeWorld that `fake.ts`'s Layer serves, for DevTools to
+// show and drive: the Inspector's World tab, and DevTools through `connect`.
+const world =
+  import.meta.env.DEV && import.meta.env.VITE_MODE === 'fake'
+    ? () => import('./fake.ts').then((fake) => fake.world)
+    : undefined;
 
 export default Start.app({
   router: App.router,
@@ -68,12 +98,14 @@ export default Start.app({
     theme: Theme,
     head: <link rel="icon" type="image/svg+xml" href="/favicon.svg" />,
     ...(import.meta.env.DEV
-      ? { around: (app: ReactNode) => <Devtools>{app}</Devtools> }
+      ? {
+          around: (app: ReactNode) => <Devtools world={world}>{app}</Devtools>,
+        }
       : {}),
   }),
   // What the App Shell paints before any script runs: where the iOS Splash
   // leaves the mark, and what the app draws first.
   loading: <WaitScreen />,
   layer,
-  attach: import.meta.env.DEV ? [connect()] : [],
+  attach: import.meta.env.DEV ? [connect(world ? { world } : {})] : [],
 });

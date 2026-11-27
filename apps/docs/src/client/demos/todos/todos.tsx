@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { View } from '@kestack/kabuki/react';
 import { LockIcon } from 'lucide-react';
 import { DevtoolsDock } from '@kestack/web-platform/recipes/devtools';
-import { KabukiInspector } from '@kestack/devtools-kabuki/inspector';
+import { KabukiInspector } from '@kestack/devtools-kabuki/app';
 import { TodosView } from './views.tsx';
 
 const Demo = View.app(TodosView, { name: 'todos-demo' });

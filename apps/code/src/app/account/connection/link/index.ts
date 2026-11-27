@@ -9,7 +9,6 @@ export {
   useConnections,
   nameOf,
   useConnectionName,
-  useNoticeClock,
   useNoticePill,
   useOffline,
   useOfflineSaid,
@@ -32,13 +31,21 @@ export {
   statusOf,
 } from './health/index.ts';
 export {
+  askStanding,
   type Behind,
   behindAll,
-  behindOf,
   borrowed,
+  Mismatch,
+  mismatchTold,
+  opened,
   PLUGIN_CODE,
   reach,
+  RELINK_SLOWLY,
+  relinkDue,
+  relinksSlowly,
   Sockets,
+  sockets,
+  standingAnswered,
   toNewest,
 } from './reach/index.ts';
 export { orRefused, reasonOf, Refused } from './refusal/index.ts';

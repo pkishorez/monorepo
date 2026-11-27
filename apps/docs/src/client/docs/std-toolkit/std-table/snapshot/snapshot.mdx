@@ -85,10 +85,11 @@ date.
 stored rows readable. Nothing accepts a breaking change. Undo the edit
 and add a version, or move the data to a new table name.
 
-A test can be skipped, so it isn't the only check. Setup compares against
-the Stored contract, and a deploy compares against what you last
-deployed. The test is just the earliest, and the cheapest place to find
-out.
+A test can be skipped, so it isn't the only check. Every table keeps the
+snapshot its rows were saved under, and setup or a deploy compares
+against that. The test is just the earliest, and the cheapest place to
+find out. For a table in a Durable Object or a browser, which no deploy
+sees, it's the only check before your code is live.
 
 <Callout title="Remember">
   Commit a snapshot and test against it. A breaking change then fails in CI,

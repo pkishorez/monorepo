@@ -10,8 +10,6 @@ const packageJson = JSON.parse(
 ) as { version: string };
 
 const backendOrigin = `http://127.0.0.1:${process.env.DEVTOOLS_PORT ?? '14400'}`;
-// Every request leaves as from the server's own origin, so one from another
-// page is refused here, before it is rewritten. OTLP takes any origin.
 const backendProxy = ({ anyOrigin = false } = {}): ProxyOptions => ({
   target: backendOrigin,
   changeOrigin: true,
@@ -24,6 +22,22 @@ const backendProxy = ({ anyOrigin = false } = {}): ProxyOptions => ({
     proxy.on('proxyReqWs', (request) =>
       request.setHeader('origin', backendOrigin),
     );
+  },
+});
+
+const packed = (entry: Record<string, string>) => ({
+  entry,
+  format: 'esm' as const,
+  platform: 'node' as const,
+  minify: true,
+  shims: true,
+  dts: false,
+  publint: false,
+  outputOptions: { inlineDynamicImports: true },
+  deps: {
+    alwaysBundle: [/./],
+    neverBundle: [/^@kestack\/monoverse/, /^tsx/],
+    onlyBundle: false as const,
   },
 });
 
@@ -50,9 +64,6 @@ export default defineConfig({
     ],
   },
   optimizeDeps: {
-    // The source viewer loads these grammars lazily, per file type. Bundling
-    // them up front stops a first JSON or CSS file from failing while Vite
-    // re-optimizes mid-session.
     include: [
       '@kestack/web-platform > @shikijs/langs/css',
       '@kestack/web-platform > @shikijs/langs/html',
@@ -67,48 +78,27 @@ export default defineConfig({
   },
   server: {
     host: true,
-    // portless assigns PORT and forwards its Host headers during dev.
     port: Number(process.env.PORT ?? process.env.DEVTOOLS_UI_PORT ?? '5173'),
     strictPort: true,
-    // Any host, so a tunnel (cloudflared, portless) reaches the dev UI.
     allowedHosts: true,
     proxy: {
       '/health': backendProxy(),
       '/rpc': backendProxy(),
-      '/story-evidence': backendProxy(),
       '/v1': backendProxy({ anyOrigin: true }),
-      // The /kabuki page's WebSockets; the page itself stays with Vite.
       '^/kabuki/(sessions|session/)': { ...backendProxy(), ws: true },
     },
   },
   plugins: [tailwindcss(), viteReact()],
-  // The CLI and its server, one minified file with every JavaScript
-  // dependency inlined. oxc-parser and oxc-resolver are native, and tsx
-  // loads files through Node's hooks, so they stay dependencies; vite and
-  // playwright-core come from the project laymos runs in.
-  pack: {
-    entry: {
-      'server/main': 'src/server/main.ts',
+  pack: [
+    packed({ 'cli/main': 'src/cli/main.ts' }),
+    {
+      ...packed({
+        'cli/monoverse-engine':
+          'src/app/monoverse/server/rpc/project/real/engine-worker.ts',
+      }),
+      clean: false,
     },
-    format: 'esm',
-    platform: 'node',
-    minify: true,
-    shims: true,
-    dts: false,
-    publint: false,
-    outputOptions: { inlineDynamicImports: true },
-    deps: {
-      alwaysBundle: [/./],
-      neverBundle: [
-        /^oxc-parser/,
-        /^oxc-resolver/,
-        /^tsx/,
-        /^vite$/,
-        /^playwright-core$/,
-      ],
-      onlyBundle: false,
-    },
-  },
+  ],
   test: {
     environment: 'node',
   },

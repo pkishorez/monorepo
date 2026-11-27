@@ -6,6 +6,7 @@ import {
   conditionFailed,
   conditionHolds,
   contractLayer,
+  isInternalEntity,
   transactItemKey,
   type QueryRequest,
   type StoredKey,
@@ -125,8 +126,12 @@ export const makeDeterministicContract = <Name extends string>(
       }),
     hardDeleteAllItems: () =>
       Effect.sync(() => {
-        const removed = items.size;
-        items.clear();
+        let removed = 0;
+        for (const [key, item] of items) {
+          if (isInternalEntity(item.meta._e)) continue;
+          items.delete(key);
+          removed++;
+        }
         return removed;
       }),
     scanItems: (request) =>

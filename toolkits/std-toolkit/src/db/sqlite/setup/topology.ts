@@ -12,7 +12,7 @@ type SQLiteTable = Pick<
   'primary' | 'localSecondaryIndexes' | 'globalSecondaryIndexes'
 >;
 
-const numberValue = (value: SQLiteRow[string] | undefined) =>
+export const numberValue = (value: SQLiteRow[string] | undefined) =>
   typeof value === 'bigint' ? Number(value) : value;
 
 const namedRows = (rows: readonly SQLiteRow[]) =>
@@ -22,7 +22,10 @@ const namedRows = (rows: readonly SQLiteRow[]) =>
     ),
   );
 
-const invalidBaseColumns = (table: SQLiteTable, rows: readonly SQLiteRow[]) => {
+export const invalidBaseColumns = (
+  table: Pick<SQLiteTable, 'primary'>,
+  rows: readonly SQLiteRow[],
+) => {
   const columns = namedRows(rows);
   const expected = [
     { name: table.primary.pk, type: 'TEXT', primary: 1 },
@@ -244,6 +247,16 @@ const inspectSQLiteTopology = (
     }
     return mutations;
   });
+
+/**
+ * Fails, changing nothing, when the physical table cannot take the topology:
+ * the mutations reconciling would make are left for after the check.
+ */
+export const validateSQLiteTopology = (
+  database: SQLiteDriver,
+  table: SQLiteTable,
+  tableName: string,
+) => inspectSQLiteTopology(database, table, tableName).pipe(Effect.asVoid);
 
 export const reconcileSQLiteTopology = (
   database: SQLiteDriver,

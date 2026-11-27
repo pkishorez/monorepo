@@ -42,7 +42,6 @@
     },
     "./server": {
       "types": "./dist/guard/server/index.d.ts",
-      "kestack-fake-auth": "./dist/guard/fake/doors/server.js",
       "default": "./dist/guard/server/index.js"
     },
     "./client": {
@@ -51,12 +50,10 @@
     },
     "./client/browser": {
       "types": "./dist/guard/client/browser/index.d.ts",
-      "kestack-fake-auth": "./dist/guard/fake/doors/browser.js",
       "default": "./dist/guard/client/browser/index.js"
     },
     "./client/device": {
       "types": "./dist/guard/client/device/index.d.ts",
-      "kestack-fake-auth": "./dist/guard/fake/doors/device.js",
       "default": "./dist/guard/client/device/index.js"
     },
     "./fake": {
@@ -88,6 +85,7 @@
   },
   "peerDependencies": {
     "@alchemy.run/cloudflare": "2.0.0-beta.84",
+    "@kestack/kabuki": "workspace:*",
     "@kestack/rpc-toolkit": "workspace:*",
     "@kestack/std-toolkit": "workspace:*",
     "alchemy": "2.0.0-beta.84",
@@ -97,6 +95,9 @@
   },
   "peerDependenciesMeta": {
     "@alchemy.run/cloudflare": {
+      "optional": true
+    },
+    "@kestack/kabuki": {
       "optional": true
     },
     "@kestack/rpc-toolkit": {

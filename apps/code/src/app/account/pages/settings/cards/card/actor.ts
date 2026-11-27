@@ -16,8 +16,8 @@ import { askForget, rename } from './commands.ts';
  * 1. Shown   its Agents: its Harness Accounts (`agents/`) and its
  *            Speech to Text switch (`speech/`), each handed what its setup
  *            holds. Its Projects are not shown: they are never managed.
- * 2. Rename  its Display Name, typed in place of its name: saved to Cloud
- *            Connect, so it is renamed even while out of reach; left
+ * 2. Rename  its Display Name, typed in place of its name: saved to Connect
+ *            Cloud, so it is renamed even while out of reach; left
  *            empty, it goes back to its Computer Name. Refused, it says why
  *            and keeps what was typed.
  * 3. Forget  asked of the list (`ConnectionCards`), which asks first.
@@ -27,14 +27,14 @@ const Renaming = Schema.NullOr(
   Schema.Struct({
     /** What is typed. */
     text: Schema.String,
-    /** Whether Cloud Connect is being asked. */
+    /** Whether Connect Cloud is being asked. */
     saving: Schema.Boolean,
-    /** Why Cloud Connect refused it. */
+    /** Why Connect Cloud refused it. */
     problem: Schema.NullOr(Schema.String),
   }),
 );
 
-const Card = Actor.define('Card', {
+const Card = Actor.define('ConnectionCard', {
   requires: [ConnectionCards, CloudClient, Connections],
   input: Schema.Struct({ connectionId: Schema.String }),
   props: Schema.Struct({
@@ -50,15 +50,30 @@ const Card = Actor.define('Card', {
     /** Its name being changed; null while it is not. */
     renaming: Renaming,
   }),
-  message: Schema.TaggedUnion({
-    RenameAsked: {},
-    NameTyped: { text: Schema.String },
-    RenameCancelled: {},
-    RenameSaved: {},
+  message: {
+    RenameAsked: Schema.Struct({}).annotate({
+      description:
+        "Opens this Connection's Display Name for editing, filled with the current one; then NameTyped and RenameSaved, or RenameCancelled.",
+    }),
+    NameTyped: Schema.Struct({ text: Schema.String }).annotate({
+      description:
+        'Replaces the Display Name typed so far with text, at most 64 characters; only after RenameAsked, and not while it saves.',
+    }),
+    RenameCancelled: Schema.Struct({}).annotate({
+      description:
+        'Closes the Display Name field without saving, as Escape or Cancel does; not while it saves.',
+    }),
+    RenameSaved: Schema.Struct({}).annotate({
+      description:
+        'Saves the typed Display Name to Connect Cloud, even while the Connection is out of reach; empty goes back to its Computer Name.',
+    }),
     Renamed: {},
     RenameFailed: { problem: Schema.String },
-    ForgetAsked: {},
-  }),
+    ForgetAsked: Schema.Struct({}).annotate({
+      description:
+        "Forgets this Connection: asks first; Cards' Forget confirms, Keep keeps it.",
+    }),
+  },
 });
 
 /** A typed Display Name as kept: trimmed, and none when left empty. */

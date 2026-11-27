@@ -23,6 +23,7 @@ export const makeSingleEntity = <
   S extends AnyUnkeyedESchema,
 >(
   definition: SingleEntityDefinition<Name, S>,
+  reads: { readonly consistent?: boolean } = {},
 ): SingleEntity<Name, S> => {
   const service = StdTableService(definition.table.logicalName);
   const key = singleKey(definition.name);
@@ -50,7 +51,7 @@ export const makeSingleEntity = <
     item === null
       ? Effect.succeed(absent())
       : fromStoredSingle(definition.schema, item);
-  const read = readRaw().pipe(Effect.flatMap(decodeCurrent));
+  const read = readRaw(reads.consistent).pipe(Effect.flatMap(decodeCurrent));
 
   const put = (
     value: S['Type'],

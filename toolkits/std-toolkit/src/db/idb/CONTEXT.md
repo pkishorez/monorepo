@@ -27,12 +27,12 @@ A secondary index that simply skips **Records** missing its key fields — Index
 Primary, LSI, and GSI access patterns observe the latest committed IndexedDB state available to the transaction.
 
 **Auto-versioned setup**:
-The setup discipline where the adapter owns the database's version number, bumping it only when a declared **Store** or **Sparse index** is missing or incompatible. The upgrade creates additive topology but does not migrate legacy Records or backfill index keys on existing Records. A database name given to this adapter belongs to it; no other code may version that database.
+The setup discipline where the adapter owns the database's version number, bumping it only when a declared **Store** or **Sparse index** is missing or incompatible, or a migration needs a version change. The upgrade creates additive topology but does not migrate legacy Records or backfill index keys on existing Records. A database name given to this adapter belongs to it; no other code may version that database.
 _Avoid_: migration, manual upgrade.
 
-**Contract store**:
-The `_std_contract` object store in the same database, holding each **Store**'s [[db]] **Stored contract** by Store name. Setup reads it on the table's first open, before it changes any Store; the name is reserved.
-_Avoid_: Metadata store, schema store.
+**Stored snapshot**:
+The table snapshot a **Store** keeps among its own **Records**, as the three internal entities of [[db]] (`__snapshot`, `__snapshot_entity`, `__snapshot_version`). Setup checks it on the table's first open, after creating a missing Store and before changing an existing Store's indexes, so a refused change leaves the Store as it was. The `_std_contract` store that held it before is deleted by the `2026-11-stored-contract` migration, which reserves that name.
+_Avoid_: Contract store (retired term), metadata store.
 
 **Backfill choice**:
 What setup does with a change that needs a backfill on this adapter, the only one that backfills: reindex the stored **Records** in place, or wipe them. A **Persistent table** always reindexes; a **Disposable table** chooses, reindexing by default. A disposable Store whose Records cannot be reindexed is wiped instead.

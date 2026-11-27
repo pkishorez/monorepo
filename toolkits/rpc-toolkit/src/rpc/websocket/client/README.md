@@ -141,6 +141,21 @@ client(ChatRpcs, {
 });
 ```
 
+### Dial, what opens each socket
+
+Each socket is the global `WebSocket` unless `dial` opens another: anything
+shaped like one (`Socket.WebSocketLike`), such as an in-memory socket whose
+other end is a server in the same page. Everything above runs as it would
+over the network: the URL and protocols on each connect, `watch`, the
+reconnects.
+
+```ts
+client(ChatRpcs, {
+  url: 'wss://chat.example/rpc',
+  dial: (url, protocols) => inPage.open(url, protocols),
+});
+```
+
 ---
 
 ## Connection status

@@ -1,54 +1,99 @@
 import { Effect } from 'effect';
 import * as Output from 'alchemy/Output';
-import { expect, it, vi } from 'vitest';
+import { beforeEach, expect, it, vi } from 'vitest';
 import { StdTable } from '../../db/index.js';
-import type { DeployGuard } from '../deploy-guard/deploy-guard.js';
+import { TableSnapshot } from '../../snapshot/index.js';
 
-const { table, guard } = vi.hoisted(() => ({
-  table: vi.fn((_id: string, props: { tableName: unknown }) =>
-    Effect.succeed({ tableName: props.tableName }),
-  ),
-  guard: vi.fn(),
+// Each fake resource's `tableName` is an output of the resource itself, so a
+// resource fed it is ordered after the one it came from.
+const { declared, fakeResource } = vi.hoisted(() => {
+  const declared: { id: string; props: Record<string, unknown> }[] = [];
+  const fakeResource = async () => {
+    const { Effect } = await import('effect');
+    const Output = await import('alchemy/Output');
+    return (id: string, props: Record<string, unknown>) =>
+      Effect.sync(() => {
+        declared.push({ id, props });
+        const self = { FQN: id, LogicalId: id } as never;
+        return {
+          tableName: Output.map(Output.of(self), () => props.tableName),
+        };
+      });
+  };
+  return { declared, fakeResource };
+});
+vi.mock('@alchemy.run/aws/DynamoDB', async () => ({
+  Table: await fakeResource(),
 }));
-vi.mock('@alchemy.run/aws/DynamoDB', () => ({ Table: table }));
-vi.mock('../deploy-guard/index.js', () => ({ guardContract: guard }));
+vi.mock('alchemy', async (importOriginal) => {
+  const resource = await fakeResource();
+  return {
+    ...(await importOriginal<typeof import('alchemy')>()),
+    Resource: () => resource,
+  };
+});
 import { DynamoDB } from '../index.js';
 
-const guardResource = {
-  FQN: 'TasksDeployGuard',
-  LogicalId: 'TasksDeployGuard',
-} as unknown as DeployGuard;
+const upstream = (value: unknown) => Object.keys(Output.upstreamAny(value));
 
-it('guards the table before projecting its topology onto the resource', async () => {
-  const hash = Output.map(Output.of(guardResource), () => 'hash');
-  guard.mockImplementation(() => Effect.succeed({ hash }));
+beforeEach(() => {
+  declared.length = 0;
+});
+
+it('checks the snapshot before the table and records it after', async () => {
+  const stdTable = StdTable.make('tasks')
+    .primary('pk', 'sk')
+    .lsi('byAlternate', 'alternate')
+    .lsi('byEarlier', 'earlier')
+    .gsi('byOther', 'otherPk', 'otherSk')
+    .build();
+
+  await Effect.runPromise(
+    DynamoDB.table('Tasks', {
+      table: stdTable,
+      tableName: 'tasks-prod',
+      mode: 'persistent',
+    }) as Effect.Effect<unknown>,
+  );
+
+  const snapshot = Effect.runSync(
+    TableSnapshot.serialize(TableSnapshot.capture(stdTable)),
+  );
+  const props = {
+    mode: 'persistent',
+    snapshot,
+    localIndexOrder: ['byAlternate', 'byEarlier'],
+  };
+  const [check, dynamoTable, record] = declared;
+  expect(declared.map(({ id }) => id)).toEqual([
+    'TasksSnapshotCheck',
+    'Tasks',
+    'TasksSnapshotRecord',
+  ]);
+  expect(check!.props).toEqual({ ...props, tableName: 'tasks-prod' });
+  expect(upstream(dynamoTable!.props.tableName)).toEqual([
+    'TasksSnapshotCheck',
+  ]);
+  expect(record!.props).toEqual({ ...props, tableName: expect.anything() });
+  expect(upstream(record!.props.tableName)).toEqual(['Tasks']);
+});
+
+it("projects the table's topology onto Alchemy's table", async () => {
   const stdTable = StdTable.make('tasks')
     .primary('pk', 'sk')
     .lsi('byAlternate', 'alternate')
     .gsi('byOther', 'otherPk', 'otherSk')
     .build();
 
-  const deploy = DynamoDB.table('Tasks', {
-    table: stdTable,
-    tableName: 'tasks-prod',
-    mode: 'persistent',
-  }) as Effect.Effect<unknown>;
-  await Effect.runPromise(deploy);
+  await Effect.runPromise(
+    DynamoDB.table('Tasks', {
+      table: stdTable,
+      tableName: 'tasks-prod',
+      mode: 'disposable',
+    }) as Effect.Effect<unknown>,
+  );
 
-  expect(guard).toHaveBeenCalledWith(
-    'TasksDeployGuard',
-    stdTable,
-    'persistent',
-    {
-      target: 'tasks-prod',
-      inPlaceOnly: true,
-      localIndexOrder: ['byAlternate'],
-    },
-  );
-  expect(guard.mock.invocationCallOrder[0]).toBeLessThan(
-    table.mock.invocationCallOrder[0]!,
-  );
-  expect(table).toHaveBeenCalledWith('Tasks', {
+  expect(declared[1]!.props).toEqual({
     tableName: expect.anything(),
     partitionKey: 'pk',
     sortKey: 'sk',
@@ -76,36 +121,4 @@ it('guards the table before projecting its topology onto the resource', async ()
       },
     ],
   });
-  expect(Object.keys(Output.upstreamAny(table.mock.calls[0]![1]))).toEqual([
-    'TasksDeployGuard',
-  ]);
-});
-
-it('guards a disposable table in place only too', async () => {
-  table.mockClear();
-  const hash = Output.map(Output.of(guardResource), () => 'hash');
-  guard.mockImplementation(() => Effect.succeed({ hash }));
-  const stdTable = StdTable.make('prefs').primary('pk', 'sk').build();
-
-  await Effect.runPromise(
-    DynamoDB.table('Prefs', {
-      table: stdTable,
-      tableName: 'prefs-prod',
-      mode: 'disposable',
-    }) as Effect.Effect<unknown>,
-  );
-
-  expect(guard).toHaveBeenCalledWith(
-    'PrefsDeployGuard',
-    stdTable,
-    'disposable',
-    {
-      target: 'prefs-prod',
-      inPlaceOnly: true,
-      localIndexOrder: [],
-    },
-  );
-  expect(Object.keys(Output.upstreamAny(table.mock.calls[0]![1]))).toEqual([
-    'TasksDeployGuard',
-  ]);
 });

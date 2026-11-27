@@ -1,6 +1,6 @@
 # Laymos is reached through Monoverse
 
-**Status:** accepted
+**Status:** superseded by [ADR 0013](./0013-the-app-is-one-kabuki-tree-of-composable-tools.md)
 
 DevTools shows Laymos only as Embedded Laymos inside Monoverse; there is no
 Laymos Tool, `/laymos` route, or Laymos list in the Project registry. Since

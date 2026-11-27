@@ -39,7 +39,6 @@ const signedIn = (id = 'u1'): Principal => ({
   kind: 'session',
   session: { id: `session-${id}`, expiresAt: new Date(0) },
   user: { id, email: `${id}@example.com`, name: id },
-  test: false,
 });
 
 const TestServices = Layer.mergeAll(
@@ -237,50 +236,6 @@ describe('auth.http auth', () => {
       'session_cache_1=NEW; Path=/; HttpOnly',
     ]);
   });
-
-  it('refuses a Test User by cookie or Device token unless the backend admits them', async () => {
-    mocks.getSession.mockResolvedValue({
-      data: {
-        session: { id: 's-tess' },
-        user: { id: 'tess', email: 'tess@example.test' },
-      },
-    });
-    const WhoAmI = HttpApiEndpoint.get('whoAmI', '/me', {
-      success: Schema.String,
-    });
-    const Group = Authz.required(HttpApiGroup.make('test').add(WhoAmI));
-    class Api extends HttpApi.make('test-users-api').add(Group) {}
-    const Handlers = HttpApiBuilder.group(Api, 'test', (handlers) =>
-      handlers.handle('whoAmI', () =>
-        Effect.map(Authz.User, ({ user }) => user.email),
-      ),
-    );
-    const call = (
-      server: Layer.Layer<any, never, any>,
-      headers: Record<string, string>,
-    ) =>
-      serve(
-        Api,
-        Handlers,
-        server,
-        new Request('http://localhost/me', { headers }),
-      );
-
-    for (const headers of [
-      { cookie: 'session=abc' },
-      { authorization: 'Bearer device-token' },
-    ]) {
-      const refused = await call(auth.http({ url }), headers);
-      expect(refused.response.status).toBe(403);
-      expect(JSON.parse(refused.body)).toMatchObject({
-        _tag: 'Forbidden',
-        reason: 'Test Users are not accepted',
-      });
-      const admitted = await call(auth.http({ url, testUsers: true }), headers);
-      expect(admitted.response.status).toBe(200);
-      expect(JSON.parse(admitted.body)).toBe('tess@example.test');
-    }
-  });
 });
 
 describe('auth.http auth options', () => {
@@ -353,21 +308,16 @@ describe('auth.http with oauth', () => {
       )
       .handle('notes', () => Effect.succeed('ok')),
   );
-  const call = (request: Request, testUsers = false) =>
+  const call = (request: Request) =>
     serve(
       Api,
       Handlers,
-      auth.http({
-        url,
-        oauth: { resource, scopes: ['notes:read'] },
-        testUsers,
-      }),
+      auth.http({ url, oauth: { resource, scopes: ['notes:read'] } }),
       request,
     );
-  const post = (headers: Record<string, string> = {}, testUsers = false) =>
+  const post = (headers: Record<string, string> = {}) =>
     call(
       new Request('https://mcp.example.com/mcp', { method: 'POST', headers }),
-      testUsers,
     );
 
   it('publishes Protected Resource Metadata at both RFC 9728 paths', async () => {
@@ -461,27 +411,5 @@ describe('auth.http with oauth', () => {
   it('forbids a browser Sign-in a Scope check', async () => {
     const { response } = await post({ cookie: 'session=abc' });
     expect(response.status).toBe(403);
-  });
-
-  it('refuses a Test User’s Access Token, challenged, unless the backend admits them', async () => {
-    stubJwks();
-    const headers = {
-      authorization: `Bearer ${await mint({ email: 'tess@example.test' })}`,
-    };
-    const refused = await post(headers);
-    expect(refused.response.status).toBe(403);
-    expect(JSON.parse(refused.body)).toMatchObject({
-      reason: 'Test Users are not accepted',
-    });
-    expect(refused.response.headers.get('www-authenticate')).toContain(
-      'resource_metadata=',
-    );
-
-    const admitted = await post(headers, true);
-    expect(admitted.response.status).toBe(200);
-    expect(JSON.parse(admitted.body)).toEqual({
-      user: 'tess@example.test',
-      client: 'inspector',
-    });
   });
 });
