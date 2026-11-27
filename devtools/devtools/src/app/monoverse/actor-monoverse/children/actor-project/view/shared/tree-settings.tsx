@@ -16,7 +16,18 @@ import {
   settingsTrigger,
 } from './settings.js';
 import { usePhone } from './screen.js';
-import type { Unchanged } from '../../../../logic/shared/index.js';
+import type {
+  ConnectionKind,
+  Shown,
+  Unchanged,
+} from '../../../../logic/shared/index.js';
+
+export interface ConnectionSettings {
+  readonly shown: Shown;
+  readonly outside: boolean;
+  readonly onShown: (kind: ConnectionKind) => void;
+  readonly onOutside: () => void;
+}
 
 export interface TreeSettingsProps {
   readonly changesOn: boolean;
@@ -26,6 +37,7 @@ export interface TreeSettingsProps {
   readonly onUnchanged: (unchanged: Unchanged) => void;
   readonly onDeleted: () => void;
   readonly onIgnored: () => void;
+  readonly connections?: ConnectionSettings | undefined;
 }
 
 const unchangedChoices: ReadonlyArray<{
@@ -38,6 +50,30 @@ const unchangedChoices: ReadonlyArray<{
 ];
 
 const ignoredHint = "A Package's files outside its source roots";
+const outsideHint =
+  'With one folder shown, the folders outside it that it connects to';
+
+const kindChoices: ReadonlyArray<{
+  kind: ConnectionKind;
+  label: string;
+  hint: string;
+}> = [
+  {
+    kind: 'violations',
+    label: 'Violations',
+    hint: 'Imports the rules forbid',
+  },
+  {
+    kind: 'exceptions',
+    label: 'Exceptions',
+    hint: 'Imports a door or an exception lets through',
+  },
+  {
+    kind: 'allowed',
+    label: 'Allowed',
+    hint: 'Every other import',
+  },
+];
 
 export function TreeSettingsRows({
   sheet,
@@ -47,6 +83,7 @@ export function TreeSettingsRows({
   sheet: boolean;
   keep?: boolean;
 }) {
+  const { connections } = props;
   const divider = (
     <div
       aria-hidden
@@ -81,6 +118,26 @@ export function TreeSettingsRows({
           checked={props.ignored}
           onChange={props.onIgnored}
         />
+        {connections === undefined ? null : (
+          <>
+            {divider}
+            {kindChoices.map(({ kind, label, hint }) => (
+              <SettingSwitch
+                key={kind}
+                label={label}
+                hint={hint}
+                checked={connections.shown[kind]}
+                onChange={() => connections.onShown(kind)}
+              />
+            ))}
+            <SettingSwitch
+              label="Outside folders"
+              hint={outsideHint}
+              checked={connections.outside}
+              onChange={connections.onOutside}
+            />
+          </>
+        )}
       </>
     );
   const changeRows = props.changesOn || keep;
@@ -114,6 +171,43 @@ export function TreeSettingsRows({
         hint={ignoredHint}
         checked={props.ignored}
         onChange={props.onIgnored}
+      />
+      {connections === undefined ? null : (
+        <ConnectionRows connections={connections} divider={divider} />
+      )}
+    </>
+  );
+}
+
+function ConnectionRows({
+  connections,
+  divider,
+}: {
+  connections: ConnectionSettings;
+  divider: ReactNode;
+}) {
+  return (
+    <>
+      {divider}
+      <span className="block px-2 pt-1.5 pb-0.5 text-xs text-muted-foreground">
+        Connections
+      </span>
+      {kindChoices.map(({ kind, label, hint }) => (
+        <SwitchRow
+          key={kind}
+          label={label}
+          title={hint}
+          checked={connections.shown[kind]}
+          onChange={() => connections.onShown(kind)}
+        />
+      ))}
+      {divider}
+      <SwitchRow
+        label="Outside folders"
+        title={outsideHint}
+        hint={outsideHint}
+        checked={connections.outside}
+        onChange={connections.onOutside}
       />
     </>
   );

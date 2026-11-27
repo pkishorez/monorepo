@@ -67,7 +67,12 @@ export const OutlineArcs = memo(function OutlineArcs({
       if (index === undefined) continue;
       const to = place.middle(index);
       const rows = Math.abs(to - from) / rowHeight;
-      const broken = connection.broken > 0;
+      const colourOf = (plain: string) =>
+        connection.broken > 0
+          ? 'var(--outline-broken)'
+          : connection.excepted > 0
+            ? 'var(--outline-excepted)'
+            : plain;
       const draw = (start: number, end: number, bend: number) => {
         const out = edge - bend;
         const stop = edge - 5;
@@ -82,7 +87,7 @@ export const OutlineArcs = memo(function OutlineArcs({
           path,
           bend,
           d: draw(start, end, bend),
-          colour: broken ? 'var(--outline-broken)' : 'var(--outline-uses)',
+          colour: colourOf('var(--outline-uses)'),
           head: end,
           tail: start,
         });
@@ -95,7 +100,7 @@ export const OutlineArcs = memo(function OutlineArcs({
           path,
           bend: Math.min(room, bend + 3),
           d: draw(start, end, Math.min(room, bend + 3)),
-          colour: broken ? 'var(--outline-broken)' : 'var(--outline-used-by)',
+          colour: colourOf('var(--outline-used-by)'),
           head: end,
           tail: start,
         });

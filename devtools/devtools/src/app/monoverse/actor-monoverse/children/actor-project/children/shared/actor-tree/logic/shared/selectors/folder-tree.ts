@@ -1,9 +1,11 @@
 import { isWithin } from '../../../../../../../../../server/rpc/contract/index.js';
+import type { Link } from '../../../../../../../../../services/projects/contract/index.js';
 import {
   ancestorsOf,
   nameOf,
   type Change,
 } from '../../../../../../logic/shared/index.js';
+import { focusedFiles } from './connections.js';
 
 type NodeKind = 'folder' | 'file' | 'package';
 
@@ -145,6 +147,62 @@ export function visibleOf(
     if (node.kind !== 'folder' || !isOpen(at)) return at;
   }
   return undefined;
+}
+
+export function focusOf(tree: FolderTree, focus: string | null) {
+  return focus !== null && tree.nodes.get(focus)?.kind === 'folder'
+    ? focus
+    : null;
+}
+
+export function focusedTree(
+  whole: FolderTree,
+  leaves: ReadonlyArray<Leaf>,
+  focus: string | null,
+  links: ReadonlyArray<Link>,
+  outside: boolean,
+): FolderTree {
+  if (focus === null) return whole;
+  const kept = new Set(
+    focusedFiles(
+      focus,
+      leaves.map(({ path }) => path),
+      links,
+      outside,
+    ),
+  );
+  const shown = leaves.filter(({ path }) => kept.has(path));
+  const { root } = whole;
+  return outside
+    ? buildTree(root.path, shown, root.label)
+    : buildTree(focus, shown);
+}
+
+export function opensAround(focus: string | null, outside: boolean) {
+  return (path: string) => focus !== null && outside && isWithin(focus, path);
+}
+
+export interface Crumb {
+  readonly path: string | null;
+  readonly name: string;
+}
+
+export function trailOf(
+  tree: FolderTree,
+  focus: string,
+  name: string,
+): ReadonlyArray<Crumb> {
+  const base = tree.root.path;
+  const folders = [focus, ...ancestorsOf(focus)]
+    .filter((path) => path !== base && isWithin(path, base))
+    .reverse();
+  return [
+    { path: null, name },
+    ...folders.map((path) => ({
+      path,
+      name: tree.nodes.get(path)?.name ?? path,
+    })),
+  ];
 }
 
 export function withDeleted(

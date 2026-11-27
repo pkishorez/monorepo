@@ -38,8 +38,22 @@ export const treeProps = ({
           }),
         )
       : [],
+  excepted:
+    state.contents.check._tag === 'Checked'
+      ? state.contents.check.excepted.map(
+          ({ from, to, line, column, message }) => ({
+            from,
+            to,
+            line,
+            column,
+            message,
+          }),
+        )
+      : [],
   sourceRoots: state.contents.sourceRoots,
   changes: props.changes,
   unchanged: props.unchanged,
   ignored: props.ignored,
+  shown: props.shown,
+  outside: props.outside,
 });

@@ -250,6 +250,10 @@ describe("a Package's Check", () => {
                 file: from,
                 kind: reason,
               })),
+              excepted: check.excepted.map(({ from, ...rest }) => ({
+                ...rest,
+                file: from,
+              })),
             }
           : check,
     }));
@@ -267,6 +271,16 @@ describe("a Package's Check", () => {
                     line,
                     column,
                     ...(to === undefined ? {} : { to }),
+                    message,
+                  }),
+                ),
+                excepted: result.excepted.map(
+                  ({ by, file, line, column, to, message }) => ({
+                    by,
+                    file,
+                    line,
+                    column,
+                    to,
                     message,
                   }),
                 ),
@@ -332,6 +346,7 @@ describe('a branch no worktree has', () => {
       expect(fromGit.contents.check).toEqual(fromGit.check);
       expect(fromGit.check).toEqual({
         _tag: 'Checked',
+        excepted: expect.any(Array),
         violations: [
           expect.objectContaining({
             from: core('src/alias.ts'),
@@ -385,6 +400,7 @@ describe('a branch no worktree has', () => {
       const fromGit = await checkAt();
       expect(fromGit.check).toEqual({
         _tag: 'Checked',
+        excepted: expect.any(Array),
         violations: [
           expect.objectContaining({
             from: 'src/alias.ts',

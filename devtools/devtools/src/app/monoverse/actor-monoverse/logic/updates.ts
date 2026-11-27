@@ -27,6 +27,8 @@ export const init: InitOf<typeof MonoverseShape> = (place) => ({
     deleted: true,
     unchanged: 'dim',
     ignored: true,
+    shown: { violations: true, exceptions: true, allowed: true },
+    outside: true,
     switching: false,
   },
   state:
@@ -91,6 +93,10 @@ export const updates: UpdatesOf<typeof MonoverseShape> = {
   DeletedToggled: (_, { model }) => ({ model: { deleted: !model.deleted } }),
   UnchangedChosen: ({ unchanged }) => ({ model: { unchanged } }),
   IgnoredToggled: (_, { model }) => ({ model: { ignored: !model.ignored } }),
+  ShownToggled: ({ kind }, { model }) => ({
+    model: { shown: { ...model.shown, [kind]: !model.shown[kind] } },
+  }),
+  OutsideToggled: (_, { model }) => ({ model: { outside: !model.outside } }),
   Followed: ({ place }, { model, state }) => {
     if (samePlace(place, placeOf(model, state))) return {};
     const where = {

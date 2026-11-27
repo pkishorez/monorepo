@@ -25,6 +25,7 @@ import {
   SettingsIcon,
   TreeSettingsRows,
   usePhone,
+  type ConnectionSettings,
   type TreeSettingsProps,
 } from './shared/index.js';
 import { BranchMenu } from './branch-menu.js';
@@ -47,6 +48,7 @@ export interface GitControlsProps {
   readonly onDeleted: () => void;
   readonly onUnchanged: (unchanged: Unchanged) => void;
   readonly onIgnored: () => void;
+  readonly connections: ConnectionSettings;
 }
 
 export function GitControls(props: GitControlsProps) {
@@ -103,6 +105,7 @@ function WideGitControls(props: GitControlsProps) {
         onUnchanged={props.onUnchanged}
         ignored={props.ignored}
         onIgnored={props.onIgnored}
+        connections={props.connections}
       />
     </div>
   );

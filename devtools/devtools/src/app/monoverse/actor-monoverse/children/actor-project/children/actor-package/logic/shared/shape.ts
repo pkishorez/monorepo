@@ -4,7 +4,10 @@ import { Actor } from '@kestack/kabuki';
 import { ChangedPathSchema } from '../../../../../../../server/rpc/git/contract/index.js';
 import { PackageContentsSchema } from '../../../../../../../server/rpc/project/contract/index.js';
 import { Projects } from '../../../../../../../services/projects/contract/index.js';
-import { UnchangedSchema } from '../../../../../../logic/shared/index.js';
+import {
+  ShownSchema,
+  UnchangedSchema,
+} from '../../../../../../logic/shared/index.js';
 
 const State = Schema.TaggedUnion({
   Reading: {},
@@ -29,6 +32,8 @@ export const PackageShape = Actor.define('Package', {
     changes: Schema.NullOr(Schema.Array(ChangedPathSchema)),
     unchanged: UnchangedSchema,
     ignored: Schema.Boolean,
+    shown: ShownSchema,
+    outside: Schema.Boolean,
   }),
   model: Schema.Struct({
     root: Schema.String,

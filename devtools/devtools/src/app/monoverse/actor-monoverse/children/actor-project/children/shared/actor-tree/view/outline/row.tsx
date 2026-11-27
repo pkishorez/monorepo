@@ -6,11 +6,13 @@ import {
   ChevronRightIcon,
   ChevronsDownUpIcon,
   ChevronsUpDownIcon,
+  DoorOpenIcon,
   EyeIcon,
   FileDiffIcon,
   FileIcon,
   FolderIcon,
   FolderOpenIcon,
+  LeafIcon,
   PackageIcon,
   TriangleAlertIcon,
 } from 'lucide-react';
@@ -96,11 +98,16 @@ const stop = (event: MouseEvent) => event.stopPropagation();
 
 function linkOf(connection: Connection | null) {
   if (connection === null) return null;
-  const { uses, usedBy, broken } = connection;
+  const { uses, usedBy, broken, excepted } = connection;
   if (broken > 0)
     return {
       bar: 'var(--outline-broken)',
       band: tint('--outline-broken', 10),
+    };
+  if (excepted > 0)
+    return {
+      bar: 'var(--outline-excepted)',
+      band: tint('--outline-excepted', 10),
     };
   if (uses > 0 && usedBy > 0)
     return {
@@ -130,6 +137,8 @@ export const OutlineRow = memo(function OutlineRow({
   faded,
   connection,
   violations,
+  excepted,
+  leaf,
   cycle,
   check,
   change,
@@ -152,6 +161,8 @@ export const OutlineRow = memo(function OutlineRow({
   faded: boolean;
   connection: Connection | null;
   violations: number;
+  excepted: number;
+  leaf: boolean;
   cycle: boolean;
   check: Check | null;
   change: { readonly status: ChangeStatus; readonly count: number } | null;
@@ -246,11 +257,12 @@ export const OutlineRow = memo(function OutlineRow({
       )}
       <Glyph node={node} open={open} ignored={ignored} tone={tone} />
       <Name node={node} tone={tone} />
+      {leaf ? <LeafMark /> : null}
       {change === null ? null : (
         <span className="sr-only">, {changeWord[change.status]}</span>
       )}
       {revealing ||
-      marked(violations, cycle, check) ||
+      marked(violations, excepted, cycle, check) ||
       inside !== null ||
       hover ? (
         <span className="ml-auto flex shrink-0 items-center gap-2.5 pl-2">
@@ -260,6 +272,7 @@ export const OutlineRow = memo(function OutlineRow({
           <Findings
             node={node}
             violations={violations}
+            excepted={excepted}
             cycle={cycle}
             check={check}
           />
@@ -435,8 +448,57 @@ function InsideToggle({
   );
 }
 
-const marked = (violations: number, cycle: boolean, check: Check | null) =>
-  violations > 0 || cycle || (check !== null && check._tag !== 'Unchecked');
+const marked = (
+  violations: number,
+  excepted: number,
+  cycle: boolean,
+  check: Check | null,
+) =>
+  violations > 0 ||
+  excepted > 0 ||
+  cycle ||
+  (check !== null && check._tag !== 'Unchecked');
+
+const leafLabel = 'Leaf: other folders import it, and it imports none';
+
+function LeafMark() {
+  return (
+    <span
+      role="img"
+      aria-label={leafLabel}
+      title={leafLabel}
+      className="ml-1.5 flex shrink-0"
+    >
+      <LeafIcon strokeWidth={2} className="size-3 text-(--outline-leaf)" />
+    </span>
+  );
+}
+
+function ExceptedCount({ node, count }: { node: TreeNode; count: number }) {
+  const label =
+    node.kind === 'file'
+      ? plural(
+          count,
+          'import in this file goes through a door or an exception',
+          'imports in this file go through a door or an exception',
+        )
+      : plural(
+          count,
+          'import inside goes through a door or an exception',
+          'imports inside go through a door or an exception',
+        );
+  return (
+    <span
+      role="img"
+      aria-label={label}
+      title={label}
+      className="flex items-center gap-0.5 text-[11px] font-medium text-(--outline-excepted) tabular-nums"
+    >
+      <DoorOpenIcon strokeWidth={2} className="size-3.5" />
+      {count}
+    </span>
+  );
+}
 
 const plural = (count: number, one: string, many: string) =>
   `${count} ${count === 1 ? one : many}`;
@@ -444,14 +506,18 @@ const plural = (count: number, one: string, many: string) =>
 function Findings({
   node,
   violations,
+  excepted,
   cycle,
   check,
 }: {
   node: TreeNode;
   violations: number;
+  excepted: number;
   cycle: boolean;
   check: Check | null;
 }) {
+  const exceptedMark =
+    excepted > 0 ? <ExceptedCount node={node} count={excepted} /> : null;
   const cycleMark = cycle ? (
     <span
       role="img"
@@ -472,11 +538,18 @@ function Findings({
   if (node.kind === 'package')
     return (
       <>
+        {exceptedMark}
         <CheckMark check={check ?? undefined} />
         {cycleMark}
       </>
     );
-  if (violations === 0) return cycleMark;
+  if (violations === 0)
+    return (
+      <>
+        {exceptedMark}
+        {cycleMark}
+      </>
+    );
   const label =
     node.kind === 'file'
       ? plural(violations, 'Violation in this file', 'Violations in this file')
@@ -487,6 +560,7 @@ function Findings({
         );
   return (
     <>
+      {exceptedMark}
       <span
         role="img"
         aria-label={label}
@@ -511,11 +585,12 @@ function RevealChip({
   actions: OutlineRowActions;
 }) {
   if (connection === null) return null;
-  const { uses, usedBy, broken } = connection;
+  const { uses, usedBy, broken, excepted } = connection;
   const parts = [
     uses > 0 ? `uses ${uses}` : null,
     usedBy > 0 ? `used by ${usedBy}` : null,
     broken > 0 ? `${broken} broken` : null,
+    excepted > 0 ? `${excepted} through a door or an exception` : null,
   ].filter((part) => part !== null);
   const label = `Open ${node.name} to what is connected inside: ${parts.join(', ')}`;
   return (

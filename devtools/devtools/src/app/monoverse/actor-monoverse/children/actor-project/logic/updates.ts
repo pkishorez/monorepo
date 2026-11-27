@@ -86,6 +86,8 @@ export const updates: UpdatesOf<typeof ProjectShape> = {
     emit: { _tag: 'UnchangedChosen', unchanged },
   }),
   IgnoredToggled: () => ({ emit: { _tag: 'IgnoredToggled' } }),
+  ShownToggled: ({ kind }) => ({ emit: { _tag: 'ShownToggled', kind } }),
+  OutsideToggled: () => ({ emit: { _tag: 'OutsideToggled' } }),
   ChangesRead: ({ at, files }, data) =>
     at === changesAt(data)
       ? { model: { changed: { at, files }, changesProblem: null } }

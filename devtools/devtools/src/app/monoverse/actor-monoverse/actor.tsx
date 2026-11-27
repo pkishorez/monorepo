@@ -55,6 +55,8 @@ export const Monoverse = MonoverseShape.build({
               unchanged,
             }),
             IgnoredToggled: () => ({ _tag: 'IgnoredToggled' }),
+            ShownToggled: ({ kind }) => ({ _tag: 'ShownToggled', kind }),
+            OutsideToggled: () => ({ _tag: 'OutsideToggled' }),
             SwitchAsked: () => ({ _tag: 'SwitchAsked' }),
           },
         }),

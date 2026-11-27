@@ -38,12 +38,22 @@ const HostShape = Actor.define('Host', {
     deleted: Schema.Boolean,
     unchanged: Schema.Literals(['show', 'dim', 'hide']),
     ignored: Schema.Boolean,
+    shown: Schema.Struct({
+      violations: Schema.Boolean,
+      exceptions: Schema.Boolean,
+      allowed: Schema.Boolean,
+    }),
+    outside: Schema.Boolean,
   }),
   message: {
     Moved: { where: WhereSchema },
     DeletedToggled: {},
     UnchangedChosen: { unchanged: Schema.Literals(['show', 'dim', 'hide']) },
     IgnoredToggled: {},
+    ShownToggled: {
+      kind: Schema.Literals(['violations', 'exceptions', 'allowed']),
+    },
+    OutsideToggled: {},
     Go: { where: WhereSchema },
     SwitchAsked: {},
   },
@@ -59,6 +69,8 @@ const Host = HostShape.build({
       deleted: true,
       unchanged: 'dim',
       ignored: true,
+      shown: { violations: true, exceptions: true, allowed: true },
+      outside: true,
     },
   }),
   children: {
@@ -70,6 +82,8 @@ const Host = HostShape.build({
         deleted: model.deleted,
         unchanged: model.unchanged,
         ignored: model.ignored,
+        shown: model.shown,
+        outside: model.outside,
       }),
       emits: {
         Moved: ({ _tag, ...where }) => ({ _tag: 'Moved', where }),
@@ -79,6 +93,8 @@ const Host = HostShape.build({
           unchanged,
         }),
         IgnoredToggled: () => ({ _tag: 'IgnoredToggled' }),
+        ShownToggled: ({ kind }) => ({ _tag: 'ShownToggled', kind }),
+        OutsideToggled: () => ({ _tag: 'OutsideToggled' }),
         SwitchAsked: () => ({ _tag: 'SwitchAsked' }),
       },
     }),
@@ -91,6 +107,10 @@ const Host = HostShape.build({
     DeletedToggled: (_, { model }) => ({ model: { deleted: !model.deleted } }),
     UnchangedChosen: ({ unchanged }) => ({ model: { unchanged } }),
     IgnoredToggled: (_, { model }) => ({ model: { ignored: !model.ignored } }),
+    ShownToggled: ({ kind }, { model }) => ({
+      model: { shown: { ...model.shown, [kind]: !model.shown[kind] } },
+    }),
+    OutsideToggled: (_, { model }) => ({ model: { outside: !model.outside } }),
     SwitchAsked: (_, { model }) => ({
       model: { switched: model.switched + 1 },
     }),
@@ -123,7 +143,7 @@ const monorepo: Workspace = {
       path: 'apps/web',
       private: true,
       dependencies: [{ name: '@me/core', kinds: ['runtime'] }],
-      check: { _tag: 'Checked', violations: [] },
+      check: { _tag: 'Checked', violations: [], excepted: [] },
     },
   ],
   cycles: [],
@@ -157,6 +177,7 @@ const contents = (path: string): PackageContents => {
     imports: [[at('src/app/actor.ts'), at('src/index.ts')]],
     check: {
       _tag: 'Checked',
+      excepted: [],
       violations: [
         {
           from: at('src/app/actor.ts'),
@@ -299,7 +320,7 @@ describe('Project', () => {
             {
               path: 'apps/web',
               name: 'web',
-              check: { _tag: 'Checked', violations: [] },
+              check: { _tag: 'Checked', violations: [], excepted: [] },
             },
           ],
           links: [['apps/web', 'packages/core']],

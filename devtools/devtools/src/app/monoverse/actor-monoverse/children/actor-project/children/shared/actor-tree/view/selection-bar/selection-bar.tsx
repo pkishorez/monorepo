@@ -6,7 +6,9 @@ import {
 } from '@kestack/web-platform/ui/components/popover';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import {
+  DoorOpenIcon,
   FileIcon,
+  FocusIcon,
   FolderGit2Icon,
   FolderIcon,
   PackageIcon,
@@ -15,13 +17,20 @@ import {
 } from 'lucide-react';
 
 import type { TreeNode } from '../../logic/shared/index.js';
-import type { Connection, Finding } from '../../logic/shared/index.js';
+import type {
+  Connection,
+  Finding,
+  SelectionFindings,
+} from '../../logic/shared/index.js';
 
 export interface SelectionColours {
   readonly uses: string;
   readonly usedBy: string;
   readonly broken: string;
+  readonly excepted: string;
 }
+
+const focusLabel = 'Show this folder alone';
 
 const iconOf = { folder: FolderIcon, file: FileIcon, package: PackageIcon };
 
@@ -44,6 +53,7 @@ export function SelectionBar({
   colours,
   onActivate,
   onChanges,
+  onFocus,
   onClear,
   panel = false,
 }: {
@@ -52,10 +62,11 @@ export function SelectionBar({
   root: boolean;
   changesOn: boolean;
   connections: ReadonlyMap<string, Connection>;
-  findings: ReadonlyArray<Finding>;
+  findings: SelectionFindings;
   colours: SelectionColours;
   onActivate: () => void;
   onChanges?: (() => void) | undefined;
+  onFocus?: (() => void) | undefined;
   onClear: () => void;
   panel?: boolean;
 }) {
@@ -91,11 +102,29 @@ export function SelectionBar({
         value={usedBy}
         compact={compact}
       />
-      {findings.length > 0 ? (
+      {findings.violations.length > 0 ? (
         <FindingList
-          findings={findings}
-          scope={scope}
+          findings={findings.violations}
+          word={
+            scope === 'package'
+              ? findings.violations.length === 1
+                ? 'violation'
+                : 'violations'
+              : 'broken'
+          }
+          what="show what is wrong"
+          icon={TriangleAlertIcon}
           colour={colours.broken}
+        />
+      ) : null}
+      {findings.excepted.length > 0 ? (
+        <FindingList
+          findings={findings.excepted}
+          word={findings.excepted.length === 1 ? 'exception' : 'exceptions'}
+          what="show which door or exception lets each import through"
+          icon={DoorOpenIcon}
+          short
+          colour={colours.excepted}
         />
       ) : null}
     </>
@@ -126,6 +155,18 @@ export function SelectionBar({
               >
                 {label}
               </span>
+              {onFocus === undefined ? null : (
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label={focusLabel}
+                  title={focusLabel}
+                  className="shrink-0 text-muted-foreground"
+                  onClick={onFocus}
+                >
+                  <FocusIcon aria-hidden className="size-3.5" />
+                </Button>
+              )}
               <Button
                 size="icon-sm"
                 variant="ghost"
@@ -221,6 +262,18 @@ export function SelectionBar({
           <Short wide={action} narrow="Open" />
         )}
       </Button>
+      {onFocus === undefined ? null : (
+        <Button
+          size="icon"
+          variant="ghost"
+          aria-label={focusLabel}
+          title={focusLabel}
+          className="size-9 shrink-0 text-muted-foreground max-sm:size-10"
+          onClick={onFocus}
+        >
+          <FocusIcon aria-hidden className="size-4" />
+        </Button>
+      )}
       {root ? null : (
         <Button
           size="icon"
@@ -238,25 +291,30 @@ export function SelectionBar({
 
 function FindingList({
   findings,
-  scope,
+  word,
+  what,
+  icon: Icon,
   colour,
+  short = false,
 }: {
   findings: ReadonlyArray<Finding>;
-  scope: 'repo' | 'package';
+  word: string;
+  what: string;
+  icon: typeof TriangleAlertIcon;
   colour: string;
+  short?: boolean;
 }) {
   const count = findings.length;
-  const word =
-    scope === 'package' ? (count === 1 ? 'violation' : 'violations') : 'broken';
   return (
     <Popover>
       <PopoverTrigger
         className="-mx-1 flex h-5 items-center gap-1 rounded-md px-1 transition-colors duration-150 outline-none hover:bg-foreground/[0.06] focus-visible:ring-2 focus-visible:ring-ring/50"
         style={{ color: colour }}
-        aria-label={`${count} ${word}: show what is wrong`}
+        aria-label={`${count} ${word}: ${what}`}
+        title={`${count} ${word}`}
       >
-        <TriangleAlertIcon aria-hidden className="size-3.5" />
-        {count} {word}
+        <Icon aria-hidden className="size-3.5" />
+        {short ? count : `${count} ${word}`}
       </PopoverTrigger>
       <PopoverContent
         side="top"

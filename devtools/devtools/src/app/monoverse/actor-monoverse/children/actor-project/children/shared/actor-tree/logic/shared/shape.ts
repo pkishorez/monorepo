@@ -6,7 +6,10 @@ import {
   CheckSchema,
   ImportSchema,
 } from '../../../../../../../../server/rpc/project/contract/index.js';
-import { UnchangedSchema } from '../../../../../../../logic/shared/index.js';
+import {
+  ShownSchema,
+  UnchangedSchema,
+} from '../../../../../../../logic/shared/index.js';
 
 const TreePackageSchema = Schema.Struct({
   path: Schema.String,
@@ -27,8 +30,19 @@ const BrokenLinkSchema = Schema.Struct({
 
 export type BrokenLink = typeof BrokenLinkSchema.Type;
 
+const ExceptedLinkSchema = Schema.Struct({
+  from: Schema.String,
+  to: Schema.String,
+  line: Schema.Number,
+  column: Schema.Number,
+  message: Schema.String,
+});
+
+export type ExceptedLink = typeof ExceptedLinkSchema.Type;
+
 export interface Findings {
   readonly violations: ReadonlyMap<string, number>;
+  readonly excepted: ReadonlyMap<string, number>;
   readonly cycles: ReadonlyMap<string, number>;
   readonly checks: ReadonlyMap<string, TreePackage['check']>;
 }
@@ -38,6 +52,11 @@ export interface Finding {
   readonly where: string;
 }
 
+export interface SelectionFindings {
+  readonly violations: ReadonlyArray<Finding>;
+  readonly excepted: ReadonlyArray<Finding>;
+}
+
 const TreePropsSchema = Schema.Struct({
   base: Schema.String,
   name: Schema.String,
@@ -45,6 +64,9 @@ const TreePropsSchema = Schema.Struct({
   packages: Schema.Array(TreePackageSchema),
   links: Schema.Array(ImportSchema),
   broken: Schema.Array(BrokenLinkSchema),
+  excepted: Schema.Array(ExceptedLinkSchema),
+  shown: ShownSchema,
+  outside: Schema.Boolean,
   sourceRoots: Schema.NullOr(Schema.Array(Schema.String)),
   changes: Schema.NullOr(Schema.Array(ChangedPathSchema)),
   unchanged: UnchangedSchema,
@@ -62,8 +84,9 @@ export const TreeShape = Actor.define('Tree', {
     open: Schema.Array(Schema.String),
     home: Schema.Array(Schema.String),
     selected: Schema.NullOr(Schema.String),
+    focus: Schema.NullOr(Schema.String),
   }),
-  message: Schema.TaggedUnion({
+  message: {
     Toggled: { path: Schema.String },
     OpenChosen: { open: Schema.Array(Schema.String) },
     Reset: {},
@@ -72,7 +95,11 @@ export const TreeShape = Actor.define('Tree', {
     Opened: { path: Schema.String },
     Entered: { path: Schema.String },
     Viewed: { path: Schema.String, files: Schema.Array(Schema.String) },
-  }),
+    Focused: Schema.Struct({ path: Schema.NullOr(Schema.String) }).annotate({
+      description:
+        'Show one folder alone, with the folders outside it that it connects to, or the whole tree again when null',
+    }),
+  },
   emits: {
     Opened: { path: Schema.String },
     Entered: { path: Schema.String },

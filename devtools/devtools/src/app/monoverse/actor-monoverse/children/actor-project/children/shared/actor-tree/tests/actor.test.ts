@@ -13,6 +13,9 @@ const props: TreeProps = {
   packages: [],
   links: [],
   broken: [],
+  excepted: [],
+  shown: { violations: true, exceptions: true, allowed: true },
+  outside: true,
   sourceRoots: null,
   changes: null,
   unchanged: 'dim' as const,
@@ -65,11 +68,13 @@ describe('the tree', () => {
       open: ['src', 'src/a'],
       home: ['src'],
       selected: null,
+      focus: null,
     });
     expect(play({ _tag: 'Toggled', path: 'src' } as never).model).toEqual({
       open: [],
       home: ['src'],
       selected: null,
+      focus: null,
     });
   });
 
@@ -101,7 +106,7 @@ describe('the tree', () => {
         { _tag: 'Selected', path: 'src/b.ts' } as never,
         { _tag: 'Reset' } as never,
       ).model,
-    ).toEqual({ open: ['src'], home: ['src'], selected: null });
+    ).toEqual({ open: ['src'], home: ['src'], selected: null, focus: null });
   });
 
   it('lets a selection go on a second click, or a click on nothing', () => {
@@ -117,6 +122,33 @@ describe('the tree', () => {
         { _tag: 'Selected', path: null } as never,
       ).model,
     ).toMatchObject({ selected: null });
+  });
+
+  it('shows one folder alone, open, with nothing selected, and all again', () => {
+    const { model } = play(
+      { _tag: 'Selected', path: 'src/b.ts' } as never,
+      { _tag: 'Focused', path: 'src/a' } as never,
+    );
+    expect(model).toMatchObject({
+      focus: 'src/a',
+      open: ['src', 'src/a'],
+      selected: null,
+    });
+    expect(
+      play(
+        { _tag: 'Focused', path: 'src/a' } as never,
+        { _tag: 'Focused', path: null } as never,
+      ).model,
+    ).toMatchObject({ focus: null, open: ['src', 'src/a'] });
+  });
+
+  it('keeps the folder shown alone as the view goes back to its default', () => {
+    expect(
+      play(
+        { _tag: 'Focused', path: 'src/a' } as never,
+        { _tag: 'Reset' } as never,
+      ).model,
+    ).toMatchObject({ focus: 'src/a', open: ['src'] });
   });
 
   it('opens the folders a reveal names', () => {

@@ -101,6 +101,32 @@ its ancestors, never what happens inside it. A Connection to something inside
 a closed folder lights that folder up with a count.
 _Avoid_: edge, dependency (that is a Package dependency), link
 
+**Exception**:
+One import a Package's monoverse.json lets through although it is beside or
+above the importing file, so it bends the rule that a folder imports only
+what is below it: through a door such as `logic/shared/` or a
+`contract/`, or through one of its `exceptions`. Drawn violet, and counted
+on the file, every folder above it, and the Package, like a Violation.
+_Avoid_: allowed import, waiver
+
+**Shown connections**:
+The setting that chooses which Connections are drawn: Violations,
+Exceptions, and Allowed (every other import). All three are on at first.
+_Avoid_: connection filter
+
+**Leaf folder**:
+A folder of a Package that other folders of the same Package import, and
+that imports none of them. Imports from other Packages or from
+`node_modules` do not count. Marked with a leaf; never a rule.
+_Avoid_: isolated module
+
+**Folder shown alone**:
+One folder of a tree, entered by double-clicking it or from its selection, with a trail above the
+tree from the Package or repo down to it. The folders and files outside it
+that it imports or that import it are drawn dimmed, unless the Outside
+folders setting hides them.
+_Avoid_: zoom, drill-down
+
 **Uses / Used by**:
 The two directions of a Connection from the selected folder: what it imports,
 and what imports it. Drawn in two colours.

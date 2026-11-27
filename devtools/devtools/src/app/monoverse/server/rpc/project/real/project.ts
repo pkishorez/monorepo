@@ -125,6 +125,16 @@ function checkOf(result: PackageResult): Check {
             message,
           }),
         ),
+        excepted: result.excepted.map(
+          ({ file, line, column, to, by, message }) => ({
+            from: file,
+            line,
+            column,
+            to,
+            by,
+            message,
+          }),
+        ),
       };
   }
 }

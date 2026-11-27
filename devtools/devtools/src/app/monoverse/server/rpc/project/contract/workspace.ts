@@ -46,14 +46,32 @@ export const ViolationSchema = Schema.Struct({
 
 export type Violation = typeof ViolationSchema.Type;
 
+export const ExceptedSchema = Schema.Struct({
+  from: Schema.String,
+  line: Schema.Number,
+  column: Schema.Number,
+  to: Schema.String,
+  by: Schema.Literals(['door', 'exception']),
+  message: Schema.String,
+}).annotate({
+  title: 'Excepted import',
+  description:
+    "One import its Package's monoverse.json allows although it is beside or above the importing file, at files relative to the root, as @kestack/monoverse judges it: let through by a door, or by one of its exceptions, with a sentence saying which.",
+});
+
+export type Excepted = typeof ExceptedSchema.Type;
+
 export const CheckSchema = Schema.TaggedUnion({
   Unchecked: {},
   Invalid: { file: Schema.String, message: Schema.String },
-  Checked: { violations: Schema.Array(ViolationSchema) },
+  Checked: {
+    violations: Schema.Array(ViolationSchema),
+    excepted: Schema.Array(ExceptedSchema),
+  },
 }).annotate({
   title: 'Check',
   description:
-    "What a Package's monoverse.json makes of its imports at a branch: none, a file that cannot be read, or its Violations.",
+    "What a Package's monoverse.json makes of its imports at a branch: none, a file that cannot be read, or its Violations and the imports a door or an exception lets through.",
 });
 
 export type Check = typeof CheckSchema.Type;

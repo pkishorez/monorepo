@@ -10,7 +10,11 @@ import {
   WorkspaceSchema,
 } from '../../../../../server/rpc/project/contract/index.js';
 import { Projects } from '../../../../../services/projects/contract/index.js';
-import { UnchangedSchema } from '../../../../logic/shared/index.js';
+import {
+  ConnectionKindSchema,
+  ShownSchema,
+  UnchangedSchema,
+} from '../../../../logic/shared/index.js';
 
 const WhereSchema = Schema.Struct({
   package: Schema.NullOr(Schema.String),
@@ -78,10 +82,12 @@ export const ProjectShape = Actor.define('Project', {
     deleted: Schema.Boolean,
     unchanged: UnchangedSchema,
     ignored: Schema.Boolean,
+    shown: ShownSchema,
+    outside: Schema.Boolean,
   }),
   model: Model,
   state: State,
-  message: Schema.TaggedUnion({
+  message: {
     Analysed: {
       at: Schema.String,
       workspace: WorkspaceSchema,
@@ -102,6 +108,14 @@ export const ProjectShape = Actor.define('Project', {
     DeletedToggled: {},
     UnchangedChosen: { unchanged: UnchangedSchema },
     IgnoredToggled: {},
+    ShownToggled: Schema.Struct({ kind: ConnectionKindSchema }).annotate({
+      description:
+        'Draw, or stop drawing, one kind of Connection: Violations, Exceptions, or every other import',
+    }),
+    OutsideToggled: Schema.Struct({}).annotate({
+      description:
+        'With one folder shown alone, draw or hide the folders outside it that it connects to',
+    }),
     ChangesRead: { at: Schema.String, files: Schema.Array(ChangedPathSchema) },
     ChangesRefused: { at: Schema.String, problem: Schema.String },
     Entered: { package: Schema.String },
@@ -115,12 +129,14 @@ export const ProjectShape = Actor.define('Project', {
     },
     ViewClosed: {},
     SwitchAsked: {},
-  }),
+  },
   emits: {
     Moved: WhereSchema.fields,
     DeletedToggled: {},
     UnchangedChosen: { unchanged: UnchangedSchema },
     IgnoredToggled: {},
+    ShownToggled: { kind: ConnectionKindSchema },
+    OutsideToggled: {},
     SwitchAsked: {},
   },
 });

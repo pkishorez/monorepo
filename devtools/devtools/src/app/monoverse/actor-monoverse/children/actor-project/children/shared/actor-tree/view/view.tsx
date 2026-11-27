@@ -1,10 +1,17 @@
 import { useCallback, useMemo, useRef } from 'react';
 import type { ViewPropsOf } from '@kestack/kabuki/react/types';
+import { Button } from '@kestack/web-platform/ui/components/button';
 
 import { isWithin } from '../../../../../../../server/rpc/contract/index.js';
 import { ancestorsOf, isIgnored } from '../../../../logic/shared/index.js';
 import {
   buildTree,
+  focusOf,
+  focusedTree,
+  leavesOf,
+  opensAround,
+  shownLinks,
+  trailOf,
   visibleRows,
   withDeleted,
   type Leaf,
@@ -14,6 +21,7 @@ import { foldersToReveal, type TreeShape } from '../logic/shared/index.js';
 import {
   useConnections,
   useFindings,
+  useLinkKinds,
   useSelectionFindings,
 } from './lenses/connections.js';
 import { useChanges } from './lenses/git.js';
@@ -32,6 +40,9 @@ export function Body({
     packages,
     links,
     broken,
+    excepted,
+    shown,
+    outside,
     sourceRoots,
     changes,
     unchanged,
@@ -40,8 +51,8 @@ export function Body({
   const { selected } = model;
 
   const every = useMemo(() => withDeleted(files, changes), [files, changes]);
-  const tree = useMemo(() => {
-    const leaves: Array<Leaf> = [
+  const leaves = useMemo(
+    (): ReadonlyArray<Leaf> => [
       ...every.map((path) => ({
         path,
         kind: 'file' as const,
@@ -52,12 +63,41 @@ export function Body({
         label: name,
         ...(version === undefined ? {} : { version }),
       })),
-    ];
-    return buildTree(base, leaves, name);
-  }, [base, name, every, packages]);
+    ],
+    [every, packages],
+  );
+  const whole = useMemo(
+    () => buildTree(base, leaves, name),
+    [base, name, leaves],
+  );
+  const focus = focusOf(whole, model.focus);
+  const kinds = useLinkKinds(broken, excepted);
+  const drawnLinks = useMemo(
+    () => shownLinks(links, kinds, shown),
+    [links, kinds, shown],
+  );
+  const tree = useMemo(
+    () => focusedTree(whole, leaves, focus, drawnLinks, outside),
+    [whole, leaves, focus, drawnLinks, outside],
+  );
 
   const openSet = useMemo(() => new Set(model.open), [model.open]);
-  const isOpen = useCallback((path: string) => openSet.has(path), [openSet]);
+  const isOpen = useMemo(() => {
+    const around = opensAround(focus, outside);
+    return (path: string) => openSet.has(path) || around(path);
+  }, [openSet, focus, outside]);
+  const isOutside = useCallback(
+    (path: string) => focus !== null && !isWithin(path, focus),
+    [focus],
+  );
+  const leafFolders = useMemo(
+    () => (packages.length > 0 ? new Set<string>() : leavesOf(base, links)),
+    [packages, base, links],
+  );
+  const trail = useMemo(
+    () => (focus === null ? null : trailOf(whole, focus, name)),
+    [whole, focus, name],
+  );
 
   const changeOf = useChanges(changes);
   const hiding = changes !== null && unchanged === 'hide';
@@ -71,8 +111,9 @@ export function Body({
   }, [tree, isOpen, hiding, changeOf, ignoredShown, sourceRoots]);
   const faded = useCallback(
     (path: string) =>
-      changes !== null && unchanged === 'dim' && !changeOf.has(path),
-    [changes, unchanged, changeOf],
+      isOutside(path) ||
+      (changes !== null && unchanged === 'dim' && !changeOf.has(path)),
+    [changes, unchanged, changeOf, isOutside],
   );
   const foldersInside = useMemo(() => {
     const inside = new Map<string, Array<string>>();
@@ -109,12 +150,13 @@ export function Body({
       model.home.every((path) => openSet.has(path)),
     [selected, model.home, openSet],
   );
-  const connections = useConnections(tree, isOpen, selected, links, broken);
-  const findings = useFindings(broken, packages);
+  const connections = useConnections(tree, isOpen, selected, drawnLinks, kinds);
+  const findings = useFindings(broken, excepted, packages);
   const selectionFindings = useSelectionFindings(
     selected,
     base,
     broken,
+    excepted,
     packages,
   );
   const dimmed = useMemo(() => {
@@ -131,7 +173,7 @@ export function Body({
 
   const latest = useRef({
     selected,
-    links,
+    links: drawnLinks,
     every,
     open: openSet,
     foldersInside,
@@ -139,7 +181,7 @@ export function Body({
   });
   latest.current = {
     selected,
-    links,
+    links: drawnLinks,
     every,
     open: openSet,
     foldersInside,
@@ -152,7 +194,7 @@ export function Body({
       activate: (node: TreeNode) =>
         send(
           node.kind === 'folder'
-            ? { _tag: 'Toggled', path: node.path }
+            ? { _tag: 'Focused', path: node.path }
             : node.kind === 'file'
               ? { _tag: 'Opened', path: node.path }
               : { _tag: 'Entered', path: node.path },
@@ -187,6 +229,7 @@ export function Body({
         });
       },
       reset: () => send({ _tag: 'Reset' }),
+      focus: (path) => send({ _tag: 'Focused', path }),
       toggleInside: (path) => {
         const { open, folding, foldersInside } = latest.current;
         const inside = foldersInside.inside.get(path) ?? [];
@@ -208,8 +251,17 @@ export function Body({
   return (
     <div {...root} className="relative h-full min-h-0 w-full">
       {rows.length === 0 ? (
-        <p className="p-6 text-sm text-muted-foreground">
+        <p className="flex items-center gap-3 p-6 text-sm text-muted-foreground">
           {hiding ? 'Nothing changed here.' : 'Nothing to show.'}
+          {focus === null ? null : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => send({ _tag: 'Focused', path: null })}
+            >
+              Show all of {name}
+            </Button>
+          )}
         </p>
       ) : (
         <Outline
@@ -223,6 +275,9 @@ export function Body({
           selectionFindings={selectionFindings}
           changes={changeOf}
           changesOn={changes !== null}
+          shown={shown}
+          leaves={leafFolders}
+          trail={trail}
           dimmed={dimmed}
           faded={faded}
           ignored={ignored}

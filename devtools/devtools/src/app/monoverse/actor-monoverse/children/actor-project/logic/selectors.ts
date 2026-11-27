@@ -57,6 +57,9 @@ export const treeProps = (data: DataOf<typeof ProjectShape, 'Monorepo'>) => {
       to,
       message: `In a Package cycle: ${from} depends on ${to}, which leads back to it.`,
     })),
+    excepted: [],
+    shown: props.shown,
+    outside: props.outside,
     sourceRoots: null,
     changes: shownChangesOf(data),
     unchanged: props.unchanged,
@@ -75,6 +78,8 @@ export const packageProps = (data: Data) => ({
   changes: shownChangesOf(data),
   unchanged: data.props.unchanged,
   ignored: data.props.ignored,
+  shown: data.props.shown,
+  outside: data.props.outside,
 });
 
 export const isEntered = ({ props }: Data) => props.package !== null;

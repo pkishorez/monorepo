@@ -38,4 +38,6 @@ export const projectProps = ({
   deleted: model.deleted,
   unchanged: model.unchanged,
   ignored: model.ignored,
+  shown: model.shown,
+  outside: model.outside,
 });

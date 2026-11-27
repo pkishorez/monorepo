@@ -59,7 +59,7 @@ const answers: Partial<
         ['packages/a/src/x/y.ts', 'packages/a/src/z.ts'],
         ['packages/a/src/z.ts', 'packages/a/src/x/y.ts'],
       ],
-      check: { _tag: 'Checked', violations: [violation] },
+      check: { _tag: 'Checked', violations: [violation], excepted: [] },
     }),
   GetBranches: () =>
     Effect.fail(new GitUnavailableError({ reason: 'not-a-repo' })),
@@ -101,7 +101,11 @@ describe('Projects service', () => {
           branch: 'main',
           path: 'packages/a',
         });
-        expect(check).toEqual({ _tag: 'Checked', violations: [violation] });
+        expect(check).toEqual({
+          _tag: 'Checked',
+          violations: [violation],
+          excepted: [],
+        });
       }),
     ));
 

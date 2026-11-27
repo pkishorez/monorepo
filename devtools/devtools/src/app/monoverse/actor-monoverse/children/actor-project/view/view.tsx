@@ -111,6 +111,12 @@ export function Body(self: BodyProps) {
     onUnchanged: (unchanged) => send({ _tag: 'UnchangedChosen', unchanged }),
     ignored: props.ignored,
     onIgnored: () => send({ _tag: 'IgnoredToggled' }),
+    connections: {
+      shown: props.shown,
+      outside: props.outside,
+      onShown: (kind) => send({ _tag: 'ShownToggled', kind }),
+      onOutside: () => send({ _tag: 'OutsideToggled' }),
+    },
   };
 
   return (

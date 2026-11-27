@@ -128,7 +128,15 @@ package view  the Package's git-known files; outside its Source roots dimmed,
               beside its ancestors. With a monoverse.json, an import its
               rules forbid is a Violation, in red, counted on each file
               and folder that holds one; the selection's count opens what
-              `monoverse lint` says of each, at its line and column.
+              `monoverse lint` says of each, at its line and column. An
+              import a door or an exception lets through is an
+              Exception, in violet, counted the same way. A folder other
+              folders import that imports none of them is a leaf, marked
+              with a leaf. The settings choose which Connections are
+              drawn: Violations, Exceptions, Allowed, all on at first.
+              Double-click a folder, or press Show alone on its selection, to show it alone, with the folders
+              outside it that it connects to dimmed, or hidden by the
+              Outside folders setting; a trail above the tree goes back up.
 top left      two menus on one line: the project, to open another, and in
               a Monorepo the Package shown or All packages, to go straight
               to another Package or back to the repo view.

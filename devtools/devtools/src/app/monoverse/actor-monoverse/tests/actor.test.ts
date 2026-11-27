@@ -79,7 +79,7 @@ const monorepo: Workspace = {
       path: 'apps/web',
       private: true,
       dependencies: [{ name: '@me/core', kinds: ['runtime'] }],
-      check: { _tag: 'Checked', violations: [] },
+      check: { _tag: 'Checked', violations: [], excepted: [] },
     },
   ],
   cycles: [],
@@ -113,6 +113,7 @@ const contents = (path: string): PackageContents => {
     imports: [[at('src/app/actor.ts'), at('src/index.ts')]],
     check: {
       _tag: 'Checked',
+      excepted: [],
       violations: [
         {
           from: at('src/app/actor.ts'),
@@ -238,6 +239,8 @@ describe('Monoverse', () => {
           deleted: true,
           unchanged: 'dim',
           ignored: true,
+          shown: { violations: true, exceptions: true, allowed: true },
+          outside: true,
         });
         expect(find(app, 'Project')!.state).toMatchObject({
           _tag: 'Monorepo',
@@ -347,16 +350,22 @@ describe('Monoverse', () => {
         send(app, 'Project', { _tag: 'DeletedToggled' });
         send(app, 'Project', { _tag: 'UnchangedChosen', unchanged: 'hide' });
         send(app, 'Project', { _tag: 'IgnoredToggled' });
+        send(app, 'Project', { _tag: 'ShownToggled', kind: 'allowed' });
+        send(app, 'Project', { _tag: 'OutsideToggled' });
         app.root.send({ _tag: 'Go', place: place({ project: 's' }) });
         yield* settle;
         expect(find(app, 'Project')!.props).toMatchObject({
           deleted: false,
           unchanged: 'hide',
           ignored: false,
+          shown: { violations: true, exceptions: true, allowed: false },
+          outside: false,
         });
         expect(find(app, 'Tree')!.props).toMatchObject({
           unchanged: 'hide',
           ignored: false,
+          shown: { violations: true, exceptions: true, allowed: false },
+          outside: false,
         });
       }),
     ));

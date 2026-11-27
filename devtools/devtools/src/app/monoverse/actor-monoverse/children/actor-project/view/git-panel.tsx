@@ -78,6 +78,7 @@ export function GitPanel(props: GitControlsProps) {
           onUnchanged={props.onUnchanged}
           ignored={props.ignored}
           onIgnored={props.onIgnored}
+          connections={props.connections}
         />
       </PanelSection>
     </>

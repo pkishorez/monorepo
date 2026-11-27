@@ -17,12 +17,14 @@ import {
   RotateCcwIcon,
 } from 'lucide-react';
 
+import type { Shown } from '../../../../../../../logic/shared/index.js';
 import { parentOf } from '../../../../../../../../server/rpc/contract/index.js';
 import type { FolderTree, Row, TreeNode } from '../../logic/shared/index.js';
 import type {
   Connection,
-  Finding,
+  Crumb,
   Findings,
+  SelectionFindings,
 } from '../../logic/shared/index.js';
 import {
   placesAmongSiblings,
@@ -31,6 +33,7 @@ import {
 } from '../../../../../view/shared/index.js';
 import type { NodeChange } from '../lenses/git.js';
 import { SelectionBar } from '../selection-bar/selection-bar.js';
+import { FocusTrail } from './trail.js';
 import { OutlineArcs, createHovered } from './arcs.js';
 import { OutlineGuides } from './guides.js';
 import {
@@ -52,9 +55,12 @@ export interface OutlineProps {
   readonly selected: string | null;
   readonly connections: ReadonlyMap<string, Connection>;
   readonly findings: Findings;
-  readonly selectionFindings: ReadonlyArray<Finding>;
+  readonly selectionFindings: SelectionFindings;
   readonly changes: ReadonlyMap<string, NodeChange>;
   readonly changesOn: boolean;
+  readonly shown: Shown;
+  readonly leaves: ReadonlySet<string>;
+  readonly trail: ReadonlyArray<Crumb> | null;
   readonly dimmed: (path: string) => boolean;
   readonly faded: (path: string) => boolean;
   readonly ignored: (path: string) => boolean;
@@ -76,6 +82,7 @@ export interface TreeActions {
   readonly toggleAll: () => void;
   readonly reset: () => void;
   readonly toggleInside: (path: string) => void;
+  readonly focus: (path: string | null) => void;
 }
 
 const side = 12;
@@ -85,6 +92,7 @@ const outlineColours = {
   uses: 'var(--outline-uses)',
   usedBy: 'var(--outline-used-by)',
   broken: 'var(--outline-broken)',
+  excepted: 'var(--outline-excepted)',
 };
 
 export function Outline({
@@ -98,6 +106,9 @@ export function Outline({
   selectionFindings,
   changes,
   changesOn,
+  shown,
+  leaves,
+  trail,
   dimmed,
   faded,
   ignored,
@@ -301,6 +312,11 @@ export function Outline({
           ? () => actions.changes(selectedNode)
           : undefined
       }
+      onFocus={
+        selectedNode?.kind === 'folder'
+          ? () => actions.focus(selectedNode.path)
+          : undefined
+      }
       onClear={() => actions.select(null)}
     />
   );
@@ -337,7 +353,7 @@ export function Outline({
         >
           <div
             data-space-ignore
-            className="sticky top-0 z-20 mx-auto flex items-center justify-between bg-background"
+            className="sticky top-0 z-20 mx-auto flex items-center justify-between gap-2 bg-background"
             style={{
               width: blockWidth,
               height: topBarHeight,
@@ -345,15 +361,23 @@ export function Outline({
               paddingRight: endInset,
             }}
           >
+            {trail === null ? null : (
+              <FocusTrail trail={trail} onFocus={actions.focus} />
+            )}
             <Button
               variant="ghost"
               size="xs"
-              className="-ml-1 gap-1.5 px-1.5 font-normal text-muted-foreground"
+              className={cn(
+                'gap-1.5 px-1.5 font-normal text-muted-foreground',
+                trail === null ? '-ml-1' : 'ml-auto shrink-0',
+              )}
               aria-pressed={folding.all}
               onClick={actions.toggleAll}
             >
               <FoldIcon className="size-3.5" />
-              {folding.all ? 'Collapse all' : 'Expand all'}
+              <span className={trail === null ? undefined : 'max-sm:sr-only'}>
+                {folding.all ? 'Collapse all' : 'Expand all'}
+              </span>
             </Button>
             {slots.docked ? null : (
               <Button
@@ -406,7 +430,17 @@ export function Outline({
                   dimmed={dimmed(node.path)}
                   faded={faded(node.path)}
                   connection={connections.get(node.path) ?? null}
-                  violations={findings.violations.get(node.path) ?? 0}
+                  violations={
+                    shown.violations
+                      ? (findings.violations.get(node.path) ?? 0)
+                      : 0
+                  }
+                  excepted={
+                    shown.exceptions
+                      ? (findings.excepted.get(node.path) ?? 0)
+                      : 0
+                  }
+                  leaf={leaves.has(node.path)}
                   cycle={(findings.cycles.get(node.path) ?? 0) > 0}
                   check={findings.checks.get(node.path) ?? null}
                   change={changes.get(node.path) ?? null}

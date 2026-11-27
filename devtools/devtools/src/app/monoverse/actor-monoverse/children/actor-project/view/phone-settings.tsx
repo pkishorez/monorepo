@@ -74,6 +74,7 @@ export function PhoneGitSettings(props: GitControlsProps) {
         onUnchanged={props.onUnchanged}
         onDeleted={props.onDeleted}
         onIgnored={props.onIgnored}
+        connections={props.connections}
       />
     </SettingsSheet>
   );

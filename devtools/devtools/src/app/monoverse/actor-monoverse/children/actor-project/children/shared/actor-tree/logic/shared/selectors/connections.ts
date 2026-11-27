@@ -1,44 +1,87 @@
 import { isWithin } from '../../../../../../../../../server/rpc/contract/index.js';
 import type { Link } from '../../../../../../../../../services/projects/contract/index.js';
+import type {
+  ConnectionKind,
+  Shown,
+} from '../../../../../../../../logic/shared/index.js';
 import { ancestorsOf } from '../../../../../../logic/shared/index.js';
 
 export interface Connection {
   readonly uses: number;
   readonly usedBy: number;
   readonly broken: number;
+  readonly excepted: number;
+}
+
+export interface LinkKinds {
+  readonly broken: ReadonlySet<string>;
+  readonly excepted: ReadonlySet<string>;
 }
 
 export const linkKey = ([from, to]: Link) => `${from}\0${to}`;
+
+export const kindOf = (link: Link, kinds: LinkKinds): ConnectionKind => {
+  const key = linkKey(link);
+  if (kinds.broken.has(key)) return 'violations';
+  if (kinds.excepted.has(key)) return 'exceptions';
+  return 'allowed';
+};
+
+export const shownLinks = (
+  links: ReadonlyArray<Link>,
+  kinds: LinkKinds,
+  shown: Shown,
+): ReadonlyArray<Link> =>
+  shown.violations && shown.exceptions && shown.allowed
+    ? links
+    : links.filter((link) => shown[kindOf(link, kinds)]);
+
+const crossing = (link: Link, folder: string) => {
+  const [from, to] = link;
+  const fromInside = isWithin(from, folder);
+  if (fromInside === isWithin(to, folder)) return null;
+  return { fromInside, far: fromInside ? to : from };
+};
 
 export function connectionsOf(
   selected: string,
   links: ReadonlyArray<Link>,
   place: (path: string) => string | undefined,
-  broken: ReadonlySet<string> = new Set(),
+  kinds: LinkKinds,
 ): ReadonlyMap<string, Connection> {
   const found = new Map<
     string,
-    { uses: Set<string>; usedBy: Set<string>; broken: Set<string> }
+    {
+      uses: Set<string>;
+      usedBy: Set<string>;
+      broken: Set<string>;
+      excepted: Set<string>;
+    }
   >();
   const at = (node: string) => {
     let entry = found.get(node);
     if (entry === undefined) {
-      entry = { uses: new Set(), usedBy: new Set(), broken: new Set() };
+      entry = {
+        uses: new Set(),
+        usedBy: new Set(),
+        broken: new Set(),
+        excepted: new Set(),
+      };
       found.set(node, entry);
     }
     return entry;
   };
   for (const link of links) {
-    const [from, to] = link;
-    const fromInside = isWithin(from, selected);
-    const toInside = isWithin(to, selected);
-    if (fromInside === toInside) continue;
-    const far = fromInside ? to : from;
+    const crossed = crossing(link, selected);
+    if (crossed === null) continue;
+    const { fromInside, far } = crossed;
     const node = place(far);
     if (node === undefined) continue;
     const entry = at(node);
     (fromInside ? entry.uses : entry.usedBy).add(far);
-    if (broken.has(linkKey(link))) entry.broken.add(far);
+    const kind = kindOf(link, kinds);
+    if (kind === 'violations') entry.broken.add(far);
+    if (kind === 'exceptions') entry.excepted.add(far);
   }
   return new Map(
     [...found].map(([node, entry]) => [
@@ -47,6 +90,7 @@ export function connectionsOf(
         uses: entry.uses.size,
         usedBy: entry.usedBy.size,
         broken: entry.broken.size,
+        excepted: entry.excepted.size,
       },
     ]),
   );
@@ -58,10 +102,10 @@ export function foldersToReveal(
   links: ReadonlyArray<Link>,
 ): ReadonlyArray<string> {
   const folders = new Set<string>([folder]);
-  for (const [from, to] of links) {
-    const fromInside = isWithin(from, selected);
-    if (fromInside === isWithin(to, selected)) continue;
-    const far = fromInside ? to : from;
+  for (const link of links) {
+    const crossed = crossing(link, selected);
+    if (crossed === null) continue;
+    const { far } = crossed;
     if (!isWithin(far, folder) || far === folder) continue;
     for (const at of ancestorsOf(far)) {
       if (at === folder || !isWithin(at, folder)) break;
@@ -69,4 +113,56 @@ export function foldersToReveal(
     }
   }
   return [...folders].sort();
+}
+
+export function leavesOf(
+  base: string,
+  links: ReadonlyArray<Link>,
+): ReadonlySet<string> {
+  const using = new Set<string>();
+  const used = new Set<string>();
+  const mark = (marked: Set<string>, path: string, other: string) => {
+    for (const at of ancestorsOf(path)) {
+      if (at === base || !isWithin(at, base) || isWithin(other, at)) break;
+      marked.add(at);
+    }
+  };
+  for (const [from, to] of links) {
+    mark(using, from, to);
+    mark(used, to, from);
+  }
+  return new Set([...used].filter((folder) => !using.has(folder)));
+}
+
+export function foldersAround(
+  focus: string,
+  base: string,
+  links: ReadonlyArray<Link>,
+): ReadonlyArray<string> {
+  const folders = new Set<string>();
+  for (const link of links) {
+    const crossed = crossing(link, focus);
+    if (crossed === null) continue;
+    for (const at of ancestorsOf(crossed.far)) {
+      if (at === base || !isWithin(at, base)) break;
+      folders.add(at);
+    }
+  }
+  return [...folders].sort();
+}
+
+export function focusedFiles(
+  focus: string,
+  files: ReadonlyArray<string>,
+  links: ReadonlyArray<Link>,
+  outside: boolean,
+): ReadonlyArray<string> {
+  const inside = files.filter((path) => isWithin(path, focus));
+  if (!outside) return inside;
+  const far = new Set<string>();
+  for (const link of links) {
+    const crossed = crossing(link, focus);
+    if (crossed !== null) far.add(crossed.far);
+  }
+  return [...inside, ...files.filter((path) => far.has(path))];
 }

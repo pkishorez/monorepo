@@ -2,10 +2,10 @@ import type { InitOf, UpdatesOf } from '@kestack/kabuki/types';
 
 import { isWithin } from '../../../../../../../server/rpc/contract/index.js';
 import { ancestorsOf } from '../../../../logic/shared/index.js';
-import type { TreeShape } from './shared/index.js';
+import { foldersAround, type TreeShape } from './shared/index.js';
 
 export const init: InitOf<typeof TreeShape> = ({ open }) => ({
-  model: { open: [...open], home: [...open], selected: null },
+  model: { open: [...open], home: [...open], selected: null, focus: null },
 });
 
 export const updates: UpdatesOf<typeof TreeShape> = {
@@ -54,6 +54,21 @@ export const updates: UpdatesOf<typeof TreeShape> = {
     return adding.length === 0
       ? {}
       : { model: { open: [...model.open, ...adding] } };
+  },
+  Focused: ({ path }, { model, props }) => {
+    const opening =
+      path === null
+        ? []
+        : [path, ...foldersAround(path, props.base, props.links)].filter(
+            (folder) => !model.open.includes(folder),
+          );
+    return {
+      model: {
+        focus: path,
+        selected: null,
+        ...(opening.length === 0 ? {} : { open: [...model.open, ...opening] }),
+      },
+    };
   },
   Opened: ({ path }) => ({ emit: { _tag: 'Opened', path } }),
   Entered: ({ path }) => ({ emit: { _tag: 'Entered', path } }),
