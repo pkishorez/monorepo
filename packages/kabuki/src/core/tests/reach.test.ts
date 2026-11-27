@@ -200,7 +200,7 @@ describe('an Instance reached from outside', () => {
         const running = yield* scoped(Board);
         yield* settle;
         const row = running.root.children.rows[0]!;
-        expect(row.workers).toEqual([
+        expect(row.workers).toMatchObject([
           { name: 'sync', key: '', status: 'running' },
         ]);
       }),
@@ -259,7 +259,7 @@ describe('an Instance reached from outside', () => {
           _tag: 'Failed',
           reason: 'offline',
         });
-        expect(row.workers).toEqual([
+        expect(row.workers).toMatchObject([
           { name: 'sync', key: '', status: 'running' },
         ]);
       }),
@@ -375,7 +375,7 @@ describe('an Instance reached from outside', () => {
         expect(board.stopped).toBe(false);
         expect(board.model.ids).toEqual(['a', 'b']);
         expect(board.children.rows[0]!.address).toBe('Board/rows[a]#1');
-        expect(board.children.rows[0]!.workers).toEqual([
+        expect(board.children.rows[0]!.workers).toMatchObject([
           { name: 'sync', key: '', status: 'running' },
         ]);
         expect(board.send({ _tag: 'Removed', id: 'b' })).toBe('handled');

@@ -1,27 +1,21 @@
-import { Effect, Exit } from 'effect';
+import { Cause, Effect, Exit } from 'effect';
 import type { Scope } from 'effect';
 import type { Data, Tagged, WorkerDefinition } from '../../actor/index.ts';
 import { wanted } from '../../snapshot/index.ts';
 import { stopped } from './host.ts';
 import type { AnySelf, Own } from './host.ts';
+import type { WorkerStatus } from './work.ts';
 
 /*
  * Workers: work that runs for exactly as long as its Condition holds. Each
  * time its Instance's data changes, every Worker's Condition names the keys
  * that should run: a key that appeared starts one, a key that went stops
- * one, a key that stayed is left alone.
+ * one, a key that stayed is left alone. One waits for the Capabilities
+ * above it before it runs, and says what it is doing as it goes.
  */
 
-/** What a Worker is doing, live. */
-export interface WorkerStatus {
-  readonly name: string;
-  /** The key it runs for; `''` for the one Worker of a kind other than `each`. */
-  readonly key: string;
-  readonly status: 'running' | 'finished' | 'failed';
-}
-
 interface Running {
-  readonly status: () => WorkerStatus['status'];
+  readonly status: () => WorkerStatus;
   readonly stop: () => void;
 }
 
@@ -37,7 +31,12 @@ export const makeWorkers = (
   const start = (name: string, worker: WorkerDefinition, key: string) => {
     const label = key === '' ? name : `${name}#${key}`;
     let closing = false;
-    let status: WorkerStatus['status'] = 'running';
+    let status: WorkerStatus = {
+      name,
+      key,
+      status: 'waiting',
+      since: own.now(),
+    };
     const self: AnySelf = {
       ...own.self,
       send: (message) =>
@@ -55,7 +54,13 @@ export const makeWorkers = (
       Effect.sync(() => {
         closing = true;
         status =
-          Exit.isFailure(exit) && !stopped(exit.cause) ? 'failed' : 'finished';
+          Exit.isFailure(exit) && !stopped(exit.cause)
+            ? {
+                ...status,
+                status: 'failed',
+                failure: Cause.pretty(exit.cause),
+              }
+            : { ...status, status: 'finished' };
       });
     const fiber = own.fork(
       scope,
@@ -66,11 +71,14 @@ export const makeWorkers = (
         name,
         ...(key === '' ? {} : { key }),
       },
-      Effect.scoped(
-        (worker.run(self, key) as Effect.Effect<unknown, never>).pipe(
-          Effect.onExit(ended),
-        ),
-      ),
+      Effect.suspend(() => {
+        status = { name, key, status: 'running', since: own.now() };
+        return Effect.scoped(
+          (worker.run(self, key) as Effect.Effect<unknown, never>).pipe(
+            Effect.onExit(ended),
+          ),
+        );
+      }),
     );
     return {
       status: () => status,
@@ -98,8 +106,8 @@ export const makeWorkers = (
       }
     },
     statuses: (): ReadonlyArray<WorkerStatus> =>
-      [...running].flatMap(([name, live]) =>
-        [...live].map(([key, each]) => ({ name, key, status: each.status() })),
+      [...running].flatMap(([, live]) =>
+        [...live.values()].map((each) => each.status()),
       ),
   };
 };

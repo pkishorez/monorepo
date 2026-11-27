@@ -163,6 +163,7 @@ pnpm add @kestack/kabuki effect react
 | `runtime.stop`      | Stops every Worker, Provide and Command, and Time with it; a Send is refused until it starts again.                                                                                                                                                                     |
 | `runtime.subscribe` | Calls a listener, once the Messages Sent are all played, with the entries played since its last call, oldest first; and with none on every start, stop and Snapshot followed. It returns how to stop.                                                                   |
 | `runtime.changes`   | The Snapshot as an Effect Stream: now, then whenever the app settles; a slow reader gets only the latest.                                                                                                                                                               |
+| `runtime.work`      | What the running app is doing now, never in a Snapshot: each live Instance's Workers, waiting, running, finished or failed, its Commands still running and its Provides; the latest failures, kept after their Instance stops; and whether it is settled.               |
 | `Stopped`           | What a Query asked from outside the tree fails with once its Instance has stopped or left the Query's State, or while the Runtime is stopped, and what an `until` fails with once its Instance has stopped. A Send never throws it: it is refused.                      |
 
 ### `@kestack/kabuki/react`

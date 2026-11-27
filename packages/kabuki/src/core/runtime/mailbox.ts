@@ -7,8 +7,11 @@ import type { Address, Entry, From } from '../snapshot/index.ts';
  * starts, say): then it waits its turn, so every Message sees a settled app
  * and Times only grow along the queue. A task, such as following a Snapshot
  * handed in, waits its turn the same way, so it never lands in the middle
- * of a Message. Subscribers are told once the queue is empty: many Messages
- * make one render. A Message sent once the Mailbox is closed is refused.
+ * of a Message. What an Update Emitted is played next, before anything
+ * already waiting, in the order it was Emitted: each Emit's own Emits play
+ * before the next one, so a Child's entry is followed by its parent's, then
+ * its grandparent's, depth first. Subscribers are told once the queue is
+ * empty: many Messages make one render. A Message sent once the Mailbox is closed is refused.
  * One that does not match its Schemas, or whose Update gives data that does
  * not, changes nothing; the rest of the queue is still played, then the
  * `send` that drained it throws.
@@ -32,6 +35,8 @@ export const makeMailbox = (
   drained: () => void,
 ) => {
   const waiting: Array<Waiting> = [];
+  /** Where the next Message played next goes: after the ones the Message being played already Emitted. */
+  let front = 0;
   let open = true;
   let busy = false;
 
@@ -42,6 +47,7 @@ export const makeMailbox = (
     try {
       for (let next = waiting.shift(); next; next = waiting.shift())
         try {
+          front = 0;
           if ('task' in next) next.task();
           else {
             const outcome = deliver(next.entry);
@@ -63,10 +69,24 @@ export const makeMailbox = (
       open = false;
       waiting.length = 0;
     },
-    send: (to: Address, message: Tagged, from: From): Sent => {
+    /**
+     * Send a Message, stamped now, behind those waiting; or, given the Time
+     * of the entry that Emitted it, next, at that Time: the Chain happens at
+     * one Time, so Times still only grow along the queue.
+     */
+    send: (
+      to: Address,
+      message: Tagged,
+      from: From,
+      emittedAt?: number,
+    ): Sent => {
       if (!open) return 'refused';
-      const sent: Waiting = { entry: { to, message, from, at: now() } };
-      waiting.push(sent);
+      const next = emittedAt !== undefined;
+      const sent: Waiting = {
+        entry: { to, message, from, at: next ? emittedAt : now() },
+      };
+      if (next) waiting.splice(front++, 0, sent);
+      else waiting.push(sent);
       drain();
       return sent.sent ?? 'queued';
     },

@@ -95,8 +95,12 @@ The pure rule that takes the current Model, State and Props, a Message and its T
 _Avoid_: reducer, handler
 
 **Emit**:
-What a Child tells its parent: a tagged value its Update returns under `emit`, checked against the `emits` its Shape names. The parent's slot for the Child turns each one into one of the parent's own Messages, given the Child's key, and the Runtime Sends it to the parent right after; it is in the History as its own entry, its Source the Child. One the slot does not turn is not heard, so a Child fits any parent. Between a parent and its own Child; what any Actor further down may need is a Capability.
+What a Child tells its parent: a tagged value its Update returns under `emit`, checked against the `emits` its Shape names. The parent's slot for the Child turns each one into one of the parent's own Messages, given the Child's key, and the Runtime Sends it to the parent right after, played before any Message already waiting; it is in the History as its own entry, its Source the Child. One the slot does not turn is not heard, so a Child fits any parent. Between a parent and its own Child; what any Actor further down may need is a Capability.
 _Avoid_: output, event, callback
+
+**Chain**:
+One Message and the Emits it set off, played together: an entry whose Source is not an Emit, and every Emit entry right after it, the Child's before its parent's, depth first. Read from the History's order alone; nothing about it is kept. A Command's answer, a Worker's Send, a View's and one from outside each start their own.
+_Avoid_: cascade, causal chain, trace, flow
 
 **History**:
 What happened to an app, kept beside it by whoever wants it: the Snapshot it starts from, a tree of History entries after it, one per Message, each pointing to the entry before it, and the Head the next one grows from. A Runtime knows no History: it tells whoever subscribes the entries it played, which are added to one, and a Snapshot read from a History is one a Runtime can follow. What came of a Message is worked out from the Snapshots before and after it. Replay needs only the start and the Messages on the way to an entry. Its entries are a plain list, so one Instance's are a filter by the Address they were sent to. Saved and given back, it is where an app carries on from, on a server, at build time, after a reload, or after its code changed. Keeps as much as its Window says.
@@ -125,6 +129,10 @@ _Avoid_: rehydrate, rebuild, preview
 **Step**:
 The app right after one History entry, or at the History's start: its Time and its Snapshot, and nothing else. What a Seek draws. Nothing between two Messages is a Step.
 _Avoid_: index, tick, position, replay (the way a Step is made)
+
+**Change**:
+What changed between two Snapshots, per Address: an Instance added or removed, with its data; its State before and after; each Model and Props field before and after; and the Workers its data now asks for or no longer does. Worked out by comparing them, skipping what is the same object in both, so one Message's Change, its Snapshot before and after, is cheap. Never kept: a Message and the Snapshot before it always give the same one.
+_Avoid_: diff, patch, delta, effect
 
 **Seek**:
 Looking at any History entry, on any Branch, as a Step, while the Runtime stays where it is: running, or stopped. Nothing runs and nothing can be Sent to what it shows. Which entries a Seek can go to next is the History's to say: the one before, the ones that follow, and the last entry of every Branch.
@@ -155,6 +163,14 @@ _Avoid_: trigger, guard, dependency, cancel, handle
 **Finalizer**:
 What a Worker does as its Scope closes, whether it finished or its Condition stopped: close the outside world. It never Sends; the Update that changed the Condition already recorded why, with its Time.
 _Avoid_: cleanup hook, teardown, on exit
+
+**Work report**:
+What the running app's work is doing now, read from its Runtime alone: each Worker waiting for the Capabilities above it, running, finished or failed, with its failure and the Time it started; each Command still running; each Provide building, built or failed; and the latest failures, kept after their Instance stops. Never in a Snapshot or a History, so a past Step has none.
+_Avoid_: status, health, runtime state, diagnostics
+
+**Settled**:
+No Command running, no Provide building and no Worker waiting: the app has done what it was asked, though a Worker may Send again at any time. What a tool waits for after a Send; an empty Mailbox is not it, since the Mailbox drains before a Send returns.
+_Avoid_: idle, quiet, done
 
 **Query**:
 A question an Instance answers from what it holds and what its Services know, without changing the Actor: declared in its Shape with what it is asked with and what it answers, each a Schema, and answered by a function in its Build, at the top or in a State, given its Instance's Model, State and Props and the Capabilities the Actor Requires, and returning an Effect with the answer or a typed failure. It never Sends; it may ask the outside world to answer. Written in a State, it exists only while that State lasts. Asked only from outside the tree, through a live Instance; a Parent, a View and a descendant never ask. Never in the History and never replayed; its args and its answer are checked against their Schemas. Asked of an Instance that has stopped, it fails rather than answers. When outside code needs work done and then a change, it asks a Query, then Sends.

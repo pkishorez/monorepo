@@ -109,7 +109,8 @@ songs: Actor.child(SongLive, {
 }),
 ```
 
-That Message lands in the parent's History like any other. Something the
+That Message lands in the parent's History like any other, right after the
+Child's own, before anything else waiting. Something the
 parent doesn't turn is simply not heard, so a Song fits in any parent.
 
 ## Run it

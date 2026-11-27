@@ -551,12 +551,12 @@ describe('following a Snapshot', () => {
           'alarm started',
           'heating stopped',
         ]);
-        expect(app.root.workers).toEqual([
+        expect(app.root.workers).toMatchObject([
           { name: 'power', key: '', status: 'running' },
           { name: 'alarm', key: '', status: 'running' },
         ]);
         expect(app.at(to(app, 'House/guest#1'))).toBeUndefined();
-        expect(app.at(to(app, 'House/porch#1'))?.workers).toEqual([
+        expect(app.at(to(app, 'House/porch#1'))?.workers).toMatchObject([
           { name: 'glow', key: '', status: 'running' },
         ]);
 

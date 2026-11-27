@@ -10,6 +10,7 @@ import {
 } from 'effect';
 import type { Data, Self, Tagged } from '../../actor/index.ts';
 import type { Address, From, Instance } from '../../snapshot/index.ts';
+import type { WorkFailure } from './work.ts';
 
 /*
  * The Host: what the Runtime gives the Instances it runs, and an Instance's
@@ -25,6 +26,8 @@ export interface Host {
   readonly now: () => number;
   /** The Capabilities of the app's Layer. */
   readonly services: Context.Context<never>;
+  /** Told of every failure of a Worker, Command, Provide or the app's Layer, for the Work report. */
+  readonly failed: (failure: WorkFailure) => void;
 }
 
 /** Capabilities that may still be building: the ones from above, or the ones handed below. */
@@ -68,7 +71,7 @@ export const makeOwn = (instance: Instance, host: Host, above: Services) => {
   const fork = (
     scope: Scope.Scope,
     label: string,
-    from: From,
+    from: Forked,
     effect: Effect.Effect<unknown, never, any>,
   ) =>
     forkIn(
@@ -82,6 +85,15 @@ export const makeOwn = (instance: Instance, host: Host, above: Services) => {
           Effect.provideContext(services),
         ),
       ) as Effect.Effect<unknown>,
+      (failure) =>
+        host.failed({
+          address: instance.address,
+          kind: from.kind,
+          name: from.name,
+          ...('key' in from && from.key !== undefined ? { key: from.key } : {}),
+          failure,
+          at: host.now(),
+        }),
     );
 
   return {
@@ -89,6 +101,8 @@ export const makeOwn = (instance: Instance, host: Host, above: Services) => {
     self,
     /** The Capabilities from above, once built: what Workers, Commands and Queries run with. */
     above,
+    /** The app's Time now. */
+    now: host.now,
     set: (next: Instance) =>
       Effect.runSyncWith(host.services)(
         SubscriptionRef.set(data, dataOf(next)),
@@ -99,19 +113,24 @@ export const makeOwn = (instance: Instance, host: Host, above: Services) => {
 
 export type Own = ReturnType<typeof makeOwn>;
 
-/** Run an Effect in a Scope, reporting any failure but being stopped. */
+/** The work an Instance forks as itself, which Sends as that work. */
+type Forked = Extract<From, { readonly kind: 'worker' | 'command' }>;
+
+/** Run an Effect in a Scope, reporting any failure but being stopped to the console, and to `failed`. */
 export const forkIn = (
   host: Host,
   scope: Scope.Scope,
   label: string,
   effect: Effect.Effect<unknown>,
+  failed: (failure: string) => void,
 ) => {
   const fiber = Effect.runSyncWith(host.services)(Effect.forkIn(effect, scope));
   fiber.addObserver((exit) => {
-    if (Exit.isFailure(exit) && !stopped(exit.cause))
-      console.error(
-        `[@kestack/kabuki] ${label} failed:\n${Cause.pretty(exit.cause)}`,
-      );
+    if (Exit.isFailure(exit) && !stopped(exit.cause)) {
+      const failure = Cause.pretty(exit.cause);
+      console.error(`[@kestack/kabuki] ${label} failed:\n${failure}`);
+      failed(failure);
+    }
   });
   return fiber;
 };

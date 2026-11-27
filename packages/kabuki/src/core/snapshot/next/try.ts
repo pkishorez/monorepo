@@ -1,7 +1,7 @@
 import type { ActorDefinition, Tagged } from '../../actor/index.ts';
 import type { Address } from '../address/index.ts';
-import { instanceAt, pathTo } from '../instance/index.ts';
-import type { Snapshot } from '../instance/index.ts';
+import { changesOf, instanceAt, pathTo } from '../instance/index.ts';
+import type { Change, Snapshot } from '../instance/index.ts';
 import type { From } from './entry.ts';
 import { next } from './next.ts';
 import type { Played } from './next.ts';
@@ -19,7 +19,8 @@ import type { Played } from './next.ts';
  *             gives what its Actor's Schemas refuse: Refused.
  * 5. Compare  nothing changed and nothing asked for or Emitted: NoChange.
  *             Else Changes: the Snapshot after, the Instance's Model fields
- *             that changed, the Commands asked for and what it Emitted.
+ *             that changed, what changed across the tree, the Commands
+ *             asked for and what it Emitted.
  */
 
 /** One Command an Update asked for, as data: nothing runs it. */
@@ -42,11 +43,13 @@ export type Tried<Model = unknown> =
     }
   /** A rule runs, and changes nothing, asks for nothing and Emits nothing. */
   | { readonly _tag: 'NoChange' }
-  /** A rule runs: the Snapshot after, the Model fields that change, the Commands asked for, what it Emits. */
+  /** A rule runs: the Snapshot after, the Model fields that change, what changes across the tree, the Commands asked for, what it Emits. */
   | {
       readonly _tag: 'Changes';
       readonly snapshot: Snapshot;
       readonly model: Partial<Model>;
+      /** What changes at each Address, as `Snapshot.changes` says. */
+      readonly changes: ReadonlyArray<Change>;
       readonly commands: ReadonlyArray<Asked>;
       readonly emits: ReadonlyArray<Tagged>;
     };
@@ -106,6 +109,7 @@ export const tryMessage = (
     _tag: 'Changes',
     snapshot: played.snapshot,
     model: changedFields(instance.model, after?.model ?? instance.model),
+    changes: changesOf(root, snapshot.root, played.snapshot.root),
     commands: commands.map((command) => {
       const { name, args } = command as Asked;
       return { name, args };

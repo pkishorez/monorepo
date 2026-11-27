@@ -203,7 +203,7 @@ describe('an app saved as it changes', () => {
         const ticking = app.root;
         expect(app.now()).toBe(2000);
         expect(ticking.model).toEqual({ ticks: 2, on: true });
-        expect(ticking.workers).toEqual([
+        expect(ticking.workers).toMatchObject([
           { name: 'tick', key: '', status: 'running' },
         ]);
         yield* TestClock.adjust('1 second');

@@ -30,7 +30,7 @@ await runtime.start();
 Work can Send as it starts, so the Runtime is made stopped, subscribed to, then started: no entry is missed. An app made with `View.app` keeps its History this way, and gives it as `useRuntime().history`.
 
 1. **Make.** From a Snapshot, or from the root's Input: carry Time on from the Snapshot's Time (0 right after init), and run. The Workers and Provides the Snapshot's data asks for start, from the Model alone, and no Command runs.
-2. **Each Message.** The Mailbox stamps it with the Time, `Snapshot.next` gives the next Snapshot, and the live tree Follows it: the Workers and Provides it asks for start and the rest stop, and the Commands the Update asked for run. What the Update Emits is Sent next. Once the Mailbox is empty, subscribers are told the entries played.
+2. **Each Message.** The Mailbox stamps it with the Time, `Snapshot.next` gives the next Snapshot, and the live tree Follows it: the Workers and Provides it asks for start and the rest stop, and the Commands the Update asked for run. What the Update Emits is played next, before any Message already waiting, depth first, so a Message and the Emits it set off are played together. Once the Mailbox is empty, subscribers are told the entries played.
 3. **Stop.** `stop()` ends every Worker, Provide and Command, and Time stands still. A Send to a stopped Runtime is refused and changes nothing; `running` says which it is.
 4. **Start.** `start()` runs again from the Snapshot: the Workers and Provides its data asks for start, from the Model alone, and Time carries on from where it stood. No past Command runs again.
 5. **Let go.** `dispose()` stops, closes the Mailbox and the Layer. Nothing Sent after arrives.

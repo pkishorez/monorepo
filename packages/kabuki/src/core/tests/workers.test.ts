@@ -37,7 +37,7 @@ describe('Workers', () => {
         const app = yield* scoped(Timer);
         expect(app.root.workers).toEqual([]);
         send(app, 'Timer', { _tag: 'Stream' });
-        expect(app.root.workers).toEqual([
+        expect(app.root.workers).toMatchObject([
           { name: 'stream', key: '', status: 'running' },
         ]);
         yield* TestClock.adjust('30 millis');
@@ -92,7 +92,7 @@ describe('Workers', () => {
         send(app, 'Once', { _tag: 'On' });
         yield* settle;
         expect(app.snapshot.root.model).toEqual({ on: true, runs: 1 });
-        expect(app.root.workers).toEqual([
+        expect(app.root.workers).toMatchObject([
           { name: 'once', key: '', status: 'finished' },
         ]);
         send(app, 'Once', { _tag: 'Off' });
@@ -111,9 +111,10 @@ describe('Workers', () => {
         });
         const app = yield* scoped(Broken);
         yield* settle;
-        expect(app.root.workers).toEqual([
+        expect(app.root.workers).toMatchObject([
           { name: 'boom', key: '', status: 'failed' },
         ]);
+        expect(app.root.workers[0]!.failure).toContain('boom');
         expect(String(errors.mock.calls[0]?.[0])).toContain('boom');
       }),
     ));

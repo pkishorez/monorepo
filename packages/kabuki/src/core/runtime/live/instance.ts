@@ -11,7 +11,12 @@ import { Asked, ask, Stopped } from './query.ts';
 import { dataOf, forkIn, makeOwn } from './host.ts';
 import type { Host, Own, Services } from './host.ts';
 import { makeWorkers } from './worker.ts';
-import type { WorkerStatus } from './worker.ts';
+import type {
+  CommandStatus,
+  InstanceWork,
+  ProvideStatus,
+  WorkerStatus,
+} from './work.ts';
 
 /*
  * A live Instance: one Instance of the Snapshot, made real in Effect. It
@@ -36,6 +41,9 @@ import type { WorkerStatus } from './worker.ts';
  *            ones, and have the rest follow theirs.
  * 3. Stop    close its Scope: everything in it ends, Children first.
  *
+ * Asked what it is doing, it says, for itself and every Instance below it:
+ * its Workers, the Commands still running and its Provides.
+ *
  * Asked a Query, it answers from where it is now, and cancels every Query
  * being answered at a level when that level ends: a State's when it is
  * left, the Instance's when it stops. A level that ends cancels the Queries
@@ -52,6 +60,8 @@ export interface LiveTree {
     commands: ReadonlyArray<unknown>,
   ) => void;
   readonly workers: (address: Address) => ReadonlyArray<WorkerStatus>;
+  /** What every live Instance is doing, by Address. */
+  readonly work: () => Readonly<Record<string, InstanceWork>>;
   /** Ask one of an Instance's Queries by name; `Stopped` for an Instance that is gone or a Query not askable now. */
   readonly query: (
     address: Address,
@@ -70,12 +80,17 @@ interface Place {
   readonly services: Services;
 }
 
+/** Each live Instance's work, gathered by Address. */
+type Gathered = Record<string, InstanceWork>;
+
 /** One live Instance, as its parent holds it. */
 interface Live {
   readonly follow: (next: Instance) => void;
   readonly find: (address: string) => Live | undefined;
   readonly command: (commands: ReadonlyArray<unknown>) => void;
   readonly workers: () => ReadonlyArray<WorkerStatus>;
+  /** Adds what it and every Instance below it are doing. */
+  readonly work: (into: Gathered) => void;
   readonly query: (
     name: string,
     args: unknown,
@@ -94,6 +109,7 @@ const start = (
 ): Live => {
   const own = makeOwn(instance, host, parent.services);
   const inside = open(host, parent, definition.provides, own);
+  const commands = new Set<CommandStatus>();
   const asked = new Asked();
   const workers = makeWorkers(definition.workers, own, inside.scope);
   workers.sync(dataOf(instance));
@@ -111,6 +127,7 @@ const start = (
       inside,
       definition.stateProvides[instance.state._tag],
       own,
+      instance.state._tag,
     );
     const asked = new Asked();
     const children = startChildren(
@@ -126,6 +143,7 @@ const start = (
     return {
       children,
       asked,
+      provides: place.provides,
       cancel,
       leave: () => {
         cancel();
@@ -158,8 +176,19 @@ const start = (
       address === instance.address
         ? live
         : (top.find(address) ?? state.children.find(address)),
-    command: (commands) => runCommands(commands, own, inside.scope),
+    command: (asked) => runCommands(asked, own, inside.scope, commands),
     workers: workers.statuses,
+    work: (into) => {
+      into[instance.address] = {
+        workers: workers.statuses(),
+        commands: [...commands],
+        provides: [inside.provides, state.provides].flatMap((provides) =>
+          provides ? [provides()] : [],
+        ),
+      };
+      top.work(into);
+      state.children.work(into);
+    },
     query: (name, args) =>
       Effect.suspend(() => {
         const query = definition.queries[name];
@@ -190,17 +219,25 @@ const start = (
 /**
  * A Scope inside `outer`, and the Capabilities below it: the ones from
  * above, with the ones Provided there over them. Only the Capabilities
- * the level names reach below, whatever else its Layer builds.
+ * the level names reach below, whatever else its Layer builds. With a
+ * Provide, how its building goes; one that fails leaves what waits below
+ * it waiting.
  */
 const open = (
   host: Host,
   outer: Place,
   provide: ProvideDefinition | undefined,
   own: Own,
-): Place & { readonly scope: Scope.Closeable } => {
+  state?: string,
+): Place & {
+  readonly scope: Scope.Closeable;
+  readonly provides?: () => ProvideStatus;
+} => {
   const scope = Scope.forkUnsafe(outer.scope);
   if (!provide) return { scope, services: outer.services };
   const services = Deferred.makeUnsafe<Context.Context<never>>();
+  const at = state === undefined ? {} : { state };
+  let status: ProvideStatus = { ...at, status: 'building' };
   forkIn(
     host,
     scope,
@@ -218,9 +255,22 @@ const open = (
         ),
       ),
       Effect.flatMap((below) => Deferred.succeed(services, below)),
+      Effect.tap(() =>
+        Effect.sync(() => void (status = { ...at, status: 'built' })),
+      ),
     ),
+    (failure) => {
+      status = { ...at, status: 'failed', failure };
+      host.failed({
+        address: own.address,
+        kind: 'provides',
+        name: state ?? '',
+        failure,
+        at: host.now(),
+      });
+    },
   );
-  return { scope, services };
+  return { scope, services, provides: () => status };
 };
 
 /**
@@ -286,6 +336,7 @@ const startChildren = (
         ?.find(address);
     },
     cancel: () => alive.forEach((kid) => kid.cancel()),
+    work: (into: Gathered) => alive.forEach((kid) => kid.work(into)),
   };
 };
 
@@ -324,6 +375,11 @@ const startTree = (
       if (commands.length > 0) live.find(address)?.command(commands);
     },
     workers: (address) => live.find(address)?.workers() ?? [],
+    work: () => {
+      const into: Gathered = {};
+      live.work(into);
+      return into;
+    },
     query: (address, name, args) =>
       Effect.suspend(
         () =>

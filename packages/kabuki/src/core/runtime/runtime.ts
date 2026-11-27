@@ -13,7 +13,13 @@ import type { AnyActor, Tagged, Types } from '../actor/index.ts';
 import { actorAt, Snapshot } from '../snapshot/index.ts';
 import type { Address, Entry, From } from '../snapshot/index.ts';
 import { LiveTree, Stopped, forkIn } from './live/index.ts';
-import type { Host, Services } from './live/index.ts';
+import type {
+  Host,
+  ProvideStatus,
+  Services,
+  Work,
+  WorkFailure,
+} from './live/index.ts';
 import { makeMailbox } from './mailbox.ts';
 import type { Sent } from './mailbox.ts';
 import { reach } from './reach.ts';
@@ -22,7 +28,14 @@ import { makeTime } from './time.ts';
 
 export type { LiveInstance } from './reach.ts';
 export { Stopped } from './live/index.ts';
-export type { WorkerStatus } from './live/index.ts';
+export type {
+  CommandStatus,
+  InstanceWork,
+  ProvideStatus,
+  Work,
+  WorkerStatus,
+  WorkFailure,
+} from './live/index.ts';
 export type { Sent } from './mailbox.ts';
 
 /*
@@ -37,8 +50,10 @@ export type { Sent } from './mailbox.ts';
  * 2. Send    a Message, stamped with its Time, into the one Mailbox. Each
  *            one gives the next Snapshot by a pure step, which the tree
  *            follows; then the Commands its Update asked for run, and what
- *            it Emits is Sent next. Only while it runs: stopped, a Send is
- *            refused and changes nothing.
+ *            it Emits is played next, before any Message already waiting,
+ *            so one Message and the Emits it set off are played together.
+ *            Only while it runs: stopped, a Send is refused and changes
+ *            nothing.
  * 3. Follow  a Snapshot handed in: the tree changes only what differs, so
  *            work the old and the new Snapshot both ask for is not
  *            touched; or, asked to restart, all work stops and starts
@@ -49,6 +64,9 @@ export type { Sent } from './mailbox.ts';
  * 5. Stop    the tree: every Worker, Provide and Command ends, and Time
  *            stands still until it runs again.
  * 6. Let go  stop, close the Mailbox and the Layer.
+ *
+ * Asked what it is doing, it says from the live tree alone, with the
+ * latest failures beside it: none of it is data, so none of it is kept.
  *
  * It keeps no History. Whoever subscribes is told the entries it played,
  * to keep them in one. Work can Send as it starts, so to miss no entry,
@@ -128,6 +146,13 @@ export interface Runtime<A = AnyActor> {
   readonly changes: Stream.Stream<Snapshot<A>>;
   /** The Time now, in milliseconds. Stands still while stopped. */
   now(): number;
+  /**
+   * What the running app is doing now: each live Instance's Workers,
+   * Commands still running and Provides, the app's Layer, the latest
+   * failures, kept after their Instance stops, and whether it is settled.
+   * Never in a Snapshot or a History.
+   */
+  work(): Work;
   /** Stop, and let go of everything it holds. Nothing Sent after arrives. */
   dispose(): Promise<void>;
 }
@@ -144,6 +169,9 @@ const realClock = () =>
   );
 
 const NONE: ReadonlyArray<Entry> = [];
+
+/** How many of the latest failures the Work report keeps. */
+const KEPT_FAILURES = 20;
 
 /** The options as `open` reads them, whatever Layer the tree needs. */
 type Made<A> = RuntimeSettings<A> & { readonly layer?: Layer.Layer<any> };
@@ -173,6 +201,10 @@ const open = <A extends AnyActor>(
   let halting = 0;
   let disposing: Promise<void> | undefined;
   let services: Services | undefined;
+  /** How the app's Layer is building, once the Runtime has run. */
+  let layered: ProvideStatus | undefined;
+  /** The latest failures, oldest first. */
+  const failures: Array<WorkFailure> = [];
 
   /** The entries played since subscribers were last told. */
   let played: Array<Entry> = [];
@@ -206,25 +238,45 @@ const open = <A extends AnyActor>(
     // Work that starts as the tree follows may stop the Runtime: its Commands are then lost, as at any stop.
     if (tree === running) running.command(entry.to, next.commands);
     observers.forEach((observer) => observer());
-    for (const { to, message, from } of next.emitted) post(to, message, from);
+    for (const { to, message, from } of next.emitted)
+      post(to, message, from, entry.at);
     return next.outcome;
   };
   const mailbox = makeMailbox(time.now, deliver, notify);
-  /** Checked against its Actor's Schema first, so a Message that does not match throws at the Send that made it. */
-  const post = (to: Address, message: Tagged, from: From): Sent => {
+  /**
+   * Checked against its Actor's Schema first, so a Message that does not match throws at the Send that made it.
+   * An Emit is given the Time of the entry that Emitted it: played next, before the ones waiting, at that Time.
+   */
+  const post = (
+    to: Address,
+    message: Tagged,
+    from: From,
+    emittedAt?: number,
+  ): Sent => {
     actorAt(root, snapshot.root, to)?.check.message(
       message,
       `Message ${JSON.stringify(message._tag)}`,
     );
-    return mailbox.send(to, message, from);
+    return mailbox.send(to, message, from, emittedAt);
   };
 
-  const host: Host = { send: post, now: time.now, services: environment };
+  const failed = (failure: WorkFailure) => {
+    failures.push(failure);
+    if (failures.length > KEPT_FAILURES) failures.shift();
+  };
+
+  const host: Host = {
+    send: post,
+    now: time.now,
+    services: environment,
+    failed,
+  };
 
   /** The app's Layer, built once, the first time the Runtime runs. */
   const built = () => {
     if (services) return services;
     const made = Deferred.makeUnsafe<Context.Context<never>>();
+    layered = { status: 'building' };
     forkIn(
       host,
       scope,
@@ -236,7 +288,20 @@ const open = <A extends AnyActor>(
         Effect.flatMap((context) =>
           Deferred.succeed(made, Context.merge(environment, context)),
         ),
+        Effect.tap(() =>
+          Effect.sync(() => void (layered = { status: 'built' })),
+        ),
       ),
+      (failure) => {
+        layered = { status: 'failed', failure };
+        failed({
+          address: root.name as Address,
+          kind: 'layer',
+          name: '',
+          failure,
+          at: time.now(),
+        });
+      },
     );
     return (services = made);
   };
@@ -334,6 +399,25 @@ const open = <A extends AnyActor>(
     return disposing;
   };
 
+  /** What the running app is doing now, read from the live tree. */
+  const work = (): Work => {
+    const instances = tree?.work() ?? {};
+    const settled =
+      layered?.status !== 'building' &&
+      Object.values(instances).every(
+        ({ workers, commands, provides }) =>
+          commands.length === 0 &&
+          workers.every(({ status }) => status !== 'waiting') &&
+          provides.every(({ status }) => status !== 'building'),
+      );
+    return {
+      instances,
+      ...(layered ? { layer: layered } : {}),
+      failures: [...failures],
+      settled,
+    };
+  };
+
   /** What reaching an Instance needs of this Runtime. */
   const reachable = {
     root: () => snapshot.root,
@@ -384,6 +468,7 @@ const open = <A extends AnyActor>(
       { bufferSize: 1, strategy: 'sliding' },
     ),
     now: time.now,
+    work,
     dispose,
   };
 

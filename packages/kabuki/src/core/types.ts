@@ -19,19 +19,27 @@ export type {
 } from './actor/index.ts';
 export type {
   Asked,
+  BeforeAfter,
+  Change,
   Entry,
   From,
   Instance,
   SavedSnapshot,
   Tried,
   WantedWorker,
+  Whole,
 } from './snapshot/index.ts';
 export type {
+  CommandStatus,
+  InstanceWork,
   LiveInstance,
   Needs,
+  ProvideStatus,
   RuntimeOptions,
   Sent,
+  Work,
   WorkerStatus,
+  WorkFailure,
 } from './runtime/index.ts';
 export type { HistoryEntry, SavedHistory } from './history/index.ts';
 

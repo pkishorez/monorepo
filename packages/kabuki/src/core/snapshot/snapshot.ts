@@ -1,7 +1,18 @@
 import type { AnyActor, Types } from '../actor/index.ts';
 import type { Address } from './address/index.ts';
-import { instanceAt, isMany, pathTo, wanted } from './instance/index.ts';
-import type { Instance, Snapshot as Of } from './instance/index.ts';
+import {
+  changesOf,
+  instanceAt,
+  isMany,
+  pathTo,
+  workersOf,
+} from './instance/index.ts';
+import type {
+  Change,
+  Instance,
+  Snapshot as Of,
+  WantedWorker,
+} from './instance/index.ts';
 import { initial, next as nextOf } from './next/index.ts';
 import type { Entry, Played } from './next/index.ts';
 import { load as loadSaved, save as saveOf } from './saved.ts';
@@ -48,12 +59,6 @@ const at = <B>(
 ): Instance<B> | undefined =>
   instanceAt(snapshot.root, address) as Instance<B> | undefined;
 
-/** One Worker the data asks for at an Instance: its name, and the key it runs for if it is one of `each`. */
-export interface WantedWorker {
-  readonly name: string;
-  readonly key?: string;
-}
-
 /**
  * The Workers the data asks for at an Instance, from the Snapshot and the
  * root's Actor alone: the ones a Runtime runs there, by the same rule,
@@ -65,16 +70,23 @@ const workers = (
   address: Address<any>,
 ): ReadonlyArray<WantedWorker> => {
   const found = pathTo(actor.definition, snapshot.root, address)?.at(-1);
-  if (!found) return [];
-  const { definition, instance } = found;
-  const { state, model, props } = instance;
-  return wanted(definition.workers, { state, model, props }).flatMap(
-    ([name, keys]) =>
-      definition.workers[name]!.kind === 'each'
-        ? keys.map((key) => ({ name, key }))
-        : keys.map(() => ({ name })),
-  );
+  return found ? workersOf(found.definition, found.instance) : [];
 };
+
+/**
+ * What changed from one Snapshot of the app to another, per Instance, in
+ * the tree's order: each one added or removed, with its data, and each one
+ * kept whose State, Model, Props or wanted Workers differ. Every part that
+ * is the same object in both is skipped, so the Snapshots around one
+ * Message are compared along the path it changed alone. None when nothing
+ * changed.
+ */
+const changes = (
+  actor: AnyActor,
+  before: Snapshot<any>,
+  after: Snapshot<any>,
+): ReadonlyArray<Change> =>
+  changesOf(actor.definition, before.root, after.root);
 
 /** The Snapshot as plain JSON, every value as its Actor's Schemas encode it: the same object for the same Snapshot. */
 const save = <A extends AnyActor>(
@@ -89,4 +101,13 @@ const load = <A extends AnyActor>(
 ): Snapshot<A> => loadSaved(actor.definition, saved) as Snapshot<A>;
 
 /** The whole app as one value, and the pure functions that make, step, read and save it. */
-export const Snapshot = { init, next, at, workers, isMany, save, load };
+export const Snapshot = {
+  init,
+  next,
+  at,
+  workers,
+  changes,
+  isMany,
+  save,
+  load,
+};

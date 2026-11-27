@@ -1,9 +1,14 @@
 export { Snapshot } from './snapshot.ts';
-export type { WantedWorker } from './snapshot.ts';
 export type { SavedSnapshot } from './saved.ts';
 export { Address } from './address/index.ts';
 export type { Parsed, Segment } from './address/index.ts';
-export type { Instance } from './instance/index.ts';
+export type {
+  BeforeAfter,
+  Change,
+  Instance,
+  WantedWorker,
+  Whole,
+} from './instance/index.ts';
 export type {
   Asked,
   Emitted,

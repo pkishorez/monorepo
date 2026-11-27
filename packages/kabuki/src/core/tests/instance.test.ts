@@ -416,7 +416,7 @@ describe('a Child written with `while`', () => {
         // There: the Runtime that followed runs its work.
         send(live, 'Room', { _tag: 'Switched' });
         yield* carried;
-        expect(other.at(light)?.workers).toEqual([
+        expect(other.at(light)?.workers).toMatchObject([
           { name: 'glow', key: '', status: 'running' },
         ]);
         // Gone again.

@@ -83,6 +83,58 @@ const List = Actor.define('List', {
   },
 });
 
+// Three levels, each telling the one above; the Leaf starts a Worker too ---------
+
+const Leaf = Actor.define('Leaf', {
+  model: { on: Schema.Boolean },
+  message: { Go: {}, Echoed: {} },
+  emits: { First: {}, Second: {} },
+}).build({
+  init: () => ({ model: { on: false } }),
+  on: {
+    Go: () => ({
+      model: { on: true },
+      emit: [{ _tag: 'First' }, { _tag: 'Second' }],
+    }),
+    Echoed: () => ({}),
+  },
+  workers: {
+    // Sends as it starts, while `Go` is being played: it waits its turn.
+    echo: {
+      while: ({ model }) => model.on,
+      run: (self) =>
+        self.send({ _tag: 'Echoed' }).pipe(Effect.andThen(Effect.never)),
+    },
+  },
+});
+
+const Middle = Actor.define('Middle', {
+  message: { HeardFirst: {}, HeardSecond: {} },
+  emits: { Up: {} },
+}).build({
+  children: {
+    leaf: Actor.child(Leaf, {
+      emits: {
+        First: () => ({ _tag: 'HeardFirst' }),
+        Second: () => ({ _tag: 'HeardSecond' }),
+      },
+    }),
+  },
+  on: {
+    HeardFirst: () => ({ emit: { _tag: 'Up' } }),
+    HeardSecond: () => ({}),
+  },
+});
+
+const Top = Actor.define('Top', {
+  message: { Upped: {} },
+}).build({
+  children: {
+    middle: Actor.child(Middle, { emits: { Up: () => ({ _tag: 'Upped' }) } }),
+  },
+  on: { Upped: () => ({}) },
+});
+
 const LOGIN = Address.check(GateLive, 'Gate/Anonymous:login#1')!;
 
 const at = (app: Runtime<any>, address: string): Instance | undefined =>
@@ -158,6 +210,45 @@ describe('Emits', () => {
         send(app, 'List/rows[a]#1', { _tag: 'Removing' });
         expect(app.snapshot.root.model).toEqual({ ids: ['b'], title: '' });
         expect(at(app, 'List/rows[a]#1')).toBeUndefined();
+      }),
+    ));
+
+  it('are played before a Message already waiting, so the Child’s entry is followed by its parent’s', () =>
+    run(
+      Effect.gen(function* () {
+        const app = yield* scoped(Middle);
+        send(app, 'Middle/leaf#1', { _tag: 'Go' });
+        expect(line(app).map(({ to, message }) => [to, message._tag])).toEqual([
+          ['Middle/leaf#1', 'Go'],
+          ['Middle', 'HeardFirst'],
+          ['Middle', 'HeardSecond'],
+          // The Worker's, Sent while `Go` was played, comes after.
+          ['Middle/leaf#1', 'Echoed'],
+        ]);
+      }),
+    ));
+
+  it('are played depth first: each Emit’s own Emits before the next one', () =>
+    run(
+      Effect.gen(function* () {
+        const app = yield* scoped(Top);
+        send(app, 'Top/middle#1/leaf#1', { _tag: 'Go' });
+        expect(line(app).map(({ to, message }) => [to, message._tag])).toEqual([
+          ['Top/middle#1/leaf#1', 'Go'],
+          ['Top/middle#1', 'HeardFirst'],
+          ['Top', 'Upped'],
+          ['Top/middle#1', 'HeardSecond'],
+          ['Top/middle#1/leaf#1', 'Echoed'],
+        ]);
+        expect(
+          line(app)
+            .slice(1, 4)
+            .map(({ from }) => from.kind),
+        ).toEqual(['emit', 'emit', 'emit']);
+        // The Chain happens at one Time, and Times only grow along the line.
+        const times = line(app).map(({ at }) => at);
+        expect(times.slice(1, 4)).toEqual([times[0], times[0], times[0]]);
+        expect(times).toEqual([...times].sort((a, b) => a - b));
       }),
     ));
 
