@@ -7,10 +7,11 @@ import type { Asking } from '../../../logic/shared/index.js';
 import {
   beatsOf,
   dataOf,
-  expandedOf,
   focusOf,
+  foldsOf,
   itemsOf,
   namesOf,
+  opensOf,
   payloadOf,
   plansOf,
   promptOf,
@@ -31,7 +32,9 @@ Read the code in this folder first, so every purpose and meaning you give is rig
 
 Every card has the same shape, by Kabuki's levels: its description; its model keys; Always, what holds at the top level (the Workers that always run, the Messages it takes in any State, the Children it always places, its Emits, Requires, Provides, Queries, Input and Props); then one row per State, holding that State's data keys, Workers, Messages and Children.
 
-A Beat is the whole picture on screen, not a change from the Beat before: \`focus\` is the actor the camera centres on, and \`show\` lists each lit card with \`lit\`, exactly the refs to light on it. Everything else on a lit card is dimmed for you, a State opens on its own when something inside it is lit, and cards not in \`show\` are drawn quiet, name only. Light a few things per Beat, usually 1 to 4 refs, never a whole section's worth.
+Every card starts folded but for its model's top-level keys: each section, such as Messages or Input, shows only its count, each State only its name, and a nested key only its parent. What you light unfolds what holds it: its State, its whole section with the lit rows marked and the rest dimmed, and the keys above it. So the reader sees exactly what a Beat is about, among its neighbours, and nothing else.
+
+A Beat is the whole picture on screen, not a change from the Beat before: \`focus\` is the actor the camera centres on, and \`show\` lists each lit card with \`lit\`, exactly the refs to light on it. Cards not in \`show\` are drawn quiet, name only. Light a few things per Beat, usually 1 to 4 refs, never a whole section's worth: to explain a Message, light \`message:<Tag>\` and the model keys or State it changes.
 
 Refs: \`description\`; \`model\` or \`model.<key>\`; \`input\`, \`input.<key>\`, \`props\`, \`props.<key>\`; \`state:<Tag>\` for a State itself and \`state:<Tag>.<key>\` for its data; \`worker:<name>\`, \`message:<Tag>\`, \`message:<Tag>.<key>\` and \`child:<slot>\`, which find their own level (written \`state:<Tag>/worker:<name>\` when a name is at several levels); \`emits:<Tag>\`, \`requires\`, \`provides\`, \`queries\`.
 
@@ -308,7 +311,8 @@ const edited = (
 
 const toggledIn = (data: Data, actor: string, ref: string) => {
   const plan = planOf(data, actor);
-  const ids = plan === null ? [] : resolve(plan, ref);
+  if (plan === null) return null;
+  const ids = resolve(plan, ref);
   if (ids.length === 0) return null;
   return edited(exploredOf(data), actor, (shown) => {
     const on = ids.every((id) => shown.lit.includes(id));
@@ -320,21 +324,21 @@ const toggledIn = (data: Data, actor: string, ref: string) => {
       lit,
       ...(shown.open === undefined || on
         ? {}
-        : { open: [...new Set([...shown.open, ...expandedOf(new Set(ids))])] }),
+        : { open: [...new Set([...shown.open, ...opensOf(plan, ids)])] }),
     };
   });
 };
 
-const foldedIn = (data: Data, actor: string, state: string) => {
+const foldedIn = (data: Data, actor: string, fold: string) => {
   const plan = planOf(data, actor);
-  if (plan === null || !statesOf(plan).includes(state)) return null;
+  if (plan === null || !foldsOf(plan).has(fold)) return null;
   return edited(exploredOf(data), actor, (shown) => {
-    const open = shown.open ?? [...expandedOf(new Set(shown.lit))];
+    const open = shown.open ?? [...opensOf(plan, shown.lit)];
     return {
       ...shown,
-      open: open.includes(state)
-        ? open.filter((tag) => tag !== state)
-        : [...open, state],
+      open: open.includes(fold)
+        ? open.filter((one) => one !== fold)
+        : [...open, fold],
     };
   });
 };
@@ -450,8 +454,8 @@ export const updates: UpdatesOf<typeof StoryShape> = {
     const explore = toggledIn(data, actor, ref);
     return explore === null ? {} : { model: { explore, playing: false } };
   },
-  Folded: ({ actor, state }, data) => {
-    const explore = foldedIn(data, actor, state);
+  Folded: ({ actor, fold }, data) => {
+    const explore = foldedIn(data, actor, fold);
     return explore === null ? {} : { model: { explore, playing: false } };
   },
   Returned: () => ({ model: { explore: null } }),

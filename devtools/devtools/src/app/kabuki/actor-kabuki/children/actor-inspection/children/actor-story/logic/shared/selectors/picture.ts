@@ -1,11 +1,12 @@
 import type { Plan } from '@kestack/devtools-kabuki/devtools';
 import type { Explored, Link } from '../index.js';
 import { chipOf, idOf, planAt, plansOf, resolve } from './blueprint.js';
+import { opensOf } from './folds.js';
 
 export interface Lit {
   readonly plan: Plan;
   readonly refs: ReadonlySet<string>;
-  readonly expanded: ReadonlySet<string>;
+  readonly open: ReadonlySet<string>;
 }
 
 interface Lighted {
@@ -27,19 +28,6 @@ interface Scene {
   readonly links?: ReadonlyArray<Link>;
 }
 
-const INSIDE = /^state:([^/.]+)[/.]/;
-
-export const levelOf = (id: string) => INSIDE.exec(id)?.[1] ?? null;
-
-export const expandedOf = (refs: ReadonlySet<string>) =>
-  new Set(
-    [...refs].flatMap((id) => {
-      const level = levelOf(id);
-      if (level !== null) return [level];
-      return id.startsWith('state:') ? [id.slice('state:'.length)] : [];
-    }),
-  );
-
 const litOf = (plan: Plan, shown: Explored) => {
   const missing: Array<string> = [];
   const refs = new Set<string>();
@@ -48,9 +36,9 @@ const litOf = (plan: Plan, shown: Explored) => {
     if (ids.length === 0) missing.push(chipOf(plan.path, ref));
     for (const id of ids) refs.add(id);
   }
-  const expanded =
-    shown.open === undefined ? expandedOf(refs) : new Set(shown.open);
-  return { lit: { plan, refs, expanded }, missing };
+  const open =
+    shown.open === undefined ? opensOf(plan, refs) : new Set(shown.open);
+  return { lit: { plan, refs, open }, missing };
 };
 
 export const pictureOf = (root: Plan | null, scene: Scene): Picture => {

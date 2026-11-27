@@ -69,7 +69,7 @@ export function Body(self: BodyProps) {
             stage={stage}
             onExplore={() => send({ _tag: 'Explored' })}
             onToggle={(actor, ref) => send({ _tag: 'Toggled', actor, ref })}
-            onFold={(actor, state) => send({ _tag: 'Folded', actor, state })}
+            onFold={(actor, fold) => send({ _tag: 'Folded', actor, fold })}
             onAsk={onAsk}
           >
             <Playback

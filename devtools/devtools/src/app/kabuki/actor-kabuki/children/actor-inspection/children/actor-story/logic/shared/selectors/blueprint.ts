@@ -1,7 +1,7 @@
 import type { Plan, Shape } from '@kestack/devtools-kabuki/devtools';
+import { KINDS, LEVELLED, SHAPED, STATE } from '../index.js';
+import type { Kind } from '../index.js';
 import { rowsOf } from './shape.js';
-
-export type Kind = 'worker' | 'message' | 'child';
 
 export interface Item {
   readonly kind: Kind;
@@ -68,12 +68,6 @@ const keyed = (shape: Shape | undefined, path: string | undefined) =>
   path === undefined ||
   (shape !== undefined && rowsOf(shape).some(({ id }) => id === path));
 
-const KINDS: ReadonlyArray<Kind> = ['worker', 'message', 'child'];
-
-const LEVELLED =
-  /^(?:state:([^/.]+)\/)?(worker|message|child):([^/.]+)(?:\.(.+))?$/;
-const SHAPED = /^(model|input|props)(?:\.(.+))?$/;
-const STATE = /^state:([^/.]+)(?:\.(.+))?$/;
 const EMIT = /^emits:([^/.]+)$/;
 const LISTS = ['requires', 'provides', 'queries'] as const;
 

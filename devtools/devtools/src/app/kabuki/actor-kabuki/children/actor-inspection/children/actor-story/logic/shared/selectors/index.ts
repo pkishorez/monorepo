@@ -11,7 +11,8 @@ export {
   slotOf,
   statesOf,
 } from './blueprint.js';
-export { connectorsOf, expandedOf, pictureOf, shownOf } from './picture.js';
+export { foldsOf, opensOf } from './folds.js';
+export { connectorsOf, pictureOf, shownOf } from './picture.js';
 export type { Connector, Lit } from './picture.js';
 export { skeletonOf } from './skeleton.js';
 export type { Group, KeyLine, Level, Line, Skeleton } from './skeleton.js';

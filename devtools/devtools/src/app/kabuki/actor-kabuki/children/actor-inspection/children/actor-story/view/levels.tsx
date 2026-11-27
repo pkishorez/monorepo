@@ -13,8 +13,6 @@ import { Ask } from './ask.js';
 const HEADING =
   'text-[10.5px] font-medium tracking-[0.08em] text-muted-foreground/80 uppercase';
 
-const LABEL = 'text-[10.5px] leading-5 text-muted-foreground/70';
-
 const INDENT = 12;
 
 const LIT =
@@ -24,7 +22,7 @@ interface Hands {
   readonly free: boolean;
   readonly dim: boolean;
   readonly onToggle: (ref: string) => void;
-  readonly onFold: (state: string) => void;
+  readonly onFold: (fold: string) => void;
   readonly onAsk: (ref: string) => void;
 }
 
@@ -33,6 +31,48 @@ const tone = (lit: boolean, dim: boolean) =>
     'transition-[opacity,background-color] duration-150 ease-out motion-reduce:transition-none',
     lit ? LIT : dim && 'opacity-40',
   );
+
+function Chevron({ open }: { readonly open: boolean }) {
+  return (
+    <ChevronRightIcon
+      aria-hidden
+      className={cn(
+        'size-3 shrink-0 text-muted-foreground/70 transition-transform duration-150 ease-out motion-reduce:transition-none',
+        open && 'rotate-90',
+      )}
+    />
+  );
+}
+
+function Folder({
+  fold,
+  open,
+  label,
+  hands,
+}: {
+  readonly fold: string;
+  readonly open: boolean;
+  readonly label: string;
+  readonly hands: Hands;
+}) {
+  if (!hands.free)
+    return (
+      <span className="flex size-4 shrink-0 items-center justify-center">
+        <Chevron open={open} />
+      </span>
+    );
+  return (
+    <button
+      type="button"
+      aria-expanded={open}
+      aria-label={`${open ? 'Collapse' : 'Expand'} ${label}`}
+      onClick={() => hands.onFold(fold)}
+      className="flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-sm outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <Chevron open={open} />
+    </button>
+  );
+}
 
 function Row({
   name,
@@ -84,27 +124,41 @@ function Keys({
   return (
     <div className="flex flex-col">
       {keys.map((key) => (
-        <Row
+        <div
           key={key.id}
-          name={key.name}
-          ask={key.ref}
-          lit={key.lit}
-          hands={hands}
+          className="flex min-w-0 items-start gap-0.5"
+          style={{ paddingLeft: key.depth * INDENT }}
         >
-          <span
-            className="flex min-w-0 items-baseline gap-2.5 leading-5"
-            style={{ paddingLeft: key.depth * INDENT }}
-          >
-            <span className="shrink-0 font-mono text-[11.5px] text-foreground/90 wrap-anywhere">
-              {key.name}
-            </span>
-            {key.description !== null && (
-              <span className="min-w-0 text-xs text-pretty text-muted-foreground">
-                {key.description}
-              </span>
+          <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center">
+            {key.fold !== null && (
+              <Folder
+                fold={key.fold.id}
+                open={key.fold.open}
+                label={key.name}
+                hands={hands}
+              />
             )}
           </span>
-        </Row>
+          <div className="min-w-0 flex-1">
+            <Row name={key.name} ask={key.ref} lit={key.lit} hands={hands}>
+              <span className="flex min-w-0 items-baseline gap-2.5 leading-5">
+                <span className="shrink-0 font-mono text-[11.5px] text-foreground/90 wrap-anywhere">
+                  {key.name}
+                </span>
+                {key.fold !== null && !key.fold.open && (
+                  <span className="shrink-0 font-mono text-[11px] text-muted-foreground/70">
+                    {`{${key.fold.count}}`}
+                  </span>
+                )}
+                {key.description !== null && (
+                  <span className="min-w-0 text-xs text-pretty text-muted-foreground">
+                    {key.description}
+                  </span>
+                )}
+              </span>
+            </Row>
+          </div>
+        </div>
       ))}
     </div>
   );
@@ -144,6 +198,63 @@ function Lines({
   );
 }
 
+function Section({
+  group,
+  hands,
+}: {
+  readonly group: Group;
+  readonly hands: Hands;
+}) {
+  const head = (
+    <>
+      <span className="flex size-4 shrink-0 items-center justify-center">
+        <Chevron open={group.open} />
+      </span>
+      <span className="text-[11px] leading-5 text-muted-foreground">
+        {group.title}
+      </span>
+      {!group.open && (
+        <span className="font-mono text-[11px] leading-5 text-muted-foreground/70">
+          {group.count}
+        </span>
+      )}
+    </>
+  );
+  const quiet = hands.dim && !group.lit && !group.open;
+  const line = cn(
+    '-mx-1.5 flex items-center gap-1.5 rounded-sm px-1.5',
+    tone(group.lit && !group.open, quiet),
+  );
+  return (
+    <div className="flex flex-col">
+      {hands.free ? (
+        <button
+          type="button"
+          aria-expanded={group.open}
+          aria-label={`${group.open ? 'Collapse' : 'Expand'} ${group.title}`}
+          onClick={() => hands.onFold(group.id)}
+          className={cn(
+            line,
+            'cursor-pointer text-left outline-none hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring',
+          )}
+        >
+          {head}
+        </button>
+      ) : (
+        <div className={line}>{head}</div>
+      )}
+      {group.open && (
+        <div className="mt-0.5 mb-1 ml-2 flex flex-col border-l border-border pl-2.5">
+          {group.lines.length > 0 && (
+            <Lines lines={group.lines} hands={hands} />
+          )}
+          {group.keys.length > 0 && <Keys keys={group.keys} hands={hands} />}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Groups({
   groups,
   hands,
@@ -152,12 +263,9 @@ function Groups({
   readonly hands: Hands;
 }) {
   return (
-    <div className="grid grid-cols-[4.75rem_1fr] gap-x-2 gap-y-1">
+    <div className="flex flex-col">
       {groups.map((group) => (
-        <div key={group.title} className="col-span-2 grid grid-cols-subgrid">
-          <span className={LABEL}>{group.title}</span>
-          <Lines lines={group.lines} hands={hands} />
-        </div>
+        <Section key={group.id} group={group} hands={hands} />
       ))}
     </div>
   );
@@ -190,23 +298,14 @@ function State({
       <span className="text-[12.5px] font-medium text-foreground">
         {level.tag}
       </span>
-      {!level.expanded && level.count !== '' && (
+      {!level.open && level.count !== '' && (
         <span className="min-w-0 truncate text-[11px] text-muted-foreground">
           {level.count}
         </span>
       )}
     </span>
   );
-  const chevron = (
-    <ChevronRightIcon
-      aria-hidden
-      className={cn(
-        'size-3 shrink-0 text-muted-foreground/70 transition-transform duration-150 ease-out motion-reduce:transition-none',
-        level.expanded && 'rotate-90',
-      )}
-    />
-  );
-  const quiet = hands.dim && !level.lit && !level.expanded;
+  const quiet = hands.dim && !level.lit && !level.open;
   return (
     <li className="flex flex-col">
       <div
@@ -215,17 +314,14 @@ function State({
           tone(level.lit, quiet),
         )}
       >
+        <Folder
+          fold={level.ref}
+          open={level.open}
+          label={level.tag}
+          hands={hands}
+        />
         {hands.free ? (
           <>
-            <button
-              type="button"
-              aria-expanded={level.expanded}
-              aria-label={`${level.expanded ? 'Collapse' : 'Expand'} ${level.tag}`}
-              onClick={() => hands.onFold(level.tag)}
-              className="-ml-1 flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-sm outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {chevron}
-            </button>
             <button
               type="button"
               aria-pressed={level.lit}
@@ -238,20 +334,12 @@ function State({
             <Ask label={level.tag} onAsk={() => hands.onAsk(level.ref)} />
           </>
         ) : (
-          <>
-            {chevron}
-            {head}
-          </>
+          head
         )}
       </div>
-      {level.expanded && (
+      {level.open && (
         <div className="mt-0.5 mb-1.5 ml-1.5 flex flex-col gap-1 border-l border-border pl-2.5">
-          {level.data.length > 0 && (
-            <div className="grid grid-cols-[4.75rem_1fr] gap-x-2">
-              <span className={LABEL}>Data</span>
-              <Keys keys={level.data} hands={hands} />
-            </div>
-          )}
+          {level.data.length > 0 && <Keys keys={level.data} hands={hands} />}
           {level.groups.length > 0 && (
             <Groups groups={level.groups} hands={hands} />
           )}
@@ -276,15 +364,11 @@ export function Levels({
   readonly free: boolean;
   readonly dim: boolean;
   readonly onToggle: (ref: string) => void;
-  readonly onFold: (state: string) => void;
+  readonly onFold: (fold: string) => void;
   readonly onAsk: (ref: string) => void;
 }) {
   const hands = { free, dim, onToggle, onFold, onAsk };
   const { model, always, states } = skeleton;
-  const shaped = [
-    ['Input', always.input],
-    ['Props', always.props],
-  ] as const;
   return (
     <>
       {model.length > 0 && (
@@ -292,19 +376,9 @@ export function Levels({
           <Keys keys={model} hands={hands} />
         </Block>
       )}
-      {(always.groups.length > 0 ||
-        always.input.length > 0 ||
-        always.props.length > 0) && (
+      {always.groups.length > 0 && (
         <Block title="Always">
           <Groups groups={always.groups} hands={hands} />
-          {shaped.map(([title, keys]) =>
-            keys.length === 0 ? null : (
-              <div key={title} className="grid grid-cols-[4.75rem_1fr] gap-x-2">
-                <span className={LABEL}>{title}</span>
-                <Keys keys={keys} hands={hands} />
-              </div>
-            ),
-          )}
         </Block>
       )}
       {states.length > 0 && (

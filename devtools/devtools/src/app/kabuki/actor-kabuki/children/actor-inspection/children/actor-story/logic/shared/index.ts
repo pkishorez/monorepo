@@ -1,16 +1,33 @@
-export { Answer, StoryShape } from './shape.js';
-export type { At, Explored, Link, Shown, Turn } from './shape.js';
+export {
+  Answer,
+  KINDS,
+  LEVELLED,
+  SECTION_OF,
+  SHAPED,
+  STATE,
+  StoryShape,
+} from './shape.js';
+export type {
+  At,
+  Explored,
+  Kind,
+  Link,
+  Section,
+  Shown,
+  Turn,
+} from './shape.js';
 export {
   beatsOf,
   chipOf,
   connectorsOf,
   dataOf,
-  expandedOf,
   focusOf,
+  foldsOf,
   idOf,
   itemsOf,
   missedOf,
   namesOf,
+  opensOf,
   payloadOf,
   pictureOf,
   plansOf,

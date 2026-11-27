@@ -308,8 +308,8 @@ describe('Story', () => {
         const focus = focusOf(now)!;
         expect(focus).toMatchObject({ index: 0, of: 3 });
         expect(focus.picture.missing).toEqual([]);
-        expect([...focus.picture.cards.get('App')!.expanded]).toEqual([
-          'Ready',
+        expect([...focus.picture.cards.get('App')!.open]).toEqual([
+          'state:Ready',
         ]);
       }),
     ));
@@ -374,7 +374,7 @@ describe('Story', () => {
         app.root.send({
           _tag: 'Folded',
           actor: 'App/Ready:list',
-          state: 'Open',
+          fold: 'state:Open',
         });
         app.root.send({ _tag: 'Toggled', actor: 'App', ref: 'state:Ready' });
         app.root.send({
@@ -388,12 +388,19 @@ describe('Story', () => {
           { actor: 'App/Ready:list', lit: ['message:Toggled.id'] },
         ]);
 
-        app.root.send({ _tag: 'Folded', actor: 'App', state: 'Loading' });
-        app.root.send({ _tag: 'Folded', actor: 'App', state: 'Ready' });
+        app.root.send({ _tag: 'Folded', actor: 'App', fold: 'state:Loading' });
+        app.root.send({ _tag: 'Folded', actor: 'App', fold: 'state:Ready' });
+        app.root.send({ _tag: 'Folded', actor: 'App', fold: 'messages' });
         yield* settle;
         const card = stageOf(story()).picture.cards.get('App')!;
-        expect([...card.expanded]).toEqual(['Ready']);
-        expect(story().model.explore![0]).toMatchObject({ open: ['Ready'] });
+        expect([...card.open]).toEqual([
+          'state:Loading/workers',
+          'state:Ready',
+          'messages',
+        ]);
+        expect(story().model.explore![0]).toMatchObject({
+          open: ['state:Loading/workers', 'state:Ready', 'messages'],
+        });
 
         app.root.send({ _tag: 'Returned' });
         yield* settle;

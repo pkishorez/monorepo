@@ -49,6 +49,31 @@ const Turn = Schema.Struct({
 
 const At = Schema.Struct({ turn: Schema.Number, beat: Schema.Number });
 
+export const KINDS = ['worker', 'message', 'child'] as const;
+export type Kind = (typeof KINDS)[number];
+
+export type Section =
+  | 'workers'
+  | 'messages'
+  | 'children'
+  | 'emits'
+  | 'requires'
+  | 'provides'
+  | 'queries'
+  | 'input'
+  | 'props';
+
+export const SECTION_OF: Readonly<Record<Kind, Section>> = {
+  worker: 'workers',
+  message: 'messages',
+  child: 'children',
+};
+
+export const LEVELLED =
+  /^(?:state:([^/.]+)\/)?(worker|message|child):([^/.]+)(?:\.(.+))?$/;
+export const SHAPED = /^(model|input|props)(?:\.(.+))?$/;
+export const STATE = /^state:([^/.]+)(?:\.(.+))?$/;
+
 export type Shown = typeof Shown.Type;
 export type Explored = typeof Explored.Type;
 export type Link = typeof Link.Type;
@@ -168,10 +193,10 @@ export const StoryShape = Actor.define('Story', {
     }),
     Folded: Schema.Struct({
       actor: Schema.String,
-      state: Schema.String,
+      fold: Schema.String,
     }).annotate({
       description:
-        'Expand or collapse one State on a card; leaves the story for Explore mode',
+        'Open or close one part of a card by its fold: a State as `state:Ready`, a section as `messages` or `state:Ready/workers`, a nested key as `model.settings`; leaves the story for Explore mode',
     }),
     Returned: Schema.Struct({}).annotate({
       description:

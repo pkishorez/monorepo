@@ -133,7 +133,7 @@ describe('a Beat', () => {
     workers: [...plan.workers, { name: 'load', runs: 'while', state: 'Ready' }],
   };
 
-  it('lights refs at their own level and opens the State they are in', () => {
+  it('lights refs at their own level and opens the State, section and keys that hold them', () => {
     const picture = pictureOf(plan, {
       focus: 'App',
       show: [
@@ -149,10 +149,15 @@ describe('a Beat', () => {
       'state:Loading/worker:load',
       'state:Ready.since',
     ]);
-    expect([...app.expanded]).toEqual(['Loading', 'Ready']);
+    expect([...app.open]).toEqual([
+      'state:Loading',
+      'state:Loading/workers',
+      'state:Ready',
+      'state:Ready.since',
+    ]);
     const lit = picture.cards.get('App/Ready:list')!;
     expect([...lit.refs]).toEqual(['message:Toggled.id', 'child:items']);
-    expect([...lit.expanded]).toEqual([]);
+    expect([...lit.open]).toEqual(['messages', 'children']);
     expect(picture.links).toEqual([{ from: plan, to: list, label: 'places' }]);
     expect(
       pictureOf(plan, { show: [shownOf(lit)] }).cards.get(list.path),
@@ -286,32 +291,70 @@ describe('a card', () => {
       pictureOf(of, { show: [{ actor: of.path, lit }] }).cards.get(of.path)!,
     );
 
-  it('is always the same skeleton: model keys, Always, then one row per State, collapsed with a count', () => {
+  it('is always the same skeleton: model keys, Always, then one row per State, each folded with a count', () => {
     const app = card([]);
     expect(app.model).toEqual([]);
     expect(app.always.groups.map(({ title }) => title)).toEqual(['Messages']);
     expect(
-      app.states.map(({ tag, expanded, count }) => ({ tag, expanded, count })),
+      app.states.map(({ tag, open, count }) => ({ tag, open, count })),
     ).toEqual([
-      { tag: 'Loading', expanded: false, count: '1 worker' },
-      { tag: 'Ready', expanded: false, count: '1 message · 1 child' },
+      { tag: 'Loading', open: false, count: '1 worker' },
+      { tag: 'Ready', open: false, count: '1 message · 1 child' },
     ]);
-    expect(card([], list).always.groups.map(({ title }) => title)).toEqual([
-      'Workers',
+    expect(
+      card([], list).always.groups.map(({ title, open, count }) => [
+        title,
+        open,
+        count,
+      ]),
+    ).toEqual([
+      ['Workers', false, 1],
+      ['Messages', false, 1],
+      ['Children', false, 1],
+      ['Requires', false, 1],
+      ['Queries', false, 1],
+    ]);
+    expect(card([], item).always.groups.map(({ title }) => title)).toEqual([
       'Messages',
-      'Children',
-      'Requires',
-      'Queries',
+      'Emits',
+      'Input',
+      'Props',
     ]);
   });
 
-  it('keeps each level to itself: a State shows its own data, Workers, Messages and Children once expanded', () => {
+  it('opens the State a lit list lives in, as it does for any lit row', () => {
+    const ready = card(['provides']).states.find(({ tag }) => tag === 'Ready')!;
+    expect(ready.open).toBe(true);
+    expect(
+      ready.groups.find(({ title }) => title === 'Provides'),
+    ).toMatchObject({ open: true, lit: true });
+  });
+
+  it('shows only the top-level model keys until one is opened, with the count it folds', () => {
+    expect(card([], item).model.map(({ name, fold }) => [name, fold])).toEqual([
+      ['title', null],
+      ['tags', { id: 'model.tags', open: false, count: 2 }],
+    ]);
+  });
+
+  it('opens the whole section of a lit row, so the rows beside it show dimmed, and leaves the rest folded', () => {
+    const groups = card(['message:Toggled'], list).always.groups;
+    expect(groups.map(({ title, open, lit }) => [title, open, lit])).toEqual([
+      ['Workers', false, false],
+      ['Messages', true, true],
+      ['Children', false, false],
+      ['Requires', false, false],
+      ['Queries', false, false],
+    ]);
+  });
+
+  it('keeps each level to itself: a State shows its own data, Workers, Messages and Children once open', () => {
     const [loading, ready] = card(['worker:load', 'state:Ready']).states;
-    expect(loading).toMatchObject({ lit: false, expanded: true });
+    expect(loading).toMatchObject({ lit: false, open: true });
     expect(loading!.groups).toMatchObject([
       { title: 'Workers', lines: [{ name: 'load', lit: true }] },
     ]);
-    expect(ready).toMatchObject({ lit: true, expanded: true });
+    expect(ready).toMatchObject({ lit: true, open: true });
     expect(ready!.data).toEqual([
       expect.objectContaining({ name: 'since', lit: true }),
     ]);

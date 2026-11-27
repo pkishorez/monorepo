@@ -466,7 +466,7 @@ export default {
         {
           actor: TODOS,
           lit: ['state:Loading/worker:load', 'state:Ready.loadedAt'],
-          open: ['Loading', 'Ready'],
+          open: ['state:Loading', 'state:Ready'],
         },
         { actor: TODO, lit: ['props.done'] },
       ],

@@ -70,7 +70,7 @@ export function Card({
   readonly focused: boolean;
   readonly onExplore: () => void;
   readonly onToggle: (ref: string) => void;
-  readonly onFold: (state: string) => void;
+  readonly onFold: (fold: string) => void;
   readonly onAsk: (chip: string) => void;
 }) {
   const free = mode === 'explore';

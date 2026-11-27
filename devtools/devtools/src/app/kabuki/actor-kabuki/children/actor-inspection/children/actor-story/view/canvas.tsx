@@ -181,7 +181,7 @@ export function Canvas({
   readonly stage: Stage;
   readonly onExplore: () => void;
   readonly onToggle: (actor: string, ref: string) => void;
-  readonly onFold: (actor: string, state: string) => void;
+  readonly onFold: (actor: string, fold: string) => void;
   readonly onAsk: (chip: string) => void;
   readonly children: ReactNode;
 }) {
@@ -315,7 +315,7 @@ export function Canvas({
                   focused={path === focused}
                   onExplore={onExplore}
                   onToggle={(ref) => onToggle(path, ref)}
-                  onFold={(state) => onFold(path, state)}
+                  onFold={(fold) => onFold(path, fold)}
                   onAsk={onAsk}
                 />
               </Box>
