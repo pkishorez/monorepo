@@ -1,0 +1,38 @@
+{
+  "name": "@kestack/kabuki-playground",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A small to-do app on Kabuki Start, to test the page, the in-page Inspector and the DevTools Server against each other",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "scripts": {
+    "dev": "vp run --filter '@kestack/kabuki-playground^...' build && portless run --force vp dev",
+    "build": "vp build",
+    "lint": "vp check src package.json tsconfig.json monoverse.json && tsc --noEmit && monoverse lint",
+    "test": "vp test src"
+  },
+  "dependencies": {
+    "@kestack/devtools-kabuki": "workspace:*",
+    "@kestack/kabuki": "workspace:*",
+    "@kestack/web-platform": "workspace:*",
+    "effect": "catalog:",
+    "lucide-react": "catalog:",
+    "motion": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
+    "@kestack/monoverse": "workspace:*",
+    "@tailwindcss/vite": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}
