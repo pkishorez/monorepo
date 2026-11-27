@@ -34,6 +34,16 @@ export interface Violation {
   readonly message: string;
 }
 
+export interface Excepted {
+  readonly by: 'door' | 'exception';
+  readonly file: string;
+  readonly line: number;
+  readonly column: number;
+  readonly to: string;
+  readonly specifier: string;
+  readonly message: string;
+}
+
 export type PackageResult =
   | { readonly _tag: 'Unchecked' }
   | {
@@ -41,7 +51,11 @@ export type PackageResult =
       readonly file: string;
       readonly message: string;
     }
-  | { readonly _tag: 'Checked'; readonly violations: readonly Violation[] };
+  | {
+      readonly _tag: 'Checked';
+      readonly violations: readonly Violation[];
+      readonly excepted: readonly Excepted[];
+    };
 
 export interface PackageReport {
   readonly path: string;
@@ -66,23 +80,27 @@ export const checkPackage = (
     path: pkg,
     result: {
       _tag: 'Checked',
-      violations: violationsOf(sources, tree, pkg, read.config, file, text),
+      ...findingsOf(sources, tree, pkg, read.config, file, text),
     },
   };
 };
 
-const violationsOf = (
+const findingsOf = (
   sources: Sources,
   tree: Tree,
   pkg: string,
   config: Config,
   configPath: string,
   configText: string,
-): readonly Violation[] => {
+): {
+  readonly violations: readonly Violation[];
+  readonly excepted: readonly Excepted[];
+} => {
   const { imports: importsRule, contracts } = config.rules;
   const lifting = new Set<Pass>();
   const covering = new Set<Pass>();
   const found: Violation[] = [];
+  const excepted: Excepted[] = [];
 
   for (const file of sources.files) {
     if (!isSource(file) || tree.packageOf(parentOf(file)) !== pkg) continue;
@@ -104,20 +122,34 @@ const violationsOf = (
 
       if (importsRule && own !== undefined && isSource(own)) {
         const verdict = judgeImport(tree, importsRule, file, own);
-        if (!verdict.ok) {
-          const to = relativeTo(pkg, own);
-          const exception = config.exceptions.find(
-            (e) => matches(from, e.from) && matches(to, e.to),
-          );
-          if (exception) lifting.add(exception);
-          else
-            found.push({
-              ...at,
-              kind: verdict.reason,
-              to: own,
-              message: importMessage(verdict, specifier, pkg),
-            });
-        }
+        const to = relativeTo(pkg, own);
+        const exception = verdict.ok
+          ? undefined
+          : config.exceptions.find(
+              (e) => matches(from, e.from) && matches(to, e.to),
+            );
+        if (exception) lifting.add(exception);
+        if (verdict.ok && verdict.door !== undefined)
+          excepted.push({
+            ...at,
+            by: 'door',
+            to: own,
+            message: `'${specifier}' is beside or above this file, and comes in through the door ${relativeTo(pkg, verdict.door)}.`,
+          });
+        else if (exception)
+          excepted.push({
+            ...at,
+            by: 'exception',
+            to: own,
+            message: `'${specifier}' breaks the rules, and the exception from '${exception.from}' to '${exception.to}' lets it through: ${exception.reason}`,
+          });
+        else if (!verdict.ok)
+          found.push({
+            ...at,
+            kind: verdict.reason,
+            to: own,
+            message: importMessage(verdict, specifier, pkg),
+          });
       }
 
       const subject = own === undefined ? specifier : relativeTo(pkg, own);
@@ -168,11 +200,13 @@ const violationsOf = (
       });
   });
 
-  return found.sort(
-    (a, b) =>
-      a.file.localeCompare(b.file) || a.line - b.line || a.column - b.column,
-  );
+  return { violations: found.sort(byPlace), excepted: excepted.sort(byPlace) };
 };
+
+const byPlace = (
+  a: { readonly file: string; readonly line: number; readonly column: number },
+  b: { readonly file: string; readonly line: number; readonly column: number },
+) => a.file.localeCompare(b.file) || a.line - b.line || a.column - b.column;
 
 const entryAt = (
   text: string,

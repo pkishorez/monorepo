@@ -10,6 +10,7 @@ const tree = listTree([
   'apps/web/src/feature/part.ts',
   'apps/web/src/feature/logic/shared/index.ts',
   'apps/web/src/feature/logic/shared/shape.ts',
+  'apps/web/src/feature/logic/shared/format/index.ts',
   'apps/web/src/feature/view/index.ts',
   'apps/web/src/feature/view/body.ts',
   'apps/web/src/feature/view/helper.ts',
@@ -42,7 +43,7 @@ describe('an MCP Toolkit contract, mcp/*/contract', () => {
         'server/mcp/tools/real/index.ts',
         'server/mcp/tools/contract/index.ts',
       ),
-    ).toEqual({ ok: true });
+    ).toEqual({ ok: true, door: 'src/feature/server/mcp/tools/contract' });
     expect(
       judgeUnit(
         'server/mcp/tools/tests/tools.test.ts',
@@ -84,10 +85,16 @@ describe('judgeImport', () => {
     });
   });
 
-  it('lets a file import a door above it', () => {
+  it('lets a file import a door above it, naming the door', () => {
     expect(
       judge('feature/view/body.ts', 'feature/logic/shared/index.ts'),
-    ).toEqual({ ok: true });
+    ).toEqual({ ok: true, door: 'apps/web/src/feature/logic/shared' });
+  });
+
+  it('names the door a folder directly inside it is opened by', () => {
+    expect(
+      judge('feature/view/body.ts', 'feature/logic/shared/format/index.ts'),
+    ).toEqual({ ok: true, door: 'apps/web/src/feature/logic/shared' });
   });
 
   it('refuses a module beside it that is not a door', () => {

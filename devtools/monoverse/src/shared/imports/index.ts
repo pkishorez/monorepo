@@ -13,7 +13,7 @@ export interface ImportsRule {
 }
 
 export type ImportVerdict =
-  | { readonly ok: true }
+  | { readonly ok: true; readonly door?: string }
   | {
       readonly ok: false;
       readonly reason: 'inside';
@@ -43,21 +43,21 @@ export const judgeImport = (
       ? { ok: true }
       : { ok: false, reason: 'inside', module: targetModule };
 
-  if (
-    isIndexFile(target) &&
-    isDoorIndex(importer, parentOf(target), rule, root)
-  )
-    return { ok: true };
-  return { ok: false, reason: 'door', doors: rule.doors };
+  const door = isIndexFile(target)
+    ? doorOf(importer, parentOf(target), rule, root)
+    : undefined;
+  return door === undefined
+    ? { ok: false, reason: 'door', doors: rule.doors }
+    : { ok: true, door };
 };
 
-const isDoorIndex = (
+const doorOf = (
   importer: string,
   dir: string,
   rule: ImportsRule,
   root: string,
-): boolean =>
-  [dir, parentOf(dir)].some((folder) =>
+): string | undefined =>
+  [dir, parentOf(dir)].find((folder) =>
     rule.doors.some((door) => {
       const owner = ownerThrough(folder, door);
       return (

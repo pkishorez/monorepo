@@ -14,6 +14,7 @@ export { type ContractsRule } from './shared/contracts/index.ts';
 export { type ImportsRule } from './shared/imports/index.ts';
 export {
   type CheckOptions,
+  type Excepted,
   type Import,
   type OpenProject,
   type PackageReport,

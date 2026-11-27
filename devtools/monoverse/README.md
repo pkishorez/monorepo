@@ -17,7 +17,9 @@ its own module; below it, the index file of any module, at any depth;
 beside or above it, only a **door**: the index file of a door folder such as
 `logic/shared/`, or of a folder directly inside one. A package can let a
 few imports through with `exceptions`, and refuse more with
-`restrictions`, each with its reason.
+`restrictions`, each with its reason. Beside its violations, a check tells
+each import a door or an exception lets through, so a view can show where
+the parent-to-child rule bends.
 
 Every import is followed the way TypeScript and Node follow it: relative
 paths, `.js` written for `.ts`, folder index files, tsconfig `paths`
@@ -49,24 +51,24 @@ pnpm add -D @kestack/monoverse
 
 ### `@kestack/monoverse`
 
-| Export             | What it does                                                                                                |
-| ------------------ | ----------------------------------------------------------------------------------------------------------- |
-| `openProject`      | Opens a folder and its list of files: checks packages and lists each file's imports, parsing a file once.   |
-| `checkProject`     | Checks every package with a `monoverse.json`, or the ones named, and reports each package's problems.       |
-| `configFile`       | The file name, `monoverse.json`.                                                                            |
-| `parseConfig`      | Reads a `monoverse.json`'s text into its settings, with the preset expanded, or says what is wrong.         |
-| `presets`          | The ready-made rules, `default` and `kabuki`.                                                               |
-| `isChecked`        | Whether a package checks a file: inside a source root, not a declaration or minified file, and not ignored. |
-| `matches`          | Whether a glob matches a path, a folder or package name covering everything inside it.                      |
-| `sourceExtensions` | The extensions of the files the rules read.                                                                 |
-| `isSource`         | Whether a file has one of those extensions.                                                                 |
-| `listTree`         | Reads modules and packages from a list of files.                                                            |
-| `indexFiles`       | The file names that make a folder a module.                                                                 |
-| `isIndexFile`      | Whether a file is a module's index file.                                                                    |
-| `isInside`         | Whether a path sits strictly inside a folder.                                                               |
-| `parentOf`         | The folder holding a path.                                                                                  |
-| `joinPath`         | A name inside a folder.                                                                                     |
-| `relativeTo`       | A path as seen from a folder that holds it.                                                                 |
+| Export             | What it does                                                                                                                                              |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `openProject`      | Opens a folder and its list of files: checks packages and lists each file's imports, parsing a file once.                                                 |
+| `checkProject`     | Checks every package with a `monoverse.json`, or the ones named, and reports each package's problems and the imports a door or an exception lets through. |
+| `configFile`       | The file name, `monoverse.json`.                                                                                                                          |
+| `parseConfig`      | Reads a `monoverse.json`'s text into its settings, with the preset expanded, or says what is wrong.                                                       |
+| `presets`          | The ready-made rules, `default` and `kabuki`.                                                                                                             |
+| `isChecked`        | Whether a package checks a file: inside a source root, not a declaration or minified file, and not ignored.                                               |
+| `matches`          | Whether a glob matches a path, a folder or package name covering everything inside it.                                                                    |
+| `sourceExtensions` | The extensions of the files the rules read.                                                                                                               |
+| `isSource`         | Whether a file has one of those extensions.                                                                                                               |
+| `listTree`         | Reads modules and packages from a list of files.                                                                                                          |
+| `indexFiles`       | The file names that make a folder a module.                                                                                                               |
+| `isIndexFile`      | Whether a file is a module's index file.                                                                                                                  |
+| `isInside`         | Whether a path sits strictly inside a folder.                                                                                                             |
+| `parentOf`         | The folder holding a path.                                                                                                                                |
+| `joinPath`         | A name inside a folder.                                                                                                                                   |
+| `relativeTo`       | A path as seen from a folder that holds it.                                                                                                               |
 
 ### `@kestack/monoverse/oxlint`
 

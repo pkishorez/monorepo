@@ -91,6 +91,46 @@ describe('checkProject', () => {
     ]);
   });
 
+  it('tells each import a door or an exception lets through, and why', () => {
+    const excepted = reports.flatMap((r) =>
+      r.result._tag === 'Checked' ? r.result.excepted : [],
+    );
+    expect(excepted.find((e) => e.file === 'alias/src/host/main.ts')).toEqual({
+      by: 'exception',
+      file: 'alias/src/host/main.ts',
+      line: 2,
+      column: 22,
+      specifier: '../feature/part.ts',
+      to: 'alias/src/feature/part.ts',
+      message:
+        "'../feature/part.ts' breaks the rules, and the exception from 'src/host/**' to 'src/feature/part.ts' lets it through: The host wires the feature's parts itself.",
+    });
+    expect(
+      excepted
+        .filter((e) => e.file === 'app/src/feature/actor-feature/view/view.ts')
+        .map(({ by, line, message }) => ({ by, line, message })),
+    ).toEqual([
+      {
+        by: 'door',
+        line: 1,
+        message:
+          "'../logic/shared/index.ts' is beside or above this file, and comes in through the door src/feature/actor-feature/logic/shared.",
+      },
+      {
+        by: 'door',
+        line: 6,
+        message:
+          "'../../server/rpc/contract/index.ts' is beside or above this file, and comes in through the door src/feature/server/rpc/contract.",
+      },
+      {
+        by: 'door',
+        line: 7,
+        message:
+          "'../../server/rpc/feature/contract/index.ts' is beside or above this file, and comes in through the door src/feature/server/rpc/feature/contract.",
+      },
+    ]);
+  });
+
   it('gives a restriction’s reason with the import, by package name or by path', () => {
     expect(
       violations

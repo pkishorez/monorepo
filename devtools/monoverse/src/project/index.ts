@@ -4,6 +4,7 @@ import { type PackageReport, checkPackage } from './check.ts';
 import { type Import, type Project, sourcesOf } from './source.ts';
 
 export type {
+  Excepted,
   PackageReport,
   PackageResult,
   Violation,
