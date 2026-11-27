@@ -262,7 +262,8 @@ has to name one; the paths above give values alone.
 
 The ones ending in `Of` take an Actor's Shape, `typeof FolderViewerShape`,
 and type a part written outside its `build`: `InitOf`, `UpdatesOf`,
-`WorkersOf`, `SelfOf` and `DataOf` (its data, in one State when named), and
+`WorkersOf` and `SelfOf` (for one State's block when named), `DataOf` (its
+data, in one State when named), and
 `ViewPropsOf`, what its View draws from, without its Children.
 
 | Path                            | Types                                                                                                                                                                                                                                                                                                               |

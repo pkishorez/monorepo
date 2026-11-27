@@ -81,10 +81,13 @@ export type InitOf<S> =
         input: Parts<S>['input'],
       ) => { readonly state: Parts<S>['state'] } & ModelInit<Parts<S>['model']>;
 
-/** Its Updates at the top of `build`, `on`: one per Message it answers there. */
-export type UpdatesOf<S> = Rules<
+/** Its Updates, `on`: one per Message it answers at the top of `build`, or in State `T`'s block when given. */
+export type UpdatesOf<
+  S,
+  T extends Parts<S>['state']['_tag'] = Parts<S>['state']['_tag'],
+> = Rules<
   Parts<S>['model'],
-  Parts<S>['state'],
+  Only<Parts<S>['state'], T>,
   Parts<S>['props'],
   Parts<S>['message'],
   Parts<S>['requires'],
@@ -92,19 +95,25 @@ export type UpdatesOf<S> = Rules<
   Parts<S>['emits']
 >;
 
-/** Its Workers at the top of `build`, by name. */
-export type WorkersOf<S> = Workers<
+/** Its Workers by name, at the top of `build`, or in State `T`'s block when given. */
+export type WorkersOf<
+  S,
+  T extends Parts<S>['state']['_tag'] = Parts<S>['state']['_tag'],
+> = Workers<
   Parts<S>['model'],
-  Parts<S>['state'],
+  Only<Parts<S>['state'], T>,
   Parts<S>['message'],
   Parts<S>['requires'],
   Parts<S>['props']
 >;
 
-/** What its Workers and Provides hold of an Instance. */
-export type SelfOf<S> = Self<
+/** What its Workers and Provides hold of an Instance, in State `T` when given. */
+export type SelfOf<
+  S,
+  T extends Parts<S>['state']['_tag'] = Parts<S>['state']['_tag'],
+> = Self<
   Parts<S>['model'],
-  Parts<S>['state'],
+  Only<Parts<S>['state'], T>,
   Parts<S>['message'],
   Parts<S>['props']
 >;
