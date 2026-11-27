@@ -1,4 +1,5 @@
 import { Effect, Layer, Stream } from 'effect';
+import { McpProtocol, McpServer } from 'effect/ai';
 import { FetchHttpClient, HttpRouter } from 'effect/http';
 import { NodeHttpServer } from '@effect/platform-node';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -22,6 +23,14 @@ afterEach(async () => {
 const serve = () => {
   const web = HttpRouter.toWebHandler(
     lotelServer({ db: ':memory:' }).pipe(
+      Layer.provide(
+        McpServer.layerHttp({
+          name: 'devtools',
+          version: '0.0.0',
+          path: '/mcp',
+          protocols: [McpProtocol.v2025_06_18],
+        }),
+      ),
       Layer.provide(NodeHttpServer.layerHttpServices),
     ),
     { disableLogger: true },

@@ -94,16 +94,16 @@ describe('connect', () => {
           expect(one.query.get('app')).toBe('Diary');
           expect(one.query.get('environment')).toBe('kishores-mbp');
           yield* one.client.named({ name: 'diary-2' });
-          const watched = yield* one.client.watch().pipe(Stream.runHead);
-          expect(Option.getOrThrow(watched).entries).toHaveLength(1);
+          const told = yield* one.client.history({}).pipe(Stream.runHead);
+          expect(Option.getOrThrow(told).entries).toHaveLength(1);
 
           yield* Scope.close(first, Exit.void);
           const second = yield* Scope.make();
           yield* devtools(port, accepted).pipe(Scope.provide(second));
           const two = yield* Queue.take(accepted);
           expect(two.query.get('name')).toBe('diary-2');
-          const { opened } = yield* two.client.look({ open: ['Diary'] });
-          expect(opened['Diary']!.model).toEqual({
+          const { model } = yield* two.client.look({ address: 'Diary' });
+          expect(model).toEqual({
             notes: [{ at: new Date(5).toISOString(), text: 'first' }],
           });
           yield* Scope.close(second, Exit.void);
@@ -181,7 +181,7 @@ describe('connect', () => {
         yield* Effect.addFinalizer(() => Effect.sync(stop));
         const one = yield* Queue.take(accepted);
         expect(
-          Option.getOrThrow(yield* one.client.fakes().pipe(Stream.runHead)),
+          Option.getOrThrow(yield* one.client.world().pipe(Stream.runHead)),
         ).toEqual([]);
         expect(said).toHaveBeenCalledTimes(1);
         expect(said.mock.calls[0]![1]).toMatchObject({

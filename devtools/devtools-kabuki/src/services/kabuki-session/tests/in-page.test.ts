@@ -4,12 +4,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Actor } from '@kestack/kabuki';
 import type { AppRuntime } from '@kestack/kabuki/react/types';
 import {
-  Blueprinted,
-  Look,
-  Watched,
+  Looked,
+  Stepped,
+  Told,
 } from '../../../server/rpc/session/contract/index.ts';
 import { KabukiSession } from '../contract/index.ts';
-import type { Watched as WatchedType } from '../contract/index.ts';
+import type { Told as ToldType } from '../contract/index.ts';
 import { inPage } from '../real/index.ts';
 import { Counter, running, started } from './diary.ts';
 
@@ -34,10 +34,10 @@ const written = Effect.gen(function* () {
 const failure = <A, E>(exit: Exit.Exit<A, E>) =>
   Exit.isFailure(exit) ? exit.cause.reasons[0] : undefined;
 
-const watchedNow = (session: KabukiSession['Service']) =>
+const toldNow = (session: KabukiSession['Service']) =>
   session
-    .watch()
-    .pipe(Stream.runHead, Effect.map(Option.getOrThrow<WatchedType>));
+    .history({})
+    .pipe(Stream.runHead, Effect.map(Option.getOrThrow<ToldType>));
 
 const roundTrips = <S extends Schema.Codec<unknown, unknown>>(
   schema: S,
@@ -47,170 +47,159 @@ const roundTrips = <S extends Schema.Codec<unknown, unknown>>(
   expect(JSON.parse(JSON.stringify(encoded))).toEqual(encoded);
 };
 
-describe('blueprint', () => {
-  it("reads every Actor the root can grow from the root's Blueprint, each by its place", () =>
-    run(
-      Effect.gen(function* () {
-        const { session } = yield* written;
-        const { root } = yield* session.blueprint();
-        expect(root).toMatchObject({
-          place: 'Diary',
-          slot: null,
-          actor: 'Diary',
-          description: 'Notes, each with when it was written',
-          condition: null,
-          single: true,
-          requires: [],
-        });
-        expect(root.top.messages).toEqual([
-          {
-            tag: 'Wrote',
-            description: 'A note was written',
-            payload: {
-              kind: 'struct',
-              fields: [
-                {
-                  name: 'note',
-                  optional: false,
-                  nullable: false,
-                  shape: {
-                    kind: 'struct',
-                    fields: [
-                      {
-                        name: 'at',
-                        optional: false,
-                        nullable: false,
-                        shape: { kind: 'text' },
-                      },
-                      {
-                        name: 'text',
-                        optional: false,
-                        nullable: false,
-                        shape: { kind: 'text' },
-                      },
-                    ],
-                  },
-                },
-              ],
-            },
-          },
-        ]);
-        expect(root.top.children).toEqual([
-          {
-            name: 'counter',
-            actor: 'Counter',
-            condition: 'always',
-            keyed: false,
-          },
-        ]);
-        expect(root.states['Single']).toMatchObject({
-          messages: [],
-          data: { kind: 'struct', fields: [] },
-        });
-        expect(root.children).toEqual([
-          expect.objectContaining({
-            place: 'Diary/counter',
-            slot: 'counter',
-            actor: 'Counter',
-            condition: 'always',
-            within: null,
-            children: [],
-          }),
-        ]);
-        roundTrips(Blueprinted, { root });
-      }),
-    ));
-
-  it('offers every Message an Actor has a rule for, a Worker’s too, at its top and in each State', () =>
-    run(
-      Effect.gen(function* () {
-        const Door = Actor.define('Door', {
-          state: { Closed: {}, Opening: {} },
-          message: { Pushed: {}, Swung: {}, Knocked: {} },
-        }).build({
-          init: () => ({ state: { _tag: 'Closed' } }),
-          on: { Knocked: () => ({}) },
-          states: {
-            Closed: { on: { Pushed: () => ({ state: { _tag: 'Opening' } }) } },
-            Opening: {
-              workers: { swing: { run: () => Effect.never } },
-              on: { Swung: () => ({ state: { _tag: 'Closed' } }) },
-            },
-          },
-        });
-        const { app } = yield* running(Door);
-        const session = yield* sessionOf(app);
-        const { root } = yield* session.blueprint();
-        const tags = (level: {
-          readonly messages: ReadonlyArray<{ readonly tag: string }>;
-        }) => level.messages.map(({ tag }) => tag);
-        expect(root.single).toBe(false);
-        expect(tags(root.top)).toEqual(['Knocked']);
-        expect(tags(root.states['Closed']!)).toEqual(['Pushed']);
-        expect(tags(root.states['Opening']!)).toEqual(['Swung']);
-        expect(root.states['Opening']!.workers).toEqual([
-          { name: 'swing', condition: 'always' },
-        ]);
-      }),
-    ));
-});
-
-describe('watch', () => {
-  it('tells where the app is and every entry kept, at once and after each change', () =>
+describe('history', () => {
+  it('tells where the app is and every entry kept, then each new entry once, light: whether it changed anything, not what', () =>
     run(
       Effect.gen(function* () {
         const { session, write } = yield* written;
-        const seen: Array<WatchedType> = [];
-        const fiber = yield* session.watch().pipe(
+        const seen: Array<ToldType> = [];
+        const fiber = yield* session.history({}).pipe(
           Stream.runForEach((watched) => Effect.sync(() => seen.push(watched))),
           Effect.forkScoped,
         );
         yield* settle;
         const [first] = seen;
+        const [one, two] = first!.entries;
         expect(first!.now).toEqual({
-          head: first!.entries[1]!.id,
-          seeking: null,
+          head: two!.id,
+          previewing: null,
           running: true,
           failure: null,
           url: '',
           revision: 0,
         });
-        expect(first!.entries).toEqual([
-          {
-            id: first!.entries[0]!.id,
-            parent: null,
-            to: 'Diary',
-            tag: 'Wrote',
-            from: { kind: 'outside' },
-            at: expect.any(Number),
-            outcome: 'handled',
-          },
-          expect.objectContaining({ parent: first!.entries[0]!.id }),
-        ]);
+        expect(first!.roots).toEqual([one!.id]);
+        expect(one).toEqual({
+          id: one!.id,
+          parent: null,
+          to: 'Diary',
+          tag: 'Wrote',
+          from: { kind: 'outside' },
+          at: expect.any(Number),
+          outcome: 'handled',
+          changed: true,
+        });
+        expect(two).toMatchObject({ parent: one!.id });
         write('third', 12);
         yield* settle;
-        expect(seen.at(-1)!.entries).toHaveLength(3);
-        expect(seen.at(-1)!.now.revision).toBeGreaterThan(0);
-        roundTrips(Watched, seen.at(-1)!);
+        const last = seen.at(-1)!;
+        expect(last.epoch).toBe(first!.epoch);
+        expect(last.entries).toMatchObject([{ parent: two!.id, tag: 'Wrote' }]);
+        expect(last.now.revision).toBeGreaterThan(0);
+        expect(seen.flatMap(({ entries }) => entries)).toHaveLength(3);
+        roundTrips(Told, last);
         yield* Fiber.interrupt(fiber);
       }),
     ));
 
-  it("keeps every Branch's entries, so a Fork's old Branch is still there", () =>
+  it('never drops an entry, however fast they come', () =>
     run(
       Effect.gen(function* () {
         const { session, write } = yield* written;
-        const [first, second] = (yield* watchedNow(session)).entries;
+        const seen: Array<ToldType> = [];
+        const fiber = yield* session.history({}).pipe(
+          Stream.runForEach((watched) => Effect.sync(() => seen.push(watched))),
+          Effect.forkScoped,
+        );
+        yield* settle;
+        for (let i = 0; i < 20; i++) write(`note ${i}`, i);
+        yield* settle;
+        const ids = seen.flatMap(({ entries }) => entries.map(({ id }) => id));
+        expect(ids).toHaveLength(22);
+        expect(new Set(ids).size).toBe(22);
+        yield* Fiber.interrupt(fiber);
+      }),
+    ));
+
+  it("keeps every Branch's entries, so a Fork's old Branch is still there, and sends only what is new", () =>
+    run(
+      Effect.gen(function* () {
+        const { session, write } = yield* written;
+        const seen: Array<ToldType> = [];
+        const fiber = yield* session.history({}).pipe(
+          Stream.runForEach((watched) => Effect.sync(() => seen.push(watched))),
+          Effect.forkScoped,
+        );
+        yield* settle;
+        const [first, second] = seen[0]!.entries;
         yield* session.fork({ from: first!.id });
         yield* settle;
         write('third', 12);
         yield* settle;
-        const { now, entries } = yield* watchedNow(session);
+        const last = seen.at(-1)!;
+        expect(last.epoch).toBe(seen[0]!.epoch);
+        expect(last.entries).toMatchObject([{ parent: first!.id }]);
+        expect(last.now.head).toBe(last.entries[0]!.id);
+        const { entries } = yield* toldNow(session);
         expect(entries.map(({ id }) => id)).toContain(second!.id);
         expect(entries).toHaveLength(3);
-        expect(entries.find(({ id }) => id === now.head)!.parent).toBe(
-          first!.id,
+        yield* Fiber.interrupt(fiber);
+      }),
+    ));
+
+  it('says which entries the start is followed by once the History is Compacted, in the same epoch', () =>
+    run(
+      Effect.gen(function* () {
+        const { session, app } = yield* written;
+        const seen: Array<ToldType> = [];
+        const fiber = yield* session.history({}).pipe(
+          Stream.runForEach((watched) => Effect.sync(() => seen.push(watched))),
+          Effect.forkScoped,
         );
+        yield* settle;
+        const [, second] = seen[0]!.entries;
+        app.keep(1);
+        yield* settle;
+        expect(seen.at(-1)).toMatchObject({
+          epoch: seen[0]!.epoch,
+          entries: [],
+          roots: [second!.id],
+        });
+        yield* Fiber.interrupt(fiber);
+      }),
+    ));
+
+  it('starts a new epoch, with every entry again, once the History is started over', () =>
+    run(
+      Effect.gen(function* () {
+        const { session, app, write } = yield* written;
+        const seen: Array<ToldType> = [];
+        const fiber = yield* session.history({}).pipe(
+          Stream.runForEach((watched) => Effect.sync(() => seen.push(watched))),
+          Effect.forkScoped,
+        );
+        yield* settle;
+        app.startOver();
+        yield* settle;
+        write('again', 20);
+        yield* settle;
+        const last = seen.at(-1)!;
+        expect(last.epoch).not.toBe(seen[0]!.epoch);
+        expect(last.entries).toMatchObject([{ parent: null, tag: 'Wrote' }]);
+        expect(last.roots).toEqual([last.entries[0]!.id]);
+        yield* Fiber.interrupt(fiber);
+      }),
+    ));
+
+  it('carries on from where its caller is, in the same epoch, and from the start in another', () =>
+    run(
+      Effect.gen(function* () {
+        const { session, write } = yield* written;
+        const { epoch, entries } = yield* toldNow(session);
+        write('third', 12);
+        yield* settle;
+        const after = { epoch, after: entries.at(-1)!.id };
+        const resumed = yield* session
+          .history({ from: after })
+          .pipe(Stream.runHead, Effect.map(Option.getOrThrow<ToldType>));
+        expect(resumed.epoch).toBe(epoch);
+        expect(resumed.entries).toMatchObject([
+          { parent: entries.at(-1)!.id, tag: 'Wrote' },
+        ]);
+        const other = yield* session
+          .history({ from: { epoch: 'gone', after: 99 } })
+          .pipe(Stream.runHead, Effect.map(Option.getOrThrow<ToldType>));
+        expect(other.entries).toHaveLength(3);
       }),
     ));
 
@@ -221,7 +210,7 @@ describe('watch', () => {
         vi.stubGlobal('location', page);
         const { session, write } = yield* written;
         const urls: Array<string> = [];
-        const fiber = yield* session.watch().pipe(
+        const fiber = yield* session.history({}).pipe(
           Stream.runForEach(({ now }) => Effect.sync(() => urls.push(now.url))),
           Effect.forkScoped,
         );
@@ -240,130 +229,140 @@ describe('watch', () => {
       Effect.gen(function* () {
         const { session, runtime } = yield* written;
         yield* Effect.promise(() => runtime.stop());
-        expect((yield* watchedNow(session)).now.running).toBe(false);
+        expect((yield* toldNow(session)).now.running).toBe(false);
         yield* Effect.promise(() => runtime.start());
-        expect((yield* watchedNow(session)).now.running).toBe(true);
+        expect((yield* toldNow(session)).now.running).toBe(true);
       }),
     ));
 });
 
-describe('look', () => {
-  it('shows the Instances at the Head, what the Step did to each, and the data of the ones opened, encoded', () =>
+const Shelf = Actor.define('Shelf', {
+  model: { ids: Schema.Array(Schema.String) },
+  message: { Added: { id: Schema.String } },
+}).build({
+  init: () => ({ model: { ids: [] } }),
+  children: {
+    rows: Actor.child(Counter, { each: ({ model }) => model.ids }),
+  },
+  on: {
+    Added: ({ id }, { model }) => ({
+      model: { ids: [...model.ids, id] },
+    }),
+  },
+});
+
+const Door = Actor.define('Door', {
+  description: 'A door that swings open when pushed',
+  state: { Closed: {}, Opening: { since: Schema.Number } },
+  model: { knocks: Schema.Number },
+  message: {
+    Pushed: Schema.Struct({}).annotate({ description: 'Someone pushes it' }),
+    Swung: {},
+    Knocked: {},
+  },
+}).build({
+  init: () => ({ state: { _tag: 'Closed' }, model: { knocks: 0 } }),
+  on: {
+    Knocked: (_, { model }) => ({ model: { knocks: model.knocks + 1 } }),
+  },
+  workers: { creak: { run: () => Effect.never } },
+  states: {
+    Closed: {
+      on: { Pushed: () => ({ state: { _tag: 'Opening', since: 3 } }) },
+    },
+    Opening: {
+      workers: { swing: { run: () => Effect.never } },
+      on: { Swung: () => ({ state: { _tag: 'Closed' } }) },
+    },
+  },
+});
+
+describe('step', () => {
+  it('gives the tree at an entry, the Message it played, encoded, and what it changed', () =>
     run(
       Effect.gen(function* () {
         const { session } = yield* written;
-        const look = yield* session.look({ open: ['Diary'] });
-        expect(look.root).toEqual({
-          address: 'Diary',
-          place: 'Diary',
-          actor: 'Diary',
-          slot: null,
-          state: 'Single',
-          change: 'changed',
-          children: [
+        const [first] = (yield* toldNow(session)).entries;
+        const stepped = yield* session.step({ at: first!.id });
+        expect(stepped).toEqual({
+          at: first!.id,
+          tree: {
+            address: 'Diary',
+            actor: 'Diary',
+            slot: null,
+            state: 'Single',
+            data: {},
+            model: {
+              notes: [{ at: '1970-01-01T00:00:00.005Z', text: 'first' }],
+            },
+            workers: [],
+            provides: [],
+            children: [
+              {
+                address: 'Diary/counter#1',
+                actor: 'Counter',
+                slot: 'counter',
+                state: 'Single',
+                data: {},
+                model: { count: 0 },
+                workers: [],
+                provides: [],
+                children: [],
+              },
+            ],
+          },
+          message: {
+            id: first!.id,
+            to: 'Diary',
+            tag: 'Wrote',
+            message: {
+              _tag: 'Wrote',
+              note: { at: new Date(5).toISOString(), text: 'first' },
+            },
+            from: { kind: 'outside' },
+            at: expect.any(Number),
+            outcome: 'handled',
+            commands: [],
+            emits: [],
+          },
+          changes: [
             {
-              address: 'Diary/counter#1',
-              place: 'Diary/counter',
-              actor: 'Counter',
-              slot: 'counter',
-              state: 'Single',
-              change: null,
-              children: [],
+              _tag: 'Changed',
+              address: 'Diary',
+              actor: 'Diary',
+              model: {
+                notes: {
+                  before: [],
+                  after: [{ at: new Date(5).toISOString(), text: 'first' }],
+                },
+              },
+              props: {},
+              workers: { started: [], stopped: [] },
             },
           ],
         });
-        expect(look.opened).toEqual({
-          Diary: {
-            state: { _tag: 'Single' },
-            model: {
-              notes: [
-                { at: new Date(5).toISOString(), text: 'first' },
-                { at: new Date(9).toISOString(), text: 'second' },
-              ],
-            },
-            folded: false,
-            workers: [],
-          },
+        roundTrips(Stepped, stepped);
+      }),
+    ));
+
+  it("gives no Message and no change at the History's start", () =>
+    run(
+      Effect.gen(function* () {
+        const { session } = yield* written;
+        const start = yield* session.step({ at: 'start' });
+        expect(start).toMatchObject({
+          at: 'start',
+          message: null,
+          changes: [],
         });
-        roundTrips(Look, look);
+        expect(start.work).toBeUndefined();
       }),
     ));
 
-  it("shows any Step: the History's start, or an entry, a Child's change as the Child's", () =>
+  it('gives the Work report only at the Head', () =>
     run(
       Effect.gen(function* () {
-        const { session, bump } = yield* written;
-        const [first] = (yield* watchedNow(session)).entries;
-        const start = yield* session.look({ at: 'start', open: ['Diary'] });
-        expect(start.at).toBe('start');
-        expect(start.root.change).toBeNull();
-        expect(start.opened['Diary']!.model).toEqual({ notes: [] });
-        const one = yield* session.look({ at: first!.id, open: ['Diary'] });
-        expect(one.opened['Diary']!.model).toEqual({
-          notes: [{ at: new Date(5).toISOString(), text: 'first' }],
-        });
-        bump();
-        yield* settle;
-        const bumped = yield* session.look({ open: ['Diary/counter#1'] });
-        expect(bumped.root.change).toBeNull();
-        expect(bumped.root.children[0]!.change).toBe('changed');
-        expect(bumped.opened['Diary/counter#1']!.model).toEqual({ count: 1 });
-      }),
-    ));
-
-  it('marks an Instance the Step started, and keys a Child held under one', () =>
-    run(
-      Effect.gen(function* () {
-        const Shelf = Actor.define('Shelf', {
-          model: { ids: Schema.Array(Schema.String) },
-          message: { Added: { id: Schema.String } },
-        }).build({
-          init: () => ({ model: { ids: [] } }),
-          children: {
-            rows: Actor.child(Counter, { each: ({ model }) => model.ids }),
-          },
-          on: {
-            Added: ({ id }, { model }) => ({
-              model: { ids: [...model.ids, id] },
-            }),
-          },
-        });
-        const { app, runtime } = yield* running(Shelf);
-        runtime.root.send({ _tag: 'Added', id: 'a' });
-        yield* settle;
-        const session = yield* sessionOf(app);
-        const { root } = yield* session.look({ open: [] });
-        expect(root.change).toBe('changed');
-        expect(root.children).toEqual([
-          expect.objectContaining({
-            slot: 'rows',
-            key: 'a',
-            place: 'Shelf/rows',
-            change: 'started',
-          }),
-        ]);
-      }),
-    ));
-
-  it('folds a large value, and says so', () =>
-    run(
-      Effect.gen(function* () {
-        const diary = yield* started;
-        for (let i = 0; i < 200; i++) diary.write(`note ${i} `.repeat(4), i);
-        yield* settle;
-        const session = yield* sessionOf(diary.app);
-        const { opened } = yield* session.look({ open: ['Diary'] });
-        expect(opened['Diary']!.folded).toBe(true);
-        const { notes } = opened['Diary']!.model as { notes: unknown[] };
-        expect(notes).toHaveLength(21);
-        expect(notes.at(-1)).toBe('… 180 more items');
-      }),
-    ));
-
-  it('tells the Workers an opened Instance runs, only at the Head of a running app', () =>
-    run(
-      Effect.gen(function* () {
-        const Clock = Actor.define('Clock', {
+        const Broken = Actor.define('Broken', {
           model: { ticks: Schema.Number },
           message: { Ticked: {} },
         }).build({
@@ -371,38 +370,260 @@ describe('look', () => {
           on: {
             Ticked: (_, { model }) => ({ model: { ticks: model.ticks + 1 } }),
           },
-          workers: { tick: { run: () => Effect.never } },
+          workers: {
+            tick: { run: () => Effect.never },
+            fail: { run: () => Effect.die(new Error('no line')) },
+          },
         });
-        const { app, runtime } = yield* running(Clock);
+        const { app, runtime } = yield* running(Broken);
+        runtime.root.send({ _tag: 'Ticked' });
         runtime.root.send({ _tag: 'Ticked' });
         yield* settle;
         const session = yield* sessionOf(app);
-        const head = yield* session.look({ open: ['Clock'] });
-        expect(head.opened['Clock']!.workers).toEqual([
-          { name: 'tick', key: '', status: 'running' },
+        const head = yield* session.step({});
+        expect(head.at).toBe(app.history.head);
+        expect(head.work!.instances['Broken']!.workers).toEqual([
+          {
+            name: 'tick',
+            key: '',
+            status: 'running',
+            since: expect.any(Number),
+          },
+          {
+            name: 'fail',
+            key: '',
+            status: 'failed',
+            failure: expect.stringContaining('no line'),
+            since: expect.any(Number),
+          },
         ]);
-        const start = yield* session.look({ at: 'start', open: ['Clock'] });
-        expect(start.opened['Clock']!.workers).toEqual([]);
+        expect(head.work!.failures).toEqual([
+          expect.objectContaining({
+            address: 'Broken',
+            kind: 'worker',
+            name: 'fail',
+            failure: expect.stringContaining('no line'),
+          }),
+        ]);
+        roundTrips(Stepped, head);
+        expect(
+          (yield* session.step({ at: app.history.head! })).work,
+        ).toBeDefined();
+        const [first] = (yield* toldNow(session)).entries;
+        expect((yield* session.step({ at: first!.id })).work).toBeUndefined();
       }),
     ));
 
-  it('says which Steps are kept, and which Instances are there', () =>
+  it("tells a Child's change as the Child's, and an Instance added whole, keyed", () =>
     run(
       Effect.gen(function* () {
-        const { session } = yield* written;
-        const { entries } = yield* watchedNow(session);
+        const { session, bump } = yield* written;
+        bump();
+        yield* settle;
+        expect((yield* session.step({})).changes).toEqual([
+          {
+            _tag: 'Changed',
+            address: 'Diary/counter#1',
+            actor: 'Counter',
+            model: { count: { before: 0, after: 1 } },
+            props: {},
+            workers: { started: [], stopped: [] },
+          },
+        ]);
+        const { app, runtime } = yield* running(Shelf);
+        runtime.root.send({ _tag: 'Added', id: 'a' });
+        yield* settle;
+        const shelf = yield* (yield* sessionOf(app)).step({});
+        expect(shelf.changes).toEqual([
+          expect.objectContaining({ _tag: 'Changed', address: 'Shelf' }),
+          {
+            _tag: 'Added',
+            address: expect.stringMatching(/^Shelf\/rows/),
+            actor: 'Counter',
+            key: 'a',
+            state: { _tag: 'Single' },
+            model: { count: 0 },
+            workers: [],
+          },
+        ]);
+        expect(shelf.tree.children).toEqual([
+          expect.objectContaining({ slot: 'rows', key: 'a', actor: 'Counter' }),
+        ]);
+      }),
+    ));
+
+  it('trims a large value in what changed', () =>
+    run(
+      Effect.gen(function* () {
+        const diary = yield* started;
+        for (let i = 0; i < 200; i++) diary.write(`note ${i} `.repeat(4), i);
+        yield* settle;
+        const session = yield* sessionOf(diary.app);
+        const [change] = (yield* session.step({})).changes;
+        const { after } = (
+          change as { readonly model: Record<string, { after?: unknown }> }
+        ).model['notes']!;
+        expect((after as ReadonlyArray<unknown>).length).toBeLessThan(200);
+      }),
+    ));
+
+  it('says which Steps are kept, also once the History is Compacted', () =>
+    run(
+      Effect.gen(function* () {
+        const { session, app } = yield* written;
+        const [first, second] = (yield* toldNow(session)).entries;
         expect(
-          failure(yield* Effect.exit(session.look({ at: 999, open: [] }))),
+          failure(yield* Effect.exit(session.step({ at: 999 }))),
         ).toMatchObject({
           error: {
             _tag: 'StepNotFound',
             step: 999,
-            oldest: entries[0]!.id,
-            newest: entries[1]!.id,
+            oldest: first!.id,
+            newest: second!.id,
           },
         });
+        app.keep(1);
         expect(
-          failure(yield* Effect.exit(session.look({ open: ['Diary/nope#1'] }))),
+          failure(yield* Effect.exit(session.step({ at: first!.id }))),
+        ).toMatchObject({
+          error: {
+            _tag: 'StepNotFound',
+            oldest: second!.id,
+            newest: second!.id,
+          },
+        });
+      }),
+    ));
+});
+
+describe('look', () => {
+  it('describes one Instance: its State data and Model whole, and the Messages it takes', () =>
+    run(
+      Effect.gen(function* () {
+        const diary = yield* started;
+        for (let i = 0; i < 30; i++) diary.write(`note ${i}`, i);
+        yield* settle;
+        const session = yield* sessionOf(diary.app);
+        const looked = yield* session.look({ address: 'Diary' });
+        expect(looked).toMatchObject({
+          at: diary.app.history.head,
+          address: 'Diary',
+          actor: 'Diary',
+          description: 'Notes, each with when it was written',
+          slot: null,
+          state: 'Single',
+          states: ['Single'],
+          data: { _tag: 'Single' },
+          workers: [],
+          provides: [],
+          takes: [
+            {
+              tag: 'Wrote',
+              description: 'A note was written',
+              payload: {
+                kind: 'struct',
+                fields: [
+                  {
+                    name: 'note',
+                    optional: false,
+                    nullable: false,
+                    shape: {
+                      kind: 'struct',
+                      fields: [
+                        {
+                          name: 'at',
+                          optional: false,
+                          nullable: false,
+                          shape: { kind: 'text' },
+                        },
+                        {
+                          name: 'text',
+                          optional: false,
+                          nullable: false,
+                          shape: { kind: 'text' },
+                        },
+                      ],
+                    },
+                  },
+                ],
+              },
+              within: 'always',
+            },
+          ],
+        });
+        const { notes } = looked.model as { notes: ReadonlyArray<unknown> };
+        expect(notes).toHaveLength(30);
+        expect(notes[0]).toEqual({
+          at: new Date(0).toISOString(),
+          text: 'note 0',
+        });
+        roundTrips(Looked, looked);
+        const start = yield* session.look({ at: 'start', address: 'Diary' });
+        expect(start.model).toEqual({ notes: [] });
+      }),
+    ));
+
+  it('takes the Messages of its State and those it always takes, and wants the Workers of both, live only at the Head', () =>
+    run(
+      Effect.gen(function* () {
+        const { app, runtime } = yield* running(Door);
+        runtime.root.send({ _tag: 'Knocked' });
+        yield* settle;
+        const session = yield* sessionOf(app);
+        const tags = (looked: Looked) =>
+          looked.takes.map(({ tag, within }) => `${tag} ${within}`);
+        const closed = yield* session.look({ address: 'Door' });
+        expect(closed.states).toEqual(['Closed', 'Opening']);
+        expect(tags(closed)).toEqual(['Pushed state', 'Knocked always']);
+        expect(closed.takes[0]).toMatchObject({
+          description: 'Someone pushes it',
+        });
+        expect(closed.workers).toEqual([
+          {
+            name: 'creak',
+            within: 'always',
+            runs: 'always',
+            live: expect.objectContaining({ status: 'running' }),
+          },
+        ]);
+        runtime.root.send({ _tag: 'Pushed' });
+        yield* settle;
+        const opening = yield* session.look({ address: 'Door' });
+        expect(opening).toMatchObject({
+          state: 'Opening',
+          data: { _tag: 'Opening', since: 3 },
+          model: { knocks: 1 },
+        });
+        expect(tags(opening)).toEqual(['Swung state', 'Knocked always']);
+        expect(
+          opening.workers.map(({ name, within, live }) => [
+            name,
+            within,
+            live?.status,
+          ]),
+        ).toEqual(
+          expect.arrayContaining([
+            ['creak', 'always', 'running'],
+            ['swing', 'state', 'running'],
+          ]),
+        );
+        const [knocked] = (yield* toldNow(session)).entries;
+        const past = yield* session.look({ at: knocked!.id, address: 'Door' });
+        expect(past.workers).toEqual([
+          { name: 'creak', within: 'always', runs: 'always' },
+        ]);
+      }),
+    ));
+
+  it('says which Instances are there when the one asked for is not', () =>
+    run(
+      Effect.gen(function* () {
+        const { session } = yield* written;
+        const { entries } = yield* toldNow(session);
+        expect(
+          failure(
+            yield* Effect.exit(session.look({ address: 'Diary/nope#1' })),
+          ),
         ).toMatchObject({
           error: {
             _tag: 'InstanceNotFound',
@@ -411,6 +632,11 @@ describe('look', () => {
             available: ['Diary', 'Diary/counter#1'],
           },
         });
+        expect(
+          failure(
+            yield* Effect.exit(session.look({ at: 999, address: 'Diary' })),
+          ),
+        ).toMatchObject({ error: { _tag: 'StepNotFound', step: 999 } });
       }),
     ));
 
@@ -418,45 +644,34 @@ describe('look', () => {
     run(
       Effect.gen(function* () {
         const { session, app } = yield* written;
-        const [first, second] = (yield* watchedNow(session)).entries;
+        const [, second] = (yield* toldNow(session)).entries;
         app.keep(1);
-        const { entries } = yield* watchedNow(session);
+        const { entries } = yield* toldNow(session);
         expect(entries).toMatchObject([{ id: second!.id, parent: null }]);
-        expect(
-          failure(
-            yield* Effect.exit(session.look({ at: first!.id, open: [] })),
-          ),
-        ).toMatchObject({
-          error: {
-            _tag: 'StepNotFound',
-            oldest: second!.id,
-            newest: second!.id,
-          },
-        });
-        const start = yield* session.look({ at: 'start', open: ['Diary'] });
-        expect(start.opened['Diary']!.model).toEqual({
+        const start = yield* session.look({ at: 'start', address: 'Diary' });
+        expect(start.model).toEqual({
           notes: [{ at: new Date(5).toISOString(), text: 'first' }],
         });
       }),
     ));
 });
 
-describe('travel and fork', () => {
-  it("Seeks a Step, the History's start too, and goes back to the Head", () =>
+describe('preview and fork', () => {
+  it("Previews a Step, the History's start too, and goes back to the Head", () =>
     run(
       Effect.gen(function* () {
         const { session, app } = yield* written;
-        const [first] = (yield* watchedNow(session)).entries;
-        yield* session.travel({ to: first!.id });
+        const [first] = (yield* toldNow(session)).entries;
+        yield* session.preview({ at: first!.id });
         expect(app.seeking?.entry).toBe(first!.id);
-        expect((yield* watchedNow(session)).now.seeking).toBe(first!.id);
-        yield* session.travel({ to: 'start' });
+        expect((yield* toldNow(session)).now.previewing).toBe(first!.id);
+        yield* session.preview({ at: 'start' });
         expect(app.seeking).toMatchObject({ entry: null });
-        expect((yield* watchedNow(session)).now.seeking).toBe('start');
-        yield* session.travel({ to: null });
+        expect((yield* toldNow(session)).now.previewing).toBe('start');
+        yield* session.preview({ at: null });
         expect(app.seeking).toBeNull();
         expect(
-          failure(yield* Effect.exit(session.travel({ to: 999 }))),
+          failure(yield* Effect.exit(session.preview({ at: 999 }))),
         ).toMatchObject({ error: { _tag: 'StepNotFound' } });
       }),
     ));
@@ -465,7 +680,7 @@ describe('travel and fork', () => {
     run(
       Effect.gen(function* () {
         const { session, app, runtime } = yield* written;
-        const [first] = (yield* watchedNow(session)).entries;
+        const [first] = (yield* toldNow(session)).entries;
         yield* session.fork({ from: first!.id });
         yield* settle;
         expect(app.runtime).toBe(runtime);
@@ -501,13 +716,13 @@ describe('a call made before the app has its Runtime', () => {
           },
         };
         const session = yield* sessionOf(later);
-        const asked = yield* session.look({ open: [] }).pipe(Effect.forkScoped);
+        const asked = yield* session.step({}).pipe(Effect.forkScoped);
         yield* settle;
         expect(asked.pollUnsafe()).toBeUndefined();
         runtime = app.runtime;
         for (const listener of listeners) listener();
-        const { root } = yield* Fiber.join(asked);
-        expect(root.address).toBe('Diary');
+        const { tree } = yield* Fiber.join(asked);
+        expect(tree.address).toBe('Diary');
       }),
     ));
 });

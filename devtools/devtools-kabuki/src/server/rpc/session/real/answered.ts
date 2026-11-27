@@ -6,19 +6,20 @@ export const answered = KabukiSessionRpcs.toLayer(
   Effect.gen(function* () {
     const session = yield* KabukiSession;
     return {
-      blueprint: () => Effect.orDie(session.blueprint()),
-      watch: () => Stream.orDie(session.watch()),
+      history: (asked) => Stream.orDie(session.history(asked)),
+      step: (asked) =>
+        session.step(asked).pipe(Effect.catchTag('RpcClientError', Effect.die)),
       look: (asked) =>
         session.look(asked).pipe(Effect.catchTag('RpcClientError', Effect.die)),
-      travel: (asked) =>
+      preview: (asked) =>
         session
-          .travel(asked)
+          .preview(asked)
           .pipe(Effect.catchTag('RpcClientError', Effect.die)),
       fork: (asked) =>
         session.fork(asked).pipe(Effect.catchTag('RpcClientError', Effect.die)),
       send: (asked) =>
         session.send(asked).pipe(Effect.catchTag('RpcClientError', Effect.die)),
-      fakes: () => Stream.orDie(session.fakes()),
+      world: () => Stream.orDie(session.world()),
       control: (asked) =>
         session
           .control(asked)

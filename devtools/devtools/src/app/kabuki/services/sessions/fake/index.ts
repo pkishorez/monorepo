@@ -10,7 +10,7 @@ type List = ReadonlyArray<KabukiSessionSummary>;
 
 const silent = new Proxy({} as KabukiSessionCalls, {
   get: (_, call) => () =>
-    call === 'watch' || call === 'fakes' ? Stream.never : Effect.never,
+    call === 'history' || call === 'world' ? Stream.never : Effect.never,
 });
 
 export const fakeSessions = Effect.gen(function* () {

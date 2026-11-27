@@ -1,14 +1,14 @@
 import { Effect, Schema } from 'effect';
-import type { Address, Blueprint } from '@kestack/kabuki';
+import type { Address } from '@kestack/kabuki';
 import type { From } from '@kestack/kabuki/types';
 import type { AppRuntime } from '@kestack/kabuki/react/types';
 import {
   InstanceNotFound,
   MessageRefused,
-  Seeking,
+  Previewing,
 } from '../../../server/rpc/session/contract/index.ts';
 import type { SendAsked } from '../../../server/rpc/session/contract/index.ts';
-import { blueprintAt } from './encode.ts';
+import { blueprintAt, messagesOf } from './encode.ts';
 import { instancesOf } from './played.ts';
 import { runtimeOf } from './running.ts';
 
@@ -20,20 +20,11 @@ const tagOf = (message: unknown): string | undefined => {
   return typeof tag === 'string' ? tag : undefined;
 };
 
-const schemasOf = (print: Blueprint | undefined) =>
-  new Map(
-    print
-      ? [print.top, ...Object.values(print.state)].flatMap((level) =>
-          Object.entries(level.on),
-        )
-      : [],
-  );
-
 export const sendTo = (app: AppRuntime, { to, message }: SendAsked) =>
   Effect.gen(function* () {
     const runtime = yield* runtimeOf(app);
     if (app.seeking)
-      return yield* new Seeking({ step: app.seeking.entry ?? 'start' });
+      return yield* new Previewing({ step: app.seeking.entry ?? 'start' });
     const instances = instancesOf(runtime.snapshot);
     const found = instances.find((one) => one.address === to);
     const live = found && runtime.at(found.address as Address);
@@ -44,7 +35,7 @@ export const sendTo = (app: AppRuntime, { to, message }: SendAsked) =>
         available: instances.map((one) => one.address),
       });
     const tag = tagOf(message) ?? '';
-    const schemas = schemasOf(blueprintAt(runtime.actor.blueprint, to));
+    const schemas = messagesOf(blueprintAt(runtime.actor.blueprint, to));
     const schema = schemas.get(tag);
     if (!schema)
       return yield* new MessageRefused({

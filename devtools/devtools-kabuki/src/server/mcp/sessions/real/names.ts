@@ -1,7 +1,7 @@
-import type { Looked } from '../../../rpc/session/contract/index.ts';
+import type { Change, Node } from '../../../rpc/session/contract/index.ts';
 
 export interface Named {
-  readonly node: Looked;
+  readonly node: Node;
   readonly depth: number;
   readonly parent: string | null;
   readonly name: string;
@@ -16,21 +16,21 @@ const keyText = (key: string): string => {
   }
 };
 
-const keyed = (node: Looked) =>
+const keyed = (node: Node) =>
   node.key === undefined || node.key === ''
     ? node.actor
     : `${node.actor}[${keyText(node.key)}]`;
 
 interface Placed {
-  readonly node: Looked;
+  readonly node: Node;
   readonly depth: number;
-  readonly parent: Looked | null;
+  readonly parent: Node | null;
 }
 
 const flat = (
-  node: Looked,
+  node: Node,
   depth: number,
-  parent: Looked | null,
+  parent: Node | null,
 ): ReadonlyArray<Placed> => [
   { node, depth, parent },
   ...node.children.flatMap((child) => flat(child, depth + 1, node)),
@@ -42,11 +42,11 @@ const counted = (names: ReadonlyArray<string>) => {
   return (name: string) => counts.get(name) === 1;
 };
 
-export const namesOf = (root: Looked): ReadonlyArray<Named> => {
+export const namesOf = (root: Node): ReadonlyArray<Named> => {
   const all = flat(root, 0, null);
   const actorAlone = counted(all.map(({ node }) => node.actor));
   const keyedAlone = counted(all.map(({ node }) => keyed(node)));
-  const short = (node: Looked) =>
+  const short = (node: Node) =>
     actorAlone(node.actor) ? node.actor : keyed(node);
   const within = ({ node, parent }: Placed) =>
     parent === null ? keyed(node) : `${short(parent)}/${keyed(node)}`;
@@ -78,39 +78,17 @@ export const addressOf = (named: ReadonlyArray<Named>, given: string) => {
   return loose.length === 1 ? loose[0]!.node.address : undefined;
 };
 
-const stateOf = (state: string) => (state === 'Single' ? '' : ` [${state}]`);
+export type NameOf = (address: string) => string;
 
-export const treeOf = (named: ReadonlyArray<Named>) =>
-  named.map(
-    ({ node, depth, name }) =>
-      `${' '.repeat(depth)}${name}${stateOf(node.state)}`,
+export const nameOf = (root: Node, changes: Iterable<Change> = []): NameOf => {
+  const named = new Map(
+    namesOf(root).map(({ node, name }) => [node.address, name]),
   );
-
-export const changesOf = (
-  before: ReadonlyArray<Named>,
-  after: ReadonlyArray<Named>,
-) => {
-  const was = new Map(before.map((one) => [one.node.address, one]));
-  const is = new Map(after.map((one) => [one.node.address, one]));
-  const removed = new Set(
-    before
-      .filter(({ node }) => !is.has(node.address))
-      .map(({ node }) => node.address),
-  );
-  return [
-    ...after.flatMap((one) => {
-      const old = was.get(one.node.address);
-      if (old === undefined) return [`+ ${one.name}${stateOf(one.node.state)}`];
-      return old.node.state === one.node.state
-        ? []
-        : [`${one.name} ${old.node.state} → ${one.node.state}`];
-    }),
-    ...before
-      .filter(
-        ({ node, parent }) =>
-          removed.has(node.address) &&
-          (parent === null || !removed.has(parent)),
-      )
-      .map((one) => `- ${one.name}`),
-  ];
+  const seen = new Map<string, string>();
+  for (const { address, actor, key } of changes)
+    seen.set(
+      address,
+      key === undefined || key === '' ? actor : `${actor}[${keyText(key)}]`,
+    );
+  return (address) => named.get(address) ?? seen.get(address) ?? address;
 };

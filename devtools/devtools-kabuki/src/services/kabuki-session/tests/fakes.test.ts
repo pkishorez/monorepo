@@ -70,20 +70,20 @@ const opened = Effect.gen(function* () {
   return { session, services };
 });
 
-const fakesNow = (session: KabukiSession['Service']) =>
+const worldNow = (session: KabukiSession['Service']) =>
   session
-    .fakes()
+    .world()
     .pipe(
       Stream.runHead,
       Effect.map(Option.getOrThrow<ReadonlyArray<FakeNow>>),
     );
 
-describe('fakes', () => {
+describe('world', () => {
   it('shows each Fake: its name, a Shape of its state, its state encoded, and its controls', () =>
     run(
       Effect.gen(function* () {
         const { session } = yield* opened;
-        expect(yield* fakesNow(session)).toEqual([
+        expect(yield* worldNow(session)).toEqual([
           {
             name: 'computers',
             state: {
@@ -134,7 +134,7 @@ describe('fakes', () => {
           Effect.service(KabukiSession),
           inPage(app),
         );
-        expect(yield* fakesNow(session)).toEqual([]);
+        expect(yield* worldNow(session)).toEqual([]);
         expect(
           failure(
             yield* Effect.exit(
@@ -171,7 +171,7 @@ describe('control', () => {
           'mac',
           'pc',
         ]);
-        expect((yield* fakesNow(session))[0]!.value).toMatchObject({
+        expect((yield* worldNow(session))[0]!.value).toMatchObject({
           names: ['mac', 'pc'],
         });
       }),

@@ -14,6 +14,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Effect, Layer, Schedule } from 'effect';
+import { McpProtocol, McpServer } from 'effect/ai';
 import { HttpRouter } from 'effect/http';
 import { RpcClient } from 'effect/rpc';
 import * as NodeHttpServer from '@effect/platform-node/NodeHttpServer';
@@ -23,6 +24,7 @@ import {
   kabukiRoutes,
   remote,
 } from '@kestack/devtools-kabuki/devtools';
+import type { Node } from '@kestack/devtools-kabuki/devtools';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { fakeGuard } from '@kestack/auth-toolkit/fake';
 import { AppApi, RPC_PATH } from '@kestack/connect-v2-cloud/app';
@@ -266,24 +268,29 @@ const theConnection = (cloud: string, notKey?: string) =>
     { timeout: 60_000, interval: 250 },
   );
 
-interface Looked {
-  readonly actor: string;
-  readonly key?: string;
-  readonly state: string;
-  readonly children: ReadonlyArray<Looked>;
-}
-
-const treeOf = (node: Looked): ReadonlyArray<string> => [
+const treeOf = (node: Node): ReadonlyArray<string> => [
   `${node.actor}${node.key === undefined ? '' : ` ${node.key}`}: ${node.state}`,
   ...node.children.flatMap(treeOf),
 ];
 
 const devtoolsAt = (port: number) =>
   Layer.build(
-    HttpRouter.serve(kabukiRoutes({ origins: [] }), {
-      disableLogger: true,
-      disableListenLog: true,
-    }).pipe(
+    HttpRouter.serve(
+      kabukiRoutes({ origins: [] }).pipe(
+        Layer.provide(
+          McpServer.layerHttp({
+            name: 'devtools',
+            version: '0.0.0',
+            path: '/mcp',
+            protocols: [McpProtocol.v2025_06_18],
+          }),
+        ),
+      ),
+      {
+        disableLogger: true,
+        disableListenLog: true,
+      },
+    ).pipe(
       Layer.provide(
         NodeHttpServer.layer(createServer, {
           host: '127.0.0.1',
@@ -449,8 +456,8 @@ describe('ke-connect, end to end', () => {
               ),
             ),
           );
-          return yield* session.look({ open: [] }).pipe(
-            Effect.map((look) => treeOf(look.root as Looked)),
+          return yield* session.step({}).pipe(
+            Effect.map(({ tree }) => treeOf(tree)),
             Effect.repeat({
               until: (tree) =>
                 JSON.stringify(tree) === JSON.stringify(expected),

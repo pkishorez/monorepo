@@ -90,6 +90,50 @@ export const Field: Schema.Codec<Field> = Schema.Struct({
   shape: Shape,
 });
 
+export const Wanted = Schema.Struct({
+  name: Schema.String,
+  key: Schema.optionalKey(Schema.String),
+});
+export type Wanted = typeof Wanted.Type;
+
+export const BeforeAfter = Schema.Struct({
+  before: Schema.optionalKey(Schema.Unknown),
+  after: Schema.optionalKey(Schema.Unknown),
+});
+export type BeforeAfter = typeof BeforeAfter.Type;
+
+const Placed = {
+  address: Schema.String,
+  actor: Schema.String,
+  key: Schema.optionalKey(Schema.String),
+};
+
+const Whole = {
+  ...Placed,
+  state: Schema.Unknown,
+  model: Schema.Unknown,
+  props: Schema.optionalKey(Schema.Unknown),
+  workers: Schema.Array(Wanted),
+};
+
+export const Change = Schema.Union([
+  Schema.TaggedStruct('Added', Whole),
+  Schema.TaggedStruct('Removed', Whole),
+  Schema.TaggedStruct('Changed', {
+    ...Placed,
+    state: Schema.optionalKey(
+      Schema.Struct({ ...BeforeAfter.fields, transition: Schema.Boolean }),
+    ),
+    model: Schema.Record(Schema.String, BeforeAfter),
+    props: Schema.Record(Schema.String, BeforeAfter),
+    workers: Schema.Struct({
+      started: Schema.Array(Wanted),
+      stopped: Schema.Array(Wanted),
+    }),
+  }),
+]);
+export type Change = typeof Change.Type;
+
 export const Entry = Schema.Struct({
   id: Schema.Number,
   parent: Schema.NullOr(Schema.Number),
@@ -98,12 +142,13 @@ export const Entry = Schema.Struct({
   from: From,
   at: Schema.Number,
   outcome: Outcome,
+  changed: Schema.Boolean,
 });
 export type Entry = typeof Entry.Type;
 
 export const Now = Schema.Struct({
   head: Schema.NullOr(Schema.Number),
-  seeking: Schema.NullOr(Step),
+  previewing: Schema.NullOr(Step),
   running: Schema.Boolean,
   failure: Schema.NullOr(Schema.String),
   url: Schema.String,
@@ -111,132 +156,177 @@ export const Now = Schema.Struct({
 });
 export type Now = typeof Now.Type;
 
-export const Watched = Schema.Struct({
+export const Cursor = Schema.Struct({
+  epoch: Schema.String,
+  after: Schema.NullOr(Schema.Number),
+});
+export type Cursor = typeof Cursor.Type;
+
+export const HistoryAsked = Schema.Struct({ from: Schema.optionalKey(Cursor) });
+export type HistoryAsked = typeof HistoryAsked.Type;
+
+export const Told = Schema.Struct({
   now: Now,
+  epoch: Schema.String,
   entries: Schema.Array(Entry),
+  roots: Schema.Array(Schema.Number),
 });
-export type Watched = typeof Watched.Type;
+export type Told = typeof Told.Type;
 
-export const Condition = Schema.Literals(['always', 'while', 'each']);
-export type Condition = typeof Condition.Type;
+export const Within = Schema.Literals(['always', 'state']);
+export type Within = typeof Within.Type;
 
-export const Level = Schema.Struct({
-  messages: Schema.Array(
-    Schema.Struct({
-      tag: Schema.String,
-      description: Schema.optionalKey(Schema.String),
-      payload: Shape,
-    }),
-  ),
-  workers: Schema.Array(
-    Schema.Struct({ name: Schema.String, condition: Condition }),
-  ),
-  children: Schema.Array(
-    Schema.Struct({
-      name: Schema.String,
-      actor: Schema.String,
-      condition: Condition,
-      keyed: Schema.Boolean,
-    }),
-  ),
-  queries: Schema.Array(
-    Schema.Struct({
-      name: Schema.String,
-      args: Schema.optionalKey(Shape),
-      result: Shape,
-    }),
-  ),
-  provides: Schema.Array(Schema.String),
+export const Named = Schema.Struct({ name: Schema.String, within: Within });
+export type Named = typeof Named.Type;
+
+export const Runs = Schema.Literals(['always', 'while', 'each']);
+export type Runs = typeof Runs.Type;
+
+export const Asked = Schema.Struct({
+  name: Schema.String,
+  key: Schema.optionalKey(Schema.String),
+  within: Within,
+  runs: Schema.optionalKey(Runs),
 });
-export type Level = typeof Level.Type;
+export type Asked = typeof Asked.Type;
 
-export const StateLevel = Schema.Struct({ ...Level.fields, data: Shape });
-export type StateLevel = typeof StateLevel.Type;
-
-export interface BlueprintNode {
-  readonly place: string;
-  readonly slot: string | null;
-  readonly actor: string;
-  readonly description?: string;
-  readonly condition: Condition | null;
-  readonly keyed: boolean;
-  readonly within: string | null;
-  readonly single: boolean;
-  readonly requires: ReadonlyArray<string>;
-  readonly model: Shape;
-  readonly props?: Shape;
-  readonly top: Level;
-  readonly states: { readonly [tag: string]: StateLevel };
-  readonly children: ReadonlyArray<BlueprintNode>;
-}
-
-export const BlueprintNode: Schema.Codec<BlueprintNode> = Schema.Struct({
-  place: Schema.String,
-  slot: Schema.NullOr(Schema.String),
-  actor: Schema.String,
-  description: Schema.optionalKey(Schema.String),
-  condition: Schema.NullOr(Condition),
-  keyed: Schema.Boolean,
-  within: Schema.NullOr(Schema.String),
-  single: Schema.Boolean,
-  requires: Schema.Array(Schema.String),
-  model: Shape,
-  props: Schema.optionalKey(Shape),
-  top: Level,
-  states: Schema.Record(Schema.String, StateLevel),
-  children: Schema.Array(Schema.suspend(() => BlueprintNode)),
-});
-
-export const Blueprinted = Schema.Struct({ root: BlueprintNode });
-export type Blueprinted = typeof Blueprinted.Type;
-
-export const Change = Schema.NullOr(Schema.Literals(['started', 'changed']));
-export type Change = typeof Change.Type;
-
-export interface Looked {
+export interface Node {
   readonly address: string;
-  readonly place: string;
   readonly actor: string;
   readonly slot: string | null;
   readonly key?: string;
   readonly state: string;
-  readonly change: Change;
-  readonly children: ReadonlyArray<Looked>;
+  readonly data: unknown;
+  readonly model: unknown;
+  readonly props?: unknown;
+  readonly workers: ReadonlyArray<Asked>;
+  readonly provides: ReadonlyArray<Named>;
+  readonly children: ReadonlyArray<Node>;
 }
 
-export const Looked: Schema.Codec<Looked> = Schema.Struct({
+export const Node: Schema.Codec<Node> = Schema.Struct({
   address: Schema.String,
-  place: Schema.String,
   actor: Schema.String,
   slot: Schema.NullOr(Schema.String),
   key: Schema.optionalKey(Schema.String),
   state: Schema.String,
-  change: Change,
-  children: Schema.Array(Schema.suspend(() => Looked)),
+  data: Schema.Unknown,
+  model: Schema.Unknown,
+  props: Schema.optionalKey(Schema.Unknown),
+  workers: Schema.Array(Asked),
+  provides: Schema.Array(Named),
+  children: Schema.Array(Schema.suspend(() => Node)),
 });
+
+export const Played = Schema.Struct({
+  id: Schema.Number,
+  to: Schema.String,
+  tag: Schema.String,
+  message: Schema.Unknown,
+  from: From,
+  at: Schema.Number,
+  outcome: Outcome,
+  commands: Schema.Array(
+    Schema.Struct({
+      name: Schema.String,
+      args: Schema.optionalKey(Schema.Unknown),
+    }),
+  ),
+  emits: Schema.Array(
+    Schema.Struct({
+      tag: Schema.String,
+      payload: Schema.Unknown,
+      becomes: Schema.optionalKey(
+        Schema.Struct({ to: Schema.String, tag: Schema.String }),
+      ),
+    }),
+  ),
+});
+export type Played = typeof Played.Type;
 
 export const Worker = Schema.Struct({
   name: Schema.String,
   key: Schema.String,
-  status: Schema.Literals(['running', 'finished', 'failed']),
+  status: Schema.Literals(['waiting', 'running', 'finished', 'failed']),
+  failure: Schema.optionalKey(Schema.String),
+  since: Schema.Number,
 });
 export type Worker = typeof Worker.Type;
 
-export const Opened = Schema.Struct({
-  state: Schema.Unknown,
+export const Provided = Schema.Struct({
+  state: Schema.optionalKey(Schema.String),
+  status: Schema.Literals(['building', 'built', 'failed']),
+  failure: Schema.optionalKey(Schema.String),
+});
+export type Provided = typeof Provided.Type;
+
+export const Working = Schema.Struct({
+  workers: Schema.Array(Worker),
+  commands: Schema.Array(
+    Schema.Struct({
+      name: Schema.String,
+      args: Schema.Unknown,
+      since: Schema.Number,
+    }),
+  ),
+  provides: Schema.Array(Provided),
+});
+export type Working = typeof Working.Type;
+
+export const Failed = Schema.Struct({
+  address: Schema.String,
+  kind: Schema.Literals(['worker', 'command', 'provides', 'layer']),
+  name: Schema.String,
+  key: Schema.optionalKey(Schema.String),
+  failure: Schema.String,
+  at: Schema.Number,
+});
+export type Failed = typeof Failed.Type;
+
+export const Work = Schema.Struct({
+  instances: Schema.Record(Schema.String, Working),
+  layer: Schema.optionalKey(Provided),
+  failures: Schema.Array(Failed),
+  settled: Schema.Boolean,
+});
+export type Work = typeof Work.Type;
+
+export const Stepped = Schema.Struct({
+  at: Step,
+  tree: Node,
+  message: Schema.NullOr(Played),
+  changes: Schema.Array(Change),
+  work: Schema.optionalKey(Work),
+});
+export type Stepped = typeof Stepped.Type;
+
+export const Takes = Schema.Struct({
+  tag: Schema.String,
+  description: Schema.optionalKey(Schema.String),
+  payload: Shape,
+  within: Within,
+});
+export type Takes = typeof Takes.Type;
+
+export const Looked = Schema.Struct({
+  at: Step,
+  address: Schema.String,
+  actor: Schema.String,
+  description: Schema.optionalKey(Schema.String),
+  slot: Schema.NullOr(Schema.String),
+  key: Schema.optionalKey(Schema.String),
+  state: Schema.String,
+  states: Schema.Array(Schema.String),
+  data: Schema.Unknown,
   model: Schema.Unknown,
   props: Schema.optionalKey(Schema.Unknown),
-  folded: Schema.Boolean,
-  workers: Schema.Array(Worker),
+  workers: Schema.Array(
+    Schema.Struct({ ...Asked.fields, live: Schema.optionalKey(Worker) }),
+  ),
+  provides: Schema.Array(Named),
+  takes: Schema.Array(Takes),
 });
-export type Opened = typeof Opened.Type;
-
-export const Look = Schema.Struct({
-  at: Step,
-  root: Looked,
-  opened: Schema.Record(Schema.String, Opened),
-});
-export type Look = typeof Look.Type;
+export type Looked = typeof Looked.Type;
 
 export const FakeNow = Schema.Struct({
   name: Schema.String,
@@ -275,7 +365,7 @@ export class MessageRefused extends Schema.TaggedError<MessageRefused>()(
   { to: Schema.String, tag: Schema.String, reason: Schema.String },
 ) {}
 
-export class Seeking extends Schema.TaggedError<Seeking>()('Seeking', {
+export class Previewing extends Schema.TaggedError<Previewing>()('Previewing', {
   step: Step,
 }) {}
 
@@ -284,15 +374,17 @@ export class ControlRefused extends Schema.TaggedError<ControlRefused>()(
   { fake: Schema.String, control: Schema.String, reason: Schema.String },
 ) {}
 
+export const StepAsked = Schema.Struct({ at: Schema.optionalKey(Step) });
+export type StepAsked = typeof StepAsked.Type;
+
 export const LookAsked = Schema.Struct({
   at: Schema.optionalKey(Step),
-  open: Schema.Array(Schema.String),
-  whole: Schema.optionalKey(Schema.Boolean),
+  address: Schema.String,
 });
 export type LookAsked = typeof LookAsked.Type;
 
-export const TravelAsked = Schema.Struct({ to: Schema.NullOr(Step) });
-export type TravelAsked = typeof TravelAsked.Type;
+export const PreviewAsked = Schema.Struct({ at: Schema.NullOr(Step) });
+export type PreviewAsked = typeof PreviewAsked.Type;
 
 export const ForkAsked = Schema.Struct({ from: Step });
 export type ForkAsked = typeof ForkAsked.Type;
@@ -311,21 +403,25 @@ export const ControlAsked = Schema.Struct({
 export type ControlAsked = typeof ControlAsked.Type;
 
 export const KabukiSessionRpcs = RpcGroup.make(
-  Rpc.make('blueprint', { success: Blueprinted }),
-  Rpc.make('watch', { success: Watched, stream: true }),
+  Rpc.make('history', { payload: HistoryAsked, success: Told, stream: true }),
+  Rpc.make('step', {
+    payload: StepAsked,
+    success: Stepped,
+    error: StepNotFound,
+  }),
   Rpc.make('look', {
     payload: LookAsked,
-    success: Look,
+    success: Looked,
     error: Schema.Union([StepNotFound, InstanceNotFound]),
   }),
-  Rpc.make('travel', { payload: TravelAsked, error: StepNotFound }),
+  Rpc.make('preview', { payload: PreviewAsked, error: StepNotFound }),
   Rpc.make('fork', { payload: ForkAsked, error: StepNotFound }),
   Rpc.make('send', {
     payload: SendAsked,
     success: Sent,
-    error: Schema.Union([InstanceNotFound, MessageRefused, Seeking]),
+    error: Schema.Union([InstanceNotFound, MessageRefused, Previewing]),
   }),
-  Rpc.make('fakes', { success: Schema.Array(FakeNow), stream: true }),
+  Rpc.make('world', { success: Schema.Array(FakeNow), stream: true }),
   Rpc.make('control', {
     payload: ControlAsked,
     success: Schema.Literal('done'),

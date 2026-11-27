@@ -1,119 +1,72 @@
 import { Effect } from 'effect';
-import { Address, History } from '@kestack/kabuki';
-import type { Blueprint, Snapshot } from '@kestack/kabuki';
-import type { Instance, WorkerStatus } from '@kestack/kabuki/types';
+import { History, Snapshot } from '@kestack/kabuki';
+import type { Address } from '@kestack/kabuki';
 import type { AppRuntime } from '@kestack/kabuki/react/types';
 import { InstanceNotFound } from '../../../server/rpc/session/contract/index.ts';
 import type {
-  Look,
   LookAsked,
   Looked,
-  Opened,
 } from '../../../server/rpc/session/contract/index.ts';
 import { blueprintAt, encodedData, keyOf } from './encode.ts';
-import { fold } from './fold.ts';
-import { changesOf, childrenOf, instancesOf, playedOf } from './played.ts';
-import type { Change } from './played.ts';
+import { askedOf, providesOf, takesOf } from './levels.ts';
+import { instancesOf } from './played.ts';
 import { replayed, resolve, runtimeOf } from './running.ts';
+import { slotOf } from './step.ts';
+import { workerOf } from './work.ts';
 
-type Statuses = (address: string) => ReadonlyArray<WorkerStatus>;
-
-const lookedOf = (
-  instance: Instance,
-  changes: ReadonlyMap<string, Change>,
-): Looked => {
-  const { address } = instance;
-  const key = keyOf(address);
-  return {
-    address,
-    place: Address.place(address),
-    actor: instance.actor,
-    slot: Address.parse(address).path.at(-1)?.slot ?? null,
-    ...(key === undefined ? {} : { key }),
-    state: instance.state._tag,
-    change: changes.get(address) ?? null,
-    children: childrenOf(instance).map((child) => lookedOf(child, changes)),
-  };
-};
-
-const kept = (value: unknown) => ({ value, folded: false });
-
-const openedOf = (
-  instance: Instance,
-  root: Blueprint,
-  statuses: Statuses,
-  whole: boolean,
-): Opened => {
-  const data = encodedData(instance, blueprintAt(root, instance.address));
-  const shown = whole ? kept : fold;
-  const state = shown(data.state);
-  const model = shown(data.model);
-  const props = 'props' in data ? shown(data.props) : undefined;
-  return {
-    state: state.value,
-    model: model.value,
-    ...(props ? { props: props.value } : {}),
-    folded: state.folded || model.folded || (props?.folded ?? false),
-    workers: statuses(instance.address).map(({ name, key, status }) => ({
-      name,
-      key,
-      status,
-    })),
-  };
-};
-
-const none: Statuses = () => [];
-
-export const lookAt = (
-  app: AppRuntime,
-  { at, open, whole = false }: LookAsked,
-) =>
+export const lookAt = (app: AppRuntime, { at, address }: LookAsked) =>
   Effect.gen(function* () {
     const runtime = yield* runtimeOf(app);
     const { actor } = runtime;
     const { history } = app;
     const { id, step } = yield* resolve(history, at);
-    const { snapshot, changes } = yield* replayed(
-      history,
-      step,
-      (): {
-        readonly snapshot: Snapshot;
-        readonly changes: ReadonlyMap<string, Change>;
-      } => {
-        const entry = id === null ? undefined : History.entry(history, id);
-        if (!entry)
-          return {
-            snapshot: History.snapshot(actor, history, id),
-            changes: new Map(),
-          };
-        const { before, after } = playedOf(actor, history, entry);
-        return { snapshot: after, changes: changesOf(before, after) };
-      },
+    const snapshot = yield* replayed(history, step, () =>
+      History.snapshot(actor, history, id),
     );
     const instances = instancesOf(snapshot);
-    const byAddress = new Map<string, Instance>(
-      instances.map((one) => [one.address, one]),
-    );
-    const missing = open.find((address) => !byAddress.has(address));
-    if (missing !== undefined)
+    const instance = instances.find((one) => one.address === address);
+    if (!instance)
       return yield* new InstanceNotFound({
-        instance: missing,
+        instance: address,
         at: step,
         available: instances.map((one) => one.address),
       });
-    const statuses: Statuses =
+    const print = blueprintAt(actor.blueprint, address);
+    const tag = instance.state._tag;
+    const live =
       id === history.head && runtime.running
-        ? (address) => runtime.at(address as Address)?.workers ?? []
-        : none;
-    const look: Look = {
+        ? (runtime.at(address as Address)?.workers ?? [])
+        : [];
+    const { state, model, ...rest } = encodedData(instance, print);
+    const key = keyOf(address);
+    const looked: Looked = {
       at: step,
-      root: lookedOf(snapshot.root, changes),
-      opened: Object.fromEntries(
-        open.map((address) => [
-          address,
-          openedOf(byAddress.get(address)!, actor.blueprint, statuses, whole),
-        ]),
-      ),
+      address,
+      actor: instance.actor,
+      ...(print?.description === undefined
+        ? {}
+        : { description: print.description }),
+      slot: slotOf(address),
+      ...(key === undefined ? {} : { key }),
+      state: tag,
+      states: print ? Object.keys(print.state) : [tag],
+      data: state,
+      model,
+      ...('props' in rest ? { props: rest.props } : {}),
+      workers: askedOf(
+        print,
+        tag,
+        Snapshot.workers(actor, snapshot, address as Address),
+      ).map((asked) => {
+        const found = live.find(
+          (one) =>
+            one.name === asked.name &&
+            (asked.key === undefined || one.key === asked.key),
+        );
+        return found ? { ...asked, live: workerOf(found) } : asked;
+      }),
+      provides: providesOf(print, tag),
+      takes: takesOf(print, tag),
     };
-    return look;
+    return looked;
   });

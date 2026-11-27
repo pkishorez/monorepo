@@ -1,12 +1,25 @@
-import type {
-  Built,
-  Draft,
-  FormField,
-  Input,
-  Problem,
-  Shape,
-} from '../index.ts';
-import { textOf } from './shapes.ts';
+import type { Shape } from '../../../../logic/shared/index.ts';
+import type { Built, Draft, FormField, Input, Problem } from './shape.ts';
+
+const textOf = (shape: Shape): string => {
+  switch (shape.kind) {
+    case 'text':
+      return 'string';
+    case 'number':
+    case 'boolean':
+      return shape.kind;
+    case 'choice':
+      return shape.options.map((one) => JSON.stringify(one)).join(' | ');
+    case 'array':
+      return `${textOf(shape.of)}[]`;
+    case 'struct':
+      return shape.fields.length === 0
+        ? '{}'
+        : `{ ${shape.fields.map(({ name }) => name).join(', ')} }`;
+    case 'json':
+      return shape.text;
+  }
+};
 
 export const inputOf = (shape: Shape): Input => {
   switch (shape.kind) {

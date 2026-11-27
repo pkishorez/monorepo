@@ -208,15 +208,18 @@ claude mcp add --transport http devtools http://127.0.0.1:14400/mcp
 lotel_traces      the most recent Traces, newest first, each summed up
 lotel_trace       one Trace's spans and logs, one plain record each, in ms
 lotel_logs        the most recent logs from every process
-kabuki_sessions   the live Kabuki Sessions: name, app and page
-kabuki_look       the live Instances as a tree, one name each; those opened
-                  with their Model and the Messages a person sends them
-kabuki_timeline   where the app is, and its last 10 Messages (before: pages)
-kabuki_send       a Message sent to an Instance, answered with what changed
-kabuki_travel     the app shown at a Step, or back to now
+kabuki_sessions   the live Kabuki Sessions, by name: where an agent starts
+kabuki_look       the Instances as a tree, each with its State and a short
+                  Model; at the Head, problems first; open: one whole
+kabuki_timeline   the Chains newest first, one line each, with what changed;
+                  filtered by instance, tag or only, paged by before
+kabuki_step       one Chain whole: each Message, its Source and its Change
+kabuki_send       a Message sent to an Instance, answered once Settled with
+                  the Chain it began, the Chains after and new failures
+kabuki_travel     the app shown at a Step, or back to now, and its look there
 kabuki_fork       every Message after a Step dropped, carrying on from it
 kabuki_fakes      in fake mode, each Fake's state and its Controls
-kabuki_control    a Control run on a Fake, answered with what changed
+kabuki_control    a Control run on a Fake, answered as kabuki_send is
 ```
 
 How it works:
@@ -227,13 +230,15 @@ How it works:
   Monoverse registers none.
 - A request with an `Origin` other than DevTools' own is refused, as for
   the RPC routes; an MCP client sends none.
-- Every answer is small and plain, for a model to read: a payload is one
-  line of TypeScript, `SignInAs { email: string; name: string }`, and a
-  tool's output schema is only `object`. All 11 tools describe themselves
-  in about 1,300 tokens; a look or a timeline answers in a few hundred.
-  Long text, long lists and wide records in a Model or a Fake's state are
-  cut, keeping a list's first 4 and last 8 items, and a store's own fields,
-  `$…` and `_meta`, are left out.
+- Every answer is small and plain, for a model to read. Lotel's tools answer
+  plain records; Kabuki's answer text, one line per Instance or Chain, values
+  written by the printer the Inspector shares, as indented `key: value`
+  lines, with no `structuredContent` beside it, so nothing is said twice.
+  A payload is one line of TypeScript, `SignInAs { email: string; name:
+  string }`. All 12 tools describe themselves in about 1,400 tokens; a look
+  or a timeline answers in a few hundred. Long text, long lists and wide
+  records are cut and say so, and a store's own fields, `$…` and `_meta`,
+  are left out.
 - An Instance is named by its Actor, `Sidebar`; when that Actor has more
   than one, by its key, `Projects[computer-2]`, or under its parent,
   `Sidebar/Projects[computer-1]`. Every tool takes that name or the full
@@ -243,11 +248,20 @@ How it works:
   the server. Only the Messages with a description are listed, as the ones
   a person sends; the others are counted as internal. An app that
   describes none has all of them listed.
-- `kabuki_send` and `kabuki_control` wait until the app has been still for
-  300 ms, at most 3 s, and answer with the Model fields the Message
-  changed and the Instances that came, went or changed State, so an
-  agent seldom needs a second look.
-- `kabuki_timeline` and `kabuki_fakes` answer with what their stream says
-  first, as a tool answers once. A tool's error, such as a Kabuki Session
+- `kabuki_look` at the Head starts with what the Work report says is wrong:
+  a Worker, Command, Provide or the Layer that failed, a Worker waiting, a
+  Command still running. A Model too long for its line is cut, and `open`
+  gives it whole.
+- `kabuki_timeline` reads the Branch at the Head as Chains: a Chain that
+  changed nothing, again and again, is one line, `4–12 worker reachability
+  TunnelReachable → Tunnel ×9 · no change`. Every id it gives is a step
+  `kabuki_step`, `kabuki_look at:`, `kabuki_travel` and `kabuki_fork` take.
+- `kabuki_send` and `kabuki_control` wait until the app is Settled and no
+  Step has changed anything for 250 ms, at most 5 s, or until a new failure
+  comes; a Worker that keeps Sending what changes nothing does not hold
+  them up.
+- `kabuki_fakes` answers with what its stream says first, as a tool answers
+  once; the timeline keeps each Kabuki Session's entries and asks `watch`
+  only for those after them. A tool's error, such as a Kabuki Session
   name no live one has, comes back as its result, with what is there
   instead.

@@ -51,3 +51,14 @@ open when it removed the Client Commands of
   rest as internal. Measured with blind agents on the Code app, these, with
   `kabuki_send` answering what changed, cut the calls and tokens a task
   takes; see the PR that brought them.
+
+## Note
+
+Since devtools-kabuki's
+[ADR 0002](../../../devtools-kabuki/docs/adr/0002-a-step-shows-what-its-message-did.md),
+the Kabuki tools answer in compact text, not plain records, with no output
+schema. The timeline gives Chains, newest first, twenty lines a page, with
+repeats that changed nothing folded. A ninth tool, `kabuki_step`, prints
+one whole Chain with what each Message did. `kabuki_send` and
+`kabuki_control` wait until the app is Settled, not a fixed pause. Naming
+Instances and listing only described Messages stand.

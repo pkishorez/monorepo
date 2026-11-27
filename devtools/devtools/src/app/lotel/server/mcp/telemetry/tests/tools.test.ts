@@ -14,15 +14,17 @@ afterEach(async () => {
 
 const serve = () => {
   const web = HttpRouter.toWebHandler(
-    Layer.mergeAll(
-      lotelServer({ db: ':memory:' }),
-      McpServer.layerHttp({
-        name: 'devtools',
-        version: '0.0.0',
-        path: '/mcp',
-        protocols: [McpProtocol.v2025_06_18],
-      }),
-    ).pipe(Layer.provide(NodeHttpServer.layerHttpServices)),
+    lotelServer({ db: ':memory:' }).pipe(
+      Layer.provideMerge(
+        McpServer.layerHttp({
+          name: 'devtools',
+          version: '0.0.0',
+          path: '/mcp',
+          protocols: [McpProtocol.v2025_06_18],
+        }),
+      ),
+      Layer.provide(NodeHttpServer.layerHttpServices),
+    ),
     { disableLogger: true },
   );
   handlers.push(web);

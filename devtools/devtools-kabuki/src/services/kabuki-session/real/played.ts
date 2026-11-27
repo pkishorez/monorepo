@@ -1,14 +1,29 @@
 import { History, Snapshot } from '@kestack/kabuki';
-import type { AnyActor, HistoryEntry, Instance } from '@kestack/kabuki/types';
 import type {
-  Change as Marked,
-  Outcome,
-} from '../../../server/rpc/session/contract/index.ts';
+  AnyActor,
+  Change,
+  HistoryEntry,
+  Instance,
+} from '@kestack/kabuki/types';
+import type { Outcome } from '../../../server/rpc/session/contract/index.ts';
 
 interface Played {
   readonly outcome: Outcome;
   readonly before: Snapshot;
   readonly after: Snapshot;
+  readonly changes: ReadonlyArray<Change>;
+  readonly commands: ReadonlyArray<Asked>;
+  readonly emits: ReadonlyArray<Emit>;
+}
+
+interface Emit {
+  readonly event: { readonly _tag: string };
+  readonly becomes?: { readonly to: string; readonly tag: string };
+}
+
+interface Asked {
+  readonly name: string;
+  readonly args: unknown;
 }
 
 const played = new WeakMap<HistoryEntry, Played>();
@@ -23,13 +38,35 @@ export const playedOf = (
   const before: Snapshot = History.snapshot(actor, history, entry.parent);
   let made: Played;
   try {
-    const { outcome, snapshot } = Snapshot.next(actor, before, entry);
-    made = { outcome, before, after: snapshot };
+    const { outcome, snapshot, commands, emits, emitted } = Snapshot.next(
+      actor,
+      before,
+      entry,
+    );
+    made = {
+      outcome,
+      before,
+      after: snapshot,
+      changes: Snapshot.changes(actor, before, snapshot),
+      commands: commands as ReadonlyArray<Asked>,
+      emits: emits.map((event) => {
+        const turned = emitted.find(({ from }) => from.name === event._tag);
+        return turned
+          ? {
+              event,
+              becomes: { to: turned.to, tag: turned.message._tag },
+            }
+          : { event };
+      }),
+    };
   } catch {
     made = {
       outcome: 'dropped',
       before,
       after: { root: before.root, at: entry.at },
+      changes: [],
+      commands: [],
+      emits: [],
     };
   }
   played.set(entry, made);
@@ -48,31 +85,3 @@ const under = (instance: Instance): ReadonlyArray<Instance> => [
 
 export const instancesOf = (snapshot: Snapshot): ReadonlyArray<Instance> =>
   under(snapshot.root);
-
-export type Change = NonNullable<Marked>;
-
-export const changesOf = (
-  before: Snapshot,
-  after: Snapshot,
-): ReadonlyMap<string, Change> => {
-  const out = new Map<string, Change>();
-  const visit = (was: Instance | undefined, is: Instance) => {
-    if (was === is) return;
-    if (!was) {
-      for (const one of under(is)) out.set(one.address, 'started');
-      return;
-    }
-    if (
-      was.state !== is.state ||
-      was.model !== is.model ||
-      was.props !== is.props
-    )
-      out.set(is.address, 'changed');
-    const held = new Map(
-      childrenOf(was).map((child) => [child.address, child]),
-    );
-    for (const child of childrenOf(is)) visit(held.get(child.address), child);
-  };
-  visit(before.root, after.root);
-  return out;
-};

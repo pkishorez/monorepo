@@ -189,7 +189,7 @@ describe('send', () => {
       }),
     ));
 
-  it('refuses to Send while the app Seeks a past Step', () =>
+  it('refuses to Send while the app Previews a past Step', () =>
     run(
       Effect.gen(function* () {
         const diary = yield* started;
@@ -206,7 +206,7 @@ describe('send', () => {
               }),
             ),
           ),
-        ).toMatchObject({ error: { _tag: 'Seeking', step: 'start' } });
+        ).toMatchObject({ error: { _tag: 'Previewing', step: 'start' } });
         diary.app.toHead();
         expect(
           yield* session.send({

@@ -3,35 +3,32 @@ import { History } from '@kestack/kabuki';
 import type { FakeWorld } from '@kestack/kabuki/fake';
 import type { AppRuntime } from '@kestack/kabuki/react/types';
 import { KabukiSession } from '../contract/index.ts';
-import { treeOf } from './blueprint.ts';
 import { controlOf, fakesOf } from './fakes.ts';
+import { historyOf } from './history.ts';
 import { lookAt } from './look.ts';
 import { runtimeOf, stepNotFound } from './running.ts';
 import { sendTo } from './send.ts';
-import { watchOf } from './watch.ts';
+import { stepAt } from './step.ts';
 
 export const inPage = (
   app: AppRuntime,
   world?: FakeWorld,
 ): Layer.Layer<KabukiSession> =>
   Layer.succeed(KabukiSession)({
-    blueprint: () =>
-      Effect.map(runtimeOf(app), ({ actor }) => ({
-        root: treeOf(actor.blueprint),
-      })),
+    history: (asked) => historyOf(app, asked),
 
-    watch: () => watchOf(app),
+    step: (asked) => stepAt(app, asked),
 
     look: (asked) => lookAt(app, asked),
 
-    travel: ({ to }) =>
+    preview: ({ at }) =>
       Effect.gen(function* () {
         yield* runtimeOf(app);
-        if (to === null) return app.toHead();
-        if (to === 'start') return app.seek(null);
-        if (!History.entry(app.history, to))
-          return yield* stepNotFound(app.history, to);
-        app.seek(to);
+        if (at === null) return app.toHead();
+        if (at === 'start') return app.seek(null);
+        if (!History.entry(app.history, at))
+          return yield* stepNotFound(app.history, at);
+        app.seek(at);
       }),
 
     fork: ({ from }) =>
@@ -45,7 +42,7 @@ export const inPage = (
 
     send: (asked) => sendTo(app, asked),
 
-    fakes: () => fakesOf(world),
+    world: () => fakesOf(world),
 
     control: (asked) => controlOf(world, asked),
   });

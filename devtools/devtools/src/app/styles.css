@@ -6,6 +6,11 @@
 @import '@kestack/web-platform/ui/theme/font-inter.css';
 @import '@kestack/devtools-kabuki/inspector/sources.css';
 
+[data-theme],
+:root {
+  --radius: 0.375rem;
+}
+
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation-duration: 200ms;

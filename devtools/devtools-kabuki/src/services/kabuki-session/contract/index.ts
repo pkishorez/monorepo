@@ -2,33 +2,37 @@ import { Context } from 'effect';
 import type { Effect, Stream } from 'effect';
 import type { RpcClientError } from 'effect/rpc';
 import type {
-  Blueprinted,
   ControlAsked,
   ControlRefused,
   FakeNow,
   ForkAsked,
+  HistoryAsked,
   InstanceNotFound,
-  Look,
   LookAsked,
+  Looked,
   MessageRefused,
-  Seeking,
+  PreviewAsked,
+  Previewing,
   SendAsked,
   Sent,
+  StepAsked,
   StepNotFound,
-  TravelAsked,
-  Watched,
+  Stepped,
+  Told,
 } from '../../../server/rpc/session/contract/index.ts';
 
 export type Unreachable = RpcClientError.RpcClientError;
 
 export interface KabukiSessionCalls {
-  readonly blueprint: () => Effect.Effect<Blueprinted, Unreachable>;
-  readonly watch: () => Stream.Stream<Watched, Unreachable>;
+  readonly history: (asked: HistoryAsked) => Stream.Stream<Told, Unreachable>;
+  readonly step: (
+    asked: StepAsked,
+  ) => Effect.Effect<Stepped, StepNotFound | Unreachable>;
   readonly look: (
     asked: LookAsked,
-  ) => Effect.Effect<Look, StepNotFound | InstanceNotFound | Unreachable>;
-  readonly travel: (
-    asked: TravelAsked,
+  ) => Effect.Effect<Looked, StepNotFound | InstanceNotFound | Unreachable>;
+  readonly preview: (
+    asked: PreviewAsked,
   ) => Effect.Effect<void, StepNotFound | Unreachable>;
   readonly fork: (
     asked: ForkAsked,
@@ -37,9 +41,9 @@ export interface KabukiSessionCalls {
     asked: SendAsked,
   ) => Effect.Effect<
     Sent,
-    InstanceNotFound | MessageRefused | Seeking | Unreachable
+    InstanceNotFound | MessageRefused | Previewing | Unreachable
   >;
-  readonly fakes: () => Stream.Stream<ReadonlyArray<FakeNow>, Unreachable>;
+  readonly world: () => Stream.Stream<ReadonlyArray<FakeNow>, Unreachable>;
   readonly control: (
     asked: ControlAsked,
   ) => Effect.Effect<'done', ControlRefused | Unreachable>;
@@ -51,34 +55,44 @@ export class KabukiSession extends Context.Service<
 >()('Inspector/service/KabukiSession') {}
 
 export type {
-  BlueprintNode,
-  Blueprinted,
+  Asked,
+  BeforeAfter,
   Change,
-  Condition,
   ControlAsked,
   ControlRefused,
+  Cursor,
   Entry,
+  Failed,
   FakeNow,
   Field,
   ForkAsked,
   From,
+  HistoryAsked,
   InstanceNotFound,
-  Level,
-  Look,
   LookAsked,
   Looked,
   MessageRefused,
+  Named,
+  Node,
   Now,
-  Opened,
   Outcome,
-  Seeking,
+  Played,
+  PreviewAsked,
+  Previewing,
+  Provided,
+  Runs,
   SendAsked,
   Sent,
   Shape,
-  StateLevel,
   Step,
+  StepAsked,
   StepNotFound,
-  TravelAsked,
-  Watched,
+  Stepped,
+  Takes,
+  Told,
+  Wanted,
+  Within,
+  Work,
   Worker,
+  Working,
 } from '../../../server/rpc/session/contract/index.ts';

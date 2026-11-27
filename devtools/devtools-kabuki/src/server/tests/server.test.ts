@@ -13,6 +13,7 @@ import {
   Stream,
   SubscriptionRef,
 } from 'effect';
+import { McpProtocol, McpServer } from 'effect/ai';
 import { HttpRouter } from 'effect/http';
 import * as NodeHttpServer from '@effect/platform-node/NodeHttpServer';
 import { Fake, FakeWorld } from '@kestack/kabuki/fake';
@@ -24,7 +25,7 @@ import {
   kabukiRoutes,
   remote,
 } from '../../devtools.ts';
-import type { FakeNow, KabukiSessionsClient, Watched } from '../../devtools.ts';
+import type { FakeNow, KabukiSessionsClient, Told } from '../../devtools.ts';
 import { started } from '../../services/kabuki-session/tests/diary.ts';
 
 const OWN = 'http://127.0.0.1:14400';
@@ -43,10 +44,22 @@ const freePort = () =>
 
 const devtools = (port: number) =>
   Layer.build(
-    HttpRouter.serve(kabukiRoutes({ origins: [OWN] }), {
-      disableLogger: true,
-      disableListenLog: true,
-    }).pipe(
+    HttpRouter.serve(
+      kabukiRoutes({ origins: [OWN] }).pipe(
+        Layer.provide(
+          McpServer.layerHttp({
+            name: 'devtools',
+            version: '0.0.0',
+            path: '/mcp',
+            protocols: [McpProtocol.v2025_06_18],
+          }),
+        ),
+      ),
+      {
+        disableLogger: true,
+        disableListenLog: true,
+      },
+    ).pipe(
       Layer.provide(
         NodeHttpServer.layer(createServer, {
           host: '127.0.0.1',
@@ -153,10 +166,10 @@ describe('the full path: an app connected through a DevTools Server, called thro
             yield* Layer.build(remote(origin, 'diary')),
             KabukiSession,
           );
-          const { root } = yield* session.blueprint();
-          expect(root.top.messages.map(({ tag }) => tag)).toEqual(['Wrote']);
+          const diaryNow = yield* session.look({ address: 'Diary' });
+          expect(diaryNow.takes.map(({ tag }) => tag)).toEqual(['Wrote']);
 
-          const now = yield* firstWhere(session.watch(), () => true);
+          const now = yield* firstWhere(session.history({}), () => true);
           expect(now.entries.map(({ tag }) => tag)).toEqual(['Wrote']);
 
           expect(
@@ -169,15 +182,20 @@ describe('the full path: an app connected through a DevTools Server, called thro
             }),
           ).toBe('handled');
           const after = yield* firstWhere(
-            session.watch(),
-            (watched: Watched) => watched.entries.length === 2,
+            session.history({}),
+            (told: Told) => told.entries.length === 2,
           );
           expect(after.entries[1]!.from).toEqual({
             kind: 'outside',
             name: 'devtools',
           });
-          const look = yield* session.look({ open: ['Diary'] });
-          expect(look.opened['Diary']!.model).toEqual({
+          const stepped = yield* session.step({});
+          expect(stepped.message).toMatchObject({
+            tag: 'Wrote',
+            message: { note: { text: 'second' } },
+          });
+          const look = yield* session.look({ address: 'Diary' });
+          expect(look.model).toEqual({
             notes: [
               { at: new Date(5).toISOString(), text: 'first' },
               { at: new Date(9).toISOString(), text: 'second' },
@@ -191,16 +209,19 @@ describe('the full path: an app connected through a DevTools Server, called thro
             _tag: 'MessageRefused',
             tag: 'Nope',
           });
-          const lost = yield* Effect.flip(session.look({ at: 999, open: [] }));
+          const lost = yield* Effect.flip(session.step({ at: 999 }));
           expect(lost).toMatchObject({ _tag: 'StepNotFound', step: 999 });
 
-          yield* session.travel({ to: 'start' });
+          yield* session.preview({ at: 'start' });
           expect(diary.app.seeking).toMatchObject({ entry: null });
-          const seeking = yield* Effect.flip(
+          const previewing = yield* Effect.flip(
             session.send({ to: 'Diary', message: { _tag: 'Wrote' } }),
           );
-          expect(seeking).toMatchObject({ _tag: 'Seeking', step: 'start' });
-          yield* session.travel({ to: null });
+          expect(previewing).toMatchObject({
+            _tag: 'Previewing',
+            step: 'start',
+          });
+          yield* session.preview({ at: null });
           yield* session.fork({ from: after.entries[0]!.id });
           expect(diary.app.history.head).toBe(after.entries[0]!.id);
 
@@ -213,7 +234,7 @@ describe('the full path: an app connected through a DevTools Server, called thro
           ).toBe('done');
           expect(yield* Context.get(services, Lights).on).toBe(true);
           const fakes = yield* firstWhere(
-            session.fakes(),
+            session.world(),
             (list: ReadonlyArray<FakeNow>) => list.length > 0,
           );
           expect(fakes[0]).toMatchObject({

@@ -1,13 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import type {
-  Entry,
-  Looked,
-  Watched,
-} from '../../../rpc/session/contract/index.ts';
-import { addressOf, changesOf, namesOf, treeOf } from '../real/names.ts';
+import type { Node } from '../../../rpc/session/contract/index.ts';
+import { trimmed } from '../../../rpc/contract/index.ts';
+import { treeOf } from '../real/look.ts';
+import { addressOf, namesOf } from '../real/names.ts';
 import { named, signature } from '../real/signature.ts';
-import { timelineOf } from '../real/timeline.ts';
-import { changedOf, trimmed } from '../real/trim.ts';
+import { brief } from '../real/text.ts';
 
 describe('signature', () => {
   it('writes a Shape as one line of TypeScript', () => {
@@ -66,86 +63,22 @@ describe('signature', () => {
   });
 });
 
-const entry = (id: number, from: Entry['from'], to = 'App'): Entry => ({
-  id,
-  parent: null,
-  to,
-  tag: `T${id}`,
-  from,
-  at: id,
-  outcome: 'handled',
-});
-
-const watched = (count: number): Watched => ({
-  now: {
-    head: count,
-    seeking: null,
-    running: true,
-    failure: null,
-    url: 'http://app.test/',
-    revision: 3,
-  },
-  entries: Array.from({ length: count }, (_, i) =>
-    entry(i + 1, { kind: 'view', instance: 'App' }),
-  ),
-});
-
-describe('timelineOf', () => {
-  it('keeps the last 10 entries, or the 10 before an id', () => {
-    expect(timelineOf(watched(25)).last.map(({ id }) => id)).toEqual([
-      16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
-    ]);
-    expect(timelineOf(watched(25), 8).last.map(({ id }) => id)).toEqual([
-      1, 2, 3, 4, 5, 6, 7,
-    ]);
-    expect(timelineOf(watched(25)).now).toEqual({
-      head: 25,
-      seeking: null,
-      failure: null,
-      url: 'http://app.test/',
-    });
-  });
-
-  it('says where each Message came from in a few words, naming another instance', () => {
-    const { last } = timelineOf({
-      ...watched(0),
-      entries: [
-        entry(1, { kind: 'view', instance: 'App' }),
-        entry(2, { kind: 'command', instance: 'App', name: 'SignIn' }),
-        entry(3, {
-          kind: 'worker',
-          instance: 'App/page',
-          name: 'known',
-          key: 'a',
-        }),
-        entry(4, { kind: 'outside', name: 'devtools' }),
-        entry(5, { kind: 'outside' }),
-      ],
-    });
-    expect(last.map(({ from }) => from)).toEqual([
-      'view',
-      'command SignIn',
-      'worker known a of App/page',
-      'devtools',
-      'outside',
-    ]);
-  });
-});
-
 const node = (
   address: string,
   actor: string,
   state: string,
-  children: ReadonlyArray<Looked> = [],
+  children: ReadonlyArray<Node> = [],
   key?: string,
-): Looked => ({
+): Node => ({
   address,
-  place: actor,
   actor,
   slot: null,
   ...(key === undefined ? {} : { key }),
   state,
-  change: null,
+  data: {},
+  model: {},
+  workers: [],
+  provides: [],
   children,
 });
 
@@ -178,15 +111,15 @@ const app = (signedIn: boolean) =>
 
 describe('names', () => {
   it('names an instance by its Actor, its key, or its parent, whichever is alone', () => {
-    expect(treeOf(namesOf(app(true)))).toEqual([
+    expect(treeOf(app(true), {}).lines).toEqual([
       'Router',
-      ' App [SignedIn]',
-      '  Home',
-      '   Home/Projects[c1]',
-      '  Sidebar',
-      '   Sidebar/Projects[c1]',
-      '   Projects[c2]',
-      '  Account [Active]',
+      '  App [SignedIn]',
+      '    Home',
+      '      Home/Projects[c1]',
+      '    Sidebar',
+      '      Sidebar/Projects[c1]',
+      '      Projects[c2]',
+      '    Account [Active]',
     ]);
   });
 
@@ -201,24 +134,6 @@ describe('names', () => {
     const names = namesOf(app(true));
     expect(addressOf(names, 'sidebar')).toBe('Router/page#1/sidebar#1');
     expect(addressOf(names, 'projects')).toBeUndefined();
-  });
-
-  it('says which instances came, went or changed State', () => {
-    expect(changesOf(namesOf(app(false)), namesOf(app(true)))).toEqual([
-      'App SignedOut → SignedIn',
-      '+ Home',
-      '+ Home/Projects[c1]',
-      '+ Sidebar',
-      '+ Sidebar/Projects[c1]',
-      '+ Projects[c2]',
-      '+ Account [Active]',
-    ]);
-    expect(changesOf(namesOf(app(true)), namesOf(app(false)))).toEqual([
-      'App SignedIn → SignedOut',
-      '- Home',
-      '- Sidebar',
-      '- Account',
-    ]);
   });
 });
 
@@ -245,9 +160,32 @@ describe('trimmed', () => {
     );
     expect(Object.keys(trimmed(wide) as object)).toHaveLength(17);
   });
+});
 
-  it('gives the fields a change set, or nothing', () => {
-    expect(changedOf({ a: 1, b: 2 }, { a: 1, b: 3 })).toEqual({ b: 3 });
-    expect(changedOf({ a: 1 }, { a: 1 })).toBeUndefined();
+describe('brief', () => {
+  it('writes a Model on one line, whole when it fits', () => {
+    expect(brief({ url: 'https://t.example.com', reachable: true })).toEqual({
+      text: '{ url: https://t.example.com, reachable: true }',
+      cut: false,
+    });
+  });
+
+  it('folds a long field and stops at the width, saying how many are left', () => {
+    const model = {
+      notes: Array.from({ length: 30 }, (_, at) => ({ at, text: `n ${at}` })),
+      user: { id: 1, name: 'Ada Lovelace', roles: ['admin', 'owner'] },
+      email: 'ada@x.io',
+      ...Object.fromEntries(
+        Array.from({ length: 6 }, (_, at) => [`flag${at}`, true]),
+      ),
+    };
+    expect(brief(model)).toEqual({
+      text: '{ notes: […30], user: {…3}, email: ada@x.io, flag0: true, flag1: true, … 4 more }',
+      cut: true,
+    });
+    expect(brief('x'.repeat(100), 10)).toEqual({
+      text: `${'x'.repeat(10)}…`,
+      cut: true,
+    });
   });
 });

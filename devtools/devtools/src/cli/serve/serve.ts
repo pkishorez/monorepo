@@ -49,7 +49,6 @@ export function makeDevtoolsServer(options: Options) {
           lotelServer({ db: options.db }),
           monoverseServer({ db: options.db }),
           kabukiServer({ origins: ownOrigins }),
-          makeMcpLive({ version: options.version, ownOrigins }),
           makeBrowserApplicationLive({
             uiRoot,
             version: options.version,
@@ -62,6 +61,10 @@ export function makeDevtoolsServer(options: Options) {
             },
           }),
           makeRequestAccessLive({ port: options.port, ownOrigins }),
+        ).pipe(
+          Layer.provideMerge(
+            makeMcpLive({ version: options.version, ownOrigins }),
+          ),
         ),
       ).pipe(
         Layer.provide(

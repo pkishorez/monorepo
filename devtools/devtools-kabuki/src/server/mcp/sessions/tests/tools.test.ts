@@ -2,14 +2,19 @@ import { createServer } from 'node:http';
 import { createServer as createNetServer } from 'node:net';
 import type { AddressInfo } from 'node:net';
 import { Context, Effect, Layer, Schema, Scope, SubscriptionRef } from 'effect';
+import type { AppRuntime } from '@kestack/kabuki/react/types';
 import { McpProtocol, McpServer } from 'effect/ai';
 import { HttpRouter } from 'effect/http';
 import * as NodeHttpServer from '@effect/platform-node/NodeHttpServer';
+import { Actor, Command } from '@kestack/kabuki';
 import { Fake, FakeWorld } from '@kestack/kabuki/fake';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { connect } from '../../../../app.tsx';
 import { kabukiRoutes } from '../../../../devtools.ts';
-import { started } from '../../../../services/kabuki-session/tests/diary.ts';
+import {
+  running,
+  started,
+} from '../../../../services/kabuki-session/tests/diary.ts';
 
 const run = <A, E>(effect: Effect.Effect<A, E, Scope.Scope>) =>
   Effect.runPromise(Effect.scoped(effect));
@@ -26,14 +31,15 @@ const freePort = () =>
 const devtools = (port: number) =>
   Layer.build(
     HttpRouter.serve(
-      Layer.mergeAll(
-        kabukiRoutes({ origins: [] }),
-        McpServer.layerHttp({
-          name: 'devtools',
-          version: '0.0.0',
-          path: '/mcp',
-          protocols: [McpProtocol.v2025_06_18],
-        }),
+      kabukiRoutes({ origins: [] }).pipe(
+        Layer.provideMerge(
+          McpServer.layerHttp({
+            name: 'devtools',
+            version: '0.0.0',
+            path: '/mcp',
+            protocols: [McpProtocol.v2025_06_18],
+          }),
+        ),
       ),
       { disableLogger: true, disableListenLog: true },
     ).pipe(
@@ -158,7 +164,61 @@ const until = <A>(
       : Effect.flatMap(Effect.sleep('20 millis'), () => until(read, test)),
   );
 
+const fetchOne = Command.make('fetch', {
+  args: Schema.Struct({ id: Schema.String }),
+  run: ({ id }) =>
+    Effect.as(Effect.sleep('300 millis'), { _tag: 'Fetched' as const, id }),
+});
+
+const explode = Command.make('explode', {
+  run: () => Effect.die(new Error('exploded')),
+});
+
+const Fetcher = Actor.define('Fetcher', {
+  model: { fetched: Schema.Array(Schema.String) },
+  message: {
+    Fetch: Schema.Struct({ id: Schema.String }).annotate({
+      description: 'Fetch one by id',
+    }),
+    Fetched: { id: Schema.String },
+    Explode: Schema.Struct({}).annotate({ description: 'Fail on purpose' }),
+  },
+}).build({
+  init: () => ({ model: { fetched: [] } }),
+  on: {
+    Fetch: ({ id }) => ({ command: fetchOne({ id }) }),
+    Fetched: ({ id }, { model }) => ({
+      model: { fetched: [...model.fetched, id] },
+    }),
+    Explode: () => ({ command: explode() }),
+  },
+});
+
+const textOf = (result: ToolResult) =>
+  result.content.map(({ text }) => text).join('\n');
+
+const linked = (
+  port: number,
+  name: string,
+  app: AppRuntime,
+  world?: FakeWorld,
+) =>
+  Effect.gen(function* () {
+    const stop = connect({
+      url: `ws://127.0.0.1:${port}`,
+      name,
+      environment: 'kishores-mbp',
+      ...(world === undefined ? {} : { world }),
+    })(app);
+    yield* Effect.addFinalizer(() => Effect.sync(stop));
+    return stop;
+  });
+
 describe('the Kabuki tools over MCP', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it(
     'read and move a live Kabuki Session by its name, and run its Fakes’ Controls',
     () =>
@@ -175,14 +235,15 @@ describe('the Kabuki tools over MCP', () => {
             'kabuki_look',
             'kabuki_send',
             'kabuki_sessions',
+            'kabuki_step',
             'kabuki_timeline',
             'kabuki_travel',
           ]);
-          expect(JSON.stringify(tools).length).toBeLessThan(4_000);
+          expect(JSON.stringify(tools).length).toBeLessThan(4_400);
 
           const none = yield* call('kabuki_look', { session: 'diary' });
           expect(none.isError).toBe(true);
-          expect(JSON.parse(none.content[0]!.text)).toEqual({
+          expect(JSON.parse(textOf(none))).toEqual({
             _tag: 'KabukiSessionNotFound',
             name: 'diary',
             available: [],
@@ -192,126 +253,235 @@ describe('the Kabuki tools over MCP', () => {
           const services = yield* Layer.build(world.layer);
           const diary = yield* started;
           diary.write('first', 5);
-          const stop = connect({
-            url: `ws://127.0.0.1:${port}`,
-            name: 'diary',
-            environment: 'kishores-mbp',
-            world,
-          })(diary.app);
-          yield* Effect.addFinalizer(() => Effect.sync(stop));
+          const stop = yield* linked(port, 'diary', diary.app, world);
 
-          const listed = yield* until(
-            call('kabuki_sessions'),
-            (result) => result.structuredContent.sessions.length === 1,
+          const listed = yield* until(call('kabuki_sessions'), (result) =>
+            textOf(result).startsWith('diary'),
           );
-          expect(listed.structuredContent.sessions).toEqual([
-            { name: 'diary', app: 'Diary', url: expect.any(String) },
-          ]);
+          expect(listed.structuredContent).toBeUndefined();
+          expect(textOf(listed)).toBe('diary  Diary');
 
-          const tree = yield* call('kabuki_look', { session: 'diary' });
-          expect(tree.structuredContent.instances).toEqual([
-            'Diary',
-            ' Counter',
-          ]);
-          expect(tree.structuredContent.opened).toBeUndefined();
+          expect(textOf(yield* call('kabuki_look', { session: 'diary' }))).toBe(
+            [
+              'at 0 (head), settled',
+              'Diary  { notes: [{ at: 1970-01-01T00:00:00.005Z, text: first }] }',
+              '  Counter  { count: 0 }',
+            ].join('\n'),
+          );
+          expect(
+            textOf(
+              yield* call('kabuki_look', { session: 'diary', open: ['Diary'] }),
+            ),
+          ).toBe(
+            [
+              'at 0 (head), settled',
+              'Diary',
+              '  about: Notes, each with when it was written',
+              '  model: { notes: [{ at: 1970-01-01T00:00:00.005Z, text: first }] }',
+              '  takes:',
+              '    Wrote { note: { at: string; text: string } }  // A note was written',
+            ].join('\n'),
+          );
+          expect(
+            textOf(yield* call('kabuki_timeline', { session: 'diary' })),
+          ).toBe(
+            [
+              'head 0 · 1 Chain, newest first; id → kabuki_step',
+              '0  outside  Wrote → Diary  · model notes',
+            ].join('\n'),
+          );
 
-          const opened = yield* call('kabuki_look', {
-            session: 'diary',
-            open: ['Diary'],
-          });
-          expect(opened.structuredContent.opened.Diary).toEqual({
-            about: 'Notes, each with when it was written',
-            model: {
-              notes: [{ at: new Date(5).toISOString(), text: 'first' }],
-            },
-            takes: [
-              'Wrote { note: { at: string; text: string } }  // A note was written',
-            ],
-          });
-
-          const timeline = yield* call('kabuki_timeline', {
-            session: 'diary',
-          });
-          expect(timeline.structuredContent.last).toEqual([
-            {
-              id: expect.any(Number),
-              tag: 'Wrote',
+          const sent = textOf(
+            yield* call('kabuki_send', {
+              session: 'diary',
               to: 'Diary',
-              from: expect.any(String),
-              outcome: 'handled',
-            },
+              message: {
+                _tag: 'Wrote',
+                note: { at: new Date(9).toISOString(), text: 'second' },
+              },
+            }),
+          );
+          expect(sent).toMatch(/^handled · settled in \d+\.\ds\nChain 1 @/);
+          expect(sent.split('\n').slice(2)).toEqual([
+            '1  Wrote → Diary  from devtools · handled',
+            '  message: { note: { at: 1970-01-01T00:00:00.009Z, text: second } }',
+            '  Diary:',
+            '    notes: 1 → 2 items',
+            '      + { at: 1970-01-01T00:00:00.009Z, text: second }',
           ]);
 
-          const sent = yield* call('kabuki_send', {
-            session: 'diary',
-            to: 'Diary',
-            message: {
-              _tag: 'Wrote',
-              note: { at: new Date(9).toISOString(), text: 'second' },
-            },
+          diary.bump();
+          diary.bump();
+          expect(
+            textOf(yield* call('kabuki_timeline', { session: 'diary' })),
+          ).toBe(
+            [
+              'head 3 · 4 Chains, newest first; id → kabuki_step',
+              '3  outside  Bumped → Counter  · model count',
+              '2  outside  Bumped → Counter  · model count',
+              '1  devtools  Wrote → Diary  · model notes',
+              '0  outside  Wrote → Diary  · model notes',
+            ].join('\n'),
+          );
+          expect(
+            textOf(
+              yield* call('kabuki_timeline', {
+                session: 'diary',
+                instance: 'counter',
+              }),
+            ).split('\n'),
+          ).toHaveLength(3);
+          expect(
+            textOf(yield* call('kabuki_step', { session: 'diary', id: 2 })),
+          ).toMatch(
+            /^Chain 2 @\d+\.\ds, 1 Step\n2  Bumped → Counter  from outside · handled\n  Counter:\n    count: 0 → 1\nthe tree after it: kabuki_look at: 2$/,
+          );
+          expect(
+            JSON.parse(
+              textOf(yield* call('kabuki_step', { session: 'diary', id: 99 })),
+            ),
+          ).toEqual({
+            _tag: 'StepNotFound',
+            step: 99,
+            oldest: 0,
+            newest: 3,
           });
-          expect(sent.structuredContent.sent).toBe('handled');
-          expect(sent.structuredContent.model.notes).toHaveLength(2);
 
           const unknown = yield* call('kabuki_send', {
             session: 'diary',
             to: 'Nobody',
             message: { _tag: 'Wrote' },
           });
-          expect(JSON.parse(unknown.content[0]!.text)).toMatchObject({
+          expect(JSON.parse(textOf(unknown))).toMatchObject({
             _tag: 'InstanceNotFound',
             instance: 'Nobody',
             available: ['Diary', 'Counter'],
           });
-
           const refused = yield* call('kabuki_send', {
             session: 'diary',
             to: 'Diary',
             message: { _tag: 'Nope' },
           });
           expect(refused.isError).toBe(true);
-          expect(refused.content[0]!.text).toContain('MessageRefused');
+          expect(textOf(refused)).toContain('MessageRefused');
 
-          const first = timeline.structuredContent.last[0].id;
           expect(
-            (yield* call('kabuki_travel', { session: 'diary', to: 'start' }))
-              .structuredContent,
-          ).toEqual({ at: 'start' });
+            textOf(
+              yield* call('kabuki_travel', { session: 'diary', to: 'start' }),
+            ),
+          ).toBe(
+            [
+              'showing step start; kabuki_travel to: null comes back',
+              'at start (a past step: no Work report)',
+              'Diary  { notes: [] }',
+              '  Counter  { count: 0 }',
+            ].join('\n'),
+          );
           expect(
-            (yield* call('kabuki_travel', { session: 'diary', to: null }))
-              .isError,
-          ).toBe(false);
-          yield* call('kabuki_fork', { session: 'diary', from: first });
-          expect(diary.app.history.head).toBe(first);
+            textOf(
+              yield* call('kabuki_travel', { session: 'diary', to: null }),
+            ),
+          ).toMatch(/^back at the head\nat 3 \(head\), settled\n/);
+          const forked = textOf(
+            yield* call('kabuki_fork', { session: 'diary', from: 1 }),
+          );
+          expect(diary.app.history.head).toBe(1);
+          expect(forked).toMatch(/^forked at 1; the app carries on from there/);
+          expect(forked).toContain('  Counter  { count: 0 }');
 
-          const switched = yield* call('kabuki_control', {
-            session: 'diary',
-            fake: 'lights',
-            control: 'Switched',
-            payload: { on: true },
-          });
-          expect(switched.structuredContent).toEqual({ done: true });
+          const switched = textOf(
+            yield* call('kabuki_control', {
+              session: 'diary',
+              fake: 'lights',
+              control: 'Switched',
+              payload: { on: true },
+            }),
+          );
+          expect(switched).toMatch(/^lights\.Switched: done · settled in /);
           expect(yield* Context.get(services, Lights).on).toBe(true);
-          const fakes = yield* call('kabuki_fakes', { session: 'diary' });
-          expect(fakes.structuredContent.fakes).toEqual([
-            {
-              name: 'lights',
-              value: { on: true },
-              controls: [
-                'Switched { on: boolean }  // The lights go on or off',
-              ],
-            },
-          ]);
+          expect(
+            textOf(yield* call('kabuki_fakes', { session: 'diary' })),
+          ).toBe(
+            [
+              'lights',
+              '  state: { on: true }',
+              '  Switched { on: boolean }  // The lights go on or off',
+            ].join('\n'),
+          );
 
           stop();
           const left = yield* until(
             call('kabuki_timeline', { session: 'diary' }),
             (result) => result.isError,
           );
-          expect(JSON.parse(left.content[0]!.text)).toMatchObject({
+          expect(JSON.parse(textOf(left))).toMatchObject({
             _tag: 'KabukiSessionNotFound',
             name: 'diary',
           });
+        }),
+      ),
+    20_000,
+  );
+
+  it(
+    'wait after a Send for its Commands, and answer with what followed and any failure',
+    () =>
+      run(
+        Effect.gen(function* () {
+          vi.spyOn(console, 'error').mockImplementation(() => {});
+          const port = yield* Effect.promise(freePort);
+          yield* devtools(port);
+          const { call } = yield* mcp(port);
+          const { app } = yield* running(Fetcher);
+          yield* linked(port, 'fetcher', app);
+          yield* until(call('kabuki_sessions'), (result) =>
+            textOf(result).startsWith('fetcher'),
+          );
+
+          const fetched = textOf(
+            yield* call('kabuki_send', {
+              session: 'fetcher',
+              to: 'Fetcher',
+              message: { _tag: 'Fetch', id: 'a' },
+            }),
+          ).split('\n');
+          expect(fetched[0]).toMatch(/^handled · settled in (0\.[3-9]|[1-9])/);
+          expect(fetched.slice(1)).toEqual([
+            expect.stringMatching(/^Chain 0 @/),
+            '0  Fetch → Fetcher  from devtools · handled',
+            '  message: { id: a }',
+            '  command fetch { id: a }',
+            'then:',
+            '  1  command fetch  Fetched → Fetcher  · model fetched',
+          ]);
+
+          const exploded = textOf(
+            yield* call('kabuki_send', {
+              session: 'fetcher',
+              to: 'Fetcher',
+              message: { _tag: 'Explode' },
+            }),
+          ).split('\n');
+          expect(exploded[0]).toMatch(/^handled · a failure after /);
+          expect(exploded.at(-2)).toBe('new failures:');
+          expect(exploded.at(-1)).toMatch(
+            /^ {2}Fetcher: command explode failed @\d+\.\ds: .*exploded/,
+          );
+
+          yield* call('kabuki_send', {
+            session: 'fetcher',
+            to: 'Fetcher',
+            message: { _tag: 'Explode' },
+          });
+          const look = textOf(
+            yield* call('kabuki_look', { session: 'fetcher' }),
+          ).split('\n');
+          expect(look[0]).toBe('at 3 (head), settled');
+          expect(look[1]).toBe('problems:');
+          expect(
+            look.filter((line) => line.includes('explode failed')),
+          ).toHaveLength(2);
+          expect(look.at(-1)).toBe('Fetcher  { fetched: [a] }');
         }),
       ),
     20_000,

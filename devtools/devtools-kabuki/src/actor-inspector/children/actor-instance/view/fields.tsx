@@ -7,13 +7,13 @@ import {
 import { Switch } from '@kestack/web-platform/ui/components/switch';
 import { Textarea } from '@kestack/web-platform/ui/components/textarea';
 import { cn } from '@kestack/web-platform/ui/components/utils';
-import { fieldDraft } from '../../logic/shared/index.ts';
+import { fieldDraft } from '../logic/shared/index.ts';
 import type {
   Draft,
   FormField,
   Input,
   Problem,
-} from '../../logic/shared/index.ts';
+} from '../logic/shared/index.ts';
 
 const CONTROL = 'h-7 px-2 font-mono text-xs md:text-xs';
 

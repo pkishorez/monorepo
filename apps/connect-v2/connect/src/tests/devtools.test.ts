@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import { createServer as createNetServer, type AddressInfo } from 'node:net';
 import { Effect, Layer, Schedule, Stream } from 'effect';
+import { McpProtocol, McpServer } from 'effect/ai';
 import { HttpRouter } from 'effect/http';
 import * as NodeHttpServer from '@effect/platform-node/NodeHttpServer';
 import {
@@ -9,19 +10,12 @@ import {
   kabukiRoutes,
   remote,
 } from '@kestack/devtools-kabuki/devtools';
+import type { Node } from '@kestack/devtools-kabuki/devtools';
 import { describe, expect, it } from 'vitest';
 import { Connect } from '../actor-connect/index.js';
 import { attach, headless } from '../devtools/index.js';
 import { devInput, makeWorld } from '../fakes.js';
 import { hashOf } from '../services/cloud/fake/index.js';
-
-interface Looked {
-  readonly address: string;
-  readonly actor: string;
-  readonly key?: string;
-  readonly state: string;
-  readonly children: ReadonlyArray<Looked>;
-}
 
 const SESSION = 'ke-connect-fakes';
 
@@ -36,10 +30,22 @@ const freePort = () =>
 
 const devtoolsAt = (port: number) =>
   Layer.build(
-    HttpRouter.serve(kabukiRoutes({ origins: [] }), {
-      disableLogger: true,
-      disableListenLog: true,
-    }).pipe(
+    HttpRouter.serve(
+      kabukiRoutes({ origins: [] }).pipe(
+        Layer.provide(
+          McpServer.layerHttp({
+            name: 'devtools',
+            version: '0.0.0',
+            path: '/mcp',
+            protocols: [McpProtocol.v2025_06_18],
+          }),
+        ),
+      ),
+      {
+        disableLogger: true,
+        disableListenLog: true,
+      },
+    ).pipe(
       Layer.provide(
         NodeHttpServer.layer(createServer, {
           host: '127.0.0.1',
@@ -50,12 +56,12 @@ const devtoolsAt = (port: number) =>
     ),
   );
 
-const flat = (node: Looked): ReadonlyArray<Looked> => [
+const flat = (node: Node): ReadonlyArray<Node> => [
   node,
   ...node.children.flatMap(flat),
 ];
 
-const tree = (node: Looked): Record<string, string> =>
+const tree = (node: Node): Record<string, string> =>
   Object.fromEntries(
     flat(node).map((each) => [
       each.actor === 'Plugin' ? `Plugin ${each.key}` : each.actor,
@@ -80,7 +86,7 @@ const connected = (origin: string) =>
 const drive = Effect.gen(function* () {
   const session = yield* KabukiSession;
   const treeNow = () =>
-    Effect.map(session.look({ open: [] }), (look) => tree(look.root as Looked));
+    Effect.map(session.step({}), (stepped) => tree(stepped.tree));
   const until = (expected: Record<string, string>) =>
     treeNow().pipe(
       Effect.repeat({
@@ -102,7 +108,7 @@ const drive = Effect.gen(function* () {
   const run = (fake: string, control: string, payload: object = {}) =>
     session.control({ fake, control, payload });
   const fakeState = (name: string) =>
-    session.fakes().pipe(
+    session.world().pipe(
       Stream.runHead,
       Effect.map((fakes) =>
         fakes._tag === 'Some'
@@ -154,14 +160,13 @@ describe('Connect in DevTools, on its Fakes', () => {
           const { session, until, run, fakeState, asking } = yield* drive.pipe(
             Effect.provideContext(yield* Layer.build(remote(origin, SESSION))),
           );
-          const { root } = yield* session.blueprint();
-          expect(root.actor).toBe('Connect');
-          expect(root.children.map((child) => child.actor).sort()).toEqual([
-            'Plugin',
-            'Tunnel',
-          ]);
+          const connect = yield* session.look({ address: 'Connect' });
+          expect(connect.actor).toBe('Connect');
+          expect(connect.states).toEqual(
+            expect.arrayContaining(['SigningIn', 'SignedIn', 'Stopped']),
+          );
           expect(
-            (yield* session.fakes().pipe(Stream.runHead)).pipe((fakes) =>
+            (yield* session.world().pipe(Stream.runHead)).pipe((fakes) =>
               fakes._tag === 'Some' ? fakes.value.map((each) => each.name) : [],
             ),
           ).toEqual([
@@ -179,8 +184,7 @@ describe('Connect in DevTools, on its Fakes', () => {
           yield* run('signIn', 'Refuse');
           yield* until({ Connect: 'Stopped' });
           expect(
-            (yield* session.look({ open: ['Connect'] })).opened['Connect']
-              ?.state,
+            (yield* session.look({ address: 'Connect' })).data,
           ).toMatchObject({
             why: { _tag: 'Failed', reason: 'The device code was refused' },
           });
@@ -283,16 +287,16 @@ describe('Connect in DevTools, on its Fakes', () => {
             [`Plugin ${short('notes', 2)}`]: 'Running',
           });
 
-          const signedIn = (yield* session.watch().pipe(Stream.runHead)).pipe(
-            (watched) =>
-              watched._tag === 'Some' ? watched.value.now.head : null,
+          const signedIn = (yield* session
+            .history({})
+            .pipe(Stream.runHead)).pipe((told) =>
+            told._tag === 'Some' ? told.value.now.head : null,
           );
 
           yield* run('control', 'Stop');
           yield* until({ Connect: 'Stopped' });
           expect(
-            (yield* session.look({ open: ['Connect'] })).opened['Connect']
-              ?.state,
+            (yield* session.look({ address: 'Connect' })).data,
           ).toMatchObject({ why: { _tag: 'Requested' } });
 
           yield* session.fork({ from: signedIn! });
@@ -304,8 +308,7 @@ describe('Connect in DevTools, on its Fakes', () => {
           yield* run('cloud', 'RemoveConnection');
           yield* until({ Connect: 'Stopped' });
           expect(
-            (yield* session.look({ open: ['Connect'] })).opened['Connect']
-              ?.state,
+            (yield* session.look({ address: 'Connect' })).data,
           ).toMatchObject({ why: { _tag: 'Removed' } });
         }),
       ),

@@ -4,7 +4,8 @@ How a running Kabuki app shows up in DevTools: it connects as a Kabuki
 Session and answers the eight calls, and DevTools, its CLI and a panel in
 the page ask it only through them. Kabuki's own words (Snapshot, History,
 History entry, Step, Branch, Head, Instance, Address, Runtime, Seek, Fork,
-Time Travel, Timeline, Blueprint, Source, Fake, FakeWorld) are defined in the
+Time Travel, Timeline, Blueprint, Source, Change, Chain, Work report,
+Settled, Fake, FakeWorld) are defined in the
 [Kabuki context](../../packages/kabuki/CONTEXT.md); DevTools' in the
 [DevTools context](../devtools/CONTEXT.md).
 
@@ -19,12 +20,20 @@ Where a Kabuki Session runs, as DevTools groups them: the one `connect` is given
 _Avoid_: host, origin, stage
 
 **The eight calls**:
-Everything a panel asks of one Kabuki Session, behind the `KabukiSession` Service: `blueprint`, `watch`, `look`, `travel`, `fork`, `send`, `fakes` and `control`. Answered in the page straight against the app and its FakeWorld, with nothing serialized, or through the DevTools Server, which passes each call to the tab over one RPC group; the two answer alike. The tab computes every answer, since only it has the Actors' code. An Instance is named by its Address; every value of the app's own is sent as its Actor's Schemas encode it, and taken back the same way: a Message or a control's payload arrives as plain JSON and the tab decodes it.
+Everything a panel asks of one Kabuki Session, behind the `KabukiSession` Service: `history`, `step`, `look`, `preview`, `fork`, `send`, `world` and `control`. Answered in the page straight against the app and its FakeWorld, with nothing serialized, or through the DevTools Server, which passes each call to the tab over one RPC group; the two answer alike. The tab computes every answer, since only it has the Actors' code. An Instance is named by its Address; every value of the app's own is sent as its Actor's Schemas encode it, trimmed where it is long, and taken back the same way: a Message or a control's payload arrives as plain JSON and the tab decodes it. A value is shown, in the panel and to an agent alike, by one printer, as indented `key: value` lines.
 _Avoid_: Api, protocol, endpoint, methods
 
+**History**:
+The History as `history` streams it: each entry sent once, after a cursor the caller holds, an epoch and an id. An entry is light: who Sent what to whom, its outcome, and whether it changed anything; what it did is its Step. Each batch says where the app is now, its epoch, the entries after the cursor and the entries the History's start is followed by now; a caller keeps only the entries that grow from those, so a Compacted History needs no new epoch. The epoch changes when the History is no longer what was sent and more, as when it is started over or loaded; a batch in a new epoch holds every entry kept, and replaces what the caller held. Forking keeps the epoch: the old Branch is still in the History.
+_Avoid_: feed, log, timeline (that is what the Inspector draws from it)
+
+**Step**:
+One Step as `step` answers it: the tree of Instances after it, each with its Address, Actor, slot, key, State's tag, the Workers it wants and what it Provides; the Message it played, encoded, with the Commands it asked for, none at the History's start; and its Change, worked out in the tab by replay. At the Head, also the Work report, known only there.
+_Avoid_: snapshot (that is Kabuki's whole value), frame
+
 **Look**:
-The Instances at one Step, as `look` answers them: each with its Address, its place in the Blueprint, its Actor, its State's tag, whether that Step started or changed it, and its Children; and, for the Instances asked to be opened, their data and Workers. A Step started an Instance it is in after and not before, and changed one whose State, Model or Props is another object after it. Which Workers run is known only at the Head of a running app.
-_Avoid_: graph, snapshot (that is Kabuki's whole value), node
+One Instance at one Step, whole, as `look` answers it: its State's data and Model as its Actor's Schemas encode them, not trimmed, its Props, its Actor's description and States, the Workers it wants, live only at the Head, what it Provides, and the Messages it takes, from its State or always, each with its payload's Shape.
+_Avoid_: graph, node, detail
 
 **Shape**:
 One plain description of a Schema's encoded side, which a card reads to show a value and a form reads to fill one: text, a number, a switch, a choice of literals, a struct of fields, each with its name, whether it is optional or nullable, and its description, an array, or else JSON, named in words. Every Message's payload, every State's data, a Model, Props, a Fake's state and each control's payload have one. Not an Actor's Shape, which is Kabuki's word for what `Actor.define` gives.
@@ -35,7 +44,7 @@ A function Kabuki calls with each app it starts, which returns how to stop it; g
 _Avoid_: plugin, hook, extension
 
 **Inspector**:
-This package's panel, Kabuki's Inspector: a Kabuki app of its own that reads and moves one Kabuki Session only through the eight calls, so it reads the same in the page, beside the app, and in DevTools. Three tabs. Running: the Instances at the Step shown, each a card, over the Timeline of the Branch in view, worked out from the entries' parents; picking a Step Time Travels the app, Now goes back to the Head, Fork carries on from the Step shown on a new Branch. A Step looked back at opens the card its Message was for. Blueprint: every Actor the root can grow, running or not, each a card of what it declares. World, only while `fakes` lists a Fake: each Fake's controls, each a form built from its payload's Shape that runs it with `control` and says done or why not, beside its state now, which follows `fakes`; the FakeWorld only moves forward, so nothing of it is a Step. Presenting, only the canvas, kept whole in view, with nothing to press. It keeps no History of its own.
+This package's panel, Kabuki's Inspector: a Kabuki app of its own that reads and moves one Kabuki Session only through the eight calls, so it reads the same in the page, beside the app, and in DevTools. One Board: the Instances at the Step shown, each a card showing what that Step changed, the Message as a chip above the card that took it, which opens how it got there, over the Timeline of the Branch in view, worked out from the entries' parents. Picking a Step reads it with `step` and leaves the app at its Head unless the preview setting is on; Fork carries on from the Step shown on a new Branch. Opening a card reads its Instance whole with `look`, with its Actions. Presenting, only the Board, with nothing to press. It keeps no History of its own.
 _Avoid_: devtools (that is the Dock or the app), viewer, debugger
 
 **Form**:
@@ -43,5 +52,5 @@ How `KabukiDevtools` places the Inspector beside an app. `dock`, the default: th
 _Avoid_: mode, layout (the Dock's word for where it puts the panel)
 
 **Actions**:
-The part of an open card that Sends the app a Message: every Message its Instance's Actor takes now, its top level's and its State's, worked out from the Blueprint and the State in the Look, each a form built from its payload's Shape. A blank optional field is left out and a blank nullable one is `null`. What came of it shows beside it: handled, ignored, queued, refused with the reason, or why it was not sent. While the Inspector shows a past Step, Actions offer only to go back to now.
+The part of an open card that Sends the app a Message: every Message its Instance's Actor takes now, its top level's and its State's, as its Look says, each a form built from its payload's Shape. A blank optional field is left out and a blank nullable one is `null`. What came of it shows beside it: handled, ignored, queued, refused with the reason, or why it was not sent. While the Inspector shows a past Step, Actions offer only to go back to now.
 _Avoid_: commands, buttons, controls (a Fake's word)

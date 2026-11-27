@@ -45,7 +45,7 @@ export function Problem({
 
 export function Rereading({ children }: { children: ReactNode }) {
   return (
-    <div className="pointer-events-none absolute top-3 left-3 z-10 flex items-center gap-2 rounded-full bg-popover/90 px-2.5 py-1 text-xs text-muted-foreground shadow-sm ring-1 ring-border/60 backdrop-blur-sm">
+    <div className="pointer-events-none absolute top-3 left-3 z-10 flex items-center gap-2 rounded-md bg-popover/90 px-2.5 py-1 text-xs text-muted-foreground shadow-sm ring-1 ring-border/60 backdrop-blur-sm">
       <Spinner className="size-3" />
       {children}
     </div>
