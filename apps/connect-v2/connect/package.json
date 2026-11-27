@@ -20,7 +20,8 @@
   },
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.build.json && tsc -p tsconfig.types.json",
-    "dev": "tsx src/dev.ts",
+    "dev": "vp run --filter '@kestack/connect-v2^...' build && tsx src/dev.ts",
+    "dev:real": "vp run --filter '@kestack/connect-v2^...' build && KE_CONNECT_CLOUD=$(portless get connect-v2.kishore) KE_DEVTOOLS=${KE_DEVTOOLS:-http://127.0.0.1:14400} tsx src/dev-real.ts serve dev",
     "fmt": "vp fmt",
     "lint": "vp check && tsc --noEmit && node ../../../devtools/monoverse/src/cli/main.ts lint",
     "test": "vitest run"

@@ -23,6 +23,13 @@ is `CloudClient`, the App API as an App calls it.
 
 ## Usage
 
+### Run it
+
+`pnpm dev` runs the Worker on this machine under `alchemy dev`, at the URL
+`portless get connect-v2.kishore` prints for this branch, with a local D1
+and the dev Auth at `auth.kishore.computer`, which must be running.
+`ke-connect`'s `dev:real` reaches it there.
+
 ### Test it
 
 `pnpm test` runs Connect Cloud over an in-memory SQLite database, calling

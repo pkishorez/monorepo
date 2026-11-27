@@ -15,6 +15,18 @@ Everything a Connection keeps is in its data folder, `kestack/connect-v2/connect
 ### Run it
 
 ```sh
+pnpm -F @kestack/connect-v2 dev
+pnpm -F @kestack/connect-v2-cloud dev
+pnpm -F @kestack/connect-v2 dev:real
+```
+
+- `dev` runs Connect on a fake world of every Service: no network, no sign-in. Pick `ke-connect-fakes` in DevTools.
+- `dev:real` runs the Connection `dev` with every real Service against this branch's Connect Cloud, which the Cloud's `dev` serves locally. Pick `ke-connect-dev` in DevTools.
+- Both attach to the DevTools at `KE_DEVTOOLS`, `http://127.0.0.1:14400` unless set.
+
+To run it as it ships:
+
+```sh
 pnpm -F @kestack/connect-v2 build
 node apps/connect-v2/connect/bin/ke-connect.mjs serve --cloud https://connect-v2.kishore.app
 node apps/connect-v2/connect/bin/ke-connect.mjs list

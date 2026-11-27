@@ -26,6 +26,7 @@
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "deploy": "alchemy deploy",
+    "dev": "vp run --filter '@kestack/connect-v2-cloud^...' build && portless run --force alchemy dev",
     "fmt": "vp fmt",
     "lint": "vp check && tsc --noEmit && node ../../../devtools/monoverse/src/cli/main.ts lint",
     "test": "vitest run"

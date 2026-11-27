@@ -62,8 +62,28 @@ src/
 └── kabuki/          one folder per feature, named for it
 ```
 
-Nothing else sits in `src/` except the entry file, which holds the app's
-Layer.
+Nothing else sits in `src/` except the entry files, one for each way the
+app runs, each holding the Layer it runs on.
+
+### Fake and real
+
+Every Kabuki app runs two ways on a dev machine. Production is always
+real.
+
+| Script          | The app's Layer                                   | Reaches                                                                              |
+| --------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `pnpm dev`      | every Service's `fake/`, in one FakeWorld         | nothing: no network, no sign-in, no account                                          |
+| `pnpm dev:real` | every Service's `real/`, built as production does | the dev world: the dev Auth, its own Workers run by their `pnpm dev`, real databases |
+
+- `pnpm dev` is the one to reach for, so every Service an Actor uses has
+  a `fake/` beside its `real/`. A Service that only other `real/`s use
+  needs none.
+- Both show the app in DevTools.
+- `dev:real` never reaches production, and names what it keeps on the
+  machine for dev, so it never touches a copy the User runs for real.
+- A package with no Actors, such as a Worker, has no fakes and no
+  `dev:real`: its one `pnpm dev` runs it for real on this machine. The
+  Kabuki app that calls it has it as a Service with a `fake/`.
 
 ## A feature
 
