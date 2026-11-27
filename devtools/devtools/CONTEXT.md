@@ -47,7 +47,10 @@ _Avoid_: AI, assistant, chat.
 **Thread**:
 One conversation with the Agent about one folder: its questions, answers,
 activity lines and each run's status, in order, on one Claude Code session.
-Kept in the DevTools Server's memory, so a restart drops every Thread.
+Each has a kind the asker names, such as `story` or `chat`, and is listed and
+cleared by folder and kind. Saved in DevTools' database as it goes, so a
+restart keeps every Thread; one still answering when DevTools stopped comes
+back failed. Clearing deletes every Thread of a kind in a folder for good.
 _Avoid_: Chat, conversation, session (on its own).
 
 **Tool Scope**:
@@ -116,12 +119,13 @@ Inspector: a question to the Agent about the app's code in a Worktree of
 its Project, both picked once and remembered per app, answered as Beats and
 played on the root's Blueprint drawn as a tree of cards, one Beat at a time.
 Whatever the question, the answer is a story that starts wide and builds
-up. Its Threads are the Agent's; it keeps only the Project, the Worktree and
-the Thread last open.
+up. Its Threads are the Agent's, of kind `story`; it keeps only the Project,
+the Worktree and the Thread last open, and can clear its Threads in the
+Worktree.
 _Avoid_: tour, walkthrough, explanation.
 
 **Chat**:
-The Kabuki Tool's chat beside the Inspector, in the same window as Story's: the same Project, Worktree and Thread, picked once and remembered per app, starting from Story's, and the same turns and composer. Its questions go to the Agent asked with `mcp`, with no JSON Schema, so Claude Code answers in words and reaches the Kabuki Session in view through DevTools' MCP tools: it looks at it, Sends Messages, Time Travels and runs Fakes' controls. Its Threads are only its own. Beside it, World, when the app has Fakes. It is DevTools' alone: the Inspector in the page has no Chat.
+The Kabuki Tool's chat beside the Inspector, in the same window as Story's: the same Project, Worktree and Thread, picked once and remembered per app, starting from Story's, and the same turns and composer. Its questions go to the Agent asked with `mcp`, with no JSON Schema, so Claude Code answers in words and reaches the Kabuki Session in view through DevTools' MCP tools: it looks at it, Sends Messages, Time Travels and runs Fakes' controls. Its Threads are only its own, of kind `chat`, and it can clear them in the Worktree. Beside it, World, when the app has Fakes. It is DevTools' alone: the Inspector in the page has no Chat.
 _Avoid_: assistant, copilot, AI panel.
 
 **Beat**:

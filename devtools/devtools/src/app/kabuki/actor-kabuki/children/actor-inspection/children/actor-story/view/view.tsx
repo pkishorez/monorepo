@@ -6,6 +6,7 @@ import {
   failureOf,
   projectOf,
   projectsOf,
+  worktreeOf,
   worktreesOf,
 } from '../../../logic/shared/index.js';
 import { missedOf, stageOf, threadsOf } from '../logic/shared/index.js';
@@ -112,10 +113,16 @@ export function Body(self: BodyProps) {
           worktreesProblem={model.worktreesProblem}
           threads={threadsOf(self)}
           thread={model.thread}
+          worktree={worktreeOf(self.state.folder, model.worktrees)}
+          noun="Story threads"
+          clearing={model.clearing}
           onProject={(project) => send({ _tag: 'Chose', project })}
           onWorktree={(folder) => send({ _tag: 'Switched', folder })}
           onRetryWorktrees={() => send({ _tag: 'WorktreesRelisted' })}
           onThread={(thread) => send({ _tag: 'Opened', thread })}
+          onClearAsk={() => send({ _tag: 'ClearAsked' })}
+          onClearDismiss={() => send({ _tag: 'ClearDismissed' })}
+          onClearConfirm={() => send({ _tag: 'ClearConfirmed' })}
         />
         <div className="min-h-0 flex-1 overflow-y-auto">
           <Turns

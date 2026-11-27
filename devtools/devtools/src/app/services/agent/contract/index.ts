@@ -19,6 +19,7 @@ export class AgentProblem extends Data.TaggedError('AgentProblem')<{
 
 export interface Question {
   readonly folder: string;
+  readonly kind: string;
   readonly prompt: string;
   readonly system?: string;
   readonly schema?: JsonSchema;
@@ -36,11 +37,16 @@ export interface AgentService {
   readonly followUp: (followUp: FollowUp) => Effect.Effect<void, AgentProblem>;
   readonly threads: (
     folder: string,
+    kind: string,
   ) => Effect.Effect<ReadonlyArray<Thread>, AgentProblem>;
   readonly watch: (
     thread: string,
   ) => Stream.Stream<ReadonlyArray<Message>, AgentProblem>;
   readonly cancel: (thread: string) => Effect.Effect<void, AgentProblem>;
+  readonly clear: (
+    folder: string,
+    kind: string,
+  ) => Effect.Effect<number, AgentProblem>;
 }
 
 export class Agent extends Context.Service<Agent, AgentService>()(

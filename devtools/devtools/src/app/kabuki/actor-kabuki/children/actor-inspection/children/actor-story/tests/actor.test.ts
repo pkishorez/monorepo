@@ -520,4 +520,25 @@ describe('Story', () => {
         });
       }),
     ));
+
+  it('clears its Threads in the Worktree once confirmed', () =>
+    run(
+      Effect.gen(function* () {
+        const { agent, app, story } = yield* opened([{ data: answer }]);
+        app.root.send({ _tag: 'Asked', question: 'How?' });
+        yield* settle;
+        expect(agent.asked[0]?.kind).toBe('story');
+        expect(story().model.threads).toHaveLength(1);
+        app.root.send({ _tag: 'ClearAsked' });
+        app.root.send({ _tag: 'ClearConfirmed' });
+        yield* settle;
+        expect(story().model).toMatchObject({
+          clearing: { _tag: 'Kept' },
+          thread: null,
+          threads: [],
+          turns: [],
+          at: null,
+        });
+      }),
+    ));
 });

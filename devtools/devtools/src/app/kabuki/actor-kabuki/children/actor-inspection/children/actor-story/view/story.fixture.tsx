@@ -392,6 +392,7 @@ const model: Model = {
     },
   ],
   worktreesProblem: null,
+  clearing: { _tag: 'Kept' },
   plan,
   planProblem: null,
   live: ['Playground', 'Playground/Home:todos', 'Playground/Home:todos/todo'],
@@ -473,6 +474,17 @@ export default {
     }),
   ),
   'not found': frame(open({ at: { turn: 1, beat: 6 } })),
+  'clearing threads': frame(
+    open({ clearing: { _tag: 'Confirming', problem: null } }),
+  ),
+  'clearing threads, refused': frame(
+    open({
+      clearing: {
+        _tag: 'Confirming',
+        problem: 'DevTools could not clear its Threads: database is locked',
+      },
+    }),
+  ),
   thinking: frame(
     open({
       turns: [

@@ -1,6 +1,8 @@
 export {
   Asking,
+  Clearing,
   IDLE,
+  KEPT,
   InspectionShape,
   Listed,
   Project,
@@ -16,5 +18,6 @@ export {
   projectsOf,
   storyShown,
   tabOf,
+  worktreeOf,
   worktreesOf,
 } from './selectors.js';

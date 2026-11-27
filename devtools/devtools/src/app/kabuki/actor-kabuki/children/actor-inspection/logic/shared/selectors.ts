@@ -50,6 +50,14 @@ const SHORT = 7;
 const labelOf = ({ branch, head }: Worktree) =>
   branch ?? `detached @${head.slice(0, SHORT)}`;
 
+export const worktreeOf = (
+  folder: string,
+  worktrees: ReadonlyArray<Worktree> | null,
+) => {
+  const known = worktrees?.find((worktree) => worktree.folder === folder);
+  return known === undefined ? lastOf(folder) : labelOf(known);
+};
+
 export const worktreesOf = (
   folder: string,
   worktrees: ReadonlyArray<Worktree> | null,

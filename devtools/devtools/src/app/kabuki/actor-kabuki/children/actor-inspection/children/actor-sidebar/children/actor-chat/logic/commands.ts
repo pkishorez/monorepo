@@ -1,6 +1,7 @@
 import { Effect, Schema } from 'effect';
 import { Command } from '@kestack/kabuki';
 import { Agent } from '../../../../../../../../../services/agent/contract/index.js';
+import { THREAD_KIND } from './shared/index.js';
 
 const systemOf = (name: string, app: string) =>
   [
@@ -21,7 +22,13 @@ export const ask = Command.make('ask', {
   }),
   run: ({ name, app, folder, prompt }) =>
     Effect.flatMap(Agent, (agent) =>
-      agent.ask({ folder, prompt, system: systemOf(name, app), mcp: true }),
+      agent.ask({
+        folder,
+        kind: THREAD_KIND,
+        prompt,
+        system: systemOf(name, app),
+        mcp: true,
+      }),
     ).pipe(
       Effect.map((thread) => ({ _tag: 'Started' as const, thread })),
       Effect.catch(refused),
@@ -41,5 +48,16 @@ export const cancel = Command.make('cancel', {
   run: ({ thread }) =>
     Effect.flatMap(Agent, (agent) => agent.cancel(thread)).pipe(
       Effect.catch(refused),
+    ),
+});
+
+export const clear = Command.make('clear', {
+  args: Schema.Struct({ folder: Schema.String }),
+  run: ({ folder }) =>
+    Effect.flatMap(Agent, (agent) => agent.clear(folder, THREAD_KIND)).pipe(
+      Effect.as({ _tag: 'Cleared' as const }),
+      Effect.catch(({ message: problem }) =>
+        Effect.succeed({ _tag: 'ClearRefused' as const, problem }),
+      ),
     ),
 });

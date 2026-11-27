@@ -11,7 +11,7 @@ const RunStatusSchema = Schema.Literals([
 ]);
 export type RunStatus = typeof RunStatusSchema.Type;
 
-const MessageSchema = Schema.TaggedUnion({
+export const MessageSchema = Schema.TaggedUnion({
   User: { text: Schema.String, at: Schema.Number },
   Assistant: {
     text: Schema.optionalKey(Schema.String),
@@ -30,6 +30,7 @@ export type Message = typeof MessageSchema.Type;
 const ThreadSchema = Schema.Struct({
   id: Schema.String,
   folder: Schema.String,
+  kind: Schema.String,
   title: Schema.String,
   createdAt: Schema.Number,
   mcp: Schema.Boolean,
@@ -43,7 +44,7 @@ export type JsonSchema = typeof JsonSchemaSchema.Type;
 export class AgentError extends Schema.TaggedError<AgentError>('AgentError')(
   'AgentError',
   {
-    reason: Schema.Literals(['unknown-thread', 'busy']),
+    reason: Schema.Literals(['unknown-thread', 'busy', 'unsaved']),
     message: Schema.String,
   },
 ) {}
@@ -52,12 +53,14 @@ export const AgentRpc = RpcGroup.make(
   Rpc.make('ask', {
     payload: {
       folder: Schema.String,
+      kind: Schema.String,
       prompt: Schema.String,
       system: Schema.optionalKey(Schema.String),
       schema: Schema.optionalKey(JsonSchemaSchema),
       mcp: Schema.optionalKey(Schema.Boolean),
     },
     success: Schema.String,
+    error: AgentError,
   }),
   Rpc.make('followUp', {
     payload: {
@@ -68,7 +71,7 @@ export const AgentRpc = RpcGroup.make(
     error: AgentError,
   }),
   Rpc.make('threads', {
-    payload: { folder: Schema.String },
+    payload: { folder: Schema.String, kind: Schema.String },
     success: Schema.Array(ThreadSchema),
   }),
   Rpc.make('watch', {
@@ -79,6 +82,11 @@ export const AgentRpc = RpcGroup.make(
   }),
   Rpc.make('cancel', {
     payload: { thread: Schema.String },
+    error: AgentError,
+  }),
+  Rpc.make('clear', {
+    payload: { folder: Schema.String, kind: Schema.String },
+    success: Schema.Number,
     error: AgentError,
   }),
 );

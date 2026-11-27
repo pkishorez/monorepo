@@ -1,8 +1,8 @@
 import type { DataOf, InitOf, UpdatesOf } from '@kestack/kabuki/types';
 import type { Plan, Shape } from '@kestack/devtools-kabuki/devtools';
 import type { JsonSchema } from '../../../../../../../services/agent/contract/index.js';
-import { ask, cancel, followUp } from './commands.js';
-import { IDLE, busyOf } from '../../../logic/shared/index.js';
+import { ask, cancel, clear, followUp } from './commands.js';
+import { IDLE, KEPT, busyOf } from '../../../logic/shared/index.js';
 import type { Asking } from '../../../logic/shared/index.js';
 import {
   beatsOf,
@@ -357,6 +357,7 @@ export const init: InitOf<typeof StoryShape> = ({ app }) => ({
     threads: [],
     thread: null,
     chips: [],
+    clearing: KEPT,
     ...fresh,
   },
 });
@@ -514,4 +515,23 @@ export const updates: UpdatesOf<typeof StoryShape> = {
     model.thread === null || model.run.status !== 'running'
       ? {}
       : { command: cancel({ thread: model.thread }) },
+  ClearAsked: (_, { state, model }) =>
+    state._tag === 'Open' && model.clearing._tag === 'Kept'
+      ? { model: { clearing: { _tag: 'Confirming', problem: null } } }
+      : {},
+  ClearDismissed: (_, { model }) =>
+    model.clearing._tag === 'Confirming' ? { model: { clearing: KEPT } } : {},
+  ClearConfirmed: (_, { state, model }) =>
+    state._tag === 'Open' && model.clearing._tag === 'Confirming'
+      ? {
+          model: { clearing: { _tag: 'Clearing' } },
+          command: clear({ folder: state.folder }),
+        }
+      : {},
+  Cleared: (_, { model }) => ({
+    model: { ...model, ...fresh, threads: [], thread: null, clearing: KEPT },
+  }),
+  ClearRefused: ({ problem }) => ({
+    model: { clearing: { _tag: 'Confirming', problem } },
+  }),
 };

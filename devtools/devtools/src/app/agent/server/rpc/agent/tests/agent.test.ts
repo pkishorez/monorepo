@@ -1,12 +1,13 @@
 import { mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Effect, Layer, Stream } from 'effect';
+import { Deferred, Effect, Fiber, Layer, Stream } from 'effect';
 import type { Scope } from 'effect';
 import { RpcTest, type RpcClient } from 'effect/rpc';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Claude, type ClaudeOptions } from '@kestack/ai-toolkit-v2/claude';
 import * as ClaudeFake from '@kestack/ai-toolkit-v2/claude/fake';
+import { sqliteThreadStoreLayer } from '../../../services/thread-store/real/index.js';
 import { AgentRpc, statusOf, type Message } from '../contract/index.js';
 import { agentRpcLayer } from '../real/index.js';
 
@@ -15,9 +16,13 @@ type Client = RpcClient.FromGroup<typeof AgentRpc>;
 const MCP = 'http://127.0.0.1:4983/mcp';
 
 let folder: string;
+const KIND = 'story';
+
 let started: Array<ClaudeOptions | undefined> = [];
+let resumed: Array<string> = [];
 beforeEach(async () => {
   started = [];
+  resumed = [];
   folder = await realpath(await mkdtemp(join(tmpdir(), 'devtools-agent-')));
 });
 afterEach(() => rm(folder, { recursive: true, force: true }));
@@ -65,6 +70,7 @@ const dies: ClaudeFake.Recording = {
 
 const run = <A, E>(
   use: (client: Client) => Effect.Effect<A, E, Claude | Scope.Scope>,
+  db = ':memory:',
 ) =>
   Effect.runPromise(
     Effect.scoped(Effect.flatMap(RpcTest.makeClient(AgentRpc), use)).pipe(
@@ -80,6 +86,10 @@ const run = <A, E>(
                     started.push(input.options);
                     return claude.create(input);
                   },
+                  send: (input) => {
+                    resumed.push(input.id);
+                    return claude.send(input);
+                  },
                 }),
               ),
             ).pipe(
@@ -90,6 +100,7 @@ const run = <A, E>(
               ),
             ),
           ),
+          Layer.provideMerge(sqliteThreadStoreLayer({ path: db })),
         ),
       ),
     ),
@@ -134,24 +145,31 @@ describe('the Agent RPC, on the fake Claude Code', () => {
   it('ask answers in a new thread, listed for its folder', () =>
     run((client) =>
       Effect.gen(function* () {
-        const thread = yield* client.ask({ folder, prompt: 'create' });
+        const thread = yield* client.ask({
+          folder,
+          kind: KIND,
+          prompt: 'create',
+        });
         expect(yield* answered(client, thread)).toEqual([
           { _tag: 'User', text: 'create' },
           { _tag: 'Status', status: 'running' },
           { _tag: 'Assistant', text: 'apple' },
           { _tag: 'Status', status: 'done' },
         ]);
-        expect(yield* client.threads({ folder })).toEqual([
+        expect(yield* client.threads({ folder, kind: KIND })).toEqual([
           {
             id: thread,
             folder,
+            kind: KIND,
             title: 'create',
             createdAt: expect.any(Number),
             mcp: false,
             status: 'done',
           },
         ]);
-        expect(yield* client.threads({ folder: '/elsewhere' })).toEqual([]);
+        expect(
+          yield* client.threads({ folder: '/elsewhere', kind: KIND }),
+        ).toEqual([]);
       }),
     ));
 
@@ -160,11 +178,16 @@ describe('the Agent RPC, on the fake Claude Code', () => {
       Effect.gen(function* () {
         const withMcp = yield* client.ask({
           folder,
+          kind: KIND,
           prompt: 'create',
           mcp: true,
         });
         yield* answered(client, withMcp);
-        const without = yield* client.ask({ folder, prompt: 'create' });
+        const without = yield* client.ask({
+          folder,
+          kind: KIND,
+          prompt: 'create',
+        });
         yield* answered(client, without);
         expect(
           started.map((options) => [
@@ -182,7 +205,11 @@ describe('the Agent RPC, on the fake Claude Code', () => {
     run((client) =>
       Effect.gen(function* () {
         const claude = yield* Claude;
-        const thread = yield* client.ask({ folder, prompt: 'create' });
+        const thread = yield* client.ask({
+          folder,
+          kind: KIND,
+          prompt: 'create',
+        });
         yield* answered(client, thread);
         const [first] = yield* claude.live;
         yield* client.followUp({ thread, prompt: 'send' });
@@ -209,6 +236,7 @@ describe('the Agent RPC, on the fake Claude Code', () => {
       Effect.gen(function* () {
         const thread = yield* client.ask({
           folder,
+          kind: KIND,
           prompt: 'structured',
           system: 'Answer in numbers.',
           schema: {
@@ -228,7 +256,11 @@ describe('the Agent RPC, on the fake Claude Code', () => {
   it('tool uses become activity lines, paths shown from the folder', () =>
     run((client) =>
       Effect.gen(function* () {
-        const thread = yield* client.ask({ folder, prompt: 'reading' });
+        const thread = yield* client.ask({
+          folder,
+          kind: KIND,
+          prompt: 'reading',
+        });
         const messages = yield* answered(client, thread);
         expect(
           messages.flatMap((message) =>
@@ -245,7 +277,11 @@ describe('the Agent RPC, on the fake Claude Code', () => {
   it('cancel stops the run and keeps the thread', () =>
     run((client) =>
       Effect.gen(function* () {
-        const thread = yield* client.ask({ folder, prompt: 'permission' });
+        const thread = yield* client.ask({
+          folder,
+          kind: KIND,
+          prompt: 'permission',
+        });
         yield* waiting(client, thread);
         const busy = yield* Effect.flip(
           client.followUp({ thread, prompt: 'send' }),
@@ -256,7 +292,7 @@ describe('the Agent RPC, on the fake Claude Code', () => {
           _tag: 'Status',
           status: 'cancelled',
         });
-        expect((yield* client.threads({ folder }))[0]?.status).toBe(
+        expect((yield* client.threads({ folder, kind: KIND }))[0]?.status).toBe(
           'cancelled',
         );
         yield* client.followUp({ thread, prompt: 'send' });
@@ -272,7 +308,11 @@ describe('the Agent RPC, on the fake Claude Code', () => {
   it('a run that fails says why, and the thread can be asked again', () =>
     run((client) =>
       Effect.gen(function* () {
-        const thread = yield* client.ask({ folder, prompt: 'dies' });
+        const thread = yield* client.ask({
+          folder,
+          kind: KIND,
+          prompt: 'dies',
+        });
         expect((yield* answered(client, thread)).at(-1)).toEqual({
           _tag: 'Status',
           status: 'failed',
@@ -293,7 +333,11 @@ describe('the Agent RPC, on the fake Claude Code', () => {
       Effect.gen(function* () {
         const claude = yield* Claude;
         const missing = join(folder, 'missing');
-        const thread = yield* client.ask({ folder: missing, prompt: 'create' });
+        const thread = yield* client.ask({
+          folder: missing,
+          kind: KIND,
+          prompt: 'create',
+        });
         expect((yield* answered(client, thread)).at(-1)).toEqual({
           _tag: 'Status',
           status: 'failed',
@@ -312,4 +356,149 @@ describe('the Agent RPC, on the fake Claude Code', () => {
         expect(error.reason).toBe('unknown-thread');
       }),
     ));
+
+  it('threads of another kind are not listed', () =>
+    run((client) =>
+      Effect.gen(function* () {
+        const thread = yield* client.ask({
+          folder,
+          kind: KIND,
+          prompt: 'create',
+        });
+        yield* answered(client, thread);
+        expect(yield* client.threads({ folder, kind: 'chat' })).toEqual([]);
+      }),
+    ));
+});
+
+describe('the Agent RPC, across restarts', () => {
+  it('keeps a thread, its messages and its Claude session', async () => {
+    const db = join(folder, 'devtools.sqlite');
+    const first = await run(
+      (client) =>
+        Effect.gen(function* () {
+          const claude = yield* Claude;
+          const thread = yield* client.ask({
+            folder,
+            kind: KIND,
+            prompt: 'create',
+          });
+          const messages = yield* answered(client, thread);
+          const [live] = yield* claude.live;
+          return { thread, messages, session: live?.id };
+        }),
+      db,
+    );
+    await run(
+      (client) =>
+        Effect.gen(function* () {
+          expect(yield* client.threads({ folder, kind: KIND })).toEqual([
+            {
+              id: first.thread,
+              folder,
+              kind: KIND,
+              title: 'create',
+              createdAt: expect.any(Number),
+              mcp: false,
+              status: 'done',
+            },
+          ]);
+          expect(yield* answered(client, first.thread)).toEqual(first.messages);
+          yield* client.followUp({ thread: first.thread, prompt: 'send' });
+          expect(resumed).toEqual([first.session]);
+        }),
+      db,
+    );
+  });
+
+  it('marks a run that DevTools stopped in the middle as failed', async () => {
+    const db = join(folder, 'devtools.sqlite');
+    const thread = await run(
+      (client) =>
+        Effect.gen(function* () {
+          const asked = yield* client.ask({
+            folder,
+            kind: KIND,
+            prompt: 'permission',
+          });
+          yield* waiting(client, asked);
+          return asked;
+        }),
+      db,
+    );
+    await run(
+      (client) =>
+        Effect.gen(function* () {
+          expect((yield* answered(client, thread)).at(-1)).toEqual({
+            _tag: 'Status',
+            status: 'failed',
+            reason: 'DevTools restarted before this answer finished.',
+          });
+          yield* client.followUp({ thread, prompt: 'create' });
+          expect(
+            (yield* until(client, thread, (all) => statusOf(all) !== 'running'))
+              .filter((message) => message._tag === 'User')
+              .map((message) => message.text),
+          ).toEqual(['permission', 'create']);
+        }),
+      db,
+    );
+  });
+});
+
+describe('clear', () => {
+  it('deletes every thread of a kind in a folder, for good, and only those', async () => {
+    const db = join(folder, 'devtools.sqlite');
+    const kept = await run(
+      (client) =>
+        Effect.gen(function* () {
+          const busy = yield* client.ask({
+            folder,
+            kind: KIND,
+            prompt: 'permission',
+          });
+          yield* waiting(client, busy);
+          const done = yield* client.ask({
+            folder,
+            kind: KIND,
+            prompt: 'create',
+          });
+          yield* answered(client, done);
+          const chat = yield* client.ask({
+            folder,
+            kind: 'chat',
+            prompt: 'create',
+          });
+          yield* answered(client, chat);
+          const seen = yield* Deferred.make<void>();
+          const watching = yield* client.watch({ thread: busy }).pipe(
+            Stream.tap(() => Deferred.succeed(seen, undefined)),
+            Stream.runDrain,
+            Effect.forkScoped,
+          );
+          yield* Deferred.await(seen);
+          expect(yield* client.clear({ folder, kind: KIND })).toBe(2);
+          yield* Fiber.join(watching);
+          expect(yield* client.threads({ folder, kind: KIND })).toEqual([]);
+          const gone = yield* Effect.flip(
+            client.followUp({ thread: done, prompt: 'send' }),
+          );
+          expect(gone.reason).toBe('unknown-thread');
+          return chat;
+        }),
+      db,
+    );
+    await run(
+      (client) =>
+        Effect.gen(function* () {
+          expect(yield* client.threads({ folder, kind: KIND })).toEqual([]);
+          expect(
+            (yield* client.threads({ folder, kind: 'chat' })).map(
+              ({ id }) => id,
+            ),
+          ).toEqual([kept]);
+        }),
+      db,
+    );
+  });
 });

@@ -41,10 +41,19 @@ export const Remembered = Schema.Struct({
   thread: Schema.NullOr(Schema.String),
 });
 
+export const Clearing = Schema.TaggedUnion({
+  Kept: {},
+  Confirming: { problem: Schema.NullOr(Schema.String) },
+  Clearing: {},
+});
+
 export type Project = typeof Project.Type;
 export type Worktree = typeof Worktree.Type;
 export type Asking = typeof Asking.Type;
 export type Run = typeof Run.Type;
+export type Clearing = typeof Clearing.Type;
+
+export const KEPT: Clearing = { _tag: 'Kept' };
 
 export const IDLE: Run = {
   status: 'idle',

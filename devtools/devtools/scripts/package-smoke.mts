@@ -185,15 +185,24 @@ try {
   const missing = path.join(testRoot, 'missing');
   const thread = await answerOf<string>('/rpc/agent', 'ask', {
     folder: missing,
+    kind: 'smoke',
     prompt: 'What is here?',
   });
   const threads = await answerOf<
     Array<{ id: string; title: string; status: string }>
-  >('/rpc/agent', 'threads', { folder: missing });
+  >('/rpc/agent', 'threads', { folder: missing, kind: 'smoke' });
   assert.deepEqual(
     threads.map(({ id, title, status }) => ({ id, title, status })),
     [{ id: thread, title: 'What is here?', status: 'failed' }],
     'the packaged Agent keeps a Thread whose folder is missing, failed',
+  );
+  assert.equal(
+    await answerOf<number>('/rpc/agent', 'clear', {
+      folder: missing,
+      kind: 'smoke',
+    }),
+    1,
+    'the packaged Agent clears the Threads of a kind in a folder',
   );
 
   console.log('packaged DevTools server smoke test passed');

@@ -9,6 +9,7 @@ import {
   Remembered,
   storyKeyOf,
 } from '../../../../../logic/shared/index.js';
+import { THREAD_KIND } from './shared/index.js';
 import type { ChatShape, Turn } from './shared/index.js';
 
 const RETRY = '2 seconds';
@@ -137,12 +138,14 @@ export const workers: WorkersOf<typeof ChatShape> = {
       Effect.gen(function* () {
         const agent = yield* Agent;
         const [folder] = JSON.parse(key) as [string];
-        const threads = yield* agent.threads(folder);
+        const threads = yield* agent.threads(folder, THREAD_KIND);
         yield* self.send({
           _tag: 'Threaded',
-          threads: threads
-            .filter(({ mcp }) => mcp)
-            .map(({ id, title, createdAt }) => ({ id, title, createdAt })),
+          threads: threads.map(({ id, title, createdAt }) => ({
+            id,
+            title,
+            createdAt,
+          })),
         });
       }).pipe(Effect.ignore),
   },
@@ -162,7 +165,7 @@ export const workers: WorkersOf<typeof ChatShape> = {
             ),
             Effect.ignore,
           );
-          const known = yield* agent.threads(folder).pipe(
+          const known = yield* agent.threads(folder, THREAD_KIND).pipe(
             Effect.map((threads) => threads.some(({ id }) => id === thread)),
             Effect.orElseSucceed(() => true),
           );

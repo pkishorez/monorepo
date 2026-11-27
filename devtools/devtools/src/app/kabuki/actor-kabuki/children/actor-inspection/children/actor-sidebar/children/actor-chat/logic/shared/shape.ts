@@ -5,6 +5,7 @@ import { Preferences } from '../../../../../../../../../../services/preferences/
 import { ProjectRegistry } from '../../../../../../../../../../services/project-registry/contract/index.js';
 import {
   Asking,
+  Clearing,
   Listed,
   Project,
   Remembered,
@@ -18,6 +19,8 @@ const Turn = Schema.Struct({
 });
 
 export type Turn = typeof Turn.Type;
+
+export const THREAD_KIND = 'chat';
 
 export const ChatShape = Actor.define('Chat', {
   description:
@@ -37,6 +40,7 @@ export const ChatShape = Actor.define('Chat', {
     run: Run,
     pending: Schema.NullOr(Asking),
     problem: Schema.NullOr(Schema.String),
+    clearing: Clearing,
   }),
   state: Schema.TaggedUnion({
     Recall: {},
@@ -83,5 +87,18 @@ export const ChatShape = Actor.define('Chat', {
     Retried: Schema.Struct({}).annotate({
       description: 'Ask the last question again, after it failed',
     }),
+    ClearAsked: Schema.Struct({}).annotate({
+      description:
+        'Ask whether to clear every chat in this Worktree; nothing goes until ClearConfirmed',
+    }),
+    ClearDismissed: Schema.Struct({}).annotate({
+      description: 'Keep the chats, and close the question',
+    }),
+    ClearConfirmed: Schema.Struct({}).annotate({
+      description:
+        'Delete every chat in this Worktree for good, stopping one still answering; Story’s threads stay',
+    }),
+    Cleared: {},
+    ClearRefused: { problem: Schema.String },
   },
 });

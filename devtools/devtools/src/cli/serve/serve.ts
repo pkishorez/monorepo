@@ -50,7 +50,10 @@ export function makeDevtoolsServer(options: Options) {
           lotelServer({ db: options.db }),
           monoverseServer({ db: options.db }),
           kabukiServer({ origins: ownOrigins }),
-          agentServer({ mcp: `http://${HOST}:${options.port}${MCP_PATH}` }),
+          agentServer({
+            mcp: `http://${HOST}:${options.port}${MCP_PATH}`,
+            db: options.db,
+          }),
           makeBrowserApplicationLive({
             uiRoot,
             version: options.version,

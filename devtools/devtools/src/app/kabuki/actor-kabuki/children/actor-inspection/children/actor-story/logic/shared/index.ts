@@ -6,6 +6,7 @@ export {
   SHAPED,
   STATE,
   StoryShape,
+  THREAD_KIND,
 } from './shape.js';
 export type {
   At,

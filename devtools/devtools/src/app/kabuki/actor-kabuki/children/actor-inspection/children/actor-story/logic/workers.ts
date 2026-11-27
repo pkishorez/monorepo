@@ -8,7 +8,7 @@ import { Agent } from '../../../../../../../services/agent/contract/index.js';
 import { Preferences } from '../../../../../../../services/preferences/contract/index.js';
 import { ProjectRegistry } from '../../../../../../../services/project-registry/contract/index.js';
 import { Remembered, storyKeyOf } from '../../../logic/shared/index.js';
-import { beatsOf, titleOf, turnsOf } from './shared/index.js';
+import { THREAD_KIND, beatsOf, titleOf, turnsOf } from './shared/index.js';
 import type { StoryShape } from './shared/index.js';
 
 const SETTLE = '250 millis';
@@ -149,9 +149,7 @@ export const workers: WorkersOf<typeof StoryShape> = {
       Effect.gen(function* () {
         const agent = yield* Agent;
         const [folder] = JSON.parse(key) as [string];
-        const threads = (yield* agent.threads(folder)).filter(
-          ({ mcp }) => !mcp,
-        );
+        const threads = yield* agent.threads(folder, THREAD_KIND);
         const listed = yield* Effect.forEach(
           threads,
           (thread) =>
@@ -186,7 +184,7 @@ export const workers: WorkersOf<typeof StoryShape> = {
             ),
             Effect.ignore,
           );
-          const known = yield* agent.threads(folder).pipe(
+          const known = yield* agent.threads(folder, THREAD_KIND).pipe(
             Effect.map((threads) => threads.some(({ id }) => id === thread)),
             Effect.orElseSucceed(() => true),
           );

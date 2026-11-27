@@ -27,9 +27,12 @@ const agentOn = (client: Client): AgentService =>
     ask: (question) => Effect.mapError(client.ask(question), problemOf),
     followUp: (followUp) =>
       Effect.mapError(client.followUp(followUp), problemOf),
-    threads: (folder) => Effect.mapError(client.threads({ folder }), problemOf),
+    threads: (folder, kind) =>
+      Effect.mapError(client.threads({ folder, kind }), problemOf),
     watch: (thread) => Stream.mapError(client.watch({ thread }), problemOf),
     cancel: (thread) => Effect.mapError(client.cancel({ thread }), problemOf),
+    clear: (folder, kind) =>
+      Effect.mapError(client.clear({ folder, kind }), problemOf),
   });
 
 export const agentLayer = (origin: string) =>

@@ -1,6 +1,6 @@
 import type { DataOf, InitOf, UpdatesOf } from '@kestack/kabuki/types';
-import { IDLE, busyOf } from '../../../../../logic/shared/index.js';
-import { ask, cancel, followUp } from './commands.js';
+import { IDLE, KEPT, busyOf } from '../../../../../logic/shared/index.js';
+import { ask, cancel, clear, followUp } from './commands.js';
 import type { ChatShape } from './shared/index.js';
 
 type Model = DataOf<typeof ChatShape>['model'];
@@ -32,6 +32,7 @@ export const init: InitOf<typeof ChatShape> = ({ name, app }) => ({
     worktreesProblem: null,
     threads: [],
     thread: null,
+    clearing: KEPT,
     ...fresh,
   },
 });
@@ -123,4 +124,23 @@ export const updates: UpdatesOf<typeof ChatShape> = {
     model.thread === null || model.run.status !== 'running'
       ? {}
       : { command: cancel({ thread: model.thread }) },
+  ClearAsked: (_, { state, model }) =>
+    state._tag === 'Open' && model.clearing._tag === 'Kept'
+      ? { model: { clearing: { _tag: 'Confirming', problem: null } } }
+      : {},
+  ClearDismissed: (_, { model }) =>
+    model.clearing._tag === 'Confirming' ? { model: { clearing: KEPT } } : {},
+  ClearConfirmed: (_, { state, model }) =>
+    state._tag === 'Open' && model.clearing._tag === 'Confirming'
+      ? {
+          model: { clearing: { _tag: 'Clearing' } },
+          command: clear({ folder: state.folder }),
+        }
+      : {},
+  Cleared: (_, { model }) => ({
+    model: { ...model, ...away, clearing: KEPT },
+  }),
+  ClearRefused: ({ problem }) => ({
+    model: { clearing: { _tag: 'Confirming', problem } },
+  }),
 };

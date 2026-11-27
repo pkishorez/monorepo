@@ -3,6 +3,7 @@ import type { Scope } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { Runtime } from '@kestack/kabuki';
 import type { DataOf } from '@kestack/kabuki/types';
+import { Agent } from '../../../../../../../../../services/agent/contract/index.js';
 import { fakeAgent } from '../../../../../../../../../services/agent/fake/index.js';
 import type { Reply } from '../../../../../../../../../services/agent/fake/index.js';
 import { Preferences } from '../../../../../../../../../services/preferences/contract/index.js';
@@ -172,6 +173,40 @@ describe('Chat', () => {
           'hello',
         ]);
         expect(chat().model.turns.at(-1)?.text).toBe('Here.');
+      }),
+    ));
+
+  it('clears only its own chats in the Worktree, once confirmed', () =>
+    run(
+      Effect.gen(function* () {
+        const { agent, send, chat } = yield* start([
+          { text: 'Ready.' },
+          { text: 'A story.' },
+        ]);
+        yield* send({ _tag: 'Chose', project: PROJECT });
+        yield* send({ _tag: 'Asked', question: 'What state is it in?' });
+        expect(agent.asked[0]?.kind).toBe('chat');
+        const story = yield* Effect.flatMap(Agent, (service) =>
+          service.ask({ folder: PROJECT, kind: 'story', prompt: 'How?' }),
+        ).pipe(Effect.provide(agent.layer), Effect.orDie);
+        yield* send({ _tag: 'ClearAsked' });
+        expect(chat().model.clearing).toEqual({
+          _tag: 'Confirming',
+          problem: null,
+        });
+        yield* send({ _tag: 'ClearDismissed' });
+        expect(chat().model.clearing).toEqual({ _tag: 'Kept' });
+        expect(chat().model.threads).toHaveLength(1);
+        yield* send({ _tag: 'ClearAsked' });
+        yield* send({ _tag: 'ClearConfirmed' });
+        expect(chat().model.clearing).toEqual({ _tag: 'Kept' });
+        expect(chat().model.thread).toBeNull();
+        expect(chat().model.turns).toEqual([]);
+        expect(chat().model.threads).toEqual([]);
+        const left = yield* Effect.flatMap(Agent, (service) =>
+          service.threads(PROJECT, 'story'),
+        ).pipe(Effect.provide(agent.layer), Effect.orDie);
+        expect(left.map(({ id }) => id)).toEqual([story]);
       }),
     ));
 });

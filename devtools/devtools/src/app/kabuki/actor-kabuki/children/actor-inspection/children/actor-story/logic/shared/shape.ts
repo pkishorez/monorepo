@@ -4,6 +4,7 @@ import { KabukiSession, Plan } from '@kestack/devtools-kabuki/devtools';
 import { Agent } from '../../../../../../../../services/agent/contract/index.js';
 import {
   Asking,
+  Clearing,
   Listed,
   Project,
   Remembered,
@@ -48,6 +49,8 @@ const Turn = Schema.Struct({
 });
 
 const At = Schema.Struct({ turn: Schema.Number, beat: Schema.Number });
+
+export const THREAD_KIND = 'story';
 
 export const KINDS = ['worker', 'message', 'child'] as const;
 export type Kind = (typeof KINDS)[number];
@@ -106,6 +109,7 @@ export const StoryShape = Actor.define('Story', {
     at: Schema.NullOr(At),
     playing: Schema.Boolean,
     explore: Schema.NullOr(Schema.Array(Explored)),
+    clearing: Clearing,
   }),
   state: Schema.TaggedUnion({
     Recall: {},
@@ -159,6 +163,19 @@ export const StoryShape = Actor.define('Story', {
       description:
         'Ask the last question again, with the whole Blueprint, after it failed',
     }),
+    ClearAsked: Schema.Struct({}).annotate({
+      description:
+        'Ask whether to clear every Story thread in this Worktree; nothing goes until ClearConfirmed',
+    }),
+    ClearDismissed: Schema.Struct({}).annotate({
+      description: 'Keep the threads, and close the question',
+    }),
+    ClearConfirmed: Schema.Struct({}).annotate({
+      description:
+        'Delete every Story thread in this Worktree for good, stopping one still answering; the Chat’s stay',
+    }),
+    Cleared: {},
+    ClearRefused: { problem: Schema.String },
     Chipped: Schema.Struct({ chip: Schema.String }).annotate({
       description:
         'Add an actor or one of its parts, as `App/list · state:Open`, to the next question',

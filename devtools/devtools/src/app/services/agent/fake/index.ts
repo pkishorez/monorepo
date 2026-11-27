@@ -93,6 +93,7 @@ export const fakeAgent = (replies: ReadonlyArray<Reply> = []) =>
             thread: {
               id: crypto.randomUUID(),
               folder: question.folder,
+              kind: question.kind,
               createdAt: Date.now(),
               mcp: question.mcp === true,
             },
@@ -115,15 +116,17 @@ export const fakeAgent = (replies: ReadonlyArray<Reply> = []) =>
           yield* answer(entry, {
             thread,
             folder: entry.thread.folder,
+            kind: entry.thread.kind,
             prompt,
             ...(entry.system === undefined ? {} : { system: entry.system }),
             ...(schema === undefined ? {} : { schema }),
           });
         }),
-      threads: (folder) =>
+      threads: (folder, kind) =>
         Effect.forEach(
           [...entries.values()].filter(
-            (entry) => entry.thread.folder === folder,
+            (entry) =>
+              entry.thread.folder === folder && entry.thread.kind === kind,
           ),
           (entry) =>
             Effect.map(SubscriptionRef.get(entry.messages), (messages) =>
@@ -143,6 +146,14 @@ export const fakeAgent = (replies: ReadonlyArray<Reply> = []) =>
             yield* tell(entry, [
               { _tag: 'Status', status: 'cancelled', at: Date.now() },
             ]);
+        }),
+      clear: (folder, kind) =>
+        Effect.sync(() => {
+          const cleared = [...entries.values()].filter(
+            ({ thread }) => thread.folder === folder && thread.kind === kind,
+          );
+          for (const { thread } of cleared) entries.delete(thread.id);
+          return cleared.length;
         }),
     });
 

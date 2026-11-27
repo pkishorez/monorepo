@@ -1,10 +1,83 @@
-import { PlusIcon, RotateCcwIcon } from 'lucide-react';
+import { PlusIcon, RotateCcwIcon, Trash2Icon } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@kestack/web-platform/ui/components/alert-dialog';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import {
   NativeSelect,
   NativeSelectOption,
 } from '@kestack/web-platform/ui/components/native-select';
-import type { Project } from '../../logic/shared/index.js';
+import type { Clearing, Project } from '../../logic/shared/index.js';
+
+function ClearThreads({
+  noun,
+  worktree,
+  clearing,
+  empty,
+  onAsk,
+  onDismiss,
+  onConfirm,
+}: {
+  readonly noun: string;
+  readonly worktree: string;
+  readonly clearing: Clearing;
+  readonly empty: boolean;
+  readonly onAsk: () => void;
+  readonly onDismiss: () => void;
+  readonly onConfirm: () => void;
+}) {
+  const busy = clearing._tag === 'Clearing';
+  return (
+    <AlertDialog
+      open={clearing._tag !== 'Kept'}
+      onOpenChange={(open) => (open ? onAsk() : onDismiss())}
+    >
+      <AlertDialogTrigger
+        aria-label={`Clear ${noun}`}
+        title={`Clear ${noun}`}
+        disabled={empty}
+        render={
+          <Button size="icon-sm" variant="ghost">
+            <Trash2Icon aria-hidden className="size-3.5" />
+          </Button>
+        }
+      />
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Clear {noun}?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This deletes all the {noun} DevTools keeps for{' '}
+            <span className="font-mono">{worktree}</span>, and stops any still
+            answering. It cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        {clearing._tag === 'Confirming' && clearing.problem !== null && (
+          <p className="text-sm text-pretty text-destructive">
+            {clearing.problem}
+          </p>
+        )}
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            variant="destructive"
+            disabled={busy}
+            onClick={onConfirm}
+          >
+            {busy ? 'Clearing…' : 'Clear'}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
 
 export function Header({
   projects,
@@ -14,10 +87,16 @@ export function Header({
   worktreesProblem,
   threads,
   thread,
+  worktree,
+  noun,
+  clearing,
   onProject,
   onWorktree,
   onRetryWorktrees,
   onThread,
+  onClearAsk,
+  onClearDismiss,
+  onClearConfirm,
 }: {
   readonly projects: ReadonlyArray<Project>;
   readonly project: Project;
@@ -32,10 +111,16 @@ export function Header({
     readonly title: string;
   }>;
   readonly thread: string | null;
+  readonly worktree: string;
+  readonly noun: string;
+  readonly clearing: Clearing;
   readonly onProject: (path: string) => void;
   readonly onWorktree: (folder: string) => void;
   readonly onRetryWorktrees: () => void;
   readonly onThread: (thread: string | null) => void;
+  readonly onClearAsk: () => void;
+  readonly onClearDismiss: () => void;
+  readonly onClearConfirm: () => void;
 }) {
   return (
     <div className="flex shrink-0 flex-col gap-2 border-b border-border/50 p-3">
@@ -107,6 +192,15 @@ export function Header({
           <PlusIcon aria-hidden className="size-3.5" />
           New
         </Button>
+        <ClearThreads
+          noun={noun}
+          worktree={worktree}
+          clearing={clearing}
+          empty={threads.length === 0}
+          onAsk={onClearAsk}
+          onDismiss={onClearDismiss}
+          onConfirm={onClearConfirm}
+        />
       </div>
     </div>
   );
