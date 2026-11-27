@@ -93,11 +93,13 @@ export function JsonDialog({
   onOpenChange,
   title,
   pair,
+  description,
 }: {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly title: string;
   readonly pair: BeforeAfter;
+  readonly description?: string | undefined;
 }) {
   const both = 'before' in pair && 'after' in pair;
   return (
@@ -106,11 +108,12 @@ export function JsonDialog({
         <DialogHeader>
           <DialogTitle className="font-mono text-[13px]">{title}</DialogTitle>
           <DialogDescription>
-            {both
-              ? 'What this Step changed, line by line'
-              : 'after' in pair
-                ? 'Its value at this Step'
-                : 'What this Step removed'}
+            {description ??
+              (both
+                ? 'What this Step changed, line by line'
+                : 'after' in pair
+                  ? 'Its value at this Step'
+                  : 'What this Step removed')}
           </DialogDescription>
         </DialogHeader>
         {both ? (
@@ -137,11 +140,13 @@ export function JsonDialog({
 export function Opener({
   title,
   pair,
+  description,
   className,
   children,
 }: {
   readonly title: string;
   readonly pair: BeforeAfter;
+  readonly description?: string | undefined;
   readonly className?: string;
   readonly children: ReactNode;
 }) {
@@ -163,6 +168,7 @@ export function Opener({
         onOpenChange={setOpen}
         title={title}
         pair={pair}
+        description={description}
       />
     </>
   );
@@ -172,12 +178,14 @@ export function Value({
   value,
   label,
   pair,
+  description,
   still = false,
   className,
 }: {
   readonly value: unknown;
   readonly label: string;
   readonly pair?: BeforeAfter;
+  readonly description?: string;
   readonly still?: boolean;
   readonly className?: string;
 }) {
@@ -200,6 +208,7 @@ export function Value({
       <Opener
         title={label}
         pair={whole}
+        description={description}
         className={cn(
           'min-w-0 shrink-0 truncate text-left text-muted-foreground decoration-dotted underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:outline-ring',
           className,

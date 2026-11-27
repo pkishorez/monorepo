@@ -48,12 +48,16 @@ A function Kabuki calls with each app it starts, which returns how to stop it; g
 _Avoid_: plugin, hook, extension
 
 **Inspector**:
-This package's panel, Kabuki's Inspector: a Kabuki app of its own that reads and moves one Kabuki Session only through the nine calls, so it reads the same in the page, beside the app, and in DevTools. One Board: the Instances at the Step shown, each a card showing what that Step changed, the Message as a chip above the card that took it, which opens how it got there, over the Timeline of the Branch in view, worked out from the entries' parents. Picking a Step reads it with `step` and leaves the app at its Head unless the preview setting is on; Fork carries on from the Step shown on a new Branch. Opening a card reads its Instance whole with `look`, with its Actions. Presenting, only the Board, with nothing to press. It keeps no History of its own.
+This package's panel, Kabuki's Inspector: a Kabuki app of its own that reads and moves one Kabuki Session only through the nine calls, so it reads the same in the page, beside the app, and in DevTools. One Board: the Instances at the Step shown, each a card showing what that Step changed, the Message as a chip above the card that took it, which opens how it got there, over the Timeline of the Branch in view, worked out from the entries' parents. Picking a Step reads it with `step` and leaves the app at its Head unless the preview setting is on; Fork carries on from the Step shown on a new Branch. Opening a card reads its Instance whole with `look`, with its Actions. Beside the Board, World, when the app has Fakes, unless the host places World itself, as DevTools does beside its Chat. Presenting, only the Board, with nothing to press. It keeps no History of its own.
 _Avoid_: devtools (that is the Dock or the app), viewer, debugger
 
 **Form**:
 How `KabukiDevtools` places the Inspector beside an app. `dock`, the default: the Web Platform's Devtools Dock wraps the app and lays it out beside the panel, full screen, as a bar, a side panel or a floating window. `dialog`: the app is left as it is, untouched, and the Web Platform's Devtools Dialog beside it opens the panel full screen over it, for an app the Dock cannot lay out, such as one fixed to the screen. Both open from the same corner button and Ctrl+/ or ⌘/; the Dialog also closes with Escape.
 _Avoid_: mode, layout (the Dock's word for where it puts the panel)
+
+**World**:
+The Inspector's view of the app's FakeWorld, read with `world` and driven with `control`: a card per Fake with its state now, and a button per control, which opens a dialog when the control takes a payload. A control runs without waiting: what it changes shows in the Fake's state, and only a refusal comes back, with its reason. It is always now: Time Travel never moves it.
+_Avoid_: World tab, fake panel, bubble (the Fake World's own button)
 
 **Actions**:
 The part of an open card that Sends the app a Message: every Message its Instance's Actor takes now, its top level's and its State's, as its Look says, each a form built from its payload's Shape. A blank optional field is left out and a blank nullable one is `null`. What came of it shows beside it: handled, ignored, queued, refused with the reason, or why it was not sent. While the Inspector shows a past Step, Actions offer only to go back to now.

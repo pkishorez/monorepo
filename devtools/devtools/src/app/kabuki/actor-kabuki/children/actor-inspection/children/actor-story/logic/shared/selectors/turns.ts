@@ -1,6 +1,7 @@
 import { Option, Schema } from 'effect';
 import type { Message } from '../../../../../../../../../services/agent/contract/index.js';
-import { Answer, IDLE } from '../index.js';
+import { IDLE } from '../../../../../logic/shared/index.js';
+import { Answer } from '../index.js';
 import type { Turn } from '../index.js';
 import { questionOf } from './prompt.js';
 

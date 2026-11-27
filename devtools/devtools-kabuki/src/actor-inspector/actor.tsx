@@ -1,6 +1,7 @@
 import { Actor } from '@kestack/kabuki';
-import { View } from '@kestack/kabuki/react';
+import { View, useChildren } from '@kestack/kabuki/react';
 import { Instance, InstanceView } from './children/actor-instance/index.ts';
+import { World, WorldView, hasFakes } from './children/actor-world/index.ts';
 import {
   InspectorShape,
   init,
@@ -8,6 +9,7 @@ import {
   openedOf,
   updates,
   workers,
+  worldOf,
 } from './logic/index.ts';
 import { Body } from './view/index.ts';
 
@@ -25,6 +27,7 @@ export const Inspector = InspectorShape.build({
         Closed: () => ({ _tag: 'Opened', address: null }),
       },
     }),
+    world: Actor.child(World, { each: worldOf }),
   },
 });
 
@@ -34,5 +37,9 @@ export const InspectorView = View.make(Inspector, (self) => (
     instance={self.children.instance.map((one) => (
       <InstanceView key={one.key} instance={one} />
     ))}
+    world={self.children.world.map((one) => (
+      <WorldView key={one.key} instance={one} />
+    ))}
+    fakes={useChildren(self.children.world, hasFakes).includes(true)}
   />
 ));

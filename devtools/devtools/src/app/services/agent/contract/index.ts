@@ -22,6 +22,7 @@ export interface Question {
   readonly prompt: string;
   readonly system?: string;
   readonly schema?: JsonSchema;
+  readonly mcp?: boolean;
 }
 
 export interface FollowUp {

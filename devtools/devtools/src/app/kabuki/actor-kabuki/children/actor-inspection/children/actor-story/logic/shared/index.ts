@@ -1,23 +1,11 @@
-export { Answer, IDLE, Remembered, StoryShape } from './shape.js';
-export type {
-  Asking,
-  At,
-  Explored,
-  Link,
-  Project,
-  Run,
-  Shown,
-  Turn,
-  Worktree,
-} from './shape.js';
+export { Answer, StoryShape } from './shape.js';
+export type { At, Explored, Link, Shown, Turn } from './shape.js';
 export {
   beatsOf,
-  busyOf,
   chipOf,
   connectorsOf,
   dataOf,
   expandedOf,
-  failureOf,
   focusOf,
   idOf,
   itemsOf,
@@ -26,8 +14,6 @@ export {
   payloadOf,
   pictureOf,
   plansOf,
-  projectOf,
-  projectsOf,
   promptOf,
   refOf,
   refsOf,
@@ -41,7 +27,6 @@ export {
   threadsOf,
   titleOf,
   turnsOf,
-  worktreesOf,
 } from './selectors/index.js';
 export type {
   Connector,

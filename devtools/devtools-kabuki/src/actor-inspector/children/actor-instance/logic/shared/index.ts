@@ -1,13 +1,5 @@
 export { InstanceShape } from './shape.ts';
-export type {
-  Action,
-  Draft,
-  FormField,
-  Input,
-  Outcome,
-  Problem,
-} from './shape.ts';
-export { draftOf, fieldDraft } from './form.ts';
+export type { Action, Outcome } from './shape.ts';
 export {
   actionsOf,
   hasFields,

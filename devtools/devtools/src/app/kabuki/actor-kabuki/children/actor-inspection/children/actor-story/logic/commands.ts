@@ -5,7 +5,7 @@ import { Agent } from '../../../../../../../services/agent/contract/index.js';
 const refused = ({ message: problem }: { readonly message: string }) =>
   Effect.succeed({ _tag: 'Refused' as const, problem });
 
-export const ask = Command.make('Story.Ask', {
+export const ask = Command.make('ask', {
   args: Schema.Struct({
     folder: Schema.String,
     prompt: Schema.String,
@@ -19,7 +19,7 @@ export const ask = Command.make('Story.Ask', {
     ),
 });
 
-export const followUp = Command.make('Story.FollowUp', {
+export const followUp = Command.make('followUp', {
   args: Schema.Struct({
     thread: Schema.String,
     prompt: Schema.String,
@@ -31,7 +31,7 @@ export const followUp = Command.make('Story.FollowUp', {
     ),
 });
 
-export const cancel = Command.make('Story.Cancel', {
+export const cancel = Command.make('cancel', {
   args: Schema.Struct({ thread: Schema.String }),
   run: ({ thread }) =>
     Effect.flatMap(Agent, (agent) => agent.cancel(thread)).pipe(

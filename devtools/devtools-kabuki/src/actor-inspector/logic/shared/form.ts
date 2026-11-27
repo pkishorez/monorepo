@@ -1,5 +1,11 @@
-import type { Shape } from '../../../../logic/shared/index.ts';
-import type { Built, Draft, FormField, Input, Problem } from './shape.ts';
+import type {
+  Built,
+  Draft,
+  FormField,
+  Input,
+  Problem,
+  Shape,
+} from './shape.ts';
 
 const textOf = (shape: Shape): string => {
   switch (shape.kind) {

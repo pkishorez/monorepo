@@ -1,15 +1,17 @@
 import { FolderIcon, RotateCcwIcon } from 'lucide-react';
 import { Button } from '@kestack/web-platform/ui/components/button';
-import type { Project } from '../logic/shared/index.js';
+import type { Project } from '../../logic/shared/index.js';
 
 export function ProjectChoice({
   app,
+  asker,
   projects,
   problem,
   onChoose,
   onRetry,
 }: {
   readonly app: string;
+  readonly asker: string;
   readonly projects: ReadonlyArray<Project> | null;
   readonly problem: string | null;
   readonly onChoose: (path: string) => void;
@@ -22,9 +24,9 @@ export function ProjectChoice({
           Which Project is {app} in?
         </h2>
         <p className="mt-1.5 text-sm text-pretty text-muted-foreground">
-          Story asks the Agent about this app's code, so it needs to know where
-          it is. Pick one of your Projects, then its Worktree beside the chat;
-          DevTools remembers both for {app}.
+          {asker} asks the Agent about this app's code, so it needs to know
+          where it is. Pick one of your Projects, then its Worktree beside the
+          chat; DevTools remembers both for {app}.
         </p>
         {problem !== null ? (
           <div className="mt-5 flex flex-col items-start gap-2">

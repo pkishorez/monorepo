@@ -4,19 +4,20 @@ import { Button } from '@kestack/web-platform/ui/components/button';
 import {
   busyOf,
   failureOf,
-  missedOf,
   projectOf,
   projectsOf,
-  stageOf,
-  threadsOf,
   worktreesOf,
-} from '../logic/shared/index.js';
+} from '../../../logic/shared/index.js';
+import { missedOf, stageOf, threadsOf } from '../logic/shared/index.js';
 import type { StoryShape } from '../logic/shared/index.js';
 import { Canvas } from './canvas.js';
-import { Header } from './header.js';
-import { Turns } from './turns.js';
-import { Composer } from './composer.js';
-import { ProjectChoice } from './projects.js';
+import {
+  Composer,
+  Header,
+  ProjectChoice,
+  Turns,
+} from '../../../view/shared/index.js';
+import { Answered } from './answered.js';
 import { Playback } from './playback.js';
 
 type BodyProps = ViewPropsOf<typeof StoryShape>;
@@ -42,6 +43,7 @@ export function Body(self: BodyProps) {
       <div {...root} className="flex min-h-0 flex-1">
         <ProjectChoice
           app={model.app}
+          asker="Story"
           projects={model.projects}
           problem={model.listProblem}
           onChoose={(project) => send({ _tag: 'Chose', project })}
@@ -51,7 +53,7 @@ export function Body(self: BodyProps) {
     );
 
   const stage = stageOf(self);
-  const busy = busyOf(self);
+  const busy = busyOf(model.pending, model.problem, model.run);
   const onAsk = (chip: string) => send({ _tag: 'Chipped', chip });
 
   return (
@@ -103,9 +105,9 @@ export function Body(self: BodyProps) {
         className="flex h-[45%] shrink-0 flex-col border-t border-border/50 md:h-auto md:w-[22rem] md:border-t-0 md:border-l"
       >
         <Header
-          projects={projectsOf(self)}
-          project={projectOf(self)}
-          worktrees={worktreesOf(self)}
+          projects={projectsOf(self.state.project, model.projects)}
+          project={projectOf(self.state.project, model.projects)}
+          worktrees={worktreesOf(self.state.folder, model.worktrees)}
           folder={self.state.folder}
           worktreesProblem={model.worktreesProblem}
           threads={threadsOf(self)}
@@ -120,10 +122,28 @@ export function Body(self: BodyProps) {
             turns={model.turns}
             pending={model.pending}
             run={model.run}
-            failure={failureOf(self)}
-            at={model.at}
-            missing={missedOf(self)}
-            onJump={(turn, beat) => send({ _tag: 'Jumped', turn, beat })}
+            failure={failureOf(model.pending, model.problem, model.run)}
+            working="Reading the code"
+            empty={
+              <div className="m-auto max-w-64 px-4 text-center">
+                <p className="text-sm font-medium text-foreground">
+                  Ask how it works
+                </p>
+                <p className="mt-1 text-sm text-pretty text-muted-foreground">
+                  The Agent reads this folder's code and answers as a story you
+                  play on the Blueprint, one Beat at a time.
+                </p>
+              </div>
+            }
+            answer={(turn, index) => (
+              <Answered
+                turn={turn}
+                index={index}
+                at={model.at}
+                missing={missedOf(self)}
+                onJump={(at, beat) => send({ _tag: 'Jumped', turn: at, beat })}
+              />
+            )}
             onStop={() => send({ _tag: 'Stopped' })}
             onRetry={() => send({ _tag: 'Retried' })}
           />
@@ -137,6 +157,7 @@ export function Body(self: BodyProps) {
               : null
           }
           onAsk={(question) => send({ _tag: 'Asked', question })}
+          placeholder="How does a to-do get saved?"
           onUnchip={(chip) => send({ _tag: 'Unchipped', chip })}
         />
       </aside>

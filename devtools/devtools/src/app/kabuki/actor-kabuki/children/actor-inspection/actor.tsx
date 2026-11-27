@@ -6,6 +6,7 @@ import {
   KabukiSession,
 } from '@kestack/devtools-kabuki/devtools';
 import { kabukiSessionLayer } from './capabilities/kabuki-session/real/index.js';
+import { Sidebar, SidebarView } from './children/actor-sidebar/index.js';
 import { Story, StoryView } from './children/actor-story/index.js';
 import { InspectionShape, storyShown } from './logic/shared/index.js';
 import { Body } from './view/index.js';
@@ -15,7 +16,14 @@ export const Inspection = InspectionShape.build({
   provides: { capabilities: [KabukiSession], layer: kabukiSessionLayer },
   children: {
     inspector: Actor.child(Inspector, {
-      input: () => ({ presenting: false, place: 'bottom' as const }),
+      input: () => ({
+        presenting: false,
+        place: 'bottom' as const,
+        world: false,
+      }),
+    }),
+    sidebar: Actor.child(Sidebar, {
+      input: ({ model }) => ({ name: model.name, app: model.app }),
     }),
     story: Actor.child(Story, {
       input: ({ model }) => ({ app: model.app }),
@@ -28,6 +36,7 @@ export const InspectionView = View.make(Inspection, (self) => (
   <Body
     {...self}
     inspector={<InspectorView instance={self.children.inspector} />}
+    sidebar={<SidebarView instance={self.children.sidebar} />}
     story={<StoryView instance={self.children.story} />}
   />
 ));

@@ -125,7 +125,12 @@ export function KabukiInspector({
   className,
 }: KabukiInspectorProps) {
   const Panel = useMemo(
-    () => panelOf(runtime, world, { presenting, place: timelineAt }),
+    () =>
+      panelOf(runtime, world, {
+        presenting,
+        place: timelineAt,
+        world: true,
+      }),
     [runtime],
   );
   return (

@@ -1,3 +1,8 @@
-export { InspectorShape, instanceOf, openedOf } from './shared/index.ts';
+export {
+  InspectorShape,
+  instanceOf,
+  openedOf,
+  worldOf,
+} from './shared/index.ts';
 export { init, updates } from './updates.ts';
 export { workers } from './workers.ts';

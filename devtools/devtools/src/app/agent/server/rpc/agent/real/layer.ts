@@ -17,6 +17,7 @@ interface Entry {
   readonly folder: string;
   readonly createdAt: number;
   readonly system: string | undefined;
+  readonly mcp: boolean;
   readonly messages: SubscriptionRef.SubscriptionRef<ReadonlyArray<Message>>;
   session: string | undefined;
 }
@@ -36,7 +37,7 @@ const opened = (folder: string): Effect.Effect<Opened> =>
       )
     : Effect.succeed({ problem: `${folder} is not an absolute path.` });
 
-export const agentRpcLayer = AgentRpc.toLayer(
+const handlers = (mcp: string) =>
   Effect.gen(function* () {
     const claude = yield* Claude;
     const runs = yield* FiberMap.make<string>();
@@ -84,7 +85,7 @@ export const agentRpcLayer = AgentRpc.toLayer(
       const input = {
         cwd: entry.folder,
         prompt,
-        options: optionsOf(entry.system, schema),
+        options: optionsOf(entry.system, schema, entry.mcp ? mcp : undefined),
       };
       const run =
         entry.session === undefined
@@ -132,13 +133,14 @@ export const agentRpcLayer = AgentRpc.toLayer(
       });
 
     return AgentRpc.of({
-      ask: ({ folder, prompt, system, schema }) =>
+      ask: ({ folder, prompt, system, schema, mcp: withMcp = false }) =>
         Effect.gen(function* () {
           const entry: Entry = {
             id: crypto.randomUUID(),
             folder,
             createdAt: Date.now(),
             system,
+            mcp: withMcp,
             messages: yield* SubscriptionRef.make<ReadonlyArray<Message>>([]),
             session: undefined,
           };
@@ -172,6 +174,7 @@ export const agentRpcLayer = AgentRpc.toLayer(
                   id: entry.id,
                   folder: entry.folder,
                   createdAt: entry.createdAt,
+                  mcp: entry.mcp,
                 },
                 messages,
               ),
@@ -202,5 +205,7 @@ export const agentRpcLayer = AgentRpc.toLayer(
           ),
         ),
     });
-  }),
-);
+  });
+
+export const agentRpcLayer = ({ mcp }: { readonly mcp: string }) =>
+  AgentRpc.toLayer(handlers(mcp));

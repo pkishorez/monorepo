@@ -7,7 +7,8 @@ import type { Node } from '@kestack/devtools-kabuki/devtools';
 import { Agent } from '../../../../../../../services/agent/contract/index.js';
 import { Preferences } from '../../../../../../../services/preferences/contract/index.js';
 import { ProjectRegistry } from '../../../../../../../services/project-registry/contract/index.js';
-import { Remembered, beatsOf, titleOf, turnsOf } from './shared/index.js';
+import { Remembered, storyKeyOf } from '../../../logic/shared/index.js';
+import { beatsOf, titleOf, turnsOf } from './shared/index.js';
 import type { StoryShape } from './shared/index.js';
 
 const SETTLE = '250 millis';
@@ -24,8 +25,6 @@ export const durationOf = (say: string) =>
     Math.max(LEAST, 1200 + say.split(/\s+/).filter(Boolean).length * WORD),
   );
 
-const keyOf = (app: string) => `kabuki:story:${app}`;
-
 const placesOf = (node: Node): ReadonlyArray<string> => [
   Address.place(node.address as Of),
   ...node.children.flatMap(placesOf),
@@ -38,7 +37,10 @@ export const workers: WorkersOf<typeof StoryShape> = {
       Effect.gen(function* () {
         const preferences = yield* Preferences;
         const { model } = yield* self.get;
-        const saved = yield* preferences.load(keyOf(model.app), Remembered);
+        const saved = yield* preferences.load(
+          storyKeyOf(model.app),
+          Remembered,
+        );
         yield* self.send({
           _tag: 'Recalled',
           remembered: Option.getOrNull(saved),
@@ -61,7 +63,7 @@ export const workers: WorkersOf<typeof StoryShape> = {
         const preferences = yield* Preferences;
         const { model } = yield* self.get;
         yield* preferences.save(
-          keyOf(model.app),
+          storyKeyOf(model.app),
           Remembered,
           JSON.parse(key) as typeof Remembered.Type,
         );
@@ -147,7 +149,9 @@ export const workers: WorkersOf<typeof StoryShape> = {
       Effect.gen(function* () {
         const agent = yield* Agent;
         const [folder] = JSON.parse(key) as [string];
-        const threads = yield* agent.threads(folder);
+        const threads = (yield* agent.threads(folder)).filter(
+          ({ mcp }) => !mcp,
+        );
         const listed = yield* Effect.forEach(
           threads,
           (thread) =>

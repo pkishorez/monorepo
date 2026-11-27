@@ -393,7 +393,7 @@ const handlers = SessionsTools.toLayer(
                     : shown
                         .map(({ name, value, controls }) =>
                           [
-                            name,
+                            `fake ${name}`,
                             field('state', value, 1),
                             ...controls.map(
                               ({ name: control, payload, description }) =>

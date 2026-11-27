@@ -20,11 +20,4 @@ export { titleOf, turnsOf } from './turns.js';
 export { beatsOf, focusOf, missedOf, stageOf } from './playback.js';
 export type { Focus, Mode, Stage } from './playback.js';
 export { namesOf, rowsOf } from './shape.js';
-export {
-  busyOf,
-  failureOf,
-  projectOf,
-  projectsOf,
-  threadsOf,
-  worktreesOf,
-} from './thread.js';
+export { threadsOf } from './thread.js';

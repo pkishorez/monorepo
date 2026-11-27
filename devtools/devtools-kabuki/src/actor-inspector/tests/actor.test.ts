@@ -136,7 +136,7 @@ const run = <A>(effect: Effect.Effect<A, never, Scope.Scope>) =>
 const inspect = Effect.gen(function* () {
   const { layer, told, asked } = yield* session;
   const app: App = yield* Runtime.scoped(Inspector, {
-    input: { presenting: false, place: 'bottom' },
+    input: { presenting: false, place: 'bottom', world: true },
     layer,
   });
   yield* Queue.offer(told, nowOf(1));

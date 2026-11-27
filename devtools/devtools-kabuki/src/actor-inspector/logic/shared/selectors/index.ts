@@ -1,4 +1,10 @@
-export { boardOf, instanceOf, openedOf, previewShown } from './board.ts';
+export {
+  boardOf,
+  instanceOf,
+  openedOf,
+  previewShown,
+  worldOf,
+} from './board.ts';
 export {
   awayFromHead,
   nextOf,

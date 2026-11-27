@@ -403,7 +403,7 @@ describe('the Kabuki tools over MCP', () => {
             textOf(yield* call('kabuki_fakes', { session: 'diary' })),
           ).toBe(
             [
-              'lights',
+              'fake lights',
               '  state: { on: true }',
               '  Switched { on: boolean }  // The lights go on or off',
             ].join('\n'),

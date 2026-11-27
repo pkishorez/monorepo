@@ -103,7 +103,9 @@ How it works:
   `Origin` or DevTools' own
   ([@kestack/devtools-kabuki](../devtools-kabuki/README.md)).
 - The Agent answers `/rpc/agent`: any Tool asks Claude Code about a folder,
-  with read-only tools, in Threads kept in memory until the server stops. It
+  with read-only tools, in Threads kept in memory until the server stops.
+  Asked with `mcp`, Claude Code also gets this server's own `/mcp`, so it
+  can look at and drive the Kabuki Sessions and read Lotel. It
   runs the `claude` installed on `PATH`, signed in; without it, a Thread's
   run fails and says so.
 - `/mcp` is one MCP server over Streamable HTTP, for an AI agent; see

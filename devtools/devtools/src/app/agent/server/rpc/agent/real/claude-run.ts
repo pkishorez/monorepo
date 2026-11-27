@@ -7,14 +7,24 @@ const READ_ONLY = ['Read', 'Grep', 'Glob'];
 
 const isJson = Schema.is(Schema.Json);
 
+const DEVTOOLS = 'devtools';
+
+const DEVTOOLS_TOOL = `mcp__${DEVTOOLS}__`;
+
 export const optionsOf = (
   system: string | undefined,
   schema: JsonSchema | undefined,
+  mcp: string | undefined,
 ): ClaudeOptions => ({
   tools: READ_ONLY,
   permissionMode: 'dontAsk',
   strictMcpConfig: true,
-  mcpServers: {},
+  ...(mcp === undefined
+    ? { mcpServers: {} }
+    : {
+        mcpServers: { [DEVTOOLS]: { type: 'http', url: mcp } },
+        allowedTools: [`mcp__${DEVTOOLS}`],
+      }),
   ...(system === undefined
     ? {}
     : {
@@ -58,7 +68,9 @@ const activityOf = (
     case 'StructuredOutput':
       return undefined;
     default:
-      return `Using ${tool}`;
+      return tool.startsWith(DEVTOOLS_TOOL)
+        ? `Using DevTools' ${tool.slice(DEVTOOLS_TOOL.length)}`
+        : `Using ${tool}`;
   }
 };
 

@@ -37,8 +37,8 @@ Tool put together, plus the app.
 _Avoid_: backend, handlers.
 
 **Agent**:
-The DevTools piece that asks Claude Code about a folder, with read-only tools,
-for any Tool: a question in, an answer out, as text or as data shaped by a
+The DevTools piece that asks Claude Code about a folder, with read-only tools
+and, when asked with `mcp`, DevTools' own MCP tools, for any Tool: a question in, an answer out, as text or as data shaped by a
 JSON Schema. It is not a Tool: it has no page and knows nothing of what a
 Tool asks about. Its Server half runs Claude Code; any Tool Actor Requires its
 client.
@@ -119,6 +119,10 @@ Whatever the question, the answer is a story that starts wide and builds
 up. Its Threads are the Agent's; it keeps only the Project, the Worktree and
 the Thread last open.
 _Avoid_: tour, walkthrough, explanation.
+
+**Chat**:
+The Kabuki Tool's chat beside the Inspector, in the same window as Story's: the same Project, Worktree and Thread, picked once and remembered per app, starting from Story's, and the same turns and composer. Its questions go to the Agent asked with `mcp`, with no JSON Schema, so Claude Code answers in words and reaches the Kabuki Session in view through DevTools' MCP tools: it looks at it, Sends Messages, Time Travels and runs Fakes' controls. Its Threads are only its own. Beside it, World, when the app has Fakes. It is DevTools' alone: the Inspector in the page has no Chat.
+_Avoid_: assistant, copilot, AI panel.
 
 **Beat**:
 One step of a Story: one to three sentences about what is on screen, and

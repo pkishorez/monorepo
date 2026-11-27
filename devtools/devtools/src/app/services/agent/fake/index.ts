@@ -94,6 +94,7 @@ export const fakeAgent = (replies: ReadonlyArray<Reply> = []) =>
               id: crypto.randomUUID(),
               folder: question.folder,
               createdAt: Date.now(),
+              mcp: question.mcp === true,
             },
             ...(question.system === undefined
               ? {}

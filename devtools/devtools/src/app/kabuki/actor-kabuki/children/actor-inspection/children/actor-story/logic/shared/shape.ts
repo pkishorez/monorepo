@@ -2,18 +2,16 @@ import { Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
 import { KabukiSession, Plan } from '@kestack/devtools-kabuki/devtools';
 import { Agent } from '../../../../../../../../services/agent/contract/index.js';
+import {
+  Asking,
+  Listed,
+  Project,
+  Remembered,
+  Run,
+  Worktree,
+} from '../../../../logic/shared/index.js';
 import { Preferences } from '../../../../../../../../services/preferences/contract/index.js';
 import { ProjectRegistry } from '../../../../../../../../services/project-registry/contract/index.js';
-
-const Project = Schema.Struct({ name: Schema.String, path: Schema.String });
-
-const Worktree = Schema.Struct({
-  folder: Schema.String,
-  branch: Schema.NullOr(Schema.String),
-  head: Schema.String,
-  primary: Schema.Boolean,
-  current: Schema.Boolean,
-});
 
 const Shown = Schema.Struct({
   actor: Schema.String,
@@ -43,62 +41,19 @@ export const Answer = Schema.Struct({
   beats: Schema.Array(Beat),
 });
 
-const Asking = Schema.Struct({
-  question: Schema.String,
-  chips: Schema.Array(Schema.String),
-});
-
 const Turn = Schema.Struct({
   ...Asking.fields,
   answer: Schema.NullOr(Answer),
   text: Schema.NullOr(Schema.String),
 });
 
-const Status = Schema.Literals([
-  'idle',
-  'running',
-  'done',
-  'failed',
-  'cancelled',
-]);
-
-const Run = Schema.Struct({
-  status: Status,
-  reason: Schema.NullOr(Schema.String),
-  since: Schema.Number,
-  activity: Schema.Array(Schema.String),
-});
-
-export const IDLE: typeof Run.Type = {
-  status: 'idle',
-  reason: null,
-  since: 0,
-  activity: [],
-};
-
-const Listed = Schema.Struct({
-  id: Schema.String,
-  title: Schema.String,
-  createdAt: Schema.Number,
-});
-
 const At = Schema.Struct({ turn: Schema.Number, beat: Schema.Number });
-
-export const Remembered = Schema.Struct({
-  project: Schema.String,
-  folder: Schema.String,
-  thread: Schema.NullOr(Schema.String),
-});
 
 export type Shown = typeof Shown.Type;
 export type Explored = typeof Explored.Type;
 export type Link = typeof Link.Type;
-export type Asking = typeof Asking.Type;
 export type Turn = typeof Turn.Type;
-export type Run = typeof Run.Type;
 export type At = typeof At.Type;
-export type Project = typeof Project.Type;
-export type Worktree = typeof Worktree.Type;
 
 export const StoryShape = Actor.define('Story', {
   description:

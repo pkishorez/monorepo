@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import type { Focus, Mode } from '../logic/shared/index.js';
-import { Say } from './say.js';
+import { Say } from '../../../view/shared/index.js';
 
 const TYPED = 'input, textarea, select, [contenteditable="true"]';
 

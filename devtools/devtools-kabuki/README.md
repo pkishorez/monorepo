@@ -106,6 +106,9 @@ too.
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Inspector`             | The Inspector's root Actor, to place as a Child with a `KabukiSession` Provided, as DevTools does with `remote`.                                                                       |
 | `InspectorView`         | The Inspector's View, to draw where its Child is placed.                                                                                                                               |
+| `World`                 | The app's FakeWorld as an Actor: each Fake's state now and its controls, run without waiting; DevTools places it beside the Inspector, which it then gives `world: false`.             |
+| `WorldView`             | World's View: a card per Fake, a button per control, and a dialog for a control that takes a payload.                                                                                  |
+| `hasFakes`              | Whether World has heard any Fakes, for a parent to show it only then.                                                                                                                  |
 | `useSpace`              | The pan and zoom canvas the Board draws on, as a React hook: ⌘ or Ctrl and the wheel or a pinch zooms, a drag pans, and it glides to show a rect, or to centre one at the zoom it has. |
 | `unionOf`               | The smallest rect around a few rects, as `useSpace` shows them.                                                                                                                        |
 | `CARD_SPRING`           | The spring a card on the canvas moves with.                                                                                                                                            |

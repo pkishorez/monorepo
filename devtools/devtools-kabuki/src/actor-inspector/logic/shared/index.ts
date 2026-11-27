@@ -1,10 +1,16 @@
 export { InspectorShape } from './shape.ts';
 export { jsonDiff } from './diff.ts';
 export { foldOf } from './fold.ts';
+export { draftOf, fieldDraft, inputOf, valueOf } from './form.ts';
 export type { Folded, More } from './fold.ts';
 export type {
   BeforeAfter,
   Board,
+  Built,
+  Draft,
+  FormField,
+  Input,
+  Problem,
   Card,
   Change,
   Changed,
@@ -38,5 +44,6 @@ export {
   timelineOf,
   instanceLabel,
   traceOf,
+  worldOf,
 } from './selectors/index.ts';
 export type { Effect, Link, Trace } from './selectors/index.ts';

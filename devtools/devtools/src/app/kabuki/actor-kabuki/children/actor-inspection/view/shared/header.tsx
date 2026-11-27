@@ -4,7 +4,7 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from '@kestack/web-platform/ui/components/native-select';
-import type { Project } from '../logic/shared/index.js';
+import type { Project } from '../../logic/shared/index.js';
 
 export function Header({
   projects,

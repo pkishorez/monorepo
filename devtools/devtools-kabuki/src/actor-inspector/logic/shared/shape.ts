@@ -30,7 +30,11 @@ export const Place = Schema.Literals(['top', 'bottom']);
 
 export type Place = typeof Place.Type;
 
-const Shown = Schema.Struct({ presenting: Schema.Boolean, place: Place });
+const Shown = Schema.Struct({
+  presenting: Schema.Boolean,
+  place: Place,
+  world: Schema.Boolean,
+});
 
 export type Shown = typeof Shown.Type;
 
@@ -168,3 +172,32 @@ export interface Timeline {
   readonly running: boolean;
   readonly place: Place;
 }
+
+type Choice = string | number | boolean;
+
+export interface FormField {
+  readonly name: string;
+  readonly description?: string;
+  readonly optional: boolean;
+  readonly nullable: boolean;
+  readonly input: Input;
+}
+
+export type Input =
+  | { readonly kind: 'text' }
+  | { readonly kind: 'number' }
+  | { readonly kind: 'switch' }
+  | { readonly kind: 'choice'; readonly options: ReadonlyArray<Choice> }
+  | { readonly kind: 'group'; readonly fields: ReadonlyArray<FormField> }
+  | { readonly kind: 'json'; readonly hint: string };
+
+export type Draft = string | boolean | { readonly [name: string]: Draft };
+
+export interface Problem {
+  readonly path: string;
+  readonly problem: string;
+}
+
+export type Built =
+  | { readonly _tag: 'Built'; readonly value: unknown }
+  | { readonly _tag: 'Unbuilt'; readonly problems: ReadonlyArray<Problem> };

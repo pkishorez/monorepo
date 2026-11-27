@@ -1,4 +1,4 @@
-import type { Asking } from '../index.js';
+import type { Asking } from '../../../../../logic/shared/index.js';
 
 const BLUEPRINT = '\n\n---\n';
 

@@ -1,5 +1,10 @@
 export { Inspector, InspectorView } from './actor-inspector/index.ts';
 export {
+  World,
+  WorldView,
+  hasFakes,
+} from './actor-inspector/children/actor-world/index.ts';
+export {
   CARD_SPRING,
   unionOf,
   useSpace,

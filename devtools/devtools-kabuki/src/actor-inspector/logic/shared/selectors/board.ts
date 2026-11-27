@@ -314,6 +314,9 @@ export const previewShown = ({ model }: Data): boolean =>
 export const openedOf = ({ model }: Data): ReadonlyArray<string> =>
   model.opened === null ? [] : [model.opened];
 
+export const worldOf = ({ model }: Data): ReadonlyArray<string> =>
+  model.world && !model.presenting ? ['world'] : [];
+
 export const instanceOf = ({ model }: Data) => ({
   at: model.shown,
   epoch: model.epoch,

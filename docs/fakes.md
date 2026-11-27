@@ -95,10 +95,12 @@ The page shows no controls of its own. Give the FakeWorld to
 (`KabukiDevtools` and `connect`, each with `world`), and the Inspector
 drives it, beside the app or in DevTools:
 
-- The **World** tab shows each Fake's state now and a form per control;
-  running one calls `world.control` and says done or why not. Over the
-  socket it is the `control` call, so an agent or the CLI runs controls the
-  same way.
+- **World**, beside the Board, shows a card per Fake: its state now and a
+  button per control. A control that takes a payload opens a dialog for
+  it. Running one calls `world.control` and does not wait: what it changes
+  shows in the Fake's state, and only a refusal comes back, with its
+  reason. Over the socket it is the `control` call, so an agent, the CLI
+  or DevTools' Agent asked with `mcp` runs controls the same way.
 - An open card's **Actions** Send any Message its Actor takes to that app
   Instance, for what the Fakes do not reach.
 - Time Travel rewinds the app only: the Fakes and the Middle keep their
@@ -120,9 +122,9 @@ pnpm --filter code dev           # fake mode: the whole app in the tab, over its
 pnpm --filter code dev:connect   # real mode: this branch's Connect, signed in through the Auth Worker
 ```
 
-In fake mode, open the Inspector (the corner button, or Ctrl+/), and in its
-World tab run `signIn`'s `SignInAs`, then `computers`' `AddComputer`,
-signed in as the same email.
+In fake mode, open the Inspector (the corner button, or Ctrl+/), and in
+World beside the Board run Sign in's **Sign in as…**, then Computers'
+**Add computer…**, signed in as the same email.
 
 ## Limits
 

@@ -2,10 +2,10 @@ import type { DataOf, InitOf, UpdatesOf } from '@kestack/kabuki/types';
 import type { Plan, Shape } from '@kestack/devtools-kabuki/devtools';
 import type { JsonSchema } from '../../../../../../../services/agent/contract/index.js';
 import { ask, cancel, followUp } from './commands.js';
+import { IDLE, busyOf } from '../../../logic/shared/index.js';
+import type { Asking } from '../../../logic/shared/index.js';
 import {
-  IDLE,
   beatsOf,
-  busyOf,
   dataOf,
   expandedOf,
   focusOf,
@@ -21,7 +21,7 @@ import {
   shownOf,
   statesOf,
 } from './shared/index.js';
-import type { Asking, At, Explored, StoryShape, Turn } from './shared/index.js';
+import type { At, Explored, StoryShape, Turn } from './shared/index.js';
 
 type Data = DataOf<typeof StoryShape>;
 
@@ -479,7 +479,7 @@ export const updates: UpdatesOf<typeof StoryShape> = {
     const { model, state } = data;
     if (
       state._tag !== 'Open' ||
-      busyOf(data) ||
+      busyOf(model.pending, model.problem, model.run) ||
       (question.trim() === '' && model.chips.length === 0)
     )
       return {};
@@ -493,7 +493,12 @@ export const updates: UpdatesOf<typeof StoryShape> = {
   Retried: (_, data) => {
     const { model, state } = data;
     const last = model.pending ?? model.turns.at(-1);
-    if (state._tag !== 'Open' || last === undefined || busyOf(data)) return {};
+    if (
+      state._tag !== 'Open' ||
+      last === undefined ||
+      busyOf(model.pending, model.problem, model.run)
+    )
+      return {};
     return asked(
       { ...model, pending: null },
       state.folder,

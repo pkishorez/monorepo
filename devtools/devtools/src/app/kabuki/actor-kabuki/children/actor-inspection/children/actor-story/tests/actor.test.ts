@@ -19,12 +19,10 @@ import { fakeProjectRegistry } from '../../../../../../../services/project-regis
 import { Story } from '../index.js';
 import {
   Remembered,
-  StoryShape,
-  stageOf,
   failureOf,
-  focusOf,
   worktreesOf,
-} from '../logic/shared/index.js';
+} from '../../../logic/shared/index.js';
+import { StoryShape, stageOf, focusOf } from '../logic/shared/index.js';
 import { SYSTEM, treeOf } from '../logic/updates.js';
 import { plan } from './plan.js';
 
@@ -183,7 +181,7 @@ describe('Story', () => {
           folder: PROJECT,
         });
         const open = first.story() as DataOf<typeof StoryShape, 'Open'>;
-        expect(worktreesOf(open)).toEqual([
+        expect(worktreesOf(open.state.folder, open.model.worktrees)).toEqual([
           { folder: PROJECT, label: 'main' },
           { folder: WORKTREE, label: 'detached @bbbbbbb' },
         ]);
@@ -443,7 +441,13 @@ describe('Story', () => {
         app.root.send({ _tag: 'Asked', question: 'How?' });
         yield* settle;
         expect(story().model.run).toMatchObject({ status: 'failed' });
-        expect(failureOf(story())).toBe('Claude Code is not signed in.');
+        expect(
+          failureOf(
+            story().model.pending,
+            story().model.problem,
+            story().model.run,
+          ),
+        ).toBe('Claude Code is not signed in.');
 
         app.root.send({ _tag: 'Retried' });
         yield* settle;
@@ -454,7 +458,13 @@ describe('Story', () => {
           run: { status: 'done' },
           at: { turn: 1, beat: 0 },
         });
-        expect(failureOf(story())).toBeNull();
+        expect(
+          failureOf(
+            story().model.pending,
+            story().model.problem,
+            story().model.run,
+          ),
+        ).toBeNull();
       }),
     ));
 
@@ -470,7 +480,13 @@ describe('Story', () => {
         yield* settle;
         expect(story().model.run).toMatchObject({ status: 'cancelled' });
         expect(story().model.turns).toHaveLength(1);
-        expect(failureOf(story())).toBe('Stopped before it answered.');
+        expect(
+          failureOf(
+            story().model.pending,
+            story().model.problem,
+            story().model.run,
+          ),
+        ).toBe('Stopped before it answered.');
       }),
     ));
 

@@ -146,6 +146,11 @@ instead of asking, so a run never waits on a permission request. They are not
 also in `allowedTools`: the SDK would warn on every run that `canUseTool` is
 shadowed. `strictMcpConfig` with no
 `mcpServers` leaves out every MCP server the user's settings or claude.ai
-account would bring, since their tools may write. Claude Code reports paths
+account would bring, since their tools may write. A question asked with
+`mcp` is the one exception: its `mcpServers` is DevTools' own `/mcp`, at
+`http://127.0.0.1:<port>/mcp`, and `allowedTools` is `mcp__devtools`, every
+tool of that server, so `dontAsk` lets them run. Those tools Send Messages,
+Time Travel and run controls, but only on the apps connected to this
+DevTools. Claude Code reports paths
 from the folder's real path (`/private/tmp` for `/tmp` on macOS), so activity
 lines are shown relative to that.

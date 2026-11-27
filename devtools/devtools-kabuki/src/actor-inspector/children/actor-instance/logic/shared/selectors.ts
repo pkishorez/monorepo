@@ -1,13 +1,7 @@
 import type { DataOf } from '@kestack/kabuki/types';
-import { inputOf, valueOf } from './form.ts';
-import type {
-  Action,
-  Built,
-  Draft,
-  Input,
-  InstanceShape,
-  Outcome,
-} from './shape.ts';
+import { inputOf, valueOf } from '../../../../logic/shared/index.ts';
+import type { Built, Draft, Input } from '../../../../logic/shared/index.ts';
+import type { Action, InstanceShape, Outcome } from './shape.ts';
 
 type Data = DataOf<typeof InstanceShape>;
 

@@ -32,6 +32,7 @@ const ThreadSchema = Schema.Struct({
   folder: Schema.String,
   title: Schema.String,
   createdAt: Schema.Number,
+  mcp: Schema.Boolean,
   status: RunStatusSchema,
 });
 export type Thread = typeof ThreadSchema.Type;
@@ -54,6 +55,7 @@ export const AgentRpc = RpcGroup.make(
       prompt: Schema.String,
       system: Schema.optionalKey(Schema.String),
       schema: Schema.optionalKey(JsonSchemaSchema),
+      mcp: Schema.optionalKey(Schema.Boolean),
     },
     success: Schema.String,
   }),

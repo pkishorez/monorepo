@@ -5,15 +5,19 @@ import { Effect, Layer, Stream } from 'effect';
 import type { Scope } from 'effect';
 import { RpcTest, type RpcClient } from 'effect/rpc';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { Claude } from '@kestack/ai-toolkit-v2/claude';
+import { Claude, type ClaudeOptions } from '@kestack/ai-toolkit-v2/claude';
 import * as ClaudeFake from '@kestack/ai-toolkit-v2/claude/fake';
 import { AgentRpc, statusOf, type Message } from '../contract/index.js';
 import { agentRpcLayer } from '../real/index.js';
 
 type Client = RpcClient.FromGroup<typeof AgentRpc>;
 
+const MCP = 'http://127.0.0.1:4983/mcp';
+
 let folder: string;
+let started: Array<ClaudeOptions | undefined> = [];
 beforeEach(async () => {
+  started = [];
   folder = await realpath(await mkdtemp(join(tmpdir(), 'devtools-agent-')));
 });
 afterEach(() => rm(folder, { recursive: true, force: true }));
@@ -65,11 +69,26 @@ const run = <A, E>(
   Effect.runPromise(
     Effect.scoped(Effect.flatMap(RpcTest.makeClient(AgentRpc), use)).pipe(
       Effect.provide(
-        agentRpcLayer.pipe(
+        agentRpcLayer({ mcp: MCP }).pipe(
           Layer.provideMerge(
-            ClaudeFake.layer({
-              recordings: [...ClaudeFake.recordings, reading(), dies],
-            }),
+            Layer.effect(
+              Claude,
+              Effect.map(Claude, (claude) =>
+                Claude.of({
+                  ...claude,
+                  create: (input) => {
+                    started.push(input.options);
+                    return claude.create(input);
+                  },
+                }),
+              ),
+            ).pipe(
+              Layer.provide(
+                ClaudeFake.layer({
+                  recordings: [...ClaudeFake.recordings, reading(), dies],
+                }),
+              ),
+            ),
           ),
         ),
       ),
@@ -128,10 +147,34 @@ describe('the Agent RPC, on the fake Claude Code', () => {
             folder,
             title: 'create',
             createdAt: expect.any(Number),
+            mcp: false,
             status: 'done',
           },
         ]);
         expect(yield* client.threads({ folder: '/elsewhere' })).toEqual([]);
+      }),
+    ));
+
+  it('ask with mcp gives Claude Code DevTools’ own MCP server and its tools, and only then', () =>
+    run((client) =>
+      Effect.gen(function* () {
+        const withMcp = yield* client.ask({
+          folder,
+          prompt: 'create',
+          mcp: true,
+        });
+        yield* answered(client, withMcp);
+        const without = yield* client.ask({ folder, prompt: 'create' });
+        yield* answered(client, without);
+        expect(
+          started.map((options) => [
+            options?.mcpServers,
+            options?.allowedTools,
+          ]),
+        ).toEqual([
+          [{ devtools: { type: 'http', url: MCP } }, ['mcp__devtools']],
+          [{}, undefined],
+        ]);
       }),
     ));
 
