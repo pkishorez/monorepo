@@ -2,20 +2,15 @@
 import { exec } from 'node:child_process';
 import { createRequire } from 'node:module';
 import path from 'node:path';
-import envPaths from 'env-paths';
 import { Config, Effect, References } from 'effect';
 import { Command, Flag } from 'effect/cli';
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
-import { makeDevtoolsServer } from './serve/index.js';
+import { defaultDbPath, makeDevtoolsServer } from './serve/index.js';
 
 const HOST = '127.0.0.1';
 const { version: VERSION } = createRequire(import.meta.url)(
   '../../package.json',
 ) as { version: string };
-const DEFAULT_DB_PATH = path.join(
-  envPaths('devtools', { suffix: '' }).data,
-  'devtools.sqlite',
-);
 
 const openInBrowser = (url: string) => {
   const opener =
@@ -39,7 +34,7 @@ const db = Flag.String('db').pipe(
     'Path to the DevTools database (traces, logs, and Projects)',
   ),
   Flag.withFallbackConfig(Config.String('DEVTOOLS_DB')),
-  Flag.withDefault(DEFAULT_DB_PATH),
+  Flag.withDefault(defaultDbPath),
 );
 
 const open = Flag.Boolean('open').pipe(
@@ -59,16 +54,7 @@ const command = Command.make(
       console.log(`open: ${devtoolsUrl}`);
       if (open) openInBrowser(devtoolsUrl);
       yield* Effect.never;
-    }).pipe(
-      Effect.provide(
-        makeDevtoolsServer({
-          port,
-          db,
-          version: VERSION,
-          skipUiCheck: process.env.DEVTOOLS_SKIP_UI_CHECK === '1',
-        }),
-      ),
-    );
+    }).pipe(Effect.provide(makeDevtoolsServer({ port, db, version: VERSION })));
   }),
 ).pipe(
   Command.withDescription(

@@ -7,24 +7,25 @@ belongs in a better name, a type or a test instead.
 
 ## Dev server and build
 
-### The dev proxy checks Origin itself
+### `pnpm dev` is the same server on the same port
 
-In dev, Vite proxies `/health`, `/rpc` and the Kabuki WebSockets to the
-DevTools Server, and rewrites every request's Origin to the server's own
-origin. That rewrite would get past the server's origin check, so the proxy
-runs the same check first, in `scripts/dev-proxy.ts` (`isTrustedOrigin`). It
-lets through a request with no Origin, as the CLI sends, or one whose Origin
-host matches its Host, which is the dev UI Vite serves. Only `/v1`, OTLP,
-skips the check, because OTLP takes any origin. The Kabuki rule matches only
-`/kabuki/sessions` and `/kabuki/session/`, because the `/kabuki` page itself
-stays with Vite.
+`pnpm dev` runs one process on `127.0.0.1:14400`, the published CLI's port,
+so every agent and Kabuki app reaches DevTools at one address whichever way
+it runs. `scripts/dev.mts` starts the DevTools Server with Vite in
+middleware mode inside it: a request for a server path (`isServerPath`:
+`/rpc`, `/v1`, `/mcp`, `/health`) goes straight to the server; any other
+request goes to Vite first, and to the server when Vite passes it on. A
+WebSocket upgrade goes to Vite only when it asks for the `vite-hmr` or
+`vite-ping` subprotocol, the second being how a page finds the server again
+after a restart, so hot reload shares the port and the Kabuki sockets stay
+the server's. The page and the server share one origin, so the server's own
+origin check guards `/rpc` in dev as in production, with no proxy, and a
+tunnel's host is refused in both.
 
-### Port and hosts
-
-`pnpm dev` runs under portless, which sets `PORT` and forwards its own Host
-headers, so `PORT` comes before `DEVTOOLS_UI_PORT`. `allowedHosts: true` lets
-portless and tunnels such as cloudflared reach the dev UI; without it, both
-break.
+Vite takes a path with no extension for a module unless the request says it
+wants a page: `/monoverse` would resolve to `monoverse.json`. A browser
+says so with `Sec-Fetch-Dest: document`; `curl` and agents do not, so the
+dev server marks each page path (`pagePaths`) as a document itself.
 
 ### Shiki grammars are pre-bundled
 

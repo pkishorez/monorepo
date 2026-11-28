@@ -7,6 +7,21 @@ import {
   HttpStaticServer,
 } from 'effect/http';
 
+export const pagePaths: ReadonlyArray<`/${string}`> = [
+  '/',
+  '/lotel',
+  '/monoverse',
+  '/kabuki',
+];
+
+const under = (prefixes: ReadonlyArray<string>, pathname: string) =>
+  prefixes.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+
+export const isServerPath = (pathname: string) =>
+  under(['/rpc', '/v1', '/mcp', '/health'], pathname);
+
 export function makeBrowserApplicationLive({
   uiRoot,
   version,
@@ -33,11 +48,8 @@ export function makeBrowserApplicationLive({
   });
 
   const exactRoutes = Layer.mergeAll(
-    HttpRouter.add('GET', '/', indexResponse),
-    HttpRouter.add('GET', '/lotel', indexResponse),
-    HttpRouter.add('GET', '/monoverse', indexResponse),
-    HttpRouter.add('GET', '/kabuki', indexResponse),
     HttpRouter.add('GET', '/health', health),
+    ...pagePaths.map((page) => HttpRouter.add('GET', page, indexResponse)),
   );
   const assets = HttpStaticServer.layer({
     root: path.join(uiRoot, 'assets'),
@@ -49,9 +61,7 @@ export function makeBrowserApplicationLive({
     '/*',
     HttpServerRequest.HttpServerRequest.use((request) => {
       const pathname = request.url.split('?', 1)[0] ?? '/';
-      const reserved = ['/rpc', '/v1', '/mcp', '/health', '/assets'].some(
-        (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
-      );
+      const reserved = isServerPath(pathname) || under(['/assets'], pathname);
       const acceptsHtml =
         request.headers.accept?.includes('text/html') === true;
       return reserved || !acceptsHtml

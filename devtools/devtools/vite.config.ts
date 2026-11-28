@@ -1,29 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { defineConfig, type ProxyOptions } from 'vite-plus';
+import { defineConfig } from 'vite-plus';
 import viteReact from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
-import { isTrustedOrigin } from './scripts/dev-proxy.js';
 
 const packageJson = JSON.parse(
   readFileSync(new URL('./package.json', import.meta.url), 'utf8'),
 ) as { version: string };
-
-const backendOrigin = `http://127.0.0.1:${process.env.DEVTOOLS_PORT ?? '14400'}`;
-const backendProxy = ({ anyOrigin = false } = {}): ProxyOptions => ({
-  target: backendOrigin,
-  changeOrigin: true,
-  bypass: (request) =>
-    anyOrigin || isTrustedOrigin(request.headers) ? undefined : false,
-  configure(proxy) {
-    proxy.on('proxyReq', (request) =>
-      request.setHeader('origin', backendOrigin),
-    );
-    proxy.on('proxyReqWs', (request) =>
-      request.setHeader('origin', backendOrigin),
-    );
-  },
-});
 
 const packed = (entry: Record<string, string>) => ({
   entry,
@@ -75,18 +58,6 @@ export default defineConfig({
       '@kestack/web-platform > @shikijs/langs/typescript',
       '@kestack/web-platform > @shikijs/langs/yaml',
     ],
-  },
-  server: {
-    host: true,
-    port: Number(process.env.PORT ?? process.env.DEVTOOLS_UI_PORT ?? '5173'),
-    strictPort: true,
-    allowedHosts: true,
-    proxy: {
-      '/health': backendProxy(),
-      '/rpc': backendProxy(),
-      '/v1': backendProxy({ anyOrigin: true }),
-      '^/kabuki/(sessions|session/)': { ...backendProxy(), ws: true },
-    },
   },
   plugins: [tailwindcss(), viteReact()],
   pack: [

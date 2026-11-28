@@ -1,7 +1,8 @@
-import { createServer } from 'node:http';
+import { createServer, type Server } from 'node:http';
 import { stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import envPaths from 'env-paths';
 import { Effect, Layer } from 'effect';
 import { HttpRouter } from 'effect/http';
 import { NodeHttpServer, NodeServices } from '@effect/platform-node';
@@ -20,6 +21,12 @@ import { MCP_PATH, makeMcpLive } from './mcp.js';
 import { makeRequestAccessLive } from './request-access.js';
 
 const HOST = '127.0.0.1';
+
+export const defaultDbPath = path.join(
+  envPaths('devtools', { suffix: '' }).data,
+  'devtools.sqlite',
+);
+
 const UI_ROOT_BESIDE_BUNDLED_CLI = fileURLToPath(
   new URL('../ui/', import.meta.url),
 );
@@ -30,6 +37,7 @@ type Options = {
   readonly version: string;
   readonly uiRoot?: string;
   readonly skipUiCheck?: boolean;
+  readonly createServer?: () => Server;
 };
 
 export function makeDevtoolsServer(options: Options) {
@@ -74,7 +82,7 @@ export function makeDevtoolsServer(options: Options) {
         ),
       ).pipe(
         Layer.provide(
-          NodeHttpServer.layer(createServer, {
+          NodeHttpServer.layer(options.createServer ?? createServer, {
             host: HOST,
             port: options.port,
             disablePreemptiveShutdown: true,
