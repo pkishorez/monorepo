@@ -14,6 +14,7 @@ import { cn } from '@kestack/web-platform/ui/components/utils';
 import {
   ChevronsDownUpIcon,
   ChevronsUpDownIcon,
+  LeafIcon,
   RotateCcwIcon,
 } from 'lucide-react';
 
@@ -25,6 +26,7 @@ import type {
   Crumb,
   Findings,
   SelectionFindings,
+  Structure,
 } from '../../logic/shared/index.js';
 import {
   placesAmongSiblings,
@@ -43,8 +45,14 @@ import {
   leadFor,
   placeRows,
   topInset,
+  widthFor,
 } from './layout.js';
-import { OutlineRow, type OutlineRowActions, type RowOpens } from './row.js';
+import {
+  OutlineRow,
+  type MarkColumns,
+  type OutlineRowActions,
+  type RowOpens,
+} from './row.js';
 import './outline.css';
 
 export interface OutlineProps {
@@ -59,7 +67,7 @@ export interface OutlineProps {
   readonly changes: ReadonlyMap<string, NodeChange>;
   readonly changesOn: boolean;
   readonly shown: Shown;
-  readonly leaves: ReadonlySet<string>;
+  readonly structure: Structure;
   readonly trail: ReadonlyArray<Crumb> | null;
   readonly leavable: boolean;
   readonly dimmed: (path: string) => boolean;
@@ -110,7 +118,7 @@ export function Outline({
   changes,
   changesOn,
   shown,
-  leaves,
+  structure,
   trail,
   leavable,
   dimmed,
@@ -135,10 +143,26 @@ export function Outline({
     return () => observer.disconnect();
   }, []);
   const lead = leadFor(screen);
-  const width = columnWidth(screen - 2 * side - lead - endInset);
+  const columns = useMemo(
+    (): MarkColumns => ({
+      problems:
+        (shown.violations && findings.violations.size > 0) ||
+        findings.cycles.size > 0 ||
+        [...findings.checks.values()].some(({ _tag }) => _tag !== 'Unchecked'),
+      shape: structure.reaches.size > 0 || structure.doors.size > 0,
+    }),
+    [findings, shown.violations, structure],
+  );
+  const room = screen - 2 * side - lead - endInset;
+  const needed = useMemo(
+    () => widthFor(rows, Number(columns.problems) + Number(columns.shape)),
+    [rows, columns],
+  );
+  const width = Math.max(columnWidth(room), needed);
+  const wide = screen > 0 && width > room;
   const blockWidth = lead + width + endInset;
   const slots = usePanelSlots();
-  const room = {
+  const inset = {
     top: 12,
     bottom: slots.docked ? 32 : screen < 640 ? 112 : 88,
   };
@@ -286,7 +310,7 @@ export function Outline({
     scroller,
     sizeOf: place.height,
     keyOf,
-    offset: room.top + topBarHeight + topInset,
+    offset: inset.top + topBarHeight + topInset,
     keep: [
       selectedIndex,
       tabbable === undefined ? undefined : indexOf(tabbable),
@@ -338,7 +362,7 @@ export function Outline({
         )}
         style={{
           scrollPaddingTop: topBarHeight,
-          scrollPaddingBottom: room.bottom,
+          scrollPaddingBottom: inset.bottom,
         }}
         onClick={(event) => {
           if (!(event.target instanceof Element)) return;
@@ -351,8 +375,8 @@ export function Outline({
         <div
           className="w-max min-w-full"
           style={{
-            paddingTop: room.top,
-            paddingBottom: room.bottom,
+            paddingTop: inset.top,
+            paddingBottom: inset.bottom,
             paddingInline: side,
           }}
         >
@@ -374,6 +398,12 @@ export function Outline({
               />
             )}
             <div className="ml-auto flex shrink-0 items-center gap-2">
+              {structure.folders === 0 ? null : (
+                <LeafScore
+                  leaves={structure.leaves.size}
+                  folders={structure.folders}
+                />
+              )}
               <Button
                 variant="ghost"
                 size="xs"
@@ -459,12 +489,11 @@ export function Outline({
                       ? (findings.violations.get(node.path) ?? 0)
                       : 0
                   }
-                  excepted={
-                    shown.exceptions
-                      ? (findings.excepted.get(node.path) ?? 0)
-                      : 0
-                  }
-                  leaf={leaves.has(node.path)}
+                  leaf={structure.leaves.has(node.path)}
+                  reach={structure.reaches.get(node.path) ?? null}
+                  door={structure.doors.get(node.path) ?? null}
+                  columns={columns}
+                  wide={wide}
                   cycle={(findings.cycles.get(node.path) ?? 0) > 0}
                   check={findings.checks.get(node.path) ?? null}
                   change={changes.get(node.path) ?? null}
@@ -513,5 +542,26 @@ export function Outline({
               slots.selection,
             )}
     </div>
+  );
+}
+
+function LeafScore({ leaves, folders }: { leaves: number; folders: number }) {
+  const label = `${leaves} of ${folders} folders are leaves: nothing inside them imports anything outside`;
+  return (
+    <span
+      role="img"
+      aria-label={label}
+      title={label}
+      className="flex items-center gap-1 px-1 text-xs text-muted-foreground tabular-nums max-sm:hidden"
+    >
+      <LeafIcon
+        aria-hidden
+        strokeWidth={2}
+        className="size-3.5 text-(--outline-leaf)"
+      />
+      <span>
+        <span className="text-foreground">{leaves}</span>/{folders}
+      </span>
+    </span>
   );
 }

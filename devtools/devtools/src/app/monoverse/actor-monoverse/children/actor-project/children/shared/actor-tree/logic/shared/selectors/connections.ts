@@ -19,6 +19,7 @@ export interface Connection {
 export interface LinkKinds {
   readonly broken: ReadonlySet<string>;
   readonly excepted: ReadonlySet<string>;
+  readonly byException: ReadonlySet<string>;
 }
 
 export const linkKey = ([from, to]: Link) => `${from}\0${to}`;

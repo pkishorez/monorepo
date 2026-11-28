@@ -10,7 +10,9 @@ import { contractFindings } from '../shared/contracts/index.ts';
 import { importMessage, judgeImport } from '../shared/imports/index.ts';
 import {
   type Tree,
+  isInside,
   joinPath,
+  ownerThrough,
   parentOf,
   relativeTo,
 } from '../shared/tree/index.ts';
@@ -55,6 +57,7 @@ export type PackageResult =
       readonly _tag: 'Checked';
       readonly violations: readonly Violation[];
       readonly excepted: readonly Excepted[];
+      readonly doors: readonly string[];
     };
 
 export interface PackageReport {
@@ -95,17 +98,22 @@ const findingsOf = (
 ): {
   readonly violations: readonly Violation[];
   readonly excepted: readonly Excepted[];
+  readonly doors: readonly string[];
 } => {
   const { imports: importsRule, contracts } = config.rules;
   const lifting = new Set<Pass>();
   const covering = new Set<Pass>();
   const found: Violation[] = [];
   const excepted: Excepted[] = [];
+  const doors = new Set<string>();
 
   for (const file of sources.files) {
     if (!isSource(file) || tree.packageOf(parentOf(file)) !== pkg) continue;
     const from = relativeTo(pkg, file);
     if (!isChecked(config, from)) continue;
+    if (importsRule)
+      for (const door of doorsAbove(file, pkg, importsRule.doors))
+        doors.add(door);
     const restrictions = config.restrictions.filter((r) =>
       matches(from, r.from),
     );
@@ -200,7 +208,28 @@ const findingsOf = (
       });
   });
 
-  return { violations: found.sort(byPlace), excepted: excepted.sort(byPlace) };
+  return {
+    violations: found.sort(byPlace),
+    excepted: excepted.sort(byPlace),
+    doors: [...doors].sort(),
+  };
+};
+
+const doorsAbove = (
+  file: string,
+  pkg: string,
+  patterns: readonly string[],
+): readonly string[] => {
+  const found: string[] = [];
+  for (let dir = parentOf(file); isInside(dir, pkg); dir = parentOf(dir))
+    if (
+      patterns.some((pattern) => {
+        const owner = ownerThrough(dir, pattern);
+        return owner !== undefined && (owner === pkg || isInside(owner, pkg));
+      })
+    )
+      found.push(dir);
+  return found;
 };
 
 const byPlace = (

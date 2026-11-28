@@ -46,6 +46,7 @@ const kinds = {
   excepted: new Set([
     linkKey(['src/cli/serve/serve.ts', 'src/app/feed/actor.ts']),
   ]),
+  byException: new Set<string>(),
 };
 
 const connections = (selected: string, open: ReadonlyArray<string>) => {

@@ -8,6 +8,11 @@
  * Light mode darkens each until it reads as text.
  */
 .outline-tree {
+  --outline-selected: color-mix(
+    in oklch,
+    var(--color-foreground) 10%,
+    transparent
+  );
   --outline-uses: oklch(0.56 0.14 240);
   --outline-used-by: oklch(0.6 0.15 58);
   --outline-broken: oklch(0.56 0.21 27);
@@ -16,6 +21,11 @@
 }
 
 :where(.dark) .outline-tree {
+  --outline-selected: color-mix(
+    in oklch,
+    var(--color-foreground) 13%,
+    transparent
+  );
   --outline-uses: oklch(0.76 0.12 232);
   --outline-used-by: oklch(0.8 0.14 68);
   --outline-broken: oklch(0.7 0.18 24);

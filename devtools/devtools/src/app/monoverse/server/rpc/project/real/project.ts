@@ -135,6 +135,7 @@ function checkOf(result: PackageResult): Check {
             message,
           }),
         ),
+        doors: result.doors,
       };
   }
 }

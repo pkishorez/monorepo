@@ -58,6 +58,7 @@ export const treeProps = (data: DataOf<typeof ProjectShape, 'Monorepo'>) => {
       message: `In a Package cycle: ${from} depends on ${to}, which leads back to it.`,
     })),
     excepted: [],
+    doors: [],
     shown: props.shown,
     outside: props.outside,
     sourceRoots: null,

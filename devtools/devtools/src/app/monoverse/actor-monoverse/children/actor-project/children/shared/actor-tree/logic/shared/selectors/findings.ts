@@ -43,29 +43,24 @@ const whereOf = (
 
 export function findingsOf(
   broken: ReadonlyArray<BrokenLink>,
-  excepted: ReadonlyArray<ExceptedLink>,
   packages: ReadonlyArray<TreePackage>,
 ): Findings {
   const violations = new Map<string, number>();
-  const exceptions = new Map<string, number>();
   const cycles = new Map<string, number>();
   const checks = new Map<string, TreePackage['check']>();
   if (packages.length === 0) {
     for (const { from } of broken) addUp(violations, from, 1);
-    for (const { from } of excepted) addUp(exceptions, from, 1);
-    return { violations, excepted: exceptions, cycles, checks };
+    return { violations, cycles, checks };
   }
   for (const { path, check } of packages) {
     const at = rootRelative(path);
     checks.set(at, check);
     const count = violationsOf(check).length;
     if (count > 0) addUp(violations, at, count);
-    const through = exceptedOf(check).length;
-    if (through > 0) addUp(exceptions, at, through);
   }
   for (const from of new Set(broken.map(({ from }) => from)))
     addUp(cycles, from, 1);
-  return { violations, excepted: exceptions, cycles, checks };
+  return { violations, cycles, checks };
 }
 
 export function findingsWithin(

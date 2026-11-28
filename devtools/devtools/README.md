@@ -132,10 +132,17 @@ package view  the Package's git-known files; outside its Source roots dimmed,
               and folder that holds one; the selection's count opens what
               `monoverse lint` says of each, at its line and column. An
               import a door or an exception lets through is an
-              Exception, in violet, counted the same way. A folder other
-              folders import that imports none of them is a leaf, marked
-              with a leaf. The settings choose which Connections are
-              drawn: Violations, Exceptions, Allowed, all on at first.
+              Exception, drawn violet, never counted up the tree. Marks
+              sit in fixed columns: problems, then structure, then the
+              row's actions, on hover or, on a touch screen, once the
+              row is selected. A folder that imports nothing outside
+              itself is a leaf: a green leaf in place of its folder
+              icon, with a leaf score above the tree. One that does shows
+              ⤴ and how many outside folders it reaches, violet when an
+              exception lets one through. A door shows how many folders
+              come in through it, dimmed when none does. The settings
+              choose which Connections are drawn: Violations,
+              Exceptions, Allowed, all on at first.
               Double-click a folder, or press Show alone on its selection, to show it alone, with the folders
               outside it that it connects to dimmed, or hidden by the
               Outside folders setting; a trail above the tree goes back up.

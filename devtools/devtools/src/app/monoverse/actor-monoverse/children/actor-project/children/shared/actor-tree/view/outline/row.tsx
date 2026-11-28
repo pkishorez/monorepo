@@ -1,4 +1,4 @@
-import { memo, type MouseEvent } from 'react';
+import { memo, type MouseEvent, type ReactNode } from 'react';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import {
   ArrowDownLeftIcon,
@@ -6,6 +6,7 @@ import {
   ChevronRightIcon,
   ChevronsDownUpIcon,
   ChevronsUpDownIcon,
+  CornerRightUpIcon,
   DoorOpenIcon,
   EyeIcon,
   FileDiffIcon,
@@ -14,14 +15,19 @@ import {
   FolderOpenIcon,
   LeafIcon,
   PackageIcon,
+  RepeatIcon,
   TriangleAlertIcon,
 } from 'lucide-react';
 
 import type { ChangeStatus } from '../../../../../logic/shared/index.js';
 import type { TreeNode } from '../../logic/shared/index.js';
 import { CheckMark } from '../../../../../view/shared/index.js';
-import type { Connection, TreePackage } from '../../logic/shared/index.js';
-import { gutter, indent } from './layout.js';
+import type {
+  Connection,
+  Reached,
+  TreePackage,
+} from '../../logic/shared/index.js';
+import { canHover, gutter, indent } from './layout.js';
 
 type Check = TreePackage['check'];
 
@@ -36,6 +42,11 @@ export interface OutlineRowActions {
 }
 
 export type RowOpens = 'diff' | 'view';
+
+export interface MarkColumns {
+  readonly problems: boolean;
+  readonly shape: boolean;
+}
 
 const changeTone: Record<ChangeStatus, string> = {
   added: 'text-added',
@@ -95,6 +106,10 @@ function toneOf(
 const tint = (colour: string, amount: number) =>
   `color-mix(in oklch, var(${colour}) ${amount}%, transparent)`;
 
+const wash = (colour: string) => `linear-gradient(${colour}, ${colour})`;
+
+const selectedWash = wash('var(--outline-selected)');
+
 const stop = (event: MouseEvent) => event.stopPropagation();
 
 function linkOf(connection: Connection | null) {
@@ -103,7 +118,7 @@ function linkOf(connection: Connection | null) {
   if (broken > 0)
     return {
       bar: 'var(--outline-broken)',
-      band: tint('--outline-broken', 10),
+      band: wash(tint('--outline-broken', 10)),
     };
   if (uses > 0 && usedBy > 0)
     return {
@@ -113,7 +128,7 @@ function linkOf(connection: Connection | null) {
   const colour = uses > 0 ? '--outline-uses' : '--outline-used-by';
   return {
     bar: `var(${colour})`,
-    band: tint(colour, 9),
+    band: wash(tint(colour, 9)),
   };
 }
 
@@ -133,8 +148,11 @@ export const OutlineRow = memo(function OutlineRow({
   faded,
   connection,
   violations,
-  excepted,
   leaf,
+  reach,
+  door,
+  columns,
+  wide,
   cycle,
   check,
   change,
@@ -157,8 +175,11 @@ export const OutlineRow = memo(function OutlineRow({
   faded: boolean;
   connection: Connection | null;
   violations: number;
-  excepted: number;
   leaf: boolean;
+  reach: ReadonlyArray<Reached> | null;
+  door: number | null;
+  columns: MarkColumns;
+  wide: boolean;
   cycle: boolean;
   check: Check | null;
   change: { readonly status: ChangeStatus; readonly count: number } | null;
@@ -170,6 +191,14 @@ export const OutlineRow = memo(function OutlineRow({
   const revealing = isFolder && !open && connection !== null;
   const link = selected ? null : linkOf(connection);
   const tone = toneOf(node, change, ignored);
+  const pinned =
+    selected ||
+    revealing ||
+    violations > 0 ||
+    cycle ||
+    door !== null ||
+    reach !== null ||
+    (check !== null && check._tag !== 'Unchecked');
 
   return (
     <div
@@ -190,7 +219,7 @@ export const OutlineRow = memo(function OutlineRow({
           ? 'opacity-25 grayscale hover:opacity-60'
           : faded && 'opacity-45 hover:opacity-80',
         selected
-          ? 'bg-foreground/[0.1] dark:bg-foreground/[0.13]'
+          ? 'bg-(--outline-selected)'
           : link === null
             ? 'hover:bg-foreground/[0.035] active:bg-foreground/[0.06]'
             : 'hover:shadow-[inset_0_0_0_1px_var(--color-border)]',
@@ -252,36 +281,58 @@ export const OutlineRow = memo(function OutlineRow({
       ) : (
         <span className="size-4 shrink-0" />
       )}
-      <Glyph node={node} open={open} ignored={ignored} tone={tone} />
+      <Glyph node={node} open={open} ignored={ignored} leaf={leaf} />
       <Name node={node} tone={tone} />
-      {leaf ? <LeafMark /> : null}
       {change === null ? null : (
         <span className="sr-only">, {changeWord[change.status]}</span>
       )}
-      {revealing ||
-      marked(violations, excepted, cycle, check) ||
-      inside !== null ||
-      hover ? (
-        <span className="ml-auto flex shrink-0 items-center gap-2.5 pl-2">
-          {revealing ? (
-            <RevealChip node={node} connection={connection} actions={actions} />
-          ) : null}
-          <Findings
-            node={node}
-            violations={violations}
-            excepted={excepted}
-            cycle={cycle}
-            check={check}
-          />
-          {inside === null ? null : (
-            <InsideToggle
+      <span
+        className={cn(
+          'ml-auto flex shrink-0 items-center gap-2 pl-2',
+          wide &&
+            (pinned
+              ? 'sticky right-0 bg-background'
+              : 'group-hover/outline-row:sticky group-hover/outline-row:right-0 group-hover/outline-row:bg-background'),
+        )}
+        style={
+          wide
+            ? {
+                backgroundImage: selected
+                  ? selectedWash
+                  : (link?.band ?? 'none'),
+              }
+            : undefined
+        }
+      >
+        {revealing ? (
+          <RevealChip node={node} connection={connection} actions={actions} />
+        ) : null}
+        {columns.problems ? (
+          <MarkColumn>
+            <Problems
               node={node}
-              open={inside}
-              shown={selected}
-              actions={actions}
+              violations={violations}
+              cycle={cycle}
+              check={check}
             />
-          )}
-          <span className="flex size-5 shrink-0 items-center justify-center [@media(hover:none)]:hidden">
+          </MarkColumn>
+        ) : null}
+        {columns.shape ? (
+          <MarkColumn>
+            {door === null ? null : <DoorMark count={door} />}
+            {reach === null ? null : <ReachMark node={node} reach={reach} />}
+          </MarkColumn>
+        ) : null}
+        {canHover || selected ? (
+          <span className="flex w-11 shrink-0 items-center justify-end gap-1 [@media(hover:none)]:w-14">
+            {inside === null ? null : (
+              <InsideToggle
+                node={node}
+                open={inside}
+                shown={selected}
+                actions={actions}
+              />
+            )}
             <OpenButton
               node={node}
               opens={opens}
@@ -289,13 +340,14 @@ export const OutlineRow = memo(function OutlineRow({
               actions={actions}
             />
           </span>
-        </span>
-      ) : null}
+        ) : null}
+      </span>
     </div>
   );
 });
 
-const hover = globalThis.matchMedia?.('(hover: hover)').matches ?? true;
+const rowButton =
+  'relative flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-[opacity,background-color] duration-150 before:absolute before:-inset-1 hover:bg-foreground/[0.08] hover:text-foreground [@media(hover:none)]:size-6 [@media(hover:none)]:before:-inset-2';
 
 function OpenButton({
   node,
@@ -322,7 +374,7 @@ function OpenButton({
       aria-label={label}
       title={label}
       className={cn(
-        'relative flex size-5 items-center justify-center rounded-md text-muted-foreground transition-[opacity,background-color] duration-150 before:absolute before:-inset-1 hover:bg-foreground/[0.08] hover:text-foreground',
+        rowButton,
         shown
           ? 'opacity-100'
           : 'opacity-0 group-hover/outline-row:opacity-100 focus-visible:opacity-100',
@@ -338,17 +390,33 @@ function OpenButton({
   );
 }
 
+const leafLabel = 'Leaf: nothing inside it imports anything outside it';
+
 function Glyph({
   node,
   open,
   ignored,
-  tone,
+  leaf,
 }: {
   node: TreeNode;
   open: boolean;
   ignored: boolean;
-  tone: Tone;
+  leaf: boolean;
 }) {
+  if (leaf)
+    return (
+      <span title={leafLabel} className="ml-0.5 flex shrink-0">
+        <LeafIcon
+          aria-hidden
+          strokeWidth={1.75}
+          className={cn(
+            'size-4 text-(--outline-leaf)',
+            ignored && 'opacity-50',
+          )}
+        />
+        <span className="sr-only">{leafLabel}</span>
+      </span>
+    );
   const Icon =
     node.kind === 'package'
       ? PackageIcon
@@ -362,10 +430,8 @@ function Glyph({
       aria-hidden
       strokeWidth={1.5}
       className={cn(
-        'ml-0.5 size-4 shrink-0',
-        tone.plain
-          ? cn('text-muted-foreground', ignored ? 'opacity-50' : 'opacity-85')
-          : cn(tone.className, 'opacity-70'),
+        'ml-0.5 size-4 shrink-0 text-muted-foreground',
+        ignored ? 'opacity-50' : 'opacity-85',
       )}
     />
   );
@@ -429,10 +495,10 @@ function InsideToggle({
       aria-label={label}
       title={label}
       className={cn(
-        'relative -my-1 flex size-5 items-center justify-center rounded-md text-muted-foreground transition-[opacity,background-color] duration-150 before:absolute before:-inset-1 hover:bg-foreground/[0.08] hover:text-foreground',
+        rowButton,
         shown
           ? 'opacity-100'
-          : 'opacity-0 group-hover/outline-row:opacity-100 focus-visible:opacity-100 max-sm:opacity-60',
+          : 'opacity-0 group-hover/outline-row:opacity-100 focus-visible:opacity-100',
       )}
       onClick={(event) => {
         event.stopPropagation();
@@ -445,54 +511,10 @@ function InsideToggle({
   );
 }
 
-const marked = (
-  violations: number,
-  excepted: number,
-  cycle: boolean,
-  check: Check | null,
-) =>
-  violations > 0 ||
-  excepted > 0 ||
-  cycle ||
-  (check !== null && check._tag !== 'Unchecked');
-
-const leafLabel = 'Leaf: it imports no other folder';
-
-function LeafMark() {
+function MarkColumn({ children }: { children: ReactNode }) {
   return (
-    <span
-      role="img"
-      aria-label={leafLabel}
-      title={leafLabel}
-      className="ml-1.5 flex shrink-0"
-    >
-      <LeafIcon strokeWidth={2} className="size-3 text-(--outline-leaf)" />
-    </span>
-  );
-}
-
-function ExceptedCount({ node, count }: { node: TreeNode; count: number }) {
-  const label =
-    node.kind === 'file'
-      ? plural(
-          count,
-          'import in this file goes through a door or an exception',
-          'imports in this file go through a door or an exception',
-        )
-      : plural(
-          count,
-          'import inside goes through a door or an exception',
-          'imports inside go through a door or an exception',
-        );
-  return (
-    <span
-      role="img"
-      aria-label={label}
-      title={label}
-      className="flex items-center gap-0.5 text-[11px] font-medium text-(--outline-excepted) tabular-nums"
-    >
-      <DoorOpenIcon strokeWidth={2} className="size-3.5" />
-      {count}
+    <span className="flex min-w-9 items-center justify-end gap-2">
+      {children}
     </span>
   );
 }
@@ -500,33 +522,27 @@ function ExceptedCount({ node, count }: { node: TreeNode; count: number }) {
 const plural = (count: number, one: string, many: string) =>
   `${count} ${count === 1 ? one : many}`;
 
-function Findings({
+function Problems({
   node,
   violations,
-  excepted,
   cycle,
   check,
 }: {
   node: TreeNode;
   violations: number;
-  excepted: number;
   cycle: boolean;
   check: Check | null;
 }) {
-  const exceptedMark =
-    excepted > 0 ? <ExceptedCount node={node} count={excepted} /> : null;
+  const cycleLabel =
+    node.kind === 'package' ? 'In a Package cycle' : 'Holds a Package cycle';
   const cycleMark = cycle ? (
     <span
       role="img"
-      aria-label={
-        node.kind === 'package' ? 'In a Package cycle' : 'Holds a Package cycle'
-      }
-      title={
-        node.kind === 'package' ? 'In a Package cycle' : 'Holds a Package cycle'
-      }
+      aria-label={cycleLabel}
+      title={cycleLabel}
       className="flex"
     >
-      <TriangleAlertIcon
+      <RepeatIcon
         strokeWidth={2}
         className="size-3.5 text-(--outline-broken)"
       />
@@ -535,18 +551,11 @@ function Findings({
   if (node.kind === 'package')
     return (
       <>
-        {exceptedMark}
         <CheckMark check={check ?? undefined} />
         {cycleMark}
       </>
     );
-  if (violations === 0)
-    return (
-      <>
-        {exceptedMark}
-        {cycleMark}
-      </>
-    );
+  if (violations === 0) return cycleMark;
   const label =
     node.kind === 'file'
       ? plural(violations, 'Violation in this file', 'Violations in this file')
@@ -557,7 +566,6 @@ function Findings({
         );
   return (
     <>
-      {exceptedMark}
       <span
         role="img"
         aria-label={label}
@@ -569,6 +577,79 @@ function Findings({
       </span>
       {cycleMark}
     </>
+  );
+}
+
+function DoorMark({ count }: { count: number }) {
+  const label =
+    count === 0
+      ? 'Door: nothing beside or below it imports it'
+      : plural(
+          count,
+          'folder beside or below imports this door',
+          'folders beside or below import this door',
+        );
+  return (
+    <span
+      role="img"
+      aria-label={label}
+      title={label}
+      className={cn(
+        'flex items-center gap-0.5 text-[11px] font-medium text-muted-foreground tabular-nums',
+        count === 0 && 'opacity-45',
+      )}
+    >
+      <DoorOpenIcon strokeWidth={2} className="size-3.5" />
+      {count}
+    </span>
+  );
+}
+
+const reachWord: Record<Reached['by'], string> = {
+  violation: 'a violation',
+  exception: 'an exception',
+  door: 'a door',
+  module: 'its own module',
+};
+
+const besideIt = (from: string, to: string) => {
+  const own = from.split('/');
+  const far = to.split('/');
+  let shared = 0;
+  while (shared < own.length && own[shared] === far[shared]) shared += 1;
+  return far.slice(shared).join('/') || to;
+};
+
+function ReachMark({
+  node,
+  reach,
+}: {
+  node: TreeNode;
+  reach: ReadonlyArray<Reached>;
+}) {
+  const bent = reach.some(({ by }) => by === 'exception');
+  const label = `${plural(
+    reach.length,
+    'folder outside it is imported',
+    'folders outside it are imported',
+  )}: ${reach
+    .map(
+      ({ folder, by }) => `${besideIt(node.path, folder)} (${reachWord[by]})`,
+    )
+    .join(', ')}`;
+  return (
+    <span
+      role="img"
+      aria-label={label}
+      title={label}
+      className={cn(
+        'flex items-center gap-0.5 text-[11px] font-medium tabular-nums',
+        bent ? 'text-(--outline-excepted)' : 'text-muted-foreground',
+      )}
+    >
+      <CornerRightUpIcon strokeWidth={2} className="size-3.5" />
+      {reach.length}
+    </span>
   );
 }
 

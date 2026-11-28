@@ -28,6 +28,11 @@ export function useLinkKinds(
         ),
       ),
       excepted: new Set(excepted.map(({ from, to }) => linkKey([from, to]))),
+      byException: new Set(
+        excepted.flatMap(({ from, to, by }) =>
+          by === 'exception' ? [linkKey([from, to])] : [],
+        ),
+      ),
     }),
     [broken, excepted],
   );
@@ -53,13 +58,9 @@ export function useConnections(
 
 export function useFindings(
   broken: ReadonlyArray<BrokenLink>,
-  excepted: ReadonlyArray<ExceptedLink>,
   packages: ReadonlyArray<TreePackage>,
 ): Findings {
-  return useMemo(
-    () => findingsOf(broken, excepted, packages),
-    [broken, excepted, packages],
-  );
+  return useMemo(() => findingsOf(broken, packages), [broken, packages]);
 }
 
 const nothing: SelectionFindings = { violations: [], excepted: [] };

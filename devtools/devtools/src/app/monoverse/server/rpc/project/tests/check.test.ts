@@ -254,6 +254,7 @@ describe("a Package's Check", () => {
                 ...rest,
                 file: from,
               })),
+              doors: check.doors,
             }
           : check,
     }));
@@ -284,6 +285,7 @@ describe("a Package's Check", () => {
                     message,
                   }),
                 ),
+                doors: result.doors,
               }
             : result,
       })),
@@ -347,6 +349,7 @@ describe('a branch no worktree has', () => {
       expect(fromGit.check).toEqual({
         _tag: 'Checked',
         excepted: expect.any(Array),
+        doors: expect.any(Array),
         violations: [
           expect.objectContaining({
             from: core('src/alias.ts'),
@@ -401,6 +404,7 @@ describe('a branch no worktree has', () => {
       expect(fromGit.check).toEqual({
         _tag: 'Checked',
         excepted: expect.any(Array),
+        doors: expect.any(Array),
         violations: [
           expect.objectContaining({
             from: 'src/alias.ts',

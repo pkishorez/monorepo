@@ -8,9 +8,9 @@ import {
   buildTree,
   focusOf,
   focusedTree,
-  leavesOf,
   opensAround,
   shownLinks,
+  structureOf,
   trailOf,
   unfolded,
   visibleRows,
@@ -42,6 +42,7 @@ export function Body({
     links,
     broken,
     excepted,
+    doors,
     shown,
     outside,
     sourceRoots,
@@ -91,10 +92,9 @@ export function Body({
     (path: string) => focus !== null && !isWithin(path, focus),
     [focus],
   );
-  const leafFolders = useMemo(
-    () =>
-      packages.length > 0 ? new Set<string>() : leavesOf(base, files, links),
-    [packages, base, files, links],
+  const structure = useMemo(
+    () => structureOf(packages, base, files, links, kinds, excepted, doors),
+    [packages, base, files, links, kinds, excepted, doors],
   );
   const leavable = focus === null && props.leavable;
   const trail = useMemo(
@@ -159,7 +159,7 @@ export function Body({
     [selected, model.home, openSet],
   );
   const connections = useConnections(tree, isOpen, selected, drawnLinks, kinds);
-  const findings = useFindings(broken, excepted, packages);
+  const findings = useFindings(broken, packages);
   const selectionFindings = useSelectionFindings(
     selected,
     base,
@@ -299,7 +299,7 @@ export function Body({
           changes={changeOf}
           changesOn={changes !== null}
           shown={shown}
-          leaves={leafFolders}
+          structure={structure}
           trail={trail}
           leavable={leavable}
           dimmed={dimmed}

@@ -67,11 +67,12 @@ export const CheckSchema = Schema.TaggedUnion({
   Checked: {
     violations: Schema.Array(ViolationSchema),
     excepted: Schema.Array(ExceptedSchema),
+    doors: Schema.Array(Schema.String),
   },
 }).annotate({
   title: 'Check',
   description:
-    "What a Package's monoverse.json makes of its imports at a branch: none, a file that cannot be read, or its Violations and the imports a door or an exception lets through.",
+    "What a Package's monoverse.json makes of its imports at a branch: none, a file that cannot be read, or its Violations, the imports a door or an exception lets through, and its door folders, relative to the root.",
 });
 
 export type Check = typeof CheckSchema.Type;

@@ -59,7 +59,12 @@ const answers: Partial<
         ['packages/a/src/x/y.ts', 'packages/a/src/z.ts'],
         ['packages/a/src/z.ts', 'packages/a/src/x/y.ts'],
       ],
-      check: { _tag: 'Checked', violations: [violation], excepted: [] },
+      check: {
+        _tag: 'Checked',
+        violations: [violation],
+        excepted: [],
+        doors: [],
+      },
     }),
   GetBranches: () =>
     Effect.fail(new GitUnavailableError({ reason: 'not-a-repo' })),
@@ -105,6 +110,7 @@ describe('Projects service', () => {
           _tag: 'Checked',
           violations: [violation],
           excepted: [],
+          doors: [],
         });
       }),
     ));

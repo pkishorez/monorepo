@@ -7,6 +7,9 @@ export const gutter = 8;
 export const topInset = 8;
 export const endInset = 12;
 
+export const canHover =
+  globalThis.matchMedia?.('(hover: hover)').matches ?? true;
+
 export const leadFor = (screen: number) => (screen < 640 ? 52 : 84);
 
 export interface Placement {
@@ -42,6 +45,26 @@ const maxWidth = 520;
 
 export function columnWidth(room: number): number {
   return Math.round(Math.max(minWidth, Math.min(maxWidth, room)));
+}
+
+const glyphRoom = 42;
+const nameRoom = 72;
+const markRoom = 44;
+const actionsRoom = 56;
+const marksGap = 16;
+
+export function widthFor(rows: ReadonlyArray<Row>, marks: number): number {
+  let deepest = 0;
+  for (const { depth } of rows) if (depth > deepest) deepest = depth;
+  return (
+    gutter +
+    deepest * indent +
+    glyphRoom +
+    nameRoom +
+    marksGap +
+    marks * markRoom +
+    actionsRoom
+  );
 }
 
 export interface Guide {

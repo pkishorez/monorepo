@@ -191,6 +191,10 @@ project.importsOf('alias/src/start.ts');
 - A Violation's `kind` is `inside`, `door`, `contract`, `restriction`,
   `unused-exception` or `stale-restriction`; `to` is the file imported,
   when there is one.
+- A `Checked` result also gives `excepted`, each import a door or an
+  exception lets through, with `by` saying which, and `doors`, every door
+  folder that holds a checked file, so a view can mark the doors nothing
+  uses.
 - Imports are resolved on the disk under `root`, and only a file in
   `files` is a target. `read` may hand over each file's text instead of
   the disk.

@@ -21,3 +21,4 @@ export {
   withDeleted,
 } from './folder-tree.js';
 export type { Crumb, FolderTree, Leaf, Row, TreeNode } from './folder-tree.js';
+export { structureOf } from './structure.js';

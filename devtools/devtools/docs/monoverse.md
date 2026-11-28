@@ -105,9 +105,23 @@ _Avoid_: edge, dependency (that is a Package dependency), link
 One import a Package's monoverse.json lets through although it is beside or
 above the importing file, so it bends the rule that a folder imports only
 what is below it: through a door such as `logic/shared/` or a
-`contract/`, or through one of its `exceptions`. Drawn violet, and counted
-on the file, every folder above it, and the Package, like a Violation.
+`contract/`, or through one of its `exceptions`. Drawn violet. Never
+counted up the tree: the folders it leaves show it as Reach instead.
 _Avoid_: allowed import, waiver
+
+**Door**:
+A folder its Package's rules open to everything inside the folder that
+holds it, such as `logic/shared/` or a `contract/`, as @kestack/monoverse
+lists them. Marked with how many folders come in through it; dimmed when
+none does, so a door nothing needs is easy to drop.
+_Avoid_: public folder
+
+**Reach**:
+The folders outside a folder that its files import, beside or above it,
+counted on that folder alone and never added up its parents. Grey when
+they come in through doors or its own module, violet when an exception
+lets one through. A folder with no Reach is a Leaf folder.
+_Avoid_: outgoing count
 
 **Shown connections**:
 The setting that chooses which Connections are drawn: Violations,
@@ -115,9 +129,12 @@ Exceptions, and Allowed (every other import). All three are on at first.
 _Avoid_: connection filter
 
 **Leaf folder**:
-A folder of a Package that other folders of the same Package import, and
-that imports none of them. Imports from other Packages or from
-`node_modules` do not count. Marked with a leaf; never a rule.
+A folder of a Package that holds code and imports nothing outside itself.
+Under the rules' default, imports only go down, so every folder is one;
+the more there are, the easier the Package is to reason about. Imports
+from other Packages or from `node_modules` do not count. Shown as a green
+leaf in place of its folder icon, and counted in the leaf score above the
+tree; never a rule.
 _Avoid_: isolated module
 
 **Folder shown alone**:

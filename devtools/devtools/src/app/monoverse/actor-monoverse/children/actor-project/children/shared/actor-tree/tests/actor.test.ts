@@ -14,6 +14,7 @@ const props: TreeProps = {
   links: [],
   broken: [],
   excepted: [],
+  doors: [],
   shown: { violations: true, exceptions: true, allowed: true },
   outside: true,
   sourceRoots: null,

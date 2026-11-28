@@ -131,6 +131,20 @@ describe('checkProject', () => {
     ]);
   });
 
+  it('lists every door folder that holds a checked file', () => {
+    const app = reportOf('app')?.result;
+    expect(app?._tag === 'Checked' ? app.doors : undefined).toEqual([
+      'app/src/feature/actor-feature/children/shared',
+      'app/src/feature/actor-feature/logic/shared',
+      'app/src/feature/server/http/otlp/contract',
+      'app/src/feature/server/rpc/contract',
+      'app/src/feature/server/rpc/feature/contract',
+      'app/src/feature/server/rpc/other/contract',
+      'app/src/feature/server/services/db/contract',
+      'app/src/feature/services/store/contract',
+    ]);
+  });
+
   it('gives a restriction’s reason with the import, by package name or by path', () => {
     expect(
       violations

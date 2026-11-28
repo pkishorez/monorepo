@@ -4,7 +4,10 @@ export type {
   ExceptedLink,
   Finding,
   Findings,
+  Reached,
+  ReachedBy,
   SelectionFindings,
+  Structure,
   TreePackage,
   TreeProps,
 } from './shape.js';
@@ -22,6 +25,7 @@ export {
   linkKey,
   opensAround,
   shownLinks,
+  structureOf,
   trailOf,
   unfolded,
   visibleOf,

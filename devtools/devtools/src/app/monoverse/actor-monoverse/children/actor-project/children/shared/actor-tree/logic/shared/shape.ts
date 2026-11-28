@@ -35,6 +35,7 @@ const ExceptedLinkSchema = Schema.Struct({
   to: Schema.String,
   line: Schema.Number,
   column: Schema.Number,
+  by: Schema.Literals(['door', 'exception']),
   message: Schema.String,
 });
 
@@ -42,9 +43,22 @@ export type ExceptedLink = typeof ExceptedLinkSchema.Type;
 
 export interface Findings {
   readonly violations: ReadonlyMap<string, number>;
-  readonly excepted: ReadonlyMap<string, number>;
   readonly cycles: ReadonlyMap<string, number>;
   readonly checks: ReadonlyMap<string, TreePackage['check']>;
+}
+
+export type ReachedBy = 'violation' | 'exception' | 'door' | 'module';
+
+export interface Reached {
+  readonly folder: string;
+  readonly by: ReachedBy;
+}
+
+export interface Structure {
+  readonly folders: number;
+  readonly leaves: ReadonlySet<string>;
+  readonly reaches: ReadonlyMap<string, ReadonlyArray<Reached>>;
+  readonly doors: ReadonlyMap<string, number>;
 }
 
 export interface Finding {
@@ -65,6 +79,7 @@ const TreePropsSchema = Schema.Struct({
   links: Schema.Array(ImportSchema),
   broken: Schema.Array(BrokenLinkSchema),
   excepted: Schema.Array(ExceptedLinkSchema),
+  doors: Schema.Array(Schema.String),
   shown: ShownSchema,
   outside: Schema.Boolean,
   sourceRoots: Schema.NullOr(Schema.Array(Schema.String)),

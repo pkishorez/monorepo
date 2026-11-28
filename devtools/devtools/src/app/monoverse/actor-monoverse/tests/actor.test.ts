@@ -82,7 +82,7 @@ const monorepo: Workspace = {
       path: 'apps/web',
       private: true,
       dependencies: [{ name: '@me/core', kinds: ['runtime'] }],
-      check: { _tag: 'Checked', violations: [], excepted: [] },
+      check: { _tag: 'Checked', violations: [], excepted: [], doors: [] },
     },
   ],
   cycles: [],
@@ -117,6 +117,7 @@ const contents = (path: string): PackageContents => {
     check: {
       _tag: 'Checked',
       excepted: [],
+      doors: [],
       violations: [
         {
           from: at('src/app/actor.ts'),
