@@ -1,6 +1,6 @@
 import { Data } from 'effect';
-import type * as Contract from '../contract/index.ts';
+import type { Out as ContractOut } from '../contract/index.ts';
 
-export type Out = Contract.Out;
+export type Out = ContractOut;
 
 export const Out = Data.taggedEnum<Out>();

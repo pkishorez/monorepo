@@ -8,10 +8,13 @@ import type {
 } from '../../../rpc/heartbeat/contract/index.js';
 import type { ConnectionNotFound } from '../../../rpc/app/contract/index.js';
 
+export class Connections extends Context.Service<
+  Connections,
+  ConnectionsCalls
+>()('ConnectCloud/server/Connections') {}
+
 export type Choice = 'enabled' | 'disabled';
-
 export type Choices = Readonly<Record<string, Choice>>;
-
 export interface KeptConnection {
   readonly id: string;
   readonly name: string;
@@ -22,7 +25,6 @@ export interface KeptConnection {
   readonly lastSeen: number;
   readonly choices: Choices;
 }
-
 export interface ConnectionsCalls {
   readonly report: (
     principal: Principal,
@@ -48,8 +50,3 @@ export interface ConnectionsCalls {
     choice: Choice,
   ) => Effect.Effect<void, ConnectionNotFound>;
 }
-
-export class Connections extends Context.Service<
-  Connections,
-  ConnectionsCalls
->()('ConnectCloud/server/Connections') {}

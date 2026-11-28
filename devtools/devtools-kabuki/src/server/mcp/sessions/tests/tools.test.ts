@@ -5,7 +5,7 @@ import { Context, Effect, Layer, Schema, Scope, SubscriptionRef } from 'effect';
 import type { AppRuntime } from '@kestack/kabuki/react/types';
 import { McpProtocol, McpServer } from 'effect/ai';
 import { HttpRouter } from 'effect/http';
-import * as NodeHttpServer from '@effect/platform-node/NodeHttpServer';
+import { NodeHttpServer } from '@effect/platform-node';
 import { Actor, Command } from '@kestack/kabuki';
 import { Fake, FakeWorld } from '@kestack/kabuki/fake';
 import { afterEach, describe, expect, it, vi } from 'vitest';

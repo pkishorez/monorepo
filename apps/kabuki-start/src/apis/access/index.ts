@@ -1,1 +1,2 @@
-export { LEVELS, OWNER, ownerOnly, type Level } from './access.ts';
+export { LEVELS, OWNER, ownerOnly } from './access.ts';
+export type { Level } from './access.ts';

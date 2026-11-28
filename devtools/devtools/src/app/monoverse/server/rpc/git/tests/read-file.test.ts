@@ -5,10 +5,10 @@ import { describe, expect, test } from 'vitest';
 
 import { withFixture } from '../../../tests/git-fixture.js';
 import { servicesLayer } from '../../../tests/services.js';
-import * as handlers from '../real/read-file.js';
+import { readRootFile as readRootFileHandler } from '../real/read-file.js';
 
 const readRootFile = (root: string, branch: string | null, path: string) =>
-  handlers.readRootFile(root, branch, path).pipe(Effect.provide(servicesLayer));
+  readRootFileHandler(root, branch, path).pipe(Effect.provide(servicesLayer));
 
 const monorepoRoot = resolve(import.meta.dirname, 'fixtures/monorepo');
 

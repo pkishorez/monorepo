@@ -9,20 +9,22 @@ export class GitError extends Data.TaggedError('GitError')<{
   readonly cause: unknown;
 }> {}
 
+export class Git extends Context.Service<Git, GitShape>()(
+  'Monoverse/server/Git',
+) {}
+
 export type Repository = {
   readonly toplevel: string;
   readonly prefix: string;
   readonly current: string | null;
   readonly worktrees: ReadonlyArray<Checkout>;
 };
-
 export type Checkout = {
   readonly root: string;
   readonly head: string;
   readonly branch: string | null;
   readonly primary: boolean;
 };
-
 export type Placement =
   | { readonly kind: 'worktree'; readonly folder: string }
   | {
@@ -30,7 +32,6 @@ export type Placement =
       readonly repository: Repository;
       readonly commit: string;
     };
-
 export interface GitShape {
   readonly run: (
     baseDir: string,
@@ -62,7 +63,3 @@ export interface GitShape {
     run: () => Promise<A>,
   ) => Effect.Effect<A, GitUnavailableError>;
 }
-
-export class Git extends Context.Service<Git, GitShape>()(
-  'Monoverse/server/Git',
-) {}

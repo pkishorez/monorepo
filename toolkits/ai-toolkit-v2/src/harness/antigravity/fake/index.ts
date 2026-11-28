@@ -1,19 +1,20 @@
 import { Layer } from 'effect';
-import * as Router from '../shared/index.ts';
-import * as Driver from './driver.ts';
+import {
+  layer as routerLayer,
+  type Options as RouterOptions,
+} from '../shared/index.ts';
+import {
+  layer as driverLayer,
+  type Options as DriverOptions,
+} from './driver.ts';
 import { agent, recordings } from './recordings/index.ts';
 
-export {
-  agent,
-  recordings,
-  type Agent,
-  type Recording,
-  type Step,
-} from './recordings/index.ts';
-
-export interface Options extends Router.Options, Partial<Driver.Options> {}
+export { agent, recordings } from './recordings/index.ts';
 
 export const layer = (options: Options = {}) =>
-  Router.layer(options).pipe(
-    Layer.provide(Driver.layer({ agent, recordings, ...options })),
+  routerLayer(options).pipe(
+    Layer.provide(driverLayer({ agent, recordings, ...options })),
   );
+
+export type { Agent, Recording, Step } from './recordings/index.ts';
+export interface Options extends RouterOptions, Partial<DriverOptions> {}

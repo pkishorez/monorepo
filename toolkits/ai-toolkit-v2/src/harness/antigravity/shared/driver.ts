@@ -1,4 +1,10 @@
-import * as acp from '@agentclientprotocol/sdk/unstable';
+import {
+  client,
+  type ClientApp,
+  type ClientConnection,
+  methods,
+  PROTOCOL_VERSION,
+} from '@agentclientprotocol/sdk/unstable';
 import { Context, Effect, type Scope } from 'effect';
 import {
   AntigravityError,
@@ -11,10 +17,10 @@ export class Driver extends Context.Service<
   Driver,
   {
     readonly connect: (
-      app: acp.ClientApp,
+      app: ClientApp,
       cwd: string | undefined,
       flags: Flags | undefined,
-    ) => Effect.Effect<acp.ClientConnection, AntigravityError, Scope.Scope>;
+    ) => Effect.Effect<ClientConnection, AntigravityError, Scope.Scope>;
     readonly print: (
       input: PromptInput,
     ) => Effect.Effect<Result, AntigravityError>;
@@ -34,14 +40,14 @@ export const call = <A>(f: () => Promise<A>) =>
 export const connect = (
   cwd: string | undefined,
   flags: Flags | undefined,
-  app = acp.client({ name: '@kestack/ai-toolkit-v2' }),
+  app = client({ name: '@kestack/ai-toolkit-v2' }),
 ) =>
   Effect.gen(function* () {
     const driver = yield* Driver;
     const connection = yield* driver.connect(app, cwd, flags);
     const initialize = yield* call(() =>
-      connection.agent.request(acp.methods.agent.initialize, {
-        protocolVersion: acp.PROTOCOL_VERSION,
+      connection.agent.request(methods.agent.initialize, {
+        protocolVersion: PROTOCOL_VERSION,
         clientCapabilities: {
           fs: { readTextFile: false, writeTextFile: false },
           terminal: false,

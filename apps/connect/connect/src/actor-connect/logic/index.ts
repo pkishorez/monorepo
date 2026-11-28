@@ -1,3 +1,25 @@
 export { init, signedInUpdates, signingInUpdates, updates } from './updates.js';
 export { signedInWorkers, signingInWorkers, workers } from './workers.js';
-export * from './shared/index.js';
+export {
+  Address,
+  Connection,
+  ConnectShape,
+  Input,
+  PluginHome,
+  Release,
+  Settings,
+  TunnelSettings,
+  Who,
+  Why,
+  backoffAfter,
+  controlOf,
+  keyOf,
+  nameOfKey,
+  pluginInputOf,
+  pluginKeys,
+  refusalsAfterSignOut,
+  routesOf,
+  runnable,
+  samePlugins,
+  socketOf,
+} from './shared/index.js';

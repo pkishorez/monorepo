@@ -1,6 +1,6 @@
-export {
-  StdTable,
-  type StoredSnapshotReads,
-  type TableBuilder,
-  type TopologyBuilder,
+export { StdTable } from './table.js';
+export type {
+  StoredSnapshotReads,
+  TableBuilder,
+  TopologyBuilder,
 } from './table.js';

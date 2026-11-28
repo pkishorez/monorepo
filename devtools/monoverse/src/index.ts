@@ -1,34 +1,17 @@
 export {
-  type Config,
-  type ConfigResult,
-  type Pass,
-  type PresetName,
-  type Rules,
   configFile,
   isChecked,
   matches,
   parseConfig,
   presets,
 } from './shared/config/index.ts';
-export { type ContractsRule } from './shared/contracts/index.ts';
-export { type ImportsRule } from './shared/imports/index.ts';
 export {
-  type CheckOptions,
-  type Excepted,
-  type Import,
-  type OpenProject,
-  type PackageReport,
-  type PackageResult,
-  type Project,
-  type Violation,
-  type ViolationKind,
   checkProject,
   isSource,
   openProject,
   sourceExtensions,
 } from './project/index.ts';
 export {
-  type Tree,
   indexFiles,
   isIndexFile,
   isInside,
@@ -37,3 +20,25 @@ export {
   parentOf,
   relativeTo,
 } from './shared/tree/index.ts';
+
+export type {
+  Config,
+  ConfigResult,
+  Pass,
+  PresetName,
+  Rules,
+} from './shared/config/index.ts';
+export { type ContractsRule } from './shared/contracts/index.ts';
+export { type ImportsRule } from './shared/imports/index.ts';
+export type {
+  CheckOptions,
+  Excepted,
+  Import,
+  OpenProject,
+  PackageReport,
+  PackageResult,
+  Project,
+  Violation,
+  ViolationKind,
+} from './project/index.ts';
+export type { Tree } from './shared/tree/index.ts';

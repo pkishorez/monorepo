@@ -1,4 +1,21 @@
-import * as acp from '@agentclientprotocol/sdk/unstable';
+import {
+  client,
+  type ClientContext,
+  type CreateElicitationResponse,
+  type InitializeResponse,
+  type JsonRpcId,
+  methods,
+  PROTOCOL_VERSION,
+  type RequestPermissionResponse,
+  type SessionConfigOption,
+  type SessionId,
+  type SessionModeState,
+  type SessionNotification,
+  type SetSessionConfigOptionRequest,
+  type SetSessionConfigOptionResponse,
+  type SetSessionModeRequest,
+  type SetSessionModeResponse,
+} from '@agentclientprotocol/sdk/unstable';
 import {
   Deferred,
   Effect,
@@ -24,13 +41,13 @@ export const call = <A>(f: () => Promise<A>) =>
       }),
   });
 
-export const connect = (cwd: string | undefined, app = acp.client()) =>
+export const connect = (cwd: string | undefined, app = client()) =>
   Effect.gen(function* () {
     const driver = yield* AcpDriver;
     const connection = yield* driver.connect(app, cwd);
     const initialize = yield* call(() =>
-      connection.agent.request(acp.methods.agent.initialize, {
-        protocolVersion: acp.PROTOCOL_VERSION,
+      connection.agent.request(methods.agent.initialize, {
+        protocolVersion: PROTOCOL_VERSION,
         clientCapabilities: {
           fs: { readTextFile: false, writeTextFile: false },
           terminal: false,
@@ -57,30 +74,30 @@ export const read = (run: Run): Stream.Stream<Out> =>
   );
 
 export interface Opened {
-  readonly sessionId: acp.SessionId;
-  readonly modes?: acp.SessionModeState | null | undefined;
-  readonly configOptions?: Array<acp.SessionConfigOption> | null | undefined;
+  readonly sessionId: SessionId;
+  readonly modes?: SessionModeState | null | undefined;
+  readonly configOptions?: Array<SessionConfigOption> | null | undefined;
 }
 
 export interface Instance {
-  readonly id: acp.SessionId;
-  readonly agent: acp.ClientContext;
-  readonly initialize: acp.InitializeResponse;
+  readonly id: SessionId;
+  readonly agent: ClientContext;
+  readonly initialize: InitializeResponse;
   readonly live: SubscriptionRef.SubscriptionRef<Live>;
   readonly gone: Deferred.Deferred<void>;
   readonly hold: Effect.Effect<void, never, Scope.Scope>;
   readonly submit: (options: RunOptions) => Effect.Effect<Run>;
   readonly respond: (
-    requestId: acp.JsonRpcId,
+    requestId: JsonRpcId,
     answer: Answer,
   ) => Effect.Effect<void, AcpError>;
   readonly cancel: Effect.Effect<void>;
   readonly setMode: (
-    request: acp.SetSessionModeRequest,
-  ) => Effect.Effect<acp.SetSessionModeResponse, AcpError>;
+    request: SetSessionModeRequest,
+  ) => Effect.Effect<SetSessionModeResponse, AcpError>;
   readonly setConfigOption: (
-    request: acp.SetSessionConfigOptionRequest,
-  ) => Effect.Effect<acp.SetSessionConfigOptionResponse, AcpError>;
+    request: SetSessionConfigOptionRequest,
+  ) => Effect.Effect<SetSessionConfigOptionResponse, AcpError>;
   readonly stop: Effect.Effect<void>;
 }
 
@@ -89,8 +106,8 @@ export interface InstanceOptions {
   readonly linger: Duration.Input;
   readonly parent: Scope.Scope;
   readonly open: (
-    agent: acp.ClientContext,
-    initialize: acp.InitializeResponse,
+    agent: ClientContext,
+    initialize: InitializeResponse,
   ) => Effect.Effect<Opened, AcpError>;
   readonly onGone: (instance: Instance) => Effect.Effect<void>;
 }
@@ -102,13 +119,11 @@ interface Waiting {
   readonly drop: Effect.Effect<void>;
 }
 
-const isPermission = (
-  answer: Answer,
-): answer is acp.RequestPermissionResponse => 'outcome' in answer;
+const isPermission = (answer: Answer): answer is RequestPermissionResponse =>
+  'outcome' in answer;
 
-const isElicitation = (
-  answer: Answer,
-): answer is acp.CreateElicitationResponse => 'action' in answer;
+const isElicitation = (answer: Answer): answer is CreateElicitationResponse =>
+  'action' in answer;
 
 const push = (run: Run, out: Out) =>
   Effect.suspend(() => {
@@ -134,7 +149,7 @@ export const make = Effect.fn('Acp.instance')(function* (
   const scope = yield* Scope.make();
   const context = yield* Effect.context<never>();
   const runPromise = Effect.runPromiseWith(context);
-  const waiting = new Map<acp.JsonRpcId, Waiting>();
+  const waiting = new Map<JsonRpcId, Waiting>();
   const state: {
     current: Run | undefined;
     tail: Deferred.Deferred<void> | undefined;
@@ -161,7 +176,7 @@ export const make = Effect.fn('Acp.instance')(function* (
     requests: [...waiting.values()].map((entry) => entry.pending),
   }));
 
-  const onUpdate = (notification: acp.SessionNotification) =>
+  const onUpdate = (notification: SessionNotification) =>
     Effect.gen(function* () {
       if (state.current) {
         yield* push(state.current, Out.Record({ record: notification }));
@@ -218,13 +233,12 @@ export const make = Effect.fn('Acp.instance')(function* (
       ),
     );
 
-  const app = acp
-    .client({ name: '@kestack/ai-toolkit-v2' })
-    .onNotification(acp.methods.client.session.update, ({ params }) =>
+  const app = client({ name: '@kestack/ai-toolkit-v2' })
+    .onNotification(methods.client.session.update, ({ params }) =>
       runPromise(onUpdate(params)),
     )
     .onRequest(
-      acp.methods.client.session.requestPermission,
+      methods.client.session.requestPermission,
       ({ params, requestId, signal }) =>
         runPromise(
           ask(
@@ -240,7 +254,7 @@ export const make = Effect.fn('Acp.instance')(function* (
         ),
     )
     .onRequest(
-      acp.methods.client.elicitation.create,
+      methods.client.elicitation.create,
       ({ params, requestId, signal }) =>
         runPromise(
           ask(
@@ -312,7 +326,7 @@ export const make = Effect.fn('Acp.instance')(function* (
       if (run.mode !== undefined) {
         const modeId = run.mode;
         yield* call(() =>
-          agent.request(acp.methods.agent.session.setMode, {
+          agent.request(methods.agent.session.setMode, {
             sessionId: id,
             modeId,
           }),
@@ -320,14 +334,14 @@ export const make = Effect.fn('Acp.instance')(function* (
       }
       for (const value of run.config ?? []) {
         yield* call(() =>
-          agent.request(acp.methods.agent.session.setConfigOption, {
+          agent.request(methods.agent.session.setConfigOption, {
             ...value,
             sessionId: id,
           }),
         );
       }
       const result = yield* call(() =>
-        agent.request(acp.methods.agent.session.prompt, {
+        agent.request(methods.agent.session.prompt, {
           sessionId: id,
           prompt: run.prompt,
         }),
@@ -387,7 +401,7 @@ export const make = Effect.fn('Acp.instance')(function* (
       return current;
     });
 
-  const respond = (requestId: acp.JsonRpcId, answer: Answer) =>
+  const respond = (requestId: JsonRpcId, answer: Answer) =>
     Effect.suspend(() => {
       const entry = waiting.get(requestId);
       return entry
@@ -402,7 +416,7 @@ export const make = Effect.fn('Acp.instance')(function* (
   const cancel = Effect.gen(function* () {
     yield* Effect.promise(() =>
       agent
-        .notify(acp.methods.agent.session.cancel, { sessionId: id })
+        .notify(methods.agent.session.cancel, { sessionId: id })
         .catch(() => undefined),
     );
     for (const entry of waiting.values()) {
@@ -410,8 +424,8 @@ export const make = Effect.fn('Acp.instance')(function* (
     }
   });
 
-  const setMode = (request: acp.SetSessionModeRequest) =>
-    call(() => agent.request(acp.methods.agent.session.setMode, request)).pipe(
+  const setMode = (request: SetSessionModeRequest) =>
+    call(() => agent.request(methods.agent.session.setMode, request)).pipe(
       Effect.tap(() =>
         update((live) => ({
           ...live,
@@ -423,9 +437,9 @@ export const make = Effect.fn('Acp.instance')(function* (
       ),
     );
 
-  const setConfigOption = (request: acp.SetSessionConfigOptionRequest) =>
+  const setConfigOption = (request: SetSessionConfigOptionRequest) =>
     call(() =>
-      agent.request(acp.methods.agent.session.setConfigOption, request),
+      agent.request(methods.agent.session.setConfigOption, request),
     ).pipe(
       Effect.tap((response) =>
         update((live) => ({ ...live, configOptions: response.configOptions })),

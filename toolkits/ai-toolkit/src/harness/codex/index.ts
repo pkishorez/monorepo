@@ -1,1 +1,2 @@
-export { codex, codexOneShot, restore, type StreamPointer } from './codex.js';
+export { codex, codexOneShot, restore } from './codex.js';
+export type { StreamPointer } from './codex.js';

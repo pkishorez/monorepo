@@ -10,5 +10,8 @@
  * the Node `speechLayer`.
  */
 
-export { speech, type SpeechState } from './speech.js';
-export { makeFakeSpeech, type FakeSpeech } from './fake-speech.js';
+export { speech } from './speech.js';
+export { makeFakeSpeech } from './fake-speech.js';
+
+export type { SpeechState } from './speech.js';
+export type { FakeSpeech } from './fake-speech.js';

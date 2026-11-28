@@ -1,7 +1,4 @@
-import * as Effect from 'effect/Effect';
-import * as Fiber from 'effect/Fiber';
-import * as Stream from 'effect/Stream';
-import * as SubscriptionRef from 'effect/SubscriptionRef';
+import { Effect, Fiber, Stream, SubscriptionRef } from 'effect';
 import { useCallback, useSyncExternalStore } from 'react';
 
 /** The ref's current value, re-rendering on change; `fallback` during SSR, hydration and before the ref exists. */

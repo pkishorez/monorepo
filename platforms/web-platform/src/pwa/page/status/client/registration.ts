@@ -1,5 +1,4 @@
-import * as Effect from 'effect/Effect';
-import * as Option from 'effect/Option';
+import { Effect, Option } from 'effect';
 import { isPwaCacheName } from '../../../contract/build/index.js';
 import type { ClientBuildInfo } from '../../../contract/config/index.js';
 import { isBrowser } from '../../kit/dom-events.js';

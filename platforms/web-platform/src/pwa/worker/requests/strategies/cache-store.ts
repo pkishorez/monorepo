@@ -1,6 +1,4 @@
-import * as Clock from 'effect/Clock';
-import * as Effect from 'effect/Effect';
-import * as Option from 'effect/Option';
+import { Clock, Effect, Option } from 'effect';
 import {
   attempt,
   type GlobalScope,

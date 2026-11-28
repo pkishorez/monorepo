@@ -1,6 +1,4 @@
-import * as Effect from 'effect/Effect';
-import * as Option from 'effect/Option';
-import * as Schema from 'effect/Schema';
+import { Effect, Option, Schema } from 'effect';
 
 /**
  * The resumable state of a single streaming request.

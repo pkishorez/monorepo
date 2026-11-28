@@ -8,25 +8,6 @@ const DEFAULT_NAME = 'main';
 const DEFAULT_CLOUD = 'https://connect.kishore.app';
 const DEFAULT_HEARTBEAT = 15;
 
-export interface ServeFlags {
-  readonly name: string;
-  readonly port: number;
-  readonly cloud: string;
-  readonly origins: ReadonlyArray<string>;
-  readonly heartbeat: number;
-  readonly devtools: Option.Option<string>;
-}
-
-export interface Commands {
-  readonly serve: (flags: ServeFlags) => Effect.Effect<void, unknown>;
-  readonly list: () => Effect.Effect<void, unknown>;
-  readonly stop: (name: string) => Effect.Effect<void, unknown>;
-  readonly remove: (
-    name: string,
-    deleteData: boolean,
-  ) => Effect.Effect<void, unknown>;
-}
-
 const name = Argument.String('name').pipe(
   Argument.withDescription(
     `The Connection's name on this computer; ${DEFAULT_NAME} unless given`,
@@ -139,3 +120,21 @@ export const run = (commands: Commands, version: string) => {
     args.length === 0 ? ['--help'] : args,
   ).pipe(Effect.provide(NodeServices.layer), NodeRuntime.runMain);
 };
+
+export interface ServeFlags {
+  readonly name: string;
+  readonly port: number;
+  readonly cloud: string;
+  readonly origins: ReadonlyArray<string>;
+  readonly heartbeat: number;
+  readonly devtools: Option.Option<string>;
+}
+export interface Commands {
+  readonly serve: (flags: ServeFlags) => Effect.Effect<void, unknown>;
+  readonly list: () => Effect.Effect<void, unknown>;
+  readonly stop: (name: string) => Effect.Effect<void, unknown>;
+  readonly remove: (
+    name: string,
+    deleteData: boolean,
+  ) => Effect.Effect<void, unknown>;
+}

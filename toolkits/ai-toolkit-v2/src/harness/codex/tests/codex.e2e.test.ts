@@ -17,7 +17,10 @@ import {
   type TurnInput,
 } from '../contract/index.ts';
 import type { Answers, Recording, Step } from '../fake/index.ts';
-import * as CodexReal from '../real/index.ts';
+import {
+  driver as codexRealDriver,
+  layer as codexRealLayer,
+} from '../real/index.ts';
 import { Driver } from '../shared/index.ts';
 import { generate, protocolFile } from './protocol.ts';
 
@@ -72,8 +75,8 @@ const text = (value: string) => [
 ];
 
 const layer = Layer.mergeAll(
-  CodexReal.layer({ linger: '2 seconds' }),
-  CodexReal.driver(),
+  codexRealLayer({ linger: '2 seconds' }),
+  codexRealDriver(),
 );
 
 describe.runIf(e2e)('Codex on the real codex app-server', () => {

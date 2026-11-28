@@ -1,22 +1,5 @@
 import { Context, Data, type Duration, type Effect } from 'effect';
 
-export interface Progress {
-  readonly received: number;
-  readonly total: number | null;
-}
-
-export interface Download {
-  readonly url: string;
-  readonly sha256: string;
-  readonly name?: string;
-}
-
-export interface Made<E> {
-  readonly key: string;
-  readonly name?: string;
-  readonly produce: (file: string) => Effect.Effect<void, E>;
-}
-
 export class DownloadFailed extends Data.TaggedError('DownloadFailed')<{
   readonly url: string;
   readonly message: string;
@@ -51,3 +34,18 @@ export class Downloads extends Context.Service<
     }) => Effect.Effect<ReadonlyArray<string>, CacheError>;
   }
 >()('Connect/service/Downloads') {}
+
+export interface Progress {
+  readonly received: number;
+  readonly total: number | null;
+}
+export interface Download {
+  readonly url: string;
+  readonly sha256: string;
+  readonly name?: string;
+}
+export interface Made<E> {
+  readonly key: string;
+  readonly name?: string;
+  readonly produce: (file: string) => Effect.Effect<void, E>;
+}

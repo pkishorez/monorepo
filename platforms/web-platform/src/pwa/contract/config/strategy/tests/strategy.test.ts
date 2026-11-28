@@ -1,5 +1,4 @@
-import * as Option from 'effect/Option';
-import * as Schema from 'effect/Schema';
+import { Option, Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import {
   findStrategyRule,

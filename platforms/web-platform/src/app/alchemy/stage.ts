@@ -1,5 +1,5 @@
 import { AlchemyContext, Stage } from 'alchemy';
-import * as Effect from 'effect/Effect';
+import { Effect } from 'effect';
 
 /*
  * A deploy's Stage, as alchemy names it: `prod`, `demo`, a pull request's

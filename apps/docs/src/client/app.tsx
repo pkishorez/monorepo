@@ -1,7 +1,7 @@
 import { View } from '@kestack/kabuki/react';
 import { Start } from '@kestack/kabuki/start';
 import { document } from '@kestack/web-platform/app/document';
-import { Pages, router } from '../shared/index.ts';
+import { AppLive, router } from '../shared/index.ts';
 import { Layout, Theme } from './components/index.ts';
 import { HomeView } from './pages/home/index.ts';
 import { KabukiView } from './pages/kabuki/index.ts';
@@ -15,7 +15,7 @@ import './styles.css';
  * that names no page draws the not-found page.
  */
 
-const AppView = View.make(Pages.AppLive, (self) => {
+const AppView = View.make(AppLive, (self) => {
   const { Home, Kabuki, StdToolkit } = self.children;
   const { route } = self.props;
   if (

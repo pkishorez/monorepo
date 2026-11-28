@@ -6,11 +6,12 @@ export {
   planStories,
   runStories,
 } from './run-stories.js';
+export { findSelfContainedViolations } from './self-contained.js';
+export { StoriesError } from './errors.js';
+
 export type {
   RunStoriesOptions,
   StoriesRun,
   StoryTellingIssue,
 } from './run-stories.js';
-export { findSelfContainedViolations } from './self-contained.js';
 export type { SelfContainedViolation } from './self-contained.js';
-export { StoriesError } from './errors.js';

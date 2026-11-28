@@ -2,7 +2,11 @@ import { DatabaseSync } from 'node:sqlite';
 import type { DurableObjectSQLiteStorage } from '@kestack/std-toolkit/db/sqlite/durable-object';
 import { Effect } from 'effect';
 import { HttpServerRequest } from 'effect/http';
-import * as websocket from '../rpc/websocket/index.ts';
+import {
+  attachmentStreamStore,
+  type HibernatingSocket,
+  sqliteStreamStore,
+} from '../rpc/websocket/index.ts';
 
 /** A stand-in for a Durable Object's `storage`, over an in-memory node:sqlite. */
 export const durableObjectStorage = () => {
@@ -39,8 +43,8 @@ export function socket(seed: unknown = null) {
   const sent: string[] = [];
   const closed: Array<{ code: number; reason: string }> = [];
   const ws = { send: (data: string) => sent.push(data), close: () => {} };
-  const port: websocket.HibernatingSocket = {
-    ws: ws as unknown as websocket.HibernatingSocket['ws'],
+  const port: HibernatingSocket = {
+    ws: ws as unknown as HibernatingSocket['ws'],
     close: (code, reason) =>
       Effect.sync(() => void closed.push({ code, reason })),
     serializeAttachment: (value) => {
@@ -63,7 +67,7 @@ export const stores = [
   {
     name: 'attachment',
     make: () => ({
-      store: () => websocket.attachmentStreamStore(),
+      store: () => attachmentStreamStore(),
       rows: () => undefined as number | undefined,
     }),
   },
@@ -72,7 +76,7 @@ export const stores = [
     make: () => {
       const { storage, database } = durableObjectStorage();
       return {
-        store: () => websocket.sqliteStreamStore({ storage }),
+        store: () => sqliteStreamStore({ storage }),
         /**
          * Physical rows in the table, so a soft delete would still be counted.
          * The table's own snapshot items (internal `__` entities) are not the

@@ -5,7 +5,5 @@ export {
   readableError,
   TEXT_CHUNK,
   TURN_END,
-  type Channel,
-  type QuestionAnswered,
-  type ToolItem,
 } from './record-kinds.js';
+export type { Channel, QuestionAnswered, ToolItem } from './record-kinds.js';

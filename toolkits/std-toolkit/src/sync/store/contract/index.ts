@@ -1,9 +1,7 @@
-export {
-  closedTopic,
-  noDoorbell,
-  noLeadership,
-  type Doorbell,
-  type Leadership,
-  type SyncStore,
-  type SyncTableLayer,
+export { closedTopic, noDoorbell, noLeadership } from './contract.js';
+export type {
+  Doorbell,
+  Leadership,
+  SyncStore,
+  SyncTableLayer,
 } from './contract.js';

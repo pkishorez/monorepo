@@ -4,5 +4,5 @@ export {
   readsOf,
   Replicas,
   NeverSynced,
-  type Running,
 } from './replicas.js';
+export type { Running } from './replicas.js';

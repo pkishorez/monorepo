@@ -1,12 +1,12 @@
-import * as colors from 'yoctocolors';
+import { gray, green, yellow } from 'yoctocolors';
 
 import type { FileInspection } from '../../../orchestrator/inspect/index.js';
 import { renderPathTree } from '../path-tree.js';
 
 export function renderFileInspection(inspection: FileInspection): string {
   const legend = inspection.recursive
-    ? `${colors.green('■')} active   ${colors.yellow('■')} direct dependency   ${colors.gray('■')} transitive dependency`
-    : `${colors.green('■')} active   ${colors.yellow('■')} direct dependency`;
+    ? `${green('■')} active   ${yellow('■')} direct dependency   ${gray('■')} transitive dependency`
+    : `${green('■')} active   ${yellow('■')} direct dependency`;
   const output = [
     `File:   ${inspection.path}`,
     `Module: ${inspection.role === 'uncovered' ? 'none' : inspection.owner}`,
@@ -19,7 +19,7 @@ export function renderFileInspection(inspection: FileInspection): string {
   if (inspection.role === 'uncovered') {
     output.push(
       '',
-      colors.yellow('Warning: no Module owns this file.'),
+      yellow('Warning: no Module owns this file.'),
       'Run `laymos lint` for details.',
     );
   }

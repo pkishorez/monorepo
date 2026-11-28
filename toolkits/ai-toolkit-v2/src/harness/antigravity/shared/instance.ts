@@ -1,4 +1,18 @@
-import * as acp from '@agentclientprotocol/sdk/unstable';
+import {
+  client,
+  type ClientContext,
+  type ContentBlock,
+  type CreateElicitationResponse,
+  type JsonRpcId,
+  methods,
+  type PromptResponse,
+  type RequestPermissionResponse,
+  type SessionConfigOption,
+  type SessionModeState,
+  type SessionNotification,
+  type SetSessionConfigOptionRequest,
+  type SetSessionConfigOptionResponse,
+} from '@agentclientprotocol/sdk/unstable';
 import {
   Deferred,
   Effect,
@@ -23,7 +37,7 @@ import { Out } from './out.ts';
 export interface Run {
   readonly elements: Array<Out>;
   readonly size: SubscriptionRef.SubscriptionRef<number>;
-  readonly prompts: Array<Array<acp.ContentBlock>>;
+  readonly prompts: Array<Array<ContentBlock>>;
   readonly end: Deferred.Deferred<Out>;
   closed: boolean;
 }
@@ -39,28 +53,28 @@ export const read = (run: Run): Stream.Stream<Out> =>
 
 export interface Opened {
   readonly sessionId: string;
-  readonly modes?: acp.SessionModeState | null;
-  readonly configOptions?: Array<acp.SessionConfigOption> | null;
+  readonly modes?: SessionModeState | null;
+  readonly configOptions?: Array<SessionConfigOption> | null;
 }
 
 export interface Instance {
   readonly id: string;
-  readonly agent: acp.ClientContext;
+  readonly agent: ClientContext;
   readonly live: SubscriptionRef.SubscriptionRef<Live>;
   readonly gone: Deferred.Deferred<void>;
   readonly hold: Effect.Effect<void, never, Scope.Scope>;
   readonly submit: (input: RunInput) => Effect.Effect<Run | undefined>;
   readonly join: (
-    message: Array<acp.ContentBlock>,
+    message: Array<ContentBlock>,
   ) => Effect.Effect<Run | undefined>;
   readonly respond: (
-    requestId: acp.JsonRpcId,
+    requestId: JsonRpcId,
     answer: Answer,
   ) => Effect.Effect<void, AntigravityError>;
   readonly cancel: Effect.Effect<void>;
   readonly setConfigOption: (
-    request: acp.SetSessionConfigOptionRequest,
-  ) => Effect.Effect<acp.SetSessionConfigOptionResponse, AntigravityError>;
+    request: SetSessionConfigOptionRequest,
+  ) => Effect.Effect<SetSessionConfigOptionResponse, AntigravityError>;
   readonly stop: Effect.Effect<void>;
 }
 
@@ -70,7 +84,7 @@ export interface Options {
   readonly linger: Duration.Input;
   readonly parent: Scope.Scope;
   readonly open: (
-    agent: acp.ClientContext,
+    agent: ClientContext,
   ) => Effect.Effect<Opened, AntigravityError>;
   readonly onGone: (instance: Instance) => Effect.Effect<void>;
 }
@@ -78,7 +92,7 @@ export interface Options {
 const failed = (message: string) =>
   Out.Ended({ status: 'failed', error: new AntigravityError({ message }) });
 
-const ended = (result: acp.PromptResponse) =>
+const ended = (result: PromptResponse) =>
   Out.Ended({
     status: result.stopReason === 'cancelled' ? 'cancelled' : 'completed',
     result,
@@ -91,7 +105,7 @@ const cancelled = (request: Request): Answer =>
 
 const changed = (
   live: Live,
-  notification: acp.SessionNotification,
+  notification: SessionNotification,
   outside: boolean,
 ): Live | undefined => {
   const update = notification.update;
@@ -121,7 +135,7 @@ export const make = Effect.fn('Antigravity.instance')(function* (
   const runSync = Effect.runSyncWith(context);
   const runPromise = Effect.runPromiseWith(context);
   const pending = new Map<
-    acp.JsonRpcId,
+    JsonRpcId,
     { readonly request: Request; readonly answer: Deferred.Deferred<Answer> }
   >();
   const state: {
@@ -150,7 +164,7 @@ export const make = Effect.fn('Antigravity.instance')(function* (
     requests: [...pending.values()].map((entry) => entry.request),
   }));
 
-  const onUpdate = (notification: acp.SessionNotification) =>
+  const onUpdate = (notification: SessionNotification) =>
     Effect.gen(function* () {
       const run = state.current;
       if (state.live) {
@@ -180,26 +194,25 @@ export const make = Effect.fn('Antigravity.instance')(function* (
       ),
     );
 
-  const app = acp
-    .client({ name: '@kestack/ai-toolkit-v2' })
-    .onNotification(acp.methods.client.session.update, ({ params }) =>
+  const app = client({ name: '@kestack/ai-toolkit-v2' })
+    .onNotification(methods.client.session.update, ({ params }) =>
       runSync(onUpdate(params)),
     )
     .onRequest(
-      acp.methods.client.session.requestPermission,
+      methods.client.session.requestPermission,
       ({ params, requestId, signal }) =>
         runPromise(
           ask({ method: 'session/request_permission', id: requestId, params }),
           { signal },
-        ) as Promise<acp.RequestPermissionResponse>,
+        ) as Promise<RequestPermissionResponse>,
     )
     .onRequest(
-      acp.methods.client.elicitation.create,
+      methods.client.elicitation.create,
       ({ params, requestId, signal }) =>
         runPromise(
           ask({ method: 'elicitation/create', id: requestId, params }),
           { signal },
-        ) as Promise<acp.CreateElicitationResponse>,
+        ) as Promise<CreateElicitationResponse>,
     );
 
   const { connection, initialize } = yield* connect(
@@ -280,7 +293,7 @@ export const make = Effect.fn('Antigravity.instance')(function* (
 
   const prompt = (run: Run, index: number) =>
     call(() =>
-      agent.request(acp.methods.agent.session.prompt, {
+      agent.request(methods.agent.session.prompt, {
         sessionId: id,
         prompt: run.prompts[index] ?? [],
       }),
@@ -297,7 +310,7 @@ export const make = Effect.fn('Antigravity.instance')(function* (
     Effect.gen(function* () {
       for (const value of input.config ?? []) {
         yield* call(() =>
-          agent.request(acp.methods.agent.session.setConfigOption, {
+          agent.request(methods.agent.session.setConfigOption, {
             ...value,
             sessionId: id,
           }),
@@ -364,7 +377,7 @@ export const make = Effect.fn('Antigravity.instance')(function* (
       return run;
     });
 
-  const join = (message: Array<acp.ContentBlock>) =>
+  const join = (message: Array<ContentBlock>) =>
     Effect.suspend(() => {
       const run = state.current;
       if (run === undefined || run.closed) return Effect.succeed(undefined);
@@ -372,7 +385,7 @@ export const make = Effect.fn('Antigravity.instance')(function* (
       return prompt(run, run.prompts.length - 1).pipe(Effect.as(run));
     });
 
-  const respond = (requestId: acp.JsonRpcId, answer: Answer) =>
+  const respond = (requestId: JsonRpcId, answer: Answer) =>
     Effect.suspend(() => {
       const entry = pending.get(requestId);
       return entry
@@ -387,7 +400,7 @@ export const make = Effect.fn('Antigravity.instance')(function* (
   const cancel = Effect.gen(function* () {
     yield* Effect.promise(() =>
       agent
-        .notify(acp.methods.agent.session.cancel, { sessionId: id })
+        .notify(methods.agent.session.cancel, { sessionId: id })
         .catch(() => undefined),
     );
     for (const entry of pending.values()) {
@@ -395,9 +408,9 @@ export const make = Effect.fn('Antigravity.instance')(function* (
     }
   });
 
-  const setConfigOption = (request: acp.SetSessionConfigOptionRequest) =>
+  const setConfigOption = (request: SetSessionConfigOptionRequest) =>
     call(() =>
-      agent.request(acp.methods.agent.session.setConfigOption, request),
+      agent.request(methods.agent.session.setConfigOption, request),
     ).pipe(
       Effect.tap((response) =>
         update((now) => ({ ...now, configOptions: response.configOptions })),

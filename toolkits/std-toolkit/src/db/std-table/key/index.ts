@@ -7,6 +7,5 @@ export {
   readKeyPath,
   recordReader,
   valueReader,
-  type KeyPart,
-  type KeyReader,
 } from './key.js';
+export type { KeyPart, KeyReader } from './key.js';

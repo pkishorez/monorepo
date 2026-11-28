@@ -1,4 +1,4 @@
-import * as colors from 'yoctocolors';
+import { cyan } from 'yoctocolors';
 
 import type { ProofVerdict } from '../../story/schema/index.js';
 import { countVerdict, emptyTally, renderTally } from './report.js';
@@ -14,7 +14,7 @@ export function startProgress(total: number): ProofProgress {
   let tally = emptyTally;
   let frame = 0;
   const draw = () =>
-    line.write(`${colors.cyan(spinner[frame]!)} ${renderTally(tally, total)}`);
+    line.write(`${cyan(spinner[frame]!)} ${renderTally(tally, total)}`);
   const ticker = setInterval(() => {
     frame = (frame + 1) % spinner.length;
     draw();

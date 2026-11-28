@@ -17,8 +17,10 @@ export {
   ReindexConflict,
   TransactFailed,
   TransactionTooLarge,
-  type DatabaseErrorReason,
-  type TransactOperation,
-  type TransactOutcome,
-  type TransactOutcomeStatus,
+} from './error.js';
+export type {
+  DatabaseErrorReason,
+  TransactOperation,
+  TransactOutcome,
+  TransactOutcomeStatus,
 } from './error.js';

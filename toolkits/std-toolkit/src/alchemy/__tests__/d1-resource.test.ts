@@ -1,5 +1,5 @@
 import { Effect, Schema } from 'effect';
-import * as Output from 'alchemy/Output';
+import { literal } from 'alchemy/Output';
 import type * as Cloudflare from '@alchemy.run/cloudflare';
 import { expect, it, vi } from 'vitest';
 import { StdTable } from '../../db/index.js';
@@ -26,7 +26,7 @@ it.each(['persistent', 'disposable'] as const)(
   'declares a %s table with its snapshot and no deploy guard',
   async (mode) => {
     const table = StdTable.make('tasks').primary('pk', 'sk').build();
-    const databaseId = Output.literal('db-1');
+    const databaseId = literal('db-1');
     const database = { databaseId } as unknown as Cloudflare.D1.Database;
 
     const resource = (await Effect.runPromise(
@@ -52,7 +52,7 @@ it.each(['persistent', 'disposable'] as const)(
 it('names the physical table after the StdTable by default', async () => {
   const table = StdTable.make('prefs').primary('pk', 'sk').build();
   const database = {
-    databaseId: Output.literal('db-1'),
+    databaseId: literal('db-1'),
   } as unknown as Cloudflare.D1.Database;
 
   const resource = (await Effect.runPromise(
@@ -139,7 +139,7 @@ it('keeps the local secondary indexes in declared order in __snapshot', async ()
     .lsi('LSI1', 'LSI1SK')
     .build();
   const database = {
-    databaseId: Output.literal('db-1'),
+    databaseId: literal('db-1'),
   } as unknown as Cloudflare.D1.Database;
   const resource = (await Effect.runPromise(
     D1.table('Tasks', { table, database, mode: 'persistent' }) as Effect.Effect<

@@ -35,20 +35,26 @@ import {
   createFolders,
   hostName,
 } from './folders/index.js';
-import * as CloudReal from './services/cloud/real/index.js';
+import { layer as cloudLayer } from './services/cloud/real/index.js';
 import { Cloud } from './services/cloud/contract/index.js';
-import * as CloudflaredReal from './services/cloudflared/real/index.js';
+import {
+  CLOUDFLARED_KEY,
+  layer as cloudflaredLayer,
+} from './services/cloudflared/real/index.js';
 import { hold, reach } from './services/control/real/index.js';
 import { Control } from './services/control/contract/index.js';
 import { Downloads } from './services/downloads/contract/index.js';
-import * as DownloadsReal from './services/downloads/real/index.js';
-import * as LocksReal from './services/locks/real/index.js';
-import * as PluginsReal from './services/plugins/real/index.js';
-import * as ServerReal from './services/server/real/index.js';
+import { layer as downloadsLayer } from './services/downloads/real/index.js';
+import { layer as locksLayer } from './services/locks/real/index.js';
+import { layer as pluginsLayer } from './services/plugins/real/index.js';
+import { layer as serverLayer } from './services/server/real/index.js';
 import { SignIn } from './services/sign-in/contract/index.js';
-import * as SignInReal from './services/sign-in/real/index.js';
+import { layer as signInLayer } from './services/sign-in/real/index.js';
 import { Store } from './services/store/contract/index.js';
-import * as StoreReal from './services/store/real/index.js';
+import {
+  layer as storeLayer,
+  readConnection,
+} from './services/store/real/index.js';
 
 const version = (
   JSON.parse(
@@ -83,35 +89,31 @@ const logsTo = (file: string) =>
   ) satisfies Layer.Layer<never>;
 
 const accountLayer = (own: ConnectionFolders, cloud: string) => {
-  const store = StoreReal.layer({
+  const store = storeLayer({
     db: own.db,
     backups: own.backups,
     version,
     host: hostname(),
     shortHost: hostName(),
   });
-  const signIn = SignInReal.layer({ cloud, version }).pipe(
+  const signIn = signInLayer({ cloud, version }).pipe(
     Layer.provideMerge(store),
   );
-  return CloudReal.layer({ cloud, version }).pipe(Layer.provideMerge(signIn));
+  return cloudLayer({ cloud, version }).pipe(Layer.provideMerge(signIn));
 };
 
 const runningLayer = (own: ConnectionFolders) => {
-  const locks = LocksReal.layer;
-  const downloads = DownloadsReal.layer(own.cache).pipe(
-    Layer.provideMerge(locks),
+  const locks = locksLayer;
+  const downloads = downloadsLayer(own.cache).pipe(Layer.provideMerge(locks));
+  return Layer.mergeAll(serverLayer, cloudflaredLayer, pluginsLayer).pipe(
+    Layer.provideMerge(downloads),
   );
-  return Layer.mergeAll(
-    ServerReal.layer,
-    CloudflaredReal.layer,
-    PluginsReal.layer,
-  ).pipe(Layer.provideMerge(downloads));
 };
 
 const prune = Effect.flatMap(Downloads, (downloads) =>
   downloads.prune({
     olderThan: UNUSED,
-    keep: [CloudflaredReal.CLOUDFLARED_KEY],
+    keep: [CLOUDFLARED_KEY],
   }),
 ).pipe(
   Effect.flatMap((removed) =>
@@ -159,7 +161,7 @@ const serve = (flags: ServeFlags) =>
   Effect.gen(function* () {
     const own = yield* foldersOf(flags.name);
     const held = yield* hold(own.control, flags.name).pipe(
-      Effect.provide(LocksReal.layer),
+      Effect.provide(locksLayer),
       Effect.mapError(
         (error) =>
           new ConnectionStopped({
@@ -268,7 +270,7 @@ const list = () =>
     for (const name of names) {
       const own = yield* foldersOf(name);
       const running = yield* statusOf(own);
-      const kept = yield* StoreReal.readConnection(own.db).pipe(
+      const kept = yield* readConnection(own.db).pipe(
         Effect.orElseSucceed(() => null),
       );
       yield* Console.log(
@@ -339,7 +341,7 @@ const remove = (name: string, deleteData: boolean) =>
       yield* Console.log(`Stopping ${name}`);
       yield* stopRunning(own);
     }
-    const kept = yield* StoreReal.readConnection(own.db).pipe(
+    const kept = yield* readConnection(own.db).pipe(
       Effect.orElseSucceed(() => null),
     );
     if (kept !== null)

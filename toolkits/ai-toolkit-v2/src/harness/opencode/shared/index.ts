@@ -1,8 +1,6 @@
-export {
-  type Delivery,
-  Driver,
-  type DriverShape,
-  sessionOf,
-} from './driver.js';
+export { Driver, sessionOf } from './driver.js';
 export { Out } from './out.js';
-export { makeOpenCode, type RouterOptions } from './router.js';
+export { makeOpenCode } from './router.js';
+
+export type { Delivery, DriverShape } from './driver.js';
+export type { RouterOptions } from './router.js';

@@ -11,7 +11,7 @@ import {
   type Out,
   type SessionID,
 } from '../contract/index.js';
-import * as OpenCodeReal from '../real/index.js';
+import { layer as openCodeRealLayer } from '../real/index.js';
 
 const enabled = process.env['AI_TOOLKIT_V2_E2E'] === '1';
 const [providerID = 'google', modelID = 'gemini-3.5-flash-lite'] = (
@@ -106,7 +106,7 @@ interface Messages {
 
 describe.skipIf(!enabled)('OpenCode e2e', () => {
   layer(
-    OpenCodeReal.layer({
+    openCodeRealLayer({
       host: { database: { path: join(directory, 'opencode.db') } },
     }),
     { excludeTestServices: true, timeout: '60 seconds' },

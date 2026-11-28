@@ -6,7 +6,6 @@ export const ControlState = Schema.Struct({
   answering: Schema.Boolean,
   stopAsked: Schema.Boolean,
 });
-export type ControlState = typeof ControlState.Type;
 
 export const control = Fake.make({
   name: 'control',
@@ -52,3 +51,5 @@ export const control = Fake.make({
       }),
     ),
 });
+
+export type ControlState = typeof ControlState.Type;

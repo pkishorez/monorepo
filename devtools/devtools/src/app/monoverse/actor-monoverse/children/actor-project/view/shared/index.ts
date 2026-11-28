@@ -11,9 +11,7 @@ export {
   settingsTrigger,
 } from './settings.js';
 export { TreeSettings, TreeSettingsRows } from './tree-settings.js';
+export { placesAmongSiblings, useVirtualRows } from './virtual-rows.js';
+
 export type { ConnectionSettings, TreeSettingsProps } from './tree-settings.js';
-export {
-  placesAmongSiblings,
-  useVirtualRows,
-  type VirtualRows,
-} from './virtual-rows.js';
+export type { VirtualRows } from './virtual-rows.js';

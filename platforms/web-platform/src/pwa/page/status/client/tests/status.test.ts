@@ -1,7 +1,5 @@
-import * as Effect from 'effect/Effect';
-import * as Fiber from 'effect/Fiber';
-import * as Option from 'effect/Option';
-import * as TestClock from 'effect/testing/TestClock';
+import { Effect, Fiber, Option } from 'effect';
+import { TestClock } from 'effect/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { run, statusTag } from '../../../../../../test/pwa/client-run.js';
 import {

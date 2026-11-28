@@ -14,11 +14,9 @@
  *                        on a Sign-in of its own.
  */
 
-export {
-  fakeAccounts,
-  fakeGuard,
-  fakeSigning,
-  type FakeChoice,
-} from './fake.js';
+export { fakeAccounts, fakeGuard, fakeSigning } from './fake.js';
 export { fakeSignIn } from './principal.js';
-export { signIn, type SignInOptions, type SignInState } from './sign-in.js';
+export { signIn } from './sign-in.js';
+
+export type { FakeChoice } from './fake.js';
+export type { SignInOptions, SignInState } from './sign-in.js';

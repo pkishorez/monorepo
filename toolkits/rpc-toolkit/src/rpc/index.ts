@@ -1,9 +1,8 @@
-export {
-  middleware,
-  onExit,
-  type ExitObserver,
-  type Middleware,
-  type MiddlewareClient,
-  type MiddlewareServer,
-  type MiddlewareServerOptions,
+export { middleware, onExit } from './rpc.ts';
+export type {
+  ExitObserver,
+  Middleware,
+  MiddlewareClient,
+  MiddlewareServer,
+  MiddlewareServerOptions,
 } from './rpc.ts';

@@ -6,6 +6,7 @@ export {
   defaultGitOptions,
   uncommittedBaseRef,
 } from './git-changes';
-export type { GitOptions } from './git-changes';
 // Tools map changed files onto whatever owns them: Modules, Layers, Packages.
 export { changedPathsUnder, rollUpChanges } from './git-changes';
+
+export type { GitOptions } from './git-changes';

@@ -1,21 +1,22 @@
 import type * as cf from '@cloudflare/workers-types';
-import * as Context from 'effect/Context';
-import * as Deferred from 'effect/Deferred';
-import * as Effect from 'effect/Effect';
-import * as Layer from 'effect/Layer';
-import * as HttpServerRequest from 'effect/http/HttpServerRequest';
-import * as HttpServerResponse from 'effect/http/HttpServerResponse';
-import * as ManagedRuntime from 'effect/ManagedRuntime';
-import * as Option from 'effect/Option';
-import * as Queue from 'effect/Queue';
-import * as Schema from 'effect/Schema';
-import * as RpcSchema from 'effect/rpc/RpcSchema';
+import {
+  Context,
+  Deferred,
+  Effect,
+  Layer,
+  ManagedRuntime,
+  Option,
+  Queue,
+  Schema,
+} from 'effect';
+import { HttpServerRequest, HttpServerResponse } from 'effect/http';
 import {
   RpcSerialization,
   RpcServer,
   Rpc,
   RpcMessage,
   type RpcGroup,
+  RpcSchema,
 } from 'effect/rpc';
 import {
   forgetfulCheckpoint,

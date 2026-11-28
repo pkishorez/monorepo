@@ -8,21 +8,25 @@ import { describe, expect, test } from 'vitest';
 import { withFixture } from '../../../tests/git-fixture.js';
 import { servicesLayer } from '../../../tests/services.js';
 import { uncommittedBase } from '../contract/index.js';
-import * as handlers from '../real/changes.js';
+import {
+  getBranches as getBranchesHandler,
+  getChanges as getChangesHandler,
+  getFileDiff as getFileDiffHandler,
+} from '../real/changes.js';
 
 const getBranches = (root: string) =>
-  handlers.getBranches(root).pipe(Effect.provide(servicesLayer));
+  getBranchesHandler(root).pipe(Effect.provide(servicesLayer));
 const getChanges = (root: string, branch: string | null, base: string) =>
-  handlers.getChanges(root, branch, base).pipe(Effect.provide(servicesLayer));
+  getChangesHandler(root, branch, base).pipe(Effect.provide(servicesLayer));
 const getFileDiff = (
   root: string,
   branch: string | null,
   base: string,
   path: string,
 ) =>
-  handlers
-    .getFileDiff(root, branch, base, path)
-    .pipe(Effect.provide(servicesLayer));
+  getFileDiffHandler(root, branch, base, path).pipe(
+    Effect.provide(servicesLayer),
+  );
 
 const changes = (root: string, branch: string | null, base: string) =>
   Effect.runPromise(getChanges(root, branch, base));

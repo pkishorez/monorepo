@@ -35,8 +35,9 @@ The `kabuki` preset fills the doors in for a Kabuki app, following the
 It is meant to replace [laymos](../laymos/README.md) lint.
 
 It also holds the oxlint rules the code inside each file follows, such as
-`no-comments`, so every rule this monorepo adopts lives in one package. Why
-each rule is on, and which were weighed and left off, is in
+`no-comments`, `no-star` and `values-before-types`, so every rule this
+monorepo adopts lives in one package. Why each rule is on, and which were
+weighed and left off, is in
 [docs/lint-rules.md](docs/lint-rules.md).
 
 ## Install
@@ -72,10 +73,10 @@ pnpm add -D @kestack/monoverse
 
 ### `@kestack/monoverse/oxlint`
 
-| Export    | What it does                                                                                      |
-| --------- | ------------------------------------------------------------------------------------------------- |
-| `default` | The oxlint JS plugin `monoverse`, with its `no-comments` rule.                                    |
-| `rules`   | Every oxlint rule this monorepo turns on, plugin and built-in, each set to `error`, to spread in. |
+| Export    | What it does                                                                                         |
+| --------- | ---------------------------------------------------------------------------------------------------- |
+| `default` | The oxlint JS plugin `monoverse`, with its rules `no-comments`, `no-star` and `values-before-types`. |
+| `rules`   | Every oxlint rule this monorepo turns on, plugin and built-in, each set to `error`, to spread in.    |
 
 ### `@kestack/monoverse/schema.json`
 

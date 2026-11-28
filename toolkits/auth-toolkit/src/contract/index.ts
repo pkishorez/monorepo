@@ -4,12 +4,10 @@ export {
   authWorkerApiUrl,
   authWorkerIssuer,
   authWorkerJwksUrl,
-  type User,
 } from './contract.js';
-export {
-  accessTokenIdentity,
-  accessTokenUserClaims,
-  type AccessTokenIdentity,
-} from './access-token.js';
-export type { Branding, BrandStyle, PagesContext } from './pages-context.js';
+export { accessTokenIdentity, accessTokenUserClaims } from './access-token.js';
 export { normalizeEmail } from './email.js';
+
+export type { User } from './contract.js';
+export type { AccessTokenIdentity } from './access-token.js';
+export type { Branding, BrandStyle, PagesContext } from './pages-context.js';

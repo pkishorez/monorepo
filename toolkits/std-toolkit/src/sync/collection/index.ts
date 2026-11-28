@@ -1,5 +1,2 @@
-export {
-  buildCollection,
-  type CollectionConfig,
-  type WindowMap,
-} from './collection.js';
+export { buildCollection } from './collection.js';
+export type { CollectionConfig, WindowMap } from './collection.js';

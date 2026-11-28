@@ -1,5 +1,7 @@
 export { View } from './view.ts';
 export { Kabuki } from './kabuki.tsx';
+export { useChild, useChildren, useLive } from './draw/index.ts';
+
 export type { KabukiProps } from './kabuki.tsx';
 export type {
   AppOptions,
@@ -10,7 +12,6 @@ export type {
   Failure,
   Step,
 } from './app.tsx';
-export { useChild, useChildren, useLive } from './draw/index.ts';
 export type {
   ChildData,
   Handle,

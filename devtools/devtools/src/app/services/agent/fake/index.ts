@@ -12,16 +12,6 @@ import {
   type Thread,
 } from '../contract/index.js';
 
-export type Reply =
-  | {
-      readonly text?: string;
-      readonly data?: Schema.Json;
-      readonly activity?: ReadonlyArray<string>;
-    }
-  | { readonly failed: string; readonly activity?: ReadonlyArray<string> };
-
-export type Asked = Question & { readonly thread: string };
-
 interface Entry {
   readonly thread: Omit<Thread, 'title' | 'status'>;
   readonly system?: string;
@@ -166,3 +156,12 @@ export const fakeAgent = (replies: ReadonlyArray<Reply> = []) =>
 
     return { asked, layer, reply };
   });
+
+export type Reply =
+  | {
+      readonly text?: string;
+      readonly data?: Schema.Json;
+      readonly activity?: ReadonlyArray<string>;
+    }
+  | { readonly failed: string; readonly activity?: ReadonlyArray<string> };
+export type Asked = Question & { readonly thread: string };

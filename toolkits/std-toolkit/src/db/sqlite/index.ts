@@ -1,13 +1,10 @@
-export {
-  setUpFromSnapshot,
-  SQLite,
-  type SQLiteTable,
-  type SQLiteConfig,
-  type SQLiteDriver,
-  type SQLiteSetupConfig,
+export { setUpFromSnapshot, SQLite } from './sqlite.js';
+export { SetupRefused } from '../table-snapshot/index.js';
+
+export type {
+  SQLiteTable,
+  SQLiteConfig,
+  SQLiteDriver,
+  SQLiteSetupConfig,
 } from './sqlite.js';
-export {
-  SetupRefused,
-  type SetupRefusedReason,
-  type TableMode,
-} from '../table-snapshot/index.js';
+export type { SetupRefusedReason, TableMode } from '../table-snapshot/index.js';

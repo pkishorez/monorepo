@@ -1,6 +1,11 @@
 import { Context } from 'effect';
 import type { Effect, Option, Schema } from 'effect';
 
+export class Preferences extends Context.Service<
+  Preferences,
+  PreferencesService
+>()('DevTools/service/Preferences') {}
+
 export interface PreferencesService {
   readonly load: <A, I>(
     key: string,
@@ -12,8 +17,3 @@ export interface PreferencesService {
     value: A,
   ) => Effect.Effect<void>;
 }
-
-export class Preferences extends Context.Service<
-  Preferences,
-  PreferencesService
->()('DevTools/service/Preferences') {}

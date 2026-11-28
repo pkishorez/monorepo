@@ -1,6 +1,4 @@
-import * as Context from 'effect/Context';
-import * as Effect from 'effect/Effect';
-import * as Fiber from 'effect/Fiber';
+import { Context, Effect, Fiber } from 'effect';
 
 /** The parts of `ServiceWorkerGlobalScope` the runtime touches; tests pass a fake. */
 export type ServiceWorkerGlobal = Pick<

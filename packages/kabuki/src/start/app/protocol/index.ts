@@ -1,5 +1,4 @@
 export { APP, appOf, branded, refused } from './brand.ts';
-export type { DocumentType, ServedApp, StartApp } from './brand.ts';
 export {
   DATA,
   dataFile,
@@ -9,7 +8,6 @@ export {
   segmentsOf,
 } from './data.ts';
 export { PAGES, SHELL, pagesOf } from './pages.ts';
-export type { PageInfo, Pages } from './pages.ts';
 export {
   ID,
   PageContext,
@@ -18,7 +16,6 @@ export {
   serialize,
   usePage,
 } from './page.ts';
-export type { Assets, Build, Drawn, Page, Script } from './page.ts';
 export { NOT_HERE, NotHere } from './shell.tsx';
 export {
   NDJSON,
@@ -29,4 +26,8 @@ export {
   writeAsk,
   writeLine,
 } from './wire.ts';
+
+export type { DocumentType, ServedApp, StartApp } from './brand.ts';
+export type { PageInfo, Pages } from './pages.ts';
+export type { Assets, Build, Drawn, Page, Script } from './page.ts';
 export type { Line, RoutesOnWire, Wanted } from './wire.ts';

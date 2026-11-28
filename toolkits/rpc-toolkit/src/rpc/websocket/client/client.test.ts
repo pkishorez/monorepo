@@ -1,5 +1,4 @@
-import * as Effect from 'effect/Effect';
-import * as Layer from 'effect/Layer';
+import { Effect, Layer } from 'effect';
 import { RpcGroup } from 'effect/rpc';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { client } from './client.ts';

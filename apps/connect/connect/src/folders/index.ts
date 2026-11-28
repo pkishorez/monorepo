@@ -13,14 +13,6 @@ const PIPES = '\\\\.\\pipe\\';
 
 export class FolderError extends Error {}
 
-export interface Where {
-  readonly env?: Readonly<Record<string, string | undefined>>;
-  readonly platform?: NodeJS.Platform;
-  readonly home?: string;
-  readonly tmp?: string;
-  readonly uid?: number;
-}
-
 const basesOf = ({
   env = process.env,
   platform = process.platform,
@@ -96,8 +88,6 @@ export const connectionFolders = (name: string, where: Where = {}) => {
   };
 };
 
-export type ConnectionFolders = ReturnType<typeof connectionFolders>;
-
 export const connectionNames = (where: Where = {}): ReadonlyArray<string> => {
   const base = basesOf(where);
   const all = base.join(base.data, APP, 'connections');
@@ -121,3 +111,12 @@ export const hostName = () => hostname().split('.')[0] || hostname();
 
 export const computerName = (name: string) =>
   name === 'main' ? hostName() : `${hostName()} (${name})`;
+
+export interface Where {
+  readonly env?: Readonly<Record<string, string | undefined>>;
+  readonly platform?: NodeJS.Platform;
+  readonly home?: string;
+  readonly tmp?: string;
+  readonly uid?: number;
+}
+export type ConnectionFolders = ReturnType<typeof connectionFolders>;

@@ -1,3 +1,5 @@
+export { SQLiteChangesMismatch } from './database.js';
+
 export type {
   SQLiteDriver,
   SQLiteRow,
@@ -5,4 +7,3 @@ export type {
   SQLiteStatement,
   SQLiteValue,
 } from './database.js';
-export { SQLiteChangesMismatch } from './database.js';

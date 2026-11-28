@@ -6,7 +6,6 @@ export const ServerState = Schema.Struct({
   port: Schema.NullOr(Schema.Finite),
   taken: Schema.Boolean,
 });
-export type ServerState = typeof ServerState.Type;
 
 const FAKE_PORT = 4242;
 
@@ -47,3 +46,5 @@ export const server = Fake.make({
       }),
     ),
 });
+
+export type ServerState = typeof ServerState.Type;

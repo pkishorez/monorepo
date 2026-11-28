@@ -10,6 +10,10 @@ export default defineConfig({
       },
     ],
     options: { reportUnusedDisableDirectives: 'warn' },
+    rules: {
+      'monoverse/no-star': 'error',
+      'monoverse/values-before-types': 'error',
+    },
     ignorePatterns: [
       '.claude/worktrees/**',
       'dist/**',

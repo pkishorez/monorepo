@@ -1,5 +1,4 @@
-import * as Effect from 'effect/Effect';
-import * as Option from 'effect/Option';
+import { Effect, Option } from 'effect';
 import type { WorkerBuildInfo } from '../../../contract/config/index.js';
 import { fetchNetwork, GlobalScope } from '../../global-scope/index.js';
 import { matchPrecache, SHELL_URL } from '../../precache/index.js';

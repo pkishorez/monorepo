@@ -2,6 +2,10 @@ import { Context } from 'effect';
 import type { Effect, Stream } from 'effect';
 import type { TabClient } from '../../../rpc/contract/index.ts';
 
+export class Registry extends Context.Service<Registry, RegistryCalls>()(
+  'Inspector/server/Registry',
+) {}
+
 export interface Registered {
   readonly id: number;
   readonly name: string;
@@ -12,9 +16,7 @@ export interface Registered {
   readonly connectedAt: number;
   readonly client: TabClient;
 }
-
 export type Asked = Omit<Registered, 'id' | 'connectedAt'>;
-
 export interface RegistryCalls {
   readonly add: (asked: Asked) => Effect.Effect<Registered>;
   readonly moved: (session: Registered, url: string) => Effect.Effect<void>;
@@ -24,7 +26,3 @@ export interface RegistryCalls {
   readonly watch: Stream.Stream<ReadonlyArray<Registered>>;
   readonly gone: (session: Registered) => Effect.Effect<void>;
 }
-
-export class Registry extends Context.Service<Registry, RegistryCalls>()(
-  'Inspector/server/Registry',
-) {}

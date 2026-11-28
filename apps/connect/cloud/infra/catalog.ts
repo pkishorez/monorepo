@@ -3,7 +3,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Action, Stage } from 'alchemy';
-import * as Cloudflare from '@alchemy.run/cloudflare';
+import { R2 } from '@alchemy.run/cloudflare';
 import * as Output from 'alchemy/Output';
 import { Effect, Schema } from 'effect';
 import {
@@ -75,7 +75,7 @@ const offered = (): ReadonlyArray<Offered> =>
 const sha256 = (file: string) =>
   createHash('sha256').update(readFileSync(file)).digest('hex');
 
-export const ReleaseFiles = Cloudflare.R2.Bucket(
+export const ReleaseFiles = R2.Bucket(
   'ReleaseFiles',
   Effect.gen(function* () {
     const stage = yield* Stage;
@@ -89,7 +89,7 @@ export const ReleaseFiles = Cloudflare.R2.Bucket(
 const PublishRelease = Action(
   'PublishRelease',
   Effect.gen(function* () {
-    const bucket = yield* Cloudflare.R2.ReadWriteBucket(yield* ReleaseFiles);
+    const bucket = yield* R2.ReadWriteBucket(yield* ReleaseFiles);
     return Effect.fn(function* ({
       key,
       file,
@@ -106,7 +106,7 @@ const PublishRelease = Action(
         });
       return key;
     });
-  }).pipe(Effect.provide(Cloudflare.R2.ReadWriteBucketLocal)),
+  }).pipe(Effect.provide(R2.ReadWriteBucketLocal)),
 );
 
 const published = (origin: string, plugin: Offered) =>

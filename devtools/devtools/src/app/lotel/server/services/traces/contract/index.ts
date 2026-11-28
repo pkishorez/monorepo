@@ -7,9 +7,12 @@ import type {
 } from '../../../rpc/telemetry/contract/index.js';
 import type { TelemetryStoreError } from '../../telemetry-store/contract/index.js';
 
+export class Traces extends Context.Service<Traces, TracesCalls>()(
+  'Lotel/server/Traces',
+) {}
+
 export type TraceDetails = typeof TraceDetailsSchema.Type;
 export type TraceSummaryList = typeof TraceSummaryListSchema.Type;
-
 export interface TracesCalls {
   readonly list: (
     limit?: number,
@@ -18,7 +21,3 @@ export interface TracesCalls {
     traceId: string,
   ) => Effect.Effect<TraceDetails, TraceNotFound | TelemetryStoreError>;
 }
-
-export class Traces extends Context.Service<Traces, TracesCalls>()(
-  'Lotel/server/Traces',
-) {}

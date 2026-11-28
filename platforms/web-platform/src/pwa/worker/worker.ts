@@ -1,5 +1,4 @@
-import * as Effect from 'effect/Effect';
-import * as Option from 'effect/Option';
+import { Effect, Option } from 'effect';
 import info from 'virtual:web-platform/pwa/build';
 import type { WorkerBuildInfo } from '../contract/config/index.js';
 import { matchCommand } from '../contract/commands/index.js';

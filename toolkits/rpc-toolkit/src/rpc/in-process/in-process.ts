@@ -1,12 +1,7 @@
-import * as Effect from 'effect/Effect';
-import * as Layer from 'effect/Layer';
-import * as Schema from 'effect/Schema';
+import { Effect, Layer, Schema } from 'effect';
 import { Headers } from 'effect/http';
-import { RpcClient, RpcServer } from 'effect/rpc';
-import type * as Rpc from 'effect/rpc/Rpc';
-import type * as RpcGroup from 'effect/rpc/RpcGroup';
-import * as RpcMessage from 'effect/rpc/RpcMessage';
-import type * as RpcSerialization from 'effect/rpc/RpcSerialization';
+import { RpcClient, RpcServer, RpcMessage } from 'effect/rpc';
+import type { Rpc, RpcGroup, RpcSerialization } from 'effect/rpc';
 import { withExitObservers } from '../on-exit/index.ts';
 
 /**

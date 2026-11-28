@@ -1,7 +1,2 @@
-export {
-  toNativeKey,
-  itemKey,
-  itemSchema,
-  type NativeItem,
-  type ItemSchema,
-} from './item-schema.js';
+export { toNativeKey, itemKey, itemSchema } from './item-schema.js';
+export type { NativeItem, ItemSchema } from './item-schema.js';

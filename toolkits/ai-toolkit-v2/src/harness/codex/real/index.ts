@@ -1,10 +1,16 @@
 import { Layer } from 'effect';
-import * as Router from '../shared/index.ts';
-import * as AppServer from './app-server.ts';
+import {
+  layer as routerLayer,
+  type Options as RouterOptions,
+} from '../shared/index.ts';
+import {
+  layer as appServerLayer,
+  type Options as AppServerOptions,
+} from './app-server.ts';
 
-export type Options = Router.Options & AppServer.Options;
-
-export const driver = AppServer.layer;
+export const driver = appServerLayer;
 
 export const layer = (options: Options = {}) =>
-  Router.layer(options).pipe(Layer.provide(AppServer.layer(options)));
+  routerLayer(options).pipe(Layer.provide(appServerLayer(options)));
+
+export type Options = RouterOptions & AppServerOptions;

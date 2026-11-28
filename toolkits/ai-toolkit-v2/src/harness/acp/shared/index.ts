@@ -1,3 +1,4 @@
 export { AcpDriver } from './driver.ts';
 export { Out } from './out.ts';
-export { make, type Options } from './router.ts';
+export { make } from './router.ts';
+export type { Options } from './router.ts';

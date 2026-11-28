@@ -6,10 +6,6 @@ import { telemetryRpcRoute } from './rpc/telemetry/real/index.js';
 import { sqliteTelemetryStoreLayer } from './services/telemetry-store/real/index.js';
 import { tracesLayer } from './services/traces/real/index.js';
 
-export interface LotelServerOptions {
-  readonly db: string;
-}
-
 export const lotelServer = (options: LotelServerOptions) =>
   Layer.mergeAll(telemetryRpcRoute, otlpHttpRoute, telemetryTools).pipe(
     Layer.provide(tracesLayer),
@@ -22,3 +18,7 @@ export const lotelEndpoints: Readonly<Record<string, string>> = {
   '/v1/traces': 'OTLP/HTTP Trace ingestion.',
   '/v1/logs': 'OTLP/HTTP Log Record ingestion.',
 };
+
+export interface LotelServerOptions {
+  readonly db: string;
+}

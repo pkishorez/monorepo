@@ -1,5 +1,5 @@
-import * as Effect from 'effect/Effect';
-import type * as Scope from 'effect/Scope';
+import { Effect } from 'effect';
+import type { Scope } from 'effect';
 
 /** Adds `listener` for the life of the current scope. */
 export const listen = (

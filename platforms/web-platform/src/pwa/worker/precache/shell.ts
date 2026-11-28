@@ -1,6 +1,4 @@
-import * as Effect from 'effect/Effect';
-import * as Option from 'effect/Option';
-import * as Schema from 'effect/Schema';
+import { Effect, Option, Schema } from 'effect';
 import { type BuildId, precacheCacheName } from '../../contract/build/index.js';
 import {
   attempt,

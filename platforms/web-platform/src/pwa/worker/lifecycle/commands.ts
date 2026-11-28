@@ -1,4 +1,4 @@
-import * as Effect from 'effect/Effect';
+import { Effect } from 'effect';
 import { type Command, commandReply } from '../../contract/commands/index.js';
 import { attempt, GlobalScope } from '../global-scope/index.js';
 

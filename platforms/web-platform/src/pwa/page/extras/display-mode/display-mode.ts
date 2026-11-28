@@ -1,7 +1,4 @@
-import * as Context from 'effect/Context';
-import * as Effect from 'effect/Effect';
-import * as Layer from 'effect/Layer';
-import * as SubscriptionRef from 'effect/SubscriptionRef';
+import { Context, Effect, Layer, SubscriptionRef } from 'effect';
 import { isBrowser, listen } from '../../kit/dom-events.js';
 import { useSubscriptionRef } from '../../kit/subscription-ref.js';
 import { lazyService } from '../lazy-service/index.js';

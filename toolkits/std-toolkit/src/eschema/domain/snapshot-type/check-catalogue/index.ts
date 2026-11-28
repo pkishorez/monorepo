@@ -5,6 +5,5 @@ export {
   describeChecks,
   isFiniteNumber,
   SnapshotCheckSchema,
-  type CheckDescription,
-  type SnapshotCheck,
 } from './check-catalogue.js';
+export type { CheckDescription, SnapshotCheck } from './check-catalogue.js';

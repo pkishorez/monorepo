@@ -5,6 +5,5 @@ export {
   marshall,
   toAttributeValue,
   unmarshall,
-  type AttributeValue,
-  type MarshalledOutput,
 } from './attribute-value.js';
+export type { AttributeValue, MarshalledOutput } from './attribute-value.js';

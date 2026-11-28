@@ -22,8 +22,12 @@ import type {
   Told,
 } from '../../../server/rpc/session/contract/index.ts';
 
-export type Unreachable = RpcClientError.RpcClientError;
+export class KabukiSession extends Context.Service<
+  KabukiSession,
+  KabukiSessionCalls
+>()('Inspector/service/KabukiSession') {}
 
+export type Unreachable = RpcClientError.RpcClientError;
 export interface KabukiSessionCalls {
   readonly history: (asked: HistoryAsked) => Stream.Stream<Told, Unreachable>;
   readonly step: (
@@ -50,11 +54,6 @@ export interface KabukiSessionCalls {
   ) => Effect.Effect<'done', ControlRefused | Unreachable>;
   readonly blueprint: () => Effect.Effect<Plan, Unreachable>;
 }
-
-export class KabukiSession extends Context.Service<
-  KabukiSession,
-  KabukiSessionCalls
->()('Inspector/service/KabukiSession') {}
 
 export type {
   Asked,

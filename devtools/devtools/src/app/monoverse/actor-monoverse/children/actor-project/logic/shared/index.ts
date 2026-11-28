@@ -1,5 +1,4 @@
 export { ProjectShape } from './shape.js';
-export type { Check, Where } from './shape.js';
 export {
   analysisAt,
   ancestorsOf,
@@ -16,4 +15,6 @@ export {
   shownChangesOf,
   statusOf,
 } from './selectors/index.js';
+
+export type { Check, Where } from './shape.js';
 export type { Change, ChangeStatus } from './selectors/index.js';

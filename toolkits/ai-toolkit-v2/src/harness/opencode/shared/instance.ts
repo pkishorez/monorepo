@@ -20,11 +20,11 @@ import {
 } from '../contract/index.js';
 import type { DriverShape } from './driver.js';
 import { Out } from './out.js';
-import * as Run from './run.js';
+import { emit, end, make as makeRun, refuse, type Run } from './run.js';
 
 interface State {
-  readonly current: Run.Run | undefined;
-  readonly queue: ReadonlyArray<Run.Run>;
+  readonly current: Run | undefined;
+  readonly queue: ReadonlyArray<Run>;
   readonly requests: ReadonlyArray<Request>;
   readonly steers: ReadonlyArray<UserMessage>;
   readonly delivered: ReadonlyArray<string>;
@@ -33,10 +33,10 @@ interface State {
 }
 
 export interface Instance {
-  readonly submit: (prompt: Prompt) => Effect.Effect<Run.Run>;
+  readonly submit: (prompt: Prompt) => Effect.Effect<Run>;
   readonly join: (
     message: Prompt,
-  ) => Effect.Effect<Option.Option<Run.Run>, OpenCodeError>;
+  ) => Effect.Effect<Option.Option<Run>, OpenCodeError>;
   readonly respond: (
     requestId: string,
     answer: Answer,
@@ -84,7 +84,7 @@ export const make = (
 ) =>
   Effect.gen(function* () {
     const state = yield* SubscriptionRef.make(initial);
-    const jobs = yield* Queue.unbounded<Run.Run>();
+    const jobs = yield* Queue.unbounded<Run>();
     const gone = yield* Deferred.make<void>();
     const lock = yield* Semaphore.make(1);
 
@@ -104,7 +104,7 @@ export const make = (
       }));
       yield* release;
       yield* Effect.forEach(before.queue, (run) =>
-        Run.end(run, 'failed', goneMessage),
+        end(run, 'failed', goneMessage),
       );
       yield* Deferred.succeed(gone, undefined);
     });
@@ -112,7 +112,7 @@ export const make = (
     yield* Effect.addFinalizer(() => Deferred.succeed(gone, undefined));
 
     const step =
-      (run: Run.Run, user: UserMessage, delivered: { own: boolean }) =>
+      (run: Run, user: UserMessage, delivered: { own: boolean }) =>
       (event: Event) =>
         Effect.gen(function* () {
           if (
@@ -123,10 +123,10 @@ export const make = (
               ...s,
               requests: [...s.requests, event],
             }));
-            yield* Run.emit(run, Out.Requested({ request: event }));
+            yield* emit(run, Out.Requested({ request: event }));
             return true;
           }
-          yield* Run.emit(run, Out.Record({ record: event }));
+          yield* emit(run, Out.Record({ record: event }));
           const answered = settled(event);
           if (answered !== undefined) {
             yield* SubscriptionRef.update(state, (s) => ({
@@ -156,7 +156,7 @@ export const make = (
                     ];
               });
               if (steer !== undefined) {
-                yield* Run.emit(run, Out.Steered({ message: steer }));
+                yield* emit(run, Out.Steered({ message: steer }));
               }
             }
           }
@@ -167,7 +167,7 @@ export const make = (
               const { cancelled, steers } = yield* SubscriptionRef.get(state);
               if (!cancelled && (!delivered.own || steers.length > 0))
                 return true;
-              yield* Run.end(
+              yield* end(
                 run,
                 status,
                 event.type === 'session.execution.failed'
@@ -180,7 +180,7 @@ export const make = (
         });
 
     const follow = (
-      run: Run.Run,
+      run: Run,
       user: UserMessage,
       events: Stream.Stream<Event, OpenCodeError>,
     ) =>
@@ -194,13 +194,13 @@ export const make = (
       }).pipe(
         Effect.catch((error) =>
           leave.pipe(
-            Effect.andThen(Run.end(run, 'failed', error.message)),
+            Effect.andThen(end(run, 'failed', error.message)),
             Effect.as(true),
           ),
         ),
       );
 
-    const execute = (run: Run.Run) =>
+    const execute = (run: Run) =>
       Effect.scoped(
         Effect.gen(function* () {
           yield* SubscriptionRef.update(state, (s) => ({
@@ -216,7 +216,7 @@ export const make = (
           return yield* follow(run, user, events);
         }),
       ).pipe(
-        Effect.catch((error) => Run.refuse(run, error).pipe(Effect.as(false))),
+        Effect.catch((error) => refuse(run, error).pipe(Effect.as(false))),
         Effect.tap(() =>
           SubscriptionRef.update(state, (s) => ({
             ...s,
@@ -239,19 +239,19 @@ export const make = (
     const instance: Instance = {
       submit: (prompt) =>
         Effect.gen(function* () {
-          const run = yield* Run.make(id, prompt);
+          const run = yield* makeRun(id, prompt);
           const before = yield* SubscriptionRef.modify(state, (s) => [
             s,
             s.gone ? s : { ...s, queue: [...s.queue, run] },
           ]);
           if (before.gone) {
-            yield* Run.end(run, 'failed', goneMessage);
+            yield* end(run, 'failed', goneMessage);
             return run;
           }
           const ahead =
             before.queue.length + (before.current === undefined ? 0 : 1);
           if (ahead > 0) {
-            yield* Run.emit(run, Out.Queued({ position: ahead }));
+            yield* emit(run, Out.Queued({ position: ahead }));
           }
           yield* Queue.offer(jobs, run);
           return run;
@@ -265,14 +265,14 @@ export const make = (
               current === undefined ||
               (yield* Deferred.isDone(current.done))
             )
-              return Option.none<Run.Run>();
+              return Option.none<Run>();
             const user = yield* driver.prompt(id, message, 'steer');
             const seen = yield* SubscriptionRef.modify(state, (s) =>
               s.delivered.includes(user.id)
                 ? [true, s]
                 : [false, { ...s, steers: [...s.steers, user] }],
             );
-            if (seen) yield* Run.emit(current, Out.Steered({ message: user }));
+            if (seen) yield* emit(current, Out.Steered({ message: user }));
             return Option.some(current);
           }),
         ),

@@ -1,4 +1,4 @@
-import * as Effect from 'effect/Effect';
+import { Effect } from 'effect';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   config,

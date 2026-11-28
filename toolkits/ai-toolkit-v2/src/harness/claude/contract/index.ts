@@ -1,5 +1,7 @@
-export { Claude, type ClaudeService, type FlagSettings } from './claude.js';
+export { Claude } from './claude.js';
 export { ClaudeError, NotLive } from './errors.js';
+
+export type { ClaudeService, FlagSettings } from './claude.js';
 export type {
   ClaudeOptions,
   ClaudeRequest,

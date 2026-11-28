@@ -1,5 +1,5 @@
-import type * as Effect from 'effect/Effect';
-import * as Option from 'effect/Option';
+import type { Effect } from 'effect';
+import { Option } from 'effect';
 import {
   isRuntimeCacheName,
   runtimeCacheName,

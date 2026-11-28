@@ -5,5 +5,5 @@ export {
   GlobalScope,
   KeepAlive,
   openCache,
-  type ServiceWorkerGlobal,
 } from './global-scope.js';
+export type { ServiceWorkerGlobal } from './global-scope.js';

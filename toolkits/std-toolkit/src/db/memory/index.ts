@@ -1,1 +1,2 @@
-export { Memory, type MemoryTable } from './memory.js';
+export { Memory } from './memory.js';
+export type { MemoryTable } from './memory.js';

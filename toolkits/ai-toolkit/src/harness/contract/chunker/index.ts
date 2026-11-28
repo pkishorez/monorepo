@@ -3,5 +3,5 @@ export {
   CHUNK_MAX_WAIT_MS,
   CHUNK_MIN_CHARS,
   makeChunker,
-  type Chunker,
 } from './chunker.js';
+export type { Chunker } from './chunker.js';

@@ -1,10 +1,12 @@
-import * as Data from 'effect/Data';
-import * as Duration from 'effect/Duration';
-import * as Effect from 'effect/Effect';
-import * as Option from 'effect/Option';
-import * as Schedule from 'effect/Schedule';
-import * as Stream from 'effect/Stream';
-import * as SubscriptionRef from 'effect/SubscriptionRef';
+import {
+  Data,
+  Duration,
+  Effect,
+  Option,
+  Schedule,
+  Stream,
+  SubscriptionRef,
+} from 'effect';
 import { listen } from '../../kit/dom-events.js';
 import type { UpdateConfig } from '../../../contract/config/index.js';
 import { sendCommand } from './commands.js';

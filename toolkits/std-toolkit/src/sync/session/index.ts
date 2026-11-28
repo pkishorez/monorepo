@@ -1,1 +1,2 @@
-export { runSession, type SessionConfig } from './session.js';
+export { runSession } from './session.js';
+export type { SessionConfig } from './session.js';

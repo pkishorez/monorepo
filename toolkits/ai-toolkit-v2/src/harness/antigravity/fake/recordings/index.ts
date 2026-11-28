@@ -1,4 +1,13 @@
-import type * as acp from '@agentclientprotocol/sdk/unstable';
+import type {
+  AvailableCommand,
+  CreateElicitationRequest,
+  InitializeResponse,
+  ListSessionsResponse,
+  NewSessionResponse,
+  PromptResponse,
+  RequestPermissionRequest,
+  SessionUpdate,
+} from '@agentclientprotocol/sdk/unstable';
 import type { Result } from '../../contract/index.ts';
 import agentJson from './agent.json' with { type: 'json' };
 import cancel from './cancel.json' with { type: 'json' };
@@ -9,26 +18,6 @@ import resumed from './resumed.json' with { type: 'json' };
 import send from './send.json' with { type: 'json' };
 import steer from './steer.json' with { type: 'json' };
 import steered from './steered.json' with { type: 'json' };
-
-export type Step =
-  | { readonly update: acp.SessionUpdate }
-  | { readonly permission: acp.RequestPermissionRequest }
-  | { readonly elicitation: acp.CreateElicitationRequest }
-  | { readonly exit: true };
-
-export interface Recording {
-  readonly steps: ReadonlyArray<Step>;
-  readonly response: acp.PromptResponse;
-  readonly after?: ReadonlyArray<acp.SessionUpdate>;
-}
-
-export interface Agent {
-  readonly initialize: acp.InitializeResponse;
-  readonly session: Omit<acp.NewSessionResponse, 'sessionId'>;
-  readonly commands: Array<acp.AvailableCommand>;
-  readonly sessions: acp.ListSessionsResponse;
-  readonly print: Result;
-}
 
 export const agent = agentJson as unknown as Agent;
 
@@ -42,3 +31,21 @@ export const recordings = {
   question,
   cancel,
 } as unknown as Readonly<Record<string, Recording>>;
+
+export type Step =
+  | { readonly update: SessionUpdate }
+  | { readonly permission: RequestPermissionRequest }
+  | { readonly elicitation: CreateElicitationRequest }
+  | { readonly exit: true };
+export interface Recording {
+  readonly steps: ReadonlyArray<Step>;
+  readonly response: PromptResponse;
+  readonly after?: ReadonlyArray<SessionUpdate>;
+}
+export interface Agent {
+  readonly initialize: InitializeResponse;
+  readonly session: Omit<NewSessionResponse, 'sessionId'>;
+  readonly commands: Array<AvailableCommand>;
+  readonly sessions: ListSessionsResponse;
+  readonly print: Result;
+}

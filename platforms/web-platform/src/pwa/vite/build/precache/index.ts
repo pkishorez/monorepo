@@ -1,1 +1,2 @@
-export { type OutputFile, selectAssets, type Selection } from './precache.js';
+export { selectAssets } from './precache.js';
+export type { OutputFile, Selection } from './precache.js';

@@ -1,6 +1,4 @@
-import * as Effect from 'effect/Effect';
-import * as Layer from 'effect/Layer';
-import * as Option from 'effect/Option';
+import { Effect, Layer, Option } from 'effect';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FakeBrowser } from '../../../../../../test/pwa/fake-browser.js';
 import { StoragePersistence } from '../index.js';

@@ -9,26 +9,8 @@ import {
   relativeTo,
 } from '../tree/index.ts';
 
-export interface ContractsRule {
-  readonly folders: readonly string[];
-  readonly required?: readonly string[];
-}
-
-export interface ContractFinding {
-  readonly at: number;
-  readonly message: string;
-}
-
 const contractClass =
   /^(Context\.(Service|Reference)|Data\.TaggedError|Schema\.TaggedError(Class)?)\b/;
-
-export type Export =
-  | { readonly kind: 'value'; readonly at: number; readonly what: string }
-  | {
-      readonly kind: 'reexport';
-      readonly at: number;
-      readonly specifier: string;
-    };
 
 export const exportsOf = (program: Program): readonly Export[] => {
   const found: Export[] = [];
@@ -112,6 +94,22 @@ export const contractFindings = (
   }
   return findings;
 };
+
+export interface ContractsRule {
+  readonly folders: readonly string[];
+  readonly required?: readonly string[];
+}
+export interface ContractFinding {
+  readonly at: number;
+  readonly message: string;
+}
+export type Export =
+  | { readonly kind: 'value'; readonly at: number; readonly what: string }
+  | {
+      readonly kind: 'reexport';
+      readonly at: number;
+      readonly specifier: string;
+    };
 
 const missingContract = (
   tree: Tree,

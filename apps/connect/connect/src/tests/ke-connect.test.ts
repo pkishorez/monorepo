@@ -17,7 +17,7 @@ import { Effect, Layer, Schedule } from 'effect';
 import { McpProtocol, McpServer } from 'effect/ai';
 import { HttpRouter } from 'effect/http';
 import { RpcClient } from 'effect/rpc';
-import * as NodeHttpServer from '@effect/platform-node/NodeHttpServer';
+import { NodeHttpServer } from '@effect/platform-node';
 import {
   KabukiSession,
   dialSessions,

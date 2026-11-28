@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 
-import * as NodeServices from '@effect/platform-node/NodeServices';
+import { NodeServices } from '@effect/platform-node';
 import { Effect } from 'effect';
 import { describe, expect, test } from 'vitest';
 

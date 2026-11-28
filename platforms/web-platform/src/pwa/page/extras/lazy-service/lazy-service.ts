@@ -1,6 +1,5 @@
-import * as Context from 'effect/Context';
-import type * as Layer from 'effect/Layer';
-import * as ManagedRuntime from 'effect/ManagedRuntime';
+import { Context, ManagedRuntime } from 'effect';
+import type { Layer } from 'effect';
 import { useEffect, useState } from 'react';
 
 /**

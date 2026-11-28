@@ -1,5 +1,4 @@
-import * as Option from 'effect/Option';
-import * as Schema from 'effect/Schema';
+import { Option, Schema } from 'effect';
 
 /**
  * FROZEN. The one message a page sends a worker: it goes to the waiting

@@ -1,5 +1,4 @@
-import * as Effect from 'effect/Effect';
-import * as Option from 'effect/Option';
+import { Effect, Option } from 'effect';
 import type { StrategyName } from '../../../contract/config/strategy/index.js';
 import {
   fetchNetwork,

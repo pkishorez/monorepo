@@ -3,5 +3,5 @@ export {
   exprCondition,
   exprFilter,
   keyConditionExpr,
-  type KeyConditionExprParameters,
 } from './expression.js';
+export type { KeyConditionExprParameters } from './expression.js';

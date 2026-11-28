@@ -3,8 +3,10 @@ export {
   SpeechToText,
   SpeechToTextNotReady,
   TranscriptionFailed,
-  type Recognizer,
-  type SpeechService,
-  type SpeechToTextStatus,
-  type TakeHeard,
+} from './contract/index.js';
+export type {
+  Recognizer,
+  SpeechService,
+  SpeechToTextStatus,
+  TakeHeard,
 } from './contract/index.js';

@@ -2,13 +2,18 @@ import { describe, expect, it } from '@effect/vitest';
 import { Effect, Fiber, Stream } from 'effect';
 import { TestClock } from 'effect/testing';
 import { Claude, ClaudeError, NotLive, type Live } from '../contract/index.js';
-import * as ClaudeFake from '../fake/index.js';
+import {
+  type FakeOptions,
+  layer,
+  type Recording,
+  recordings,
+} from '../fake/index.js';
 import { Out } from '../shared/index.js';
 
 const cwd = '/tmp/claude-fake';
 
-const recording = (name: string): ClaudeFake.Recording => {
-  const found = ClaudeFake.recordings.find((one) => one.name === name);
+const recording = (name: string): Recording => {
+  const found = recordings.find((one) => one.name === name);
   if (found === undefined) throw new Error(`No recording ${name}`);
   return found;
 };
@@ -69,8 +74,7 @@ const allow = (id: string) =>
     });
   });
 
-const fake = (options?: ClaudeFake.FakeOptions) =>
-  Effect.provide(ClaudeFake.layer(options));
+const fake = (options?: FakeOptions) => Effect.provide(layer(options));
 
 describe('Claude on the fake driver', () => {
   it.effect('create gives Started first, the records, then Ended', () =>

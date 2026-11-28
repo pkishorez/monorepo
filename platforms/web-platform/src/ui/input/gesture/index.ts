@@ -1,6 +1,9 @@
 // The web: the browser as the touch source, Gesture Zones as DOM elements,
 // and every finger as Motion values, over the platform-free core.
 export { GestureProvider, GestureZone, useGesture } from './zones/index.ts';
+export { useSwipe } from './recognizers/index.ts';
+export { usePullToRefresh, useSidebar } from './patterns/index.ts';
+
 export type {
   Directions,
   GestureEnd,
@@ -10,7 +13,6 @@ export type {
   Pointer,
   Pointers,
 } from './zones/index.ts';
-export { useSwipe } from './recognizers/index.ts';
 export type {
   CommitRule,
   Direction,
@@ -22,5 +24,4 @@ export type {
   SwipeRelease,
   SwipeState,
 } from './recognizers/index.ts';
-export { usePullToRefresh, useSidebar } from './patterns/index.ts';
 export type { PullState } from './patterns/index.ts';

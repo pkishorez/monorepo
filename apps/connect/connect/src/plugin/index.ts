@@ -8,7 +8,7 @@ export {
   listen,
   NotStartedByConnect,
   PluginFolders,
-  type PluginOptions,
   routes,
   serve,
 } from './serve.js';
+export type { PluginOptions } from './serve.js';

@@ -1,3 +1,6 @@
-export { JsonEditor, type JsonEditorProps } from './json-editor';
+export { JsonEditor } from './json-editor';
 export { JsonTree } from './json-tree';
-export { JsonViewer, type JsonViewerProps } from './json-viewer';
+export { JsonViewer } from './json-viewer';
+
+export type { JsonEditorProps } from './json-editor';
+export type { JsonViewerProps } from './json-viewer';

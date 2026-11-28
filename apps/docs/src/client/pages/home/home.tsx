@@ -1,5 +1,5 @@
 import { View } from '@kestack/kabuki/react';
-import { Pages } from '../../../shared/index.ts';
+import { HomeLive } from '../../../shared/index.ts';
 import { CHAPTERS } from './chapters.ts';
 import { Chapter } from './chapter.tsx';
 import { Field } from '../../field/index.ts';
@@ -36,4 +36,4 @@ function Home() {
   );
 }
 
-export const HomeView = View.make(Pages.HomeLive, () => <Home />);
+export const HomeView = View.make(HomeLive, () => <Home />);

@@ -1,8 +1,7 @@
-export {
-  EntityMetaSchema,
-  SingleEntityMetaSchema,
-  type Entity,
-  type EntityMeta,
-  type SingleEntityMeta,
-  type SingletonEntity,
+export { EntityMetaSchema, SingleEntityMetaSchema } from './entity.js';
+export type {
+  Entity,
+  EntityMeta,
+  SingleEntityMeta,
+  SingletonEntity,
 } from './entity.js';

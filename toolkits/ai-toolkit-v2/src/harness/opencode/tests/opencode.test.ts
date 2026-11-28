@@ -8,12 +8,12 @@ import {
   type Out,
   type SessionID,
 } from '../contract/index.js';
-import * as OpenCodeFake from '../fake/index.js';
+import { layer, type LayerOptions, recordings } from '../fake/index.js';
 
 const run = <A, E>(
   body: Effect.Effect<A, E, OpenCode>,
-  options: OpenCodeFake.LayerOptions = {},
-) => body.pipe(Effect.provide(OpenCodeFake.layer(options)));
+  options: LayerOptions = {},
+) => body.pipe(Effect.provide(layer(options)));
 
 const start = (stream: Stream.Stream<Out, OpenCodeError>) =>
   Effect.gen(function* () {
@@ -82,7 +82,7 @@ describe('OpenCode on the fake', () => {
           status: 'completed',
         });
         const id = first?._tag === 'Started' ? first.id : undefined;
-        const original = OpenCodeFake.recordings['create']?.[0];
+        const original = recordings['create']?.[0];
         expect(id).not.toBe(
           original?.type === 'session.inbox.enqueued'
             ? original.data.sessionID
@@ -355,8 +355,8 @@ describe('OpenCode on the fake', () => {
       }),
       {
         recordings: {
-          crash: (OpenCodeFake.recordings['create'] ?? []).slice(0, 5),
-          create: OpenCodeFake.recordings['create'] ?? [],
+          crash: (recordings['create'] ?? []).slice(0, 5),
+          create: recordings['create'] ?? [],
         },
       },
     ),
@@ -399,9 +399,7 @@ describe('OpenCode on the fake', () => {
         yield* until(id, (live) => live.status === 'ready');
         yield* Deferred.succeed(latch, undefined);
         const outs = yield* Fiber.join(fiber);
-        expect(outs).toHaveLength(
-          (OpenCodeFake.recordings['create']?.length ?? 0) + 2,
-        );
+        expect(outs).toHaveLength((recordings['create']?.length ?? 0) + 2);
       }),
     ),
   );

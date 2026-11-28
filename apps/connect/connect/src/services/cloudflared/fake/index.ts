@@ -8,7 +8,6 @@ export const CloudflaredState = Schema.Struct({
   broken: Schema.Boolean,
   reachable: Schema.Boolean,
 });
-export type CloudflaredState = typeof CloudflaredState.Type;
 
 const set =
   (change: Partial<CloudflaredState>) =>
@@ -86,3 +85,5 @@ export const cloudflared = Fake.make({
       }),
     ),
 });
+
+export type CloudflaredState = typeof CloudflaredState.Type;

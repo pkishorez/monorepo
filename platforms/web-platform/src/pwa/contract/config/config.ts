@@ -1,5 +1,4 @@
-import * as Schema from 'effect/Schema';
-import * as Struct from 'effect/Struct';
+import { Schema, Struct } from 'effect';
 import { BuildId, PrecacheList } from '../build/index.js';
 import { THEME_COLORS, DEFAULT_THEME } from '../../../ui/theme/model.ts';
 import { DEFAULT_ICONS, WebAppManifest } from './manifest/index.js';

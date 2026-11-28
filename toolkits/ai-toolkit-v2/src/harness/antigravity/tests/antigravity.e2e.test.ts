@@ -4,12 +4,16 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
-import type * as acp from '@agentclientprotocol/sdk/unstable';
+import type {
+  ContentBlock,
+  CreateElicitationRequest,
+  RequestPermissionRequest,
+} from '@agentclientprotocol/sdk/unstable';
 import { describe, expect, it } from '@effect/vitest';
 import { Effect, Schedule, Stream } from 'effect';
 import { Antigravity, type Out } from '../contract/index.ts';
 import type { Recording, Step } from '../fake/recordings/index.ts';
-import * as AntigravityReal from '../real/index.ts';
+import { layer } from '../real/index.ts';
 
 const recordings = join(import.meta.dirname, '..', 'fake', 'recordings');
 
@@ -21,7 +25,7 @@ const save = (name: string, data: unknown) =>
     ),
   );
 
-const text = (value: string): Array<acp.ContentBlock> => [
+const text = (value: string): Array<ContentBlock> => [
   { type: 'text', text: value },
 ];
 
@@ -82,11 +86,11 @@ const collect = <R, R2 = never>(
     Effect.map((all) => [...all]),
   );
 
-const allow = (request: acp.RequestPermissionRequest) =>
+const allow = (request: RequestPermissionRequest) =>
   request.options.find((option) => option.kind === 'allow_once')?.optionId ??
   'allow';
 
-const blue = (request: acp.CreateElicitationRequest) => {
+const blue = (request: CreateElicitationRequest) => {
   const schema = request as {
     readonly requestedSchema?: {
       readonly properties?: Record<
@@ -324,7 +328,7 @@ describe.runIf(process.env['AI_TOOLKIT_V2_E2E'] === '1')(
           yield* Effect.promise(() =>
             promisify(execFile)('npx', ['vp', 'fmt', '--write', recordings]),
           );
-        }).pipe(Effect.provide(AntigravityReal.layer({ linger: '2 seconds' }))),
+        }).pipe(Effect.provide(layer({ linger: '2 seconds' }))),
       { timeout: 300_000 },
     );
   },

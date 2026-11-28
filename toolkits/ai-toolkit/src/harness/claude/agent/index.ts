@@ -1,6 +1,2 @@
-export {
-  openSdkAgent,
-  restore,
-  type SdkTurn,
-  type SdkTurnHandle,
-} from './agent.js';
+export { openSdkAgent, restore } from './agent.js';
+export type { SdkTurn, SdkTurnHandle } from './agent.js';

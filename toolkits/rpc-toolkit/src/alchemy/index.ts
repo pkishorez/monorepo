@@ -1,6 +1,2 @@
-export {
-  DurableRpcWorker,
-  RpcWorker,
-  type DurableRpcHandlers,
-  type DurableRpcWorkerOptions,
-} from './alchemy.ts';
+export { DurableRpcWorker, RpcWorker } from './alchemy.ts';
+export type { DurableRpcHandlers, DurableRpcWorkerOptions } from './alchemy.ts';

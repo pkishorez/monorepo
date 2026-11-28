@@ -1,4 +1,4 @@
-import * as Cloudflare from '@alchemy.run/cloudflare';
+import { D1 } from '@alchemy.run/cloudflare';
 import {
   AUTH_MIGRATIONS_TABLE,
   authMigrationsDir,
@@ -9,7 +9,7 @@ interface D1DatabaseProps {
 }
 
 export const d1Database = (id: string, props: D1DatabaseProps = {}) =>
-  Cloudflare.D1.Database(id, {
+  D1.Database(id, {
     ...(props.name ? { name: props.name } : {}),
     migrations: {
       dir: authMigrationsDir,

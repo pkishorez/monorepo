@@ -7,8 +7,6 @@ import permission from './permission.json' with { type: 'json' };
 import send from './send.json' with { type: 'json' };
 import session from './session.json' with { type: 'json' };
 
-export type Recording = ReadonlyArray<Event>;
-
 const recording = (events: unknown) => events as Recording;
 
 export const recordings: Readonly<Record<string, Recording>> = {
@@ -23,3 +21,5 @@ export const methods: Readonly<Partial<Record<keyof Methods, unknown>>> =
   recorded;
 
 export { session };
+
+export type Recording = ReadonlyArray<Event>;

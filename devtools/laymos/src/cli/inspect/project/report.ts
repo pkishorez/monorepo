@@ -1,4 +1,4 @@
-import * as colors from 'yoctocolors';
+import { cyan, dim, green } from 'yoctocolors';
 
 import type {
   ModuleTree,
@@ -15,7 +15,7 @@ export function renderProjectInspection(inspection: ProjectInspection): string {
     targets.map((to) => `  ${from} → ${to}`),
   );
   const exceptions = config.exceptions.map(
-    ({ from, to, because }) => `  ${from} → ${to}  ${colors.dim(because)}`,
+    ({ from, to, because }) => `  ${from} → ${to}  ${dim(because)}`,
   );
   return [
     `Modules: ${modules.length}`,
@@ -55,6 +55,6 @@ function renderTree(
 
 function renderLabel(node: TreeNode, isRoot: boolean): string {
   const name = isRoot ? node.path : (node.path.split('/').pop() ?? node.path);
-  if (node.kind === 'wrapper') return colors.dim(name);
-  return node.shape === 'file' ? colors.cyan(name) : colors.green(name);
+  if (node.kind === 'wrapper') return dim(name);
+  return node.shape === 'file' ? cyan(name) : green(name);
 }

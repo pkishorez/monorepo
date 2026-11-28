@@ -5,7 +5,6 @@ export {
   NO_ROOT_SERVICE,
   SERVICE_ATTR_KEY,
 } from './shape.js';
-export type { AttributeFilter, Filters, TraceStatusFilter } from './shape.js';
 export {
   discoverAttributeKeys,
   discoverAttributeValues,
@@ -20,3 +19,5 @@ export {
   tracesListed,
   tracesOf,
 } from './selectors.js';
+
+export type { AttributeFilter, Filters, TraceStatusFilter } from './shape.js';

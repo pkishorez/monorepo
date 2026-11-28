@@ -3,7 +3,7 @@ import { createServer as createNetServer, type AddressInfo } from 'node:net';
 import { Effect, Layer, Schedule, Stream } from 'effect';
 import { McpProtocol, McpServer } from 'effect/ai';
 import { HttpRouter } from 'effect/http';
-import * as NodeHttpServer from '@effect/platform-node/NodeHttpServer';
+import { NodeHttpServer } from '@effect/platform-node';
 import {
   KabukiSession,
   dialSessions,

@@ -1,4 +1,8 @@
 export { Actor } from './actor.ts';
+export { RUN } from './definition/index.ts';
+export { Command } from './command.ts';
+export { Blueprint } from './blueprint.ts';
+
 export type {
   ActorType,
   AnyActor,
@@ -23,7 +27,6 @@ export type {
   TaggedWritten,
 } from './schemas.ts';
 export type { Self } from './self.ts';
-export { RUN } from './definition/index.ts';
 export type {
   ActorDefinition,
   Check,
@@ -70,8 +73,6 @@ export type {
   Worker,
   Workers,
 } from './build.ts';
-export { Command } from './command.ts';
-export { Blueprint } from './blueprint.ts';
 export type {
   BlueprintChild,
   BlueprintLevel,

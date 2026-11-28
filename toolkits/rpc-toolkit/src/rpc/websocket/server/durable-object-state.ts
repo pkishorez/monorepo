@@ -1,7 +1,6 @@
 import type * as cf from '@cloudflare/workers-types';
-import * as Effect from 'effect/Effect';
-import * as HttpBody from 'effect/http/HttpBody';
-import * as HttpServerResponse from 'effect/http/HttpServerResponse';
+import { Effect } from 'effect';
+import { HttpBody, HttpServerResponse } from 'effect/http';
 
 /**
  * The slice of a hibernation-capable WebSocket wrapper this package needs.

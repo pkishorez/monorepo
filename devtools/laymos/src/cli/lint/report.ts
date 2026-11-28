@@ -1,4 +1,4 @@
-import * as colors from 'yoctocolors';
+import { dim, green, red, yellow } from 'yoctocolors';
 
 import type {
   ArchitectureAnalysis,
@@ -25,24 +25,20 @@ export function renderLintReport(analysis: ArchitectureAnalysis): string {
   ];
 
   if (violations.length === 0 && coverage.length === 0) {
-    sections.push(colors.green('✓ Every import obeys the Rules'));
+    sections.push(green('✓ Every import obeys the Rules'));
   } else {
     if (coverage.length > 0) {
       sections.push(
         '',
-        colors.red('Files no Module owns'),
-        ...coverage.map((file) => `  ${colors.yellow('✕')} ${file}`),
-        colors.dim(
+        red('Files no Module owns'),
+        ...coverage.map((file) => `  ${yellow('✕')} ${file}`),
+        dim(
           '  give the folder an index file, declare the file under fileModules, or ignore it',
         ),
       );
     }
     if (violations.length > 0) {
-      sections.push(
-        '',
-        colors.red('Violations'),
-        ...violations.map(renderViolation),
-      );
+      sections.push('', red('Violations'), ...violations.map(renderViolation));
     }
     const count = violations.length + coverage.length;
     sections.push('', `${count} ${count === 1 ? 'violation' : 'violations'}`);
@@ -51,12 +47,10 @@ export function renderLintReport(analysis: ArchitectureAnalysis): string {
   if (unusedRules.length > 0 || unusedExceptions.length > 0) {
     sections.push(
       '',
-      colors.yellow('Declared but unused'),
-      ...unusedRules.map(
-        ({ from, to }) => `  ${colors.dim('rule')} ${from} → ${to}`,
-      ),
+      yellow('Declared but unused'),
+      ...unusedRules.map(({ from, to }) => `  ${dim('rule')} ${from} → ${to}`),
       ...unusedExceptions.map(
-        ({ from, to }) => `  ${colors.dim('exception')} ${from} → ${to}`,
+        ({ from, to }) => `  ${dim('exception')} ${from} → ${to}`,
       ),
     );
   }
@@ -66,8 +60,8 @@ export function renderLintReport(analysis: ArchitectureAnalysis): string {
 function renderViolation(violation: ModuleImport): string {
   const { verdict } = violation;
   if (verdict.kind !== 'violation') return '';
-  const line = `  ${colors.red('✕')} ${violation.fromModule} → ${violation.toModule}: ${violation.fromFile} → ${violation.toFile}`;
-  return `${line}\n    ${colors.dim(remedyText(verdict.reason, verdict.remedy))}`;
+  const line = `  ${red('✕')} ${violation.fromModule} → ${violation.toModule}: ${violation.fromFile} → ${violation.toFile}`;
+  return `${line}\n    ${dim(remedyText(verdict.reason, verdict.remedy))}`;
 }
 
 function remedyText(

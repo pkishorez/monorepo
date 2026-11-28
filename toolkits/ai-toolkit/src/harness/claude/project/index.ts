@@ -3,5 +3,5 @@ export {
   QUESTION_ANSWERED,
   resultEnd,
   TOOL_OUTPUT_MAX,
-  type QuestionAnswered,
 } from './project.js';
+export type { QuestionAnswered } from './project.js';

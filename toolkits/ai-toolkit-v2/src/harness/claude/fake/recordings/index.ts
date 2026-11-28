@@ -15,28 +15,6 @@ import send from './send.json' with { type: 'json' };
 import steer from './steer.json' with { type: 'json' };
 import structured from './structured.json' with { type: 'json' };
 
-export type RecordingEntry =
-  | { readonly message: SDKMessage }
-  | {
-      readonly request: {
-        readonly toolName: string;
-        readonly input: Record<string, unknown>;
-        readonly options: Omit<Parameters<CanUseTool>[2], 'signal'>;
-      };
-    }
-  | { readonly exit: string };
-
-export interface Recording {
-  readonly name: string;
-  readonly entries: ReadonlyArray<RecordingEntry>;
-}
-
-export interface Answers {
-  readonly initialization: SDKControlInitializeResponse;
-  readonly contextUsage: SDKControlGetContextUsageResponse;
-  readonly mcpServerStatus: ReadonlyArray<McpServerStatus>;
-}
-
 const recordingOf = (json: object): Recording => json as Recording;
 
 const answersOf = (json: object): Answers => json as Answers;
@@ -53,3 +31,23 @@ export const recordings: ReadonlyArray<Recording> = [
 ].map(recordingOf);
 
 export const answers: Answers = answersOf(answersJson);
+
+export type RecordingEntry =
+  | { readonly message: SDKMessage }
+  | {
+      readonly request: {
+        readonly toolName: string;
+        readonly input: Record<string, unknown>;
+        readonly options: Omit<Parameters<CanUseTool>[2], 'signal'>;
+      };
+    }
+  | { readonly exit: string };
+export interface Recording {
+  readonly name: string;
+  readonly entries: ReadonlyArray<RecordingEntry>;
+}
+export interface Answers {
+  readonly initialization: SDKControlInitializeResponse;
+  readonly contextUsage: SDKControlGetContextUsageResponse;
+  readonly mcpServerStatus: ReadonlyArray<McpServerStatus>;
+}

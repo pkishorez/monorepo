@@ -1,7 +1,6 @@
 import { Stage, localState } from 'alchemy';
 import * as Cloudflare from '@alchemy.run/cloudflare';
-import * as Effect from 'effect/Effect';
-import * as Layer from 'effect/Layer';
+import { Effect, Layer } from 'effect';
 import { isDeployedStage } from './stage.ts';
 
 const state = Layer.unwrap(
@@ -19,7 +18,6 @@ const state = Layer.unwrap(
  * Stack to give: pnpm may install the app's alchemy apart from this
  * package's, with other peers, and the two do not match by type.
  */
-// oxlint-disable-next-line typescript/no-explicit-any
 export const State: Layer.Layer<
   Layer.Success<typeof state>,
   never,

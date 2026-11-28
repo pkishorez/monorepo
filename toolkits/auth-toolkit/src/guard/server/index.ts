@@ -1,8 +1,2 @@
-export {
-  auth,
-  authAs,
-  verify,
-  type AuthOptions,
-  type HttpGuard,
-  type RpcGuard,
-} from './server.js';
+export { auth, authAs, verify } from './server.js';
+export type { AuthOptions, HttpGuard, RpcGuard } from './server.js';

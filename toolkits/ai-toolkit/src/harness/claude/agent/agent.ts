@@ -28,7 +28,15 @@ import {
 } from './records.js';
 import { contextUsage, mcpStatus } from './status/index.js';
 import { makeStreamChunks } from './stream-chunks/index.js';
-import { TurnEnd } from './turn-end/index.js';
+import {
+  agentStarted as agentStartedTurn,
+  cancel as cancelTurn,
+  dropped as turnDropped,
+  result as turnResult,
+  sent as turnSent,
+  start as startTurn,
+  type TurnEnd as TurnEndState,
+} from './turn-end/index.js';
 import { apply, changed, type TurnOptions } from './turn-options.js';
 import { userInput } from './user-input.js';
 
@@ -67,7 +75,7 @@ interface Turn {
   readonly agentStarted: boolean;
   /** Ends with the turn, so a user turn can wait out an agent's. */
   readonly done: Deferred.Deferred<void>;
-  state: TurnEnd.TurnEnd;
+  state: TurnEndState;
   /** The turn's last transcript entry so far: its Fork Point once it ends. */
   forkPoint: string | undefined;
   /** How the last result that answered one of its messages ended. */
@@ -162,7 +170,7 @@ export const openSdkAgent = (
       );
     });
 
-    const newTurn = (agentStarted: boolean, state: TurnEnd.TurnEnd) =>
+    const newTurn = (agentStarted: boolean, state: TurnEndState) =>
       Effect.gen(function* () {
         const current: Turn = {
           out: yield* Queue.unbounded<TurnOut, HarnessError | Cause.Done>(),
@@ -216,7 +224,7 @@ export const openSdkAgent = (
     );
 
     const startAgentTurn: Effect.Effect<Turn> = Effect.gen(function* () {
-      const current = yield* newTurn(true, TurnEnd.agentStarted);
+      const current = yield* newTurn(true, agentStartedTurn);
       // A user turn may have begun while this one was made; the record
       // joins it instead.
       return yield* Effect.suspend(() =>
@@ -296,7 +304,7 @@ export const openSdkAgent = (
           record['state'] === 'cancelled' &&
           typeof record['command_uuid'] === 'string'
         ) {
-          const [state, step] = TurnEnd.dropped(
+          const [state, step] = turnDropped(
             current.state,
             record['command_uuid'],
           );
@@ -315,7 +323,7 @@ export const openSdkAgent = (
         if (record['type'] === 'result') yield* send(chunks.flushAll());
         yield* Queue.offer(current.out, toRawOut(record));
         if (record['type'] !== 'result') return;
-        const [state, step] = TurnEnd.result(current.state, record);
+        const [state, step] = turnResult(current.state, record);
         if (state.pending.length < current.state.pending.length)
           current.answered = resultEnd(record);
         current.state = state;
@@ -441,10 +449,10 @@ export const openSdkAgent = (
         // Counted before the options apply, so the turn cannot end on a
         // result before its steer is sent.
         const uuid = randomUUID();
-        current.state = TurnEnd.sent(current.state, uuid);
+        current.state = turnSent(current.state, uuid);
         yield* applyOptions(message.options).pipe(
           Effect.tapError(() => {
-            const [state, step] = TurnEnd.dropped(current.state, uuid);
+            const [state, step] = turnDropped(current.state, uuid);
             current.state = state;
             return step === 'end' ? finishDropped(current) : Effect.void;
           }),
@@ -470,7 +478,7 @@ export const openSdkAgent = (
           Effect.gen(function* () {
             yield* applyOptions(message.options);
             const uuid = randomUUID();
-            const current = yield* newTurn(false, TurnEnd.start(uuid));
+            const current = yield* newTurn(false, startTurn(uuid));
             current.forkPoint = uuid;
             yield* claim(current, () =>
               input.push(uuid, userContent(message.text, message.images)),
@@ -500,7 +508,7 @@ export const openSdkAgent = (
       cancel: Effect.suspend(() => {
         const current = turn;
         if (current === undefined) return Effect.void;
-        current.state = TurnEnd.cancel(current.state);
+        current.state = cancelTurn(current.state);
         return interrupt.pipe(
           Effect.andThen(
             Effect.sleep(CANCEL_GRACE_MS).pipe(

@@ -1,16 +1,4 @@
 export { TreeShape } from './shape.js';
-export type {
-  BrokenLink,
-  ExceptedLink,
-  Finding,
-  Findings,
-  Reached,
-  ReachedBy,
-  SelectionFindings,
-  Structure,
-  TreePackage,
-  TreeProps,
-} from './shape.js';
 export {
   buildTree,
   connectionsOf,
@@ -32,6 +20,19 @@ export {
   visibleRows,
   withDeleted,
 } from './selectors/index.js';
+
+export type {
+  BrokenLink,
+  ExceptedLink,
+  Finding,
+  Findings,
+  Reached,
+  ReachedBy,
+  SelectionFindings,
+  Structure,
+  TreePackage,
+  TreeProps,
+} from './shape.js';
 export type {
   Connection,
   Crumb,

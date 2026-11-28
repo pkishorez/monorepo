@@ -2,4 +2,5 @@
 // them over a page that cannot be laid out beside them. Kabuki's Inspector
 // is in `@kestack/devtools-kabuki/app`.
 export { DevtoolsDialog } from './dialog/index.ts';
-export { DevtoolsDock, type DockLayout } from './dock/index.ts';
+export { DevtoolsDock } from './dock/index.ts';
+export type { DockLayout } from './dock/index.ts';

@@ -3,7 +3,8 @@
  * each open stream's request and checkpoint across hibernation.
  */
 export { attachment } from './attachment.ts';
-export { sqlite, type SQLiteOptions } from './sqlite.ts';
+export { sqlite } from './sqlite.ts';
+export type { SQLiteOptions } from './sqlite.ts';
 export type {
   SavedSocket,
   SavedStream,

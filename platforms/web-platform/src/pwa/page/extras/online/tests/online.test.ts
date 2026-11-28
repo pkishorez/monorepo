@@ -1,6 +1,4 @@
-import * as Effect from 'effect/Effect';
-import * as Layer from 'effect/Layer';
-import * as SubscriptionRef from 'effect/SubscriptionRef';
+import { Effect, Layer, SubscriptionRef } from 'effect';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FakeBrowser, fire } from '../../../../../../test/pwa/fake-browser.js';
 import { Online } from '../index.js';

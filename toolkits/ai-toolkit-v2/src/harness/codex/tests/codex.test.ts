@@ -2,11 +2,14 @@ import { describe, expect, it } from '@effect/vitest';
 import { Duration, Effect, Fiber, Layer, Stream } from 'effect';
 import { TestClock } from 'effect/testing';
 import { Codex, CodexError, type Live, type Out } from '../contract/index.ts';
-import * as FakeDriver from '../fake/driver.ts';
-import * as CodexFake from '../fake/index.ts';
-import * as Router from '../shared/index.ts';
-
-const { answers, recordings } = CodexFake;
+import { layer as fakeDriverLayer } from '../fake/driver.ts';
+import {
+  answers,
+  layer as codexFakeLayer,
+  type Recording,
+  recordings,
+} from '../fake/index.ts';
+import { Driver, layer as routerLayer } from '../shared/index.ts';
 
 const text = (value: string) => [
   { type: 'text' as const, text: value, text_elements: [] },
@@ -16,16 +19,16 @@ const turn = (name: string) => ({ input: text(name) });
 const setup = (
   options: {
     linger?: Duration.Input;
-    recordings?: Record<string, CodexFake.Recording>;
+    recordings?: Record<string, Recording>;
     refuseSteer?: boolean;
   } = {},
 ) => {
   const methods: Array<string> = [];
   const counted = Layer.effect(
-    Router.Driver,
+    Driver,
     Effect.gen(function* () {
-      const inner = yield* Router.Driver;
-      return Router.Driver.of({
+      const inner = yield* Driver;
+      return Driver.of({
         start: (cwd) =>
           Effect.map(inner.start(cwd), (connection) => ({
             ...connection,
@@ -40,14 +43,14 @@ const setup = (
     }),
   ).pipe(
     Layer.provide(
-      FakeDriver.layer({
+      fakeDriverLayer({
         recordings: options.recordings ?? recordings,
         answers,
       }),
     ),
   );
   return {
-    layer: Router.layer({ linger: options.linger ?? 0 }).pipe(
+    layer: routerLayer({ linger: options.linger ?? 0 }).pipe(
       Layer.provide(counted),
     ),
     methods,
@@ -109,7 +112,7 @@ describe('Codex on the fake driver', () => {
           status: 'completed',
           result: expect.any(String),
         });
-      }).pipe(Effect.provide(CodexFake.layer({ linger: 0 }))),
+      }).pipe(Effect.provide(codexFakeLayer({ linger: 0 }))),
   );
 
   it.effect('gives structured output as the result', () =>
@@ -119,7 +122,7 @@ describe('Codex on the fake driver', () => {
         codex.create({ turn: turn('structured') }),
       );
       expect(JSON.parse(ended(outs).result ?? '')).toEqual({ answer: 'ok' });
-    }).pipe(Effect.provide(CodexFake.layer({ linger: 0 }))),
+    }).pipe(Effect.provide(codexFakeLayer({ linger: 0 }))),
   );
 
   it.effect('routes send to the live instance', () => {
@@ -384,7 +387,7 @@ describe('Codex on the fake driver', () => {
       const approval = recordings['approval'];
       if (approval === undefined) throw new Error('No approval recording');
       const upTo = approval.messages.findIndex((step) => 'id' in step);
-      const dying: CodexFake.Recording = {
+      const dying: Recording = {
         ...approval,
         messages: [...approval.messages.slice(0, upTo + 1), { exit: 'boom' }],
       };
@@ -486,6 +489,6 @@ describe('Codex on the fake driver', () => {
       expect(yield* codex.skills()).toEqual(answers['skills/list']);
       expect(yield* codex.mcpStatus()).toEqual(answers['mcpServerStatus/list']);
       expect(yield* codex.config()).toEqual(answers['config/read']);
-    }).pipe(Effect.provide(CodexFake.layer())),
+    }).pipe(Effect.provide(codexFakeLayer())),
   );
 });

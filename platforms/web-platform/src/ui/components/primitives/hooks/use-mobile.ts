@@ -1,4 +1,4 @@
-import * as React from 'react';
+import { useSyncExternalStore } from 'react';
 
 const MOBILE_BREAKPOINT = 768;
 /** The screens `useIsMobile` calls a phone's. */
@@ -13,7 +13,7 @@ const subscribe = (onChange: () => void) => {
 // The server renders wide; hydration uses that too, then React re-renders
 // with the real width, so server and client markup always match.
 export function useIsMobile() {
-  return React.useSyncExternalStore(
+  return useSyncExternalStore(
     subscribe,
     () => window.matchMedia(MOBILE_QUERY).matches,
     () => false,

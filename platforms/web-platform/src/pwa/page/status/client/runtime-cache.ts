@@ -1,4 +1,4 @@
-import * as Effect from 'effect/Effect';
+import { Effect } from 'effect';
 import { isRuntimeCacheName } from '../../../contract/build/index.js';
 
 /**

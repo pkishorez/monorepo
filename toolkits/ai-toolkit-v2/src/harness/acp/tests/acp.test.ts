@@ -1,4 +1,7 @@
-import type * as acp from '@agentclientprotocol/sdk/unstable';
+import type {
+  AgentCapabilities,
+  RequestPermissionResponse,
+} from '@agentclientprotocol/sdk/unstable';
 import { describe, expect, it } from '@effect/vitest';
 import {
   Context,
@@ -11,7 +14,7 @@ import {
 } from 'effect';
 import { TestClock } from 'effect/testing';
 import type { AcpAgent, Out, Pending, Requested } from '../contract/index.ts';
-import * as AcpFake from '../fake/index.ts';
+import { layer, type Recording, recordings } from '../fake/index.ts';
 
 class Agent extends Context.Service<Agent, AcpAgent>()('test/Agent') {}
 class Goose extends Context.Service<Goose, AcpAgent>()('test/Goose') {}
@@ -21,19 +24,19 @@ const cwd = '/tmp/ai-toolkit-v2-acp';
 const text = (value: string) => [{ type: 'text' as const, text: value }];
 const session = (sessionId: string) => ({ sessionId, cwd, mcpServers: [] });
 const recording = (name: string) => {
-  const found = AcpFake.recordings.find((entry) => entry.name === name);
+  const found = recordings.find((entry) => entry.name === name);
   if (!found) throw new Error(`no recording ${name}`);
   return found;
 };
 const reply = recording('reply');
 const withCapabilities = (
-  agentCapabilities: acp.AgentCapabilities,
-  base: AcpFake.Recording = reply,
-): AcpFake.Recording => ({
+  agentCapabilities: AgentCapabilities,
+  base: Recording = reply,
+): Recording => ({
   ...base,
   initialize: { ...base.initialize, agentCapabilities },
 });
-const allow = (pending: Pending): acp.RequestPermissionResponse => {
+const allow = (pending: Pending): RequestPermissionResponse => {
   if (pending.method !== 'session/request_permission') {
     throw new Error(`not a permission: ${pending.method}`);
   }
@@ -97,7 +100,7 @@ describe('Acp fake', () => {
         [id, 'ready'],
       ]);
       expect(live[0]?.initialize).toEqual(reply.initialize);
-    }).pipe(Effect.provide(AcpFake.layer(Agent))),
+    }).pipe(Effect.provide(layer(Agent))),
   );
 
   it.effect('send goes to the live instance', () =>
@@ -114,9 +117,7 @@ describe('Acp fake', () => {
       expect(last(sent).status).toBe('completed');
       expect((yield* service.live).length).toBe(1);
     }).pipe(
-      Effect.provide(
-        AcpFake.layer(Agent, { recordings: [withCapabilities({})] }),
-      ),
+      Effect.provide(layer(Agent, { recordings: [withCapabilities({})] })),
     ),
   );
 
@@ -132,9 +133,7 @@ describe('Acp fake', () => {
       expect(outs[0]).toEqual({ _tag: 'Started', id: 'old-session' });
       expect(last(outs).status).toBe('completed');
     }).pipe(
-      Effect.provide(
-        AcpFake.layer(Agent, { recordings: [withCapabilities(caps)] }),
-      ),
+      Effect.provide(layer(Agent, { recordings: [withCapabilities(caps)] })),
     ),
   );
 
@@ -150,9 +149,7 @@ describe('Acp fake', () => {
       );
       expect((yield* service.live).length).toBe(0);
     }).pipe(
-      Effect.provide(
-        AcpFake.layer(Agent, { recordings: [withCapabilities({})] }),
-      ),
+      Effect.provide(layer(Agent, { recordings: [withCapabilities({})] })),
     ),
   );
 
@@ -185,7 +182,7 @@ describe('Acp fake', () => {
       expect(second[1]).toEqual({ _tag: 'Queued', position: 1 });
       expect(last(second).status).toBe('completed');
       expect((yield* service.live)[0]?.queue).toBe(0);
-    }).pipe(Effect.provide(AcpFake.layer(Agent))),
+    }).pipe(Effect.provide(layer(Agent))),
   );
 
   it.effect('respond fails for an unknown request', () =>
@@ -203,7 +200,7 @@ describe('Acp fake', () => {
       expect(error._tag).toBe('AcpError');
       yield* service.respond(id, pending.requestId, allow(pending));
       yield* Fiber.join(fiber);
-    }).pipe(Effect.provide(AcpFake.layer(Agent))),
+    }).pipe(Effect.provide(layer(Agent))),
   );
 
   it.effect('cancel ends the Run cancelled and answers its requests', () =>
@@ -219,7 +216,7 @@ describe('Acp fake', () => {
       const outs = yield* Fiber.join(fiber);
       expect(last(outs).status).toBe('cancelled');
       expect((yield* service.live)[0]?.requests).toEqual([]);
-    }).pipe(Effect.provide(AcpFake.layer(Agent))),
+    }).pipe(Effect.provide(layer(Agent))),
   );
 
   it.effect('an elicitation is Requested, and respond accepts it', () =>
@@ -251,7 +248,7 @@ describe('Acp fake', () => {
       const outs = yield* Fiber.join(fiber);
       expect(last(outs).status).toBe('completed');
       expect((yield* service.live)[0]?.requests).toEqual([]);
-    }).pipe(Effect.provide(AcpFake.layer(Agent))),
+    }).pipe(Effect.provide(layer(Agent))),
   );
 
   it.effect.each(['decline', 'cancel'] as const)(
@@ -267,7 +264,7 @@ describe('Acp fake', () => {
         );
         yield* service.respond(id, pending.requestId, { action });
         expect(last(yield* Fiber.join(fiber)).status).toBe('completed');
-      }).pipe(Effect.provide(AcpFake.layer(Agent))),
+      }).pipe(Effect.provide(layer(Agent))),
   );
 
   it.effect('cancel answers a pending elicitation cancel', () =>
@@ -282,7 +279,7 @@ describe('Acp fake', () => {
       yield* service.cancel(id);
       expect(last(yield* Fiber.join(fiber)).status).toBe('cancelled');
       expect((yield* service.live)[0]?.requests).toEqual([]);
-    }).pipe(Effect.provide(AcpFake.layer(Agent))),
+    }).pipe(Effect.provide(layer(Agent))),
   );
 
   it.effect('calls on a session that is not live fail NotLive', () =>
@@ -305,7 +302,7 @@ describe('Acp fake', () => {
         'NotLive',
       ]);
       expect(yield* service.watch('gone').pipe(Stream.runCollect)).toEqual([]);
-    }).pipe(Effect.provide(AcpFake.layer(Agent))),
+    }).pipe(Effect.provide(layer(Agent))),
   );
 
   it.effect('an instance lingers after its last reader, then stops', () =>
@@ -318,7 +315,7 @@ describe('Acp fake', () => {
       expect((yield* service.live).length).toBe(1);
       yield* TestClock.adjust('2 seconds');
       expect((yield* service.live).length).toBe(0);
-    }).pipe(Effect.provide(AcpFake.layer(Agent))),
+    }).pipe(Effect.provide(layer(Agent))),
   );
 
   it.effect('a late watch reader sees the instance and holds it', () =>
@@ -339,7 +336,7 @@ describe('Acp fake', () => {
       expect((yield* service.live).length).toBe(0);
       const first = yield* service.watch(id).pipe(Stream.runHead);
       expect(Option.isNone(first)).toBe(true);
-    }).pipe(Effect.provide(AcpFake.layer(Agent))),
+    }).pipe(Effect.provide(layer(Agent))),
   );
 
   it.effect('a reader that stops reading does not cancel its Run', () =>
@@ -363,7 +360,7 @@ describe('Acp fake', () => {
         Stream.runHead,
       );
       expect(Option.isSome(ready)).toBe(true);
-    }).pipe(Effect.provide(AcpFake.layer(Agent))),
+    }).pipe(Effect.provide(layer(Agent))),
   );
 
   it.effect(
@@ -384,7 +381,7 @@ describe('Acp fake', () => {
         expect(last(resumed).status).toBe('completed');
       }).pipe(
         Effect.provide(
-          AcpFake.layer(Agent, {
+          layer(Agent, {
             recordings: [
               reply,
               {
@@ -405,7 +402,7 @@ describe('Acp fake', () => {
         .fork({ session: session('source'), prompt: text('reply') })
         .pipe(Stream.runCollect, Effect.flip);
       expect(error.message).toContain('session/fork');
-    }).pipe(Effect.provide(AcpFake.layer(Agent))),
+    }).pipe(Effect.provide(layer(Agent))),
   );
 
   it.effect('fork starts a new session from another', () =>
@@ -419,7 +416,7 @@ describe('Acp fake', () => {
       expect(last(outs).status).toBe('completed');
     }).pipe(
       Effect.provide(
-        AcpFake.layer(Agent, {
+        layer(Agent, {
           recordings: [withCapabilities({ sessionCapabilities: { fork: {} } })],
         }),
       ),
@@ -444,7 +441,7 @@ describe('Acp fake', () => {
       const live = (yield* service.live)[0];
       expect(live?.modes?.currentModeId).toBe('plan');
       expect(yield* service.connection(id)).toBeDefined();
-    }).pipe(Effect.provide(AcpFake.layer(Agent))),
+    }).pipe(Effect.provide(layer(Agent))),
   );
 
   it.effect('two agents, each its own tag, run independently', () =>
@@ -476,8 +473,8 @@ describe('Acp fake', () => {
     }).pipe(
       Effect.provide(
         Layer.mergeAll(
-          AcpFake.layer(Goose, { recordings: [recording('send')] }),
-          AcpFake.layer(Kiro, { recordings: [reply] }),
+          layer(Goose, { recordings: [recording('send')] }),
+          layer(Kiro, { recordings: [reply] }),
         ),
       ),
     ),

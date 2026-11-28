@@ -3,9 +3,9 @@ export {
   CommandReply,
   commandReply,
   Command,
-  type CommandType,
   isCommandEnvelope,
   makeCommand,
   matchCommandReply,
   matchCommand,
 } from './commands.js';
+export type { CommandType } from './commands.js';

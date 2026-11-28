@@ -2,7 +2,13 @@ import { View } from '@kestack/kabuki/react';
 import { Router } from '@kestack/kabuki/routing';
 import { useSyncExternalStore } from 'react';
 import { ArrowLeftIcon } from 'lucide-react';
-import { Pages, router } from '../../../shared/index.ts';
+import {
+  DemoLive,
+  SnakeRecordLive,
+  StageDemoLive,
+  TodosDemoLive,
+  router,
+} from '../../../shared/index.ts';
 import { ThemeToggle } from '../../components/index.ts';
 import { SnakeRecord } from '../../docs/index.ts';
 import {
@@ -26,14 +32,14 @@ const actions = (
 );
 
 /** Opening an app, full screen, with a way back to the docs in its header. */
-export const DemoView = View.make(Pages.DemoLive, () => (
+export const DemoView = View.make(DemoLive, () => (
   <div className="h-dvh">
     <OpeningAnApp actions={actions} />
   </div>
 ));
 
 /** To-dos, full screen, with a way back to the docs in its header. */
-export const TodosDemoView = View.make(Pages.TodosDemoLive, () => (
+export const TodosDemoView = View.make(TodosDemoLive, () => (
   <div className="h-dvh">
     <Todos actions={actions} />
   </div>
@@ -48,7 +54,7 @@ const onHash = (change: () => void) => {
  * A demo staged to be watched, named by the URL's hash. The hash never
  * reaches a server, so the stage is drawn in the browser alone.
  */
-export const StageDemoView = View.make(Pages.StageDemoLive, () => {
+export const StageDemoView = View.make(StageDemoLive, () => {
   const hash = useSyncExternalStore(
     onHash,
     () => window.location.hash,
@@ -64,7 +70,7 @@ const never = () => () => {};
  * Snake, staged to be recorded. It reads its seed and script from the
  * URL's query, so it is drawn in the browser alone.
  */
-export const SnakeRecordView = View.make(Pages.SnakeRecordLive, () => {
+export const SnakeRecordView = View.make(SnakeRecordLive, () => {
   const browser = useSyncExternalStore(
     never,
     () => true,

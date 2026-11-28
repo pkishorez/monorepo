@@ -3,7 +3,7 @@ import type { AddressInfo } from 'node:net';
 import { Effect, Exit, Layer, Option, Queue, Scope, Stream } from 'effect';
 import { RpcClient } from 'effect/rpc';
 import { Socket } from 'effect/socket';
-import * as NodeSocketServer from '@effect/platform-node/NodeSocketServer';
+import { NodeSocketServer } from '@effect/platform-node';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { connect } from '../../../../app.tsx';
 import { started } from '../../../../services/kabuki-session/tests/diary.ts';

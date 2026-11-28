@@ -1,8 +1,4 @@
-export {
-  DisplayMode,
-  type DisplayModeValue,
-  useDisplayMode,
-} from './display-mode/index.js';
+export { DisplayMode, useDisplayMode } from './display-mode/index.js';
 export {
   Install,
   InstallPrompt,
@@ -13,3 +9,5 @@ export {
 } from './install/index.js';
 export { OfflineIndicator, Online, useOnline } from './online/index.js';
 export { StoragePersistence, useStoragePersistence } from './storage/index.js';
+
+export type { DisplayModeValue } from './display-mode/index.js';

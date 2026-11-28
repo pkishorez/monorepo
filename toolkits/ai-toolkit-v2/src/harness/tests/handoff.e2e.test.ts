@@ -4,9 +4,9 @@ import { join } from 'node:path';
 import { afterAll, describe, expect, layer } from '@effect/vitest';
 import { Effect, Layer, Stream } from 'effect';
 import { Claude, type ClaudeOptions } from '../claude/contract/index.js';
-import * as ClaudeReal from '../claude/real/index.js';
+import { layer as claudeRealLayer } from '../claude/real/index.js';
 import { Codex } from '../codex/contract/index.js';
-import * as CodexReal from '../codex/real/index.js';
+import { layer as codexRealLayer } from '../codex/real/index.js';
 
 const e2e = process.env['AI_TOOLKIT_V2_E2E'] === '1';
 const cwd = e2e
@@ -46,8 +46,8 @@ afterAll(() => {
 describe.runIf(e2e)('a Claude session handed over to Codex', () => {
   layer(
     Layer.mergeAll(
-      ClaudeReal.layer({ linger: '1 second' }),
-      CodexReal.layer({ linger: '1 second' }),
+      claudeRealLayer({ linger: '1 second' }),
+      codexRealLayer({ linger: '1 second' }),
     ),
     { excludeTestServices: true, timeout: 240_000 },
   )((it) => {

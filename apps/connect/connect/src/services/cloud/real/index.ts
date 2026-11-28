@@ -46,11 +46,6 @@ const crashOf = (defect: unknown): ReportAnswer => ({
   })`,
 });
 
-export interface CloudOptions {
-  readonly cloud: string;
-  readonly version: string;
-}
-
 export const layer = (options: CloudOptions) =>
   Layer.effect(
     Cloud,
@@ -91,3 +86,8 @@ export const layer = (options: CloudOptions) =>
       });
     }),
   );
+
+export interface CloudOptions {
+  readonly cloud: string;
+  readonly version: string;
+}

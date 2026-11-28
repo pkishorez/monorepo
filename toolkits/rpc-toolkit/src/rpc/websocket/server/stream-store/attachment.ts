@@ -1,6 +1,4 @@
-import * as Effect from 'effect/Effect';
-import * as Option from 'effect/Option';
-import * as Schema from 'effect/Schema';
+import { Effect, Option, Schema } from 'effect';
 import type { HibernatingSocket } from '../durable-object-state.ts';
 import type { StreamStore } from './stream-store.ts';
 

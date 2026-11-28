@@ -1,1 +1,1 @@
-export * from './key-bindings.tsx';
+export { BindingKeys, recorded } from './key-bindings.tsx';

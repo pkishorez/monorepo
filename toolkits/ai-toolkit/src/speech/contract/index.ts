@@ -2,14 +2,8 @@ export {
   SAMPLE_RATE,
   SpeechToText,
   SpeechToTextError,
-  type Fetched,
-  type Recognizer,
 } from './speech-to-text.js';
-export {
-  Speech,
-  SpeechToTextNotReady,
-  TranscriptionFailed,
-  type SpeechService,
-  type SpeechToTextStatus,
-  type TakeHeard,
-} from './speech.js';
+export { Speech, SpeechToTextNotReady, TranscriptionFailed } from './speech.js';
+
+export type { Fetched, Recognizer } from './speech-to-text.js';
+export type { SpeechService, SpeechToTextStatus, TakeHeard } from './speech.js';

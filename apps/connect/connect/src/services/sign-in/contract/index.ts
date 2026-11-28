@@ -1,10 +1,5 @@
 import { Context, Data, type Effect, type Layer } from 'effect';
 
-export interface User {
-  readonly id: string;
-  readonly email: string;
-}
-
 export class SignInFailed extends Data.TaggedError('SignInFailed')<{
   readonly message: string;
 }> {}
@@ -19,3 +14,8 @@ export class SignIn extends Context.Service<
     readonly signing: Layer.Layer<unknown>;
   }
 >()('Connect/service/SignIn') {}
+
+export interface User {
+  readonly id: string;
+  readonly email: string;
+}

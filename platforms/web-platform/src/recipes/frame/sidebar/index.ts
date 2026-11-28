@@ -1,4 +1,4 @@
-export { type SidebarConfig, SidebarContents } from './sidebar.tsx';
+export { SidebarContents } from './sidebar.tsx';
 export { useSidebarWidth } from './width.ts';
 export {
   SidebarGroup,
@@ -13,3 +13,5 @@ export {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from './blocks.tsx';
+
+export type { SidebarConfig } from './sidebar.tsx';

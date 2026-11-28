@@ -7,13 +7,13 @@ export class ProjectStoreError extends Data.TaggedError('ProjectStoreError')<{
   cause: string;
 }> {}
 
+export class ProjectStore extends Context.Service<
+  ProjectStore,
+  ProjectStoreShape
+>()('Monoverse/server/ProjectStore') {}
+
 export interface ProjectStoreShape {
   list(): Effect.Effect<ProjectEntry[], ProjectStoreError>;
   add(path: string): Effect.Effect<ProjectEntry, ProjectStoreError>;
   remove(id: string): Effect.Effect<boolean, ProjectStoreError>;
 }
-
-export class ProjectStore extends Context.Service<
-  ProjectStore,
-  ProjectStoreShape
->()('Monoverse/server/ProjectStore') {}

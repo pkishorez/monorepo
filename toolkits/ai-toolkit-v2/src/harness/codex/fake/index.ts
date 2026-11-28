@@ -1,6 +1,9 @@
 import { Layer } from 'effect';
-import * as Router from '../shared/index.ts';
-import * as Driver from './driver.ts';
+import {
+  layer as routerLayer,
+  type Options as RouterOptions,
+} from '../shared/index.ts';
+import { layer as driverLayer } from './driver.ts';
 import {
   answers,
   recordings,
@@ -8,25 +11,20 @@ import {
   type Recording,
 } from './recordings/index.ts';
 
-export {
-  answers,
-  recordings,
-  type Answers,
-  type Recording,
-  type Step,
-} from './recordings/index.ts';
-
-export interface Options extends Router.Options {
-  readonly recordings?: Readonly<Record<string, Recording>>;
-  readonly answers?: Answers;
-}
+export { answers, recordings } from './recordings/index.ts';
 
 export const layer = (options: Options = {}) =>
-  Router.layer(options).pipe(
+  routerLayer(options).pipe(
     Layer.provide(
-      Driver.layer({
+      driverLayer({
         recordings: options.recordings ?? recordings,
         answers: options.answers ?? answers,
       }),
     ),
   );
+
+export type { Answers, Recording, Step } from './recordings/index.ts';
+export interface Options extends RouterOptions {
+  readonly recordings?: Readonly<Record<string, Recording>>;
+  readonly answers?: Answers;
+}

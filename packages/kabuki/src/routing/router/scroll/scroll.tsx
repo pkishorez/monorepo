@@ -11,7 +11,7 @@ import type { ReactNode } from 'react';
 import { useLive } from '../../../react/view/index.ts';
 import { ID, WINDOW, elementOf, selectorOf } from './selector.ts';
 import type { Position, Positions } from './selector.ts';
-import * as session from './session.ts';
+import { read, write } from './session.ts';
 
 /*
  * Scroll restoration, as TanStack Router does it: the window and every
@@ -161,13 +161,12 @@ export function Scrolling(props: ScrollingProps) {
   const positions = () => {
     if (latest.current.props.attached && !s.read) {
       s.read = true;
-      s.positions = joined(session.read(), s.positions ?? {});
+      s.positions = joined(read(), s.positions ?? {});
     }
     return (s.positions ??= {});
   };
   const save = () => {
-    if (latest.current.props.attached && s.positions)
-      session.write(s.positions);
+    if (latest.current.props.attached && s.positions) write(s.positions);
   };
   // The entry drawn now: in the render that lands a move, already the one
   // it lands on, before 3. restore has run for it.
@@ -222,7 +221,6 @@ export function Scrolling(props: ScrollingProps) {
       removeEventListener('pagehide', hidden);
       removeEventListener('pageshow', shown);
     };
-    // oxlint-disable-next-line react-hooks/exhaustive-deps -- set up once; it reads the latest through refs.
   }, []);
 
   // Kabuki puts scroll back, not the browser, while it is on.
@@ -329,8 +327,6 @@ export function Scrolling(props: ScrollingProps) {
         s.ignore = false;
       }
     }
-
-    // oxlint-disable-next-line react-hooks/exhaustive-deps -- `move` is the move, as one string.
   }, [move, props.pending, live, settled, on]);
 
   const drawn = useMemo<Frame>(() => ({ ...frame, key }), [frame, key]);

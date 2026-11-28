@@ -1,4 +1,15 @@
-import * as acp from '@agentclientprotocol/sdk/unstable';
+import {
+  type ClientContext,
+  type ForkSessionRequest,
+  type InitializeResponse,
+  type JsonRpcId,
+  type ListSessionsRequest,
+  methods,
+  type ResumeSessionRequest,
+  type SessionId,
+  type SetSessionConfigOptionRequest,
+  type SetSessionModeRequest,
+} from '@agentclientprotocol/sdk/unstable';
 import { Deferred, Effect, Exit, Stream, SubscriptionRef } from 'effect';
 import type { Duration, Scope } from 'effect';
 import { AcpError, NotLive } from '../contract/index.ts';
@@ -11,26 +22,33 @@ import type {
   SendInput,
 } from '../contract/index.ts';
 import { AcpDriver } from './driver.ts';
-import * as Instance from './instance.ts';
+import {
+  call,
+  connect,
+  type Instance,
+  type InstanceOptions,
+  make as makeInstance,
+  read,
+} from './instance.ts';
 
 export interface Options {
   readonly linger?: Duration.Input;
 }
 
 interface Slot {
-  readonly started: Deferred.Deferred<Instance.Instance, AcpError>;
-  ready: Instance.Instance | undefined;
+  readonly started: Deferred.Deferred<Instance, AcpError>;
+  ready: Instance | undefined;
 }
 
 const refuse = (message: string) => Effect.fail(new AcpError({ message }));
 
 const resume =
-  (request: acp.ResumeSessionRequest) =>
-  (agent: acp.ClientContext, initialize: acp.InitializeResponse) => {
+  (request: ResumeSessionRequest) =>
+  (agent: ClientContext, initialize: InitializeResponse) => {
     const capabilities = initialize.agentCapabilities;
     if (capabilities?.sessionCapabilities?.resume) {
-      return Instance.call(() =>
-        agent.request(acp.methods.agent.session.resume, request),
+      return call(() =>
+        agent.request(methods.agent.session.resume, request),
       ).pipe(
         Effect.map((response) => ({
           ...response,
@@ -39,8 +57,8 @@ const resume =
       );
     }
     if (capabilities?.loadSession) {
-      return Instance.call(() =>
-        agent.request(acp.methods.agent.session.load, {
+      return call(() =>
+        agent.request(methods.agent.session.load, {
           ...request,
           mcpServers: request.mcpServers ?? [],
         }),
@@ -57,12 +75,10 @@ const resume =
   };
 
 const fork =
-  (request: acp.ForkSessionRequest) =>
-  (agent: acp.ClientContext, initialize: acp.InitializeResponse) =>
+  (request: ForkSessionRequest) =>
+  (agent: ClientContext, initialize: InitializeResponse) =>
     initialize.agentCapabilities?.sessionCapabilities?.fork
-      ? Instance.call(() =>
-          agent.request(acp.methods.agent.session.fork, request),
-        )
+      ? call(() => agent.request(methods.agent.session.fork, request))
       : refuse('the agent does not offer session/fork');
 
 export const make = (
@@ -72,34 +88,34 @@ export const make = (
     const driver = yield* AcpDriver;
     const parent = yield* Effect.scope;
     const linger = options.linger ?? '30 seconds';
-    const slots = new Map<acp.SessionId, Slot>();
+    const slots = new Map<SessionId, Slot>();
 
-    const onGone = (instance: Instance.Instance) =>
+    const onGone = (instance: Instance) =>
       Effect.sync(() => {
         if (slots.get(instance.id)?.ready === instance) {
           slots.delete(instance.id);
         }
       });
 
-    const start = (cwd: string, open: Instance.InstanceOptions['open']) =>
-      Instance.make({ cwd, linger, parent, open, onGone }).pipe(
+    const start = (cwd: string, open: InstanceOptions['open']) =>
+      makeInstance({ cwd, linger, parent, open, onGone }).pipe(
         Effect.provideService(AcpDriver, driver),
       );
 
-    const register = (instance: Instance.Instance) =>
+    const register = (instance: Instance) =>
       Effect.gen(function* () {
-        const started = yield* Deferred.make<Instance.Instance, AcpError>();
+        const started = yield* Deferred.make<Instance, AcpError>();
         yield* Deferred.succeed(started, instance);
         slots.set(instance.id, { started, ready: instance });
         return instance;
       });
 
-    const obtain = (request: acp.ResumeSessionRequest) =>
+    const obtain = (request: ResumeSessionRequest) =>
       Effect.gen(function* () {
         const existing = slots.get(request.sessionId);
         if (existing) return yield* Deferred.await(existing.started);
         const slot: Slot = {
-          started: yield* Deferred.make<Instance.Instance, AcpError>(),
+          started: yield* Deferred.make<Instance, AcpError>(),
           ready: undefined,
         };
         slots.set(request.sessionId, slot);
@@ -116,30 +132,28 @@ export const make = (
         );
       });
 
-    const find = (id: acp.SessionId) =>
+    const find = (id: SessionId) =>
       Effect.suspend(() => {
         const ready = slots.get(id)?.ready;
         return ready ? Effect.succeed(ready) : Effect.fail(new NotLive({ id }));
       });
 
     const runOn = (
-      instance: Effect.Effect<Instance.Instance, AcpError>,
+      instance: Effect.Effect<Instance, AcpError>,
       input: CreateInput | ForkInput | SendInput,
     ) =>
       Stream.unwrap(
         Effect.gen(function* () {
           const ready = yield* instance;
           const run = yield* ready.submit(input);
-          return Instance.read(run);
+          return read(run);
         }),
       );
 
     const create = (input: CreateInput) =>
       runOn(
         start(input.session.cwd, (agent) =>
-          Instance.call(() =>
-            agent.request(acp.methods.agent.session.new, input.session),
-          ),
+          call(() => agent.request(methods.agent.session.new, input.session)),
         ).pipe(Effect.flatMap(register)),
         input,
       );
@@ -154,19 +168,15 @@ export const make = (
 
     const send = (input: SendInput) => runOn(obtain(input.session), input);
 
-    const respond = (
-      id: acp.SessionId,
-      requestId: acp.JsonRpcId,
-      answer: Answer,
-    ) =>
+    const respond = (id: SessionId, requestId: JsonRpcId, answer: Answer) =>
       find(id).pipe(
         Effect.flatMap((instance) => instance.respond(requestId, answer)),
       );
 
-    const cancel = (id: acp.SessionId) =>
+    const cancel = (id: SessionId) =>
       find(id).pipe(Effect.flatMap((instance) => instance.cancel));
 
-    const watch = (id: acp.SessionId): Stream.Stream<Live> =>
+    const watch = (id: SessionId): Stream.Stream<Live> =>
       Stream.unwrap(
         Effect.gen(function* () {
           const slot = slots.get(id);
@@ -196,37 +206,35 @@ export const make = (
     );
 
     const initialize = Effect.scoped(
-      Instance.connect(undefined).pipe(
-        Effect.map(({ initialize }) => initialize),
-      ),
+      connect(undefined).pipe(Effect.map(({ initialize }) => initialize)),
     ).pipe(Effect.provideService(AcpDriver, driver));
 
-    const listSessions = (request: acp.ListSessionsRequest) =>
+    const listSessions = (request: ListSessionsRequest) =>
       Effect.scoped(
         Effect.gen(function* () {
-          const { connection, initialize } = yield* Instance.connect(
+          const { connection, initialize } = yield* connect(
             request.cwd ?? undefined,
           );
           if (!initialize.agentCapabilities?.sessionCapabilities?.list) {
             return yield* refuse('the agent does not offer session/list');
           }
-          return yield* Instance.call(() =>
-            connection.agent.request(acp.methods.agent.session.list, request),
+          return yield* call(() =>
+            connection.agent.request(methods.agent.session.list, request),
           );
         }),
       ).pipe(Effect.provideService(AcpDriver, driver));
 
-    const setMode = (request: acp.SetSessionModeRequest) =>
+    const setMode = (request: SetSessionModeRequest) =>
       find(request.sessionId).pipe(
         Effect.flatMap((instance) => instance.setMode(request)),
       );
 
-    const setConfigOption = (request: acp.SetSessionConfigOptionRequest) =>
+    const setConfigOption = (request: SetSessionConfigOptionRequest) =>
       find(request.sessionId).pipe(
         Effect.flatMap((instance) => instance.setConfigOption(request)),
       );
 
-    const connection = (id: acp.SessionId) =>
+    const connection = (id: SessionId) =>
       find(id).pipe(Effect.map((instance) => instance.agent));
 
     yield* Effect.addFinalizer(() =>

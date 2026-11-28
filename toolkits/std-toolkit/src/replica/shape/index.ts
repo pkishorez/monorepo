@@ -1,10 +1,2 @@
-export {
-  Shape,
-  ReplicaError,
-  nameOf,
-  partsOf,
-  type AnyShape,
-  type CollectionSchemas,
-  type KeySchema,
-  type Row,
-} from './shape.js';
+export { Shape, ReplicaError, nameOf, partsOf } from './shape.js';
+export type { AnyShape, CollectionSchemas, KeySchema, Row } from './shape.js';

@@ -7,12 +7,14 @@ export {
   TOOL_KINDS,
   TURN_END_STATUSES,
   UsageSchema,
-  type CutOff,
-  type Message,
-  type Part,
-  type Projected,
-  type Role,
-  type ToolKind,
-  type TurnEndStatus,
-  type Usage,
+} from './message.js';
+export type {
+  CutOff,
+  Message,
+  Part,
+  Projected,
+  Role,
+  ToolKind,
+  TurnEndStatus,
+  Usage,
 } from './message.js';

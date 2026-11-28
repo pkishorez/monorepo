@@ -15,11 +15,14 @@ export {
   TraceSummaryListSchema,
   TraceSummarySchema,
   UpdateCursorSchema,
-  type LogRecord,
-  type NewLogRecord,
-  type NewSpanRecord,
-  type SpanRecord,
-  type TraceSummary,
-  type UpdateCursor,
 } from './telemetry-schema.js';
 export { TELEMETRY_RPC_PATH, TelemetryRpc } from './rpc.js';
+
+export type {
+  LogRecord,
+  NewLogRecord,
+  NewSpanRecord,
+  SpanRecord,
+  TraceSummary,
+  UpdateCursor,
+} from './telemetry-schema.js';

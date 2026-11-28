@@ -1,26 +1,6 @@
 import { Context, Data, type Effect, type Layer } from 'effect';
 import type { StdTableService } from '@kestack/std-toolkit/db';
 
-export interface Owner {
-  readonly id: string;
-  readonly email: string;
-}
-
-export interface KeptConnection {
-  readonly id: string;
-  readonly name: string;
-  readonly owner: Owner;
-  readonly cloud: string;
-  readonly startedAt: number;
-}
-
-export interface AuthWorker {
-  readonly cloud: string;
-  readonly url: string;
-}
-
-export type SignInTable = Layer.Layer<StdTableService<'auth-device-accounts'>>;
-
 export class StoreFailed extends Data.TaggedError('StoreFailed')<{
   readonly message: string;
 }> {}
@@ -64,5 +44,22 @@ export class Store extends Context.Service<
     readonly signInTable: SignInTable;
   }
 >()('Connect/service/Store') {}
+
+export interface Owner {
+  readonly id: string;
+  readonly email: string;
+}
+export interface KeptConnection {
+  readonly id: string;
+  readonly name: string;
+  readonly owner: Owner;
+  readonly cloud: string;
+  readonly startedAt: number;
+}
+export interface AuthWorker {
+  readonly cloud: string;
+  readonly url: string;
+}
+export type SignInTable = Layer.Layer<StdTableService<'auth-device-accounts'>>;
 
 export type StoreLayer = Layer.Layer<Store, StoreFailed>;

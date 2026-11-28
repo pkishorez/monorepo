@@ -8,23 +8,6 @@ import {
   relativeTo,
 } from '../tree/index.ts';
 
-export interface ImportsRule {
-  readonly doors: readonly string[];
-}
-
-export type ImportVerdict =
-  | { readonly ok: true; readonly door?: string }
-  | {
-      readonly ok: false;
-      readonly reason: 'inside';
-      readonly module: string;
-    }
-  | {
-      readonly ok: false;
-      readonly reason: 'door';
-      readonly doors: readonly string[];
-    };
-
 export const judgeImport = (
   tree: Tree,
   rule: ImportsRule,
@@ -81,3 +64,19 @@ export const importMessage = (
     ? `'${what}' is beside or above this file, and this package has no doors. Move what you need below the files that use it.`
     : `'${what}' is beside or above this file and is not a door. Import a door's index file (${verdict.doors.join(', ')}), or move what you need into one.`;
 };
+
+export interface ImportsRule {
+  readonly doors: readonly string[];
+}
+export type ImportVerdict =
+  | { readonly ok: true; readonly door?: string }
+  | {
+      readonly ok: false;
+      readonly reason: 'inside';
+      readonly module: string;
+    }
+  | {
+      readonly ok: false;
+      readonly reason: 'door';
+      readonly doors: readonly string[];
+    };

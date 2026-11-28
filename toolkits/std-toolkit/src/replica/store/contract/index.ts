@@ -1,16 +1,13 @@
-export {
-  makeStore,
-  SPACE_TABLE,
-  spaceTable,
-  Store,
-  type Adapter,
-  type Cursor,
-  type Doorbell,
-  type Kept,
-  type Leader,
-  type Opening,
-  type Space,
-  type SpaceTable,
-  type Wire,
-  type Written,
+export { makeStore, SPACE_TABLE, spaceTable, Store } from './contract.js';
+export type {
+  Adapter,
+  Cursor,
+  Doorbell,
+  Kept,
+  Leader,
+  Opening,
+  Space,
+  SpaceTable,
+  Wire,
+  Written,
 } from './contract.js';

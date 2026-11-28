@@ -1,8 +1,8 @@
 import { Effect, Option, Schema, Stream } from 'effect';
 import { Rpc as EffectRpc, RpcClient, RpcGroup } from 'effect/rpc';
 import { expect, it } from 'vitest';
-import * as websocket from '../rpc/websocket/index.ts';
-import * as inProcess from '../rpc/in-process/index.ts';
+import { checkpoint as websocketCheckpoint } from '../rpc/websocket/index.ts';
+import { client as inProcessClient } from '../rpc/in-process/index.ts';
 
 const Group = RpcGroup.make(
   EffectRpc.make('feed', { success: Schema.Number, stream: true }),
@@ -14,7 +14,7 @@ it('a streaming handler using checkpoint also runs in-process, where it remember
     feed: () =>
       Stream.unwrap(
         Effect.gen(function* () {
-          const checkpoint = yield* websocket.checkpoint(Schema.Number);
+          const checkpoint = yield* websocketCheckpoint(Schema.Number);
           seen.push(yield* checkpoint.get().pipe(Effect.orDie));
           yield* checkpoint.put(5).pipe(Effect.orDie);
           seen.push(yield* checkpoint.get().pipe(Effect.orDie));
@@ -27,7 +27,7 @@ it('a streaming handler using checkpoint also runs in-process, where it remember
   const values = await Effect.runPromise(
     Effect.flatMap(RpcClient.make(Group), (client) =>
       Stream.runCollect(client.feed()),
-    ).pipe(Effect.scoped, Effect.provide(inProcess.client(Group, handlers))),
+    ).pipe(Effect.scoped, Effect.provide(inProcessClient(Group, handlers))),
   );
 
   expect(values).toEqual([1, 2]);

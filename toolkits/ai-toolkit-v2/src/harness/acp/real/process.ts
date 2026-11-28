@@ -1,4 +1,7 @@
-import * as acp from '@agentclientprotocol/sdk/unstable';
+import {
+  type ClientApp,
+  ndJsonStream,
+} from '@agentclientprotocol/sdk/unstable';
 import { Effect, Layer, Queue, Stream } from 'effect';
 import type { Cause } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
@@ -16,7 +19,7 @@ export const layer = (options: Options) =>
     AcpDriver,
     Effect.gen(function* () {
       const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-      const connect = (app: acp.ClientApp, cwd: string | undefined) =>
+      const connect = (app: ClientApp, cwd: string | undefined) =>
         Effect.gen(function* () {
           const input = yield* Queue.unbounded<Uint8Array, Cause.Done>();
           const handle = yield* spawner.spawn(
@@ -37,7 +40,7 @@ export const layer = (options: Options) =>
             },
           });
           const connection = app.connect(
-            acp.ndJsonStream(writable, Stream.toReadableStream(handle.stdout)),
+            ndJsonStream(writable, Stream.toReadableStream(handle.stdout)),
           );
           yield* Effect.addFinalizer(() =>
             Effect.sync(() => connection.close()),

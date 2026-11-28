@@ -34,12 +34,6 @@ const ownFile = (db: string) =>
     catch: failed(`${db} cannot be made`),
   });
 
-export interface StoreOptions {
-  readonly db: string;
-  readonly backups: string;
-  readonly version: string;
-}
-
 const open = (options: StoreOptions) =>
   Effect.gen(function* () {
     const backup = yield* Effect.try({
@@ -172,3 +166,9 @@ export const readConnection = (db: string) =>
         }),
       )
     : Effect.succeed(null);
+
+export interface StoreOptions {
+  readonly db: string;
+  readonly backups: string;
+  readonly version: string;
+}

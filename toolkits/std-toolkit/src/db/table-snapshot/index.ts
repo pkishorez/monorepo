@@ -2,24 +2,14 @@ export {
   checkTableSnapshot,
   planTableSnapshot,
   readForCheck,
-  type CheckOptions,
-  type PlanOptions,
-  type TableSnapshotPlan,
 } from './check.js';
 export { captureTable, snapshotHash } from './hash.js';
-export {
-  SetupRefused,
-  type BackfillChoice,
-  type SetupRefusedReason,
-  type TableMode,
-} from './refusal.js';
+export { SetupRefused } from './refusal.js';
 export {
   joinTableSnapshot,
   splitTableSnapshot,
   SnapshotUnreadable,
   versionId,
-  type SnapshotValues,
-  type StoredTableSnapshot,
 } from './split.js';
 export {
   decodeStoredSnapshot,
@@ -27,5 +17,13 @@ export {
   storedTableSnapshot,
   tableHasRows,
   writeTableSnapshot,
-  type StoredSnapshot,
 } from './stored.js';
+
+export type { CheckOptions, PlanOptions, TableSnapshotPlan } from './check.js';
+export type {
+  BackfillChoice,
+  SetupRefusedReason,
+  TableMode,
+} from './refusal.js';
+export type { SnapshotValues, StoredTableSnapshot } from './split.js';
+export type { StoredSnapshot } from './stored.js';

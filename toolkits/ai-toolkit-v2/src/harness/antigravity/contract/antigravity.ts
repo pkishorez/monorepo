@@ -1,4 +1,24 @@
-import type * as acp from '@agentclientprotocol/sdk/unstable';
+import type {
+  AvailableCommand,
+  ClientContext,
+  ContentBlock,
+  CreateElicitationRequest,
+  CreateElicitationResponse,
+  InitializeResponse,
+  JsonRpcId,
+  ListSessionsRequest,
+  ListSessionsResponse,
+  NewSessionRequest,
+  PromptResponse,
+  RequestPermissionRequest,
+  RequestPermissionResponse,
+  ResumeSessionRequest,
+  SessionConfigOption,
+  SessionModeState,
+  SessionNotification,
+  SetSessionConfigOptionRequest,
+  SetSessionConfigOptionResponse,
+} from '@agentclientprotocol/sdk/unstable';
 import { Context, type Data, type Effect, type Stream } from 'effect';
 import type { AntigravityError, NotLive } from './errors.ts';
 import type { PromptInput, Result } from './print.ts';
@@ -13,54 +33,51 @@ export interface Flags {
   readonly args?: ReadonlyArray<string>;
 }
 
-export type ConfigValue =
-  acp.SetSessionConfigOptionRequest extends infer Request
-    ? Request extends unknown
-      ? Omit<Request, 'sessionId'>
-      : never
-    : never;
+export type ConfigValue = SetSessionConfigOptionRequest extends infer Request
+  ? Request extends unknown
+    ? Omit<Request, 'sessionId'>
+    : never
+  : never;
 
 export interface RunInput {
-  readonly prompt: Array<acp.ContentBlock>;
+  readonly prompt: Array<ContentBlock>;
   readonly config?: ReadonlyArray<ConfigValue>;
   readonly flags?: Flags;
 }
 
 export interface CreateInput extends RunInput {
-  readonly session: acp.NewSessionRequest;
+  readonly session: NewSessionRequest;
   readonly systemPrompt?: string;
 }
 
 export interface SendInput extends RunInput {
-  readonly session: acp.ResumeSessionRequest;
+  readonly session: ResumeSessionRequest;
   readonly mode?: 'queue' | 'steer';
 }
 
 export type Request =
   | {
       readonly method: 'session/request_permission';
-      readonly id: acp.JsonRpcId;
-      readonly params: acp.RequestPermissionRequest;
+      readonly id: JsonRpcId;
+      readonly params: RequestPermissionRequest;
     }
   | {
       readonly method: 'elicitation/create';
-      readonly id: acp.JsonRpcId;
-      readonly params: acp.CreateElicitationRequest;
+      readonly id: JsonRpcId;
+      readonly params: CreateElicitationRequest;
     };
 
-export type Answer =
-  | acp.RequestPermissionResponse
-  | acp.CreateElicitationResponse;
+export type Answer = RequestPermissionResponse | CreateElicitationResponse;
 
 export type Out = Data.TaggedEnum<{
   Started: { readonly id: string };
   Queued: { readonly position: number };
-  Record: { readonly record: acp.SessionNotification };
+  Record: { readonly record: SessionNotification };
   Requested: { readonly request: Request };
-  Steered: { readonly message: Array<acp.ContentBlock> };
+  Steered: { readonly message: Array<ContentBlock> };
   Ended: {
     readonly status: 'completed' | 'cancelled' | 'failed';
-    readonly result?: acp.PromptResponse;
+    readonly result?: PromptResponse;
     readonly error?: AntigravityError;
   };
 }>;
@@ -71,11 +88,11 @@ export interface Live {
   readonly queue: number;
   readonly requests: ReadonlyArray<Request>;
   readonly cwd: string;
-  readonly initialize: acp.InitializeResponse;
-  readonly modes?: acp.SessionModeState | null;
-  readonly configOptions?: Array<acp.SessionConfigOption> | null;
-  readonly commands: Array<acp.AvailableCommand>;
-  readonly update?: acp.SessionNotification;
+  readonly initialize: InitializeResponse;
+  readonly modes?: SessionModeState | null;
+  readonly configOptions?: Array<SessionConfigOption> | null;
+  readonly commands: Array<AvailableCommand>;
+  readonly update?: SessionNotification;
 }
 
 export class Antigravity extends Context.Service<
@@ -87,7 +104,7 @@ export class Antigravity extends Context.Service<
     readonly send: (input: SendInput) => Stream.Stream<Out, AntigravityError>;
     readonly respond: (
       id: string,
-      requestId: acp.JsonRpcId,
+      requestId: JsonRpcId,
       answer: Answer,
     ) => Effect.Effect<void, NotLive | AntigravityError>;
     readonly cancel: (id: string) => Effect.Effect<void, NotLive>;
@@ -95,25 +112,23 @@ export class Antigravity extends Context.Service<
     readonly live: Effect.Effect<ReadonlyArray<Live>>;
     readonly initialize: (
       flags?: Flags,
-    ) => Effect.Effect<acp.InitializeResponse, AntigravityError>;
+    ) => Effect.Effect<InitializeResponse, AntigravityError>;
     readonly listSessions: (
-      request?: acp.ListSessionsRequest,
+      request?: ListSessionsRequest,
       flags?: Flags,
-    ) => Effect.Effect<acp.ListSessionsResponse, AntigravityError>;
+    ) => Effect.Effect<ListSessionsResponse, AntigravityError>;
     readonly closeSession: (
       id: string,
     ) => Effect.Effect<void, NotLive | AntigravityError>;
     readonly setConfigOption: (
-      request: acp.SetSessionConfigOptionRequest,
+      request: SetSessionConfigOptionRequest,
     ) => Effect.Effect<
-      acp.SetSessionConfigOptionResponse,
+      SetSessionConfigOptionResponse,
       NotLive | AntigravityError
     >;
     readonly prompt: (
       input: PromptInput,
     ) => Effect.Effect<Result, AntigravityError>;
-    readonly connection: (
-      id: string,
-    ) => Effect.Effect<acp.ClientContext, NotLive>;
+    readonly connection: (id: string) => Effect.Effect<ClientContext, NotLive>;
   }
 >()('@kestack/ai-toolkit-v2/Antigravity') {}

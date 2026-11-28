@@ -3,7 +3,9 @@ export {
   describeDynamoTable,
   ensureDynamoTable,
   getTableDefinition,
-  type DynamoIndexKeys,
-  type DynamoTableKeys,
-  type DynamoTableTopology,
+} from './setup.js';
+export type {
+  DynamoIndexKeys,
+  DynamoTableKeys,
+  DynamoTableTopology,
 } from './setup.js';

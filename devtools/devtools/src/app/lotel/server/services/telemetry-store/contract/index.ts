@@ -8,11 +8,6 @@ import type {
   UpdateCursor,
 } from '../../../rpc/telemetry/contract/index.js';
 
-export interface BatchWriteResult {
-  accepted: number;
-  rejected: number;
-}
-
 export class TelemetryStoreError extends Data.TaggedError(
   'TelemetryStoreError',
 )<{
@@ -20,6 +15,15 @@ export class TelemetryStoreError extends Data.TaggedError(
   cause: string;
 }> {}
 
+export class TelemetryStore extends Context.Service<
+  TelemetryStore,
+  TelemetryStoreShape
+>()('Lotel/server/TelemetryStore') {}
+
+export interface BatchWriteResult {
+  accepted: number;
+  rejected: number;
+}
 export interface TelemetryStoreShape {
   saveSpans(
     records: ReadonlyArray<NewSpanRecord>,
@@ -46,8 +50,3 @@ export interface TelemetryStoreShape {
   ): Effect.Effect<Entity<LogRecord>[], TelemetryStoreError>;
   clearTelemetry: Effect.Effect<number, TelemetryStoreError>;
 }
-
-export class TelemetryStore extends Context.Service<
-  TelemetryStore,
-  TelemetryStoreShape
->()('Lotel/server/TelemetryStore') {}

@@ -5,6 +5,11 @@ export class ThreadStoreError extends Data.TaggedError('ThreadStoreError')<{
   readonly message: string;
 }> {}
 
+export class ThreadStore extends Context.Service<
+  ThreadStore,
+  ThreadStoreShape
+>()('Agent/server/ThreadStore') {}
+
 export interface StoredThread {
   readonly id: string;
   readonly folder: string;
@@ -14,13 +19,11 @@ export interface StoredThread {
   readonly mcp: boolean;
   readonly session: string | null;
 }
-
 export interface Saved {
   readonly thread: StoredThread;
   readonly messages: ReadonlyArray<Message>;
   readonly next: number;
 }
-
 export interface ThreadStoreShape {
   readonly all: () => Effect.Effect<ReadonlyArray<Saved>, ThreadStoreError>;
   readonly create: (
@@ -37,8 +40,3 @@ export interface ThreadStoreShape {
   ) => Effect.Effect<void, ThreadStoreError>;
   readonly remove: (thread: string) => Effect.Effect<void, ThreadStoreError>;
 }
-
-export class ThreadStore extends Context.Service<
-  ThreadStore,
-  ThreadStoreShape
->()('Agent/server/ThreadStore') {}

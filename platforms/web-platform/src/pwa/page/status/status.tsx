@@ -1,6 +1,4 @@
-import * as Context from 'effect/Context';
-import * as Effect from 'effect/Effect';
-import * as ManagedRuntime from 'effect/ManagedRuntime';
+import { Context, Effect, ManagedRuntime } from 'effect';
 import {
   createContext,
   type ReactNode,

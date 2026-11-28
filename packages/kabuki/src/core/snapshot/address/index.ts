@@ -1,5 +1,4 @@
 export { Address } from './address.ts';
-export type { Parsed, Segment } from './address.ts';
 export {
   childAddress,
   counterOf,
@@ -8,3 +7,5 @@ export {
   segmentToward,
   within,
 } from './path.ts';
+
+export type { Parsed, Segment } from './address.ts';

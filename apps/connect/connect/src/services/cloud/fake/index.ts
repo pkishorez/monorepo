@@ -26,7 +26,6 @@ export const CloudState = Schema.Struct({
     }),
   ),
 });
-export type CloudState = typeof CloudState.Type;
 
 export const hashOf = (name: string, release: number) =>
   createHash('sha256').update(`${name}@${release}`).digest('hex');
@@ -180,3 +179,5 @@ export const cloud = Fake.make({
       }),
     ),
 });
+
+export type CloudState = typeof CloudState.Type;

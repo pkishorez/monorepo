@@ -12,7 +12,7 @@ import { afterAll, describe, expect, layer } from '@effect/vitest';
 import { Effect, Fiber, Stream } from 'effect';
 import { Claude, type ClaudeOptions, type Live } from '../contract/index.js';
 import type { Answers, Recording, RecordingEntry } from '../fake/index.js';
-import * as ClaudeReal from '../real/index.js';
+import { layer as claudeRealLayer } from '../real/index.js';
 import { Out } from '../shared/index.js';
 
 const e2e = process.env['AI_TOOLKIT_V2_E2E'] === '1';
@@ -84,7 +84,7 @@ describe.runIf(e2e)('Claude against the real claude', () => {
     execFileSync('npx', ['vp', 'fmt', RECORDINGS]);
   });
 
-  layer(ClaudeReal.layer({ linger: '60 seconds' }), {
+  layer(claudeRealLayer({ linger: '60 seconds' }), {
     excludeTestServices: true,
   })((it) => {
     it.effect(
@@ -491,7 +491,7 @@ describe.runIf(e2e)('Claude against the real claude', () => {
           expect(outs[0]).toEqual(Out.Started({ id: fruit.id }));
           expect(ended(outs).status).toBe('completed');
           expect(resultText(outs).toLowerCase()).toContain('pear');
-        }).pipe(Effect.provide(ClaudeReal.layer())),
+        }).pipe(Effect.provide(claudeRealLayer())),
       TIMEOUT,
     );
 

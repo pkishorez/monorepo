@@ -12,10 +12,12 @@ export { eschemaOf } from './domain/versioned-schema/index.js';
 export {
   checkAnnotation,
   SnapshotTypeSchema,
-  type CheckDescription,
-  type SnapshotCheck,
-  type SnapshotStructField,
-  type SnapshotType,
+} from './domain/snapshot-type/index.js';
+export type {
+  CheckDescription,
+  SnapshotCheck,
+  SnapshotStructField,
+  SnapshotType,
 } from './domain/snapshot-type/index.js';
 export type {
   AnyESchema,

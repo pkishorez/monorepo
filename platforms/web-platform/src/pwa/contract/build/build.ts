@@ -1,4 +1,4 @@
-import * as Schema from 'effect/Schema';
+import { Schema } from 'effect';
 import { canonicalJson } from './canonical-json.js';
 import { fnv1a64 } from './fnv1a.js';
 

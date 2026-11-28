@@ -1,7 +1,6 @@
 // Runs a program against `Pwa.layer` with a fake clock, as one page load.
-import * as Effect from 'effect/Effect';
-import * as SubscriptionRef from 'effect/SubscriptionRef';
-import * as TestClock from 'effect/testing/TestClock';
+import { Effect, SubscriptionRef } from 'effect';
+import { TestClock } from 'effect/testing';
 import { Pwa } from '../../src/pwa/page/status/client/index.js';
 import type { ClientBuildInfo } from '../../src/pwa/contract/config/index.js';
 

@@ -5,8 +5,10 @@ export {
   AuthWorkerRejected,
   AuthWorkerUnavailable,
   DeviceLoginFailed,
-  type Account,
-  type AccountsError,
-  type AccountsLayer,
-  type SignInOptions,
+} from './accounts.js';
+export type {
+  Account,
+  AccountsError,
+  AccountsLayer,
+  SignInOptions,
 } from './accounts.js';

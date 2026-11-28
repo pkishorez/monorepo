@@ -16,24 +16,25 @@ import type {
   ProjectEntry,
 } from '../../../server/rpc/projects/contract/index.js';
 
-export type Link = readonly [from: string, to: string];
-
-export interface At {
-  readonly root: string;
-  readonly branch: string | null;
-}
-
-export interface Analysis {
-  readonly workspace: Workspace;
-  readonly links: ReadonlyArray<Link>;
-  readonly cycles: ReadonlyArray<Link>;
-}
-
 export class ProjectsProblem extends Data.TaggedError('ProjectsProblem')<{
   readonly message: string;
   readonly reason: 'missing' | 'not-git' | 'failed';
 }> {}
 
+export class Projects extends Context.Service<Projects, ProjectsService>()(
+  'Monoverse/service/Projects',
+) {}
+
+export type Link = readonly [from: string, to: string];
+export interface At {
+  readonly root: string;
+  readonly branch: string | null;
+}
+export interface Analysis {
+  readonly workspace: Workspace;
+  readonly links: ReadonlyArray<Link>;
+  readonly cycles: ReadonlyArray<Link>;
+}
 export interface ProjectsService {
   readonly projects: () => Effect.Effect<
     ReadonlyArray<ProjectEntry>,
@@ -67,7 +68,3 @@ export interface ProjectsService {
     at: At & { readonly base: string; readonly path: string },
   ) => Effect.Effect<FileDiff, ProjectsProblem>;
 }
-
-export class Projects extends Context.Service<Projects, ProjectsService>()(
-  'Monoverse/service/Projects',
-) {}

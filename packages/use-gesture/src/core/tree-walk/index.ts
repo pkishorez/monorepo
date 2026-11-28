@@ -1,4 +1,6 @@
 export { begin, chosen, columns, DISTANCES, lists, move } from './tree-walk.ts';
+export { choiceAt, opens } from './tree.ts';
+
 export type {
   Choice,
   Column,
@@ -8,4 +10,3 @@ export type {
   Point,
   Walk,
 } from './tree-walk.ts';
-export { choiceAt, opens } from './tree.ts';

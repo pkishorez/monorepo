@@ -1,7 +1,4 @@
-import * as Context from 'effect/Context';
-import * as Effect from 'effect/Effect';
-import * as Layer from 'effect/Layer';
-import * as Option from 'effect/Option';
+import { Context, Effect, Layer, Option } from 'effect';
 import { useEffect, useMemo, useState } from 'react';
 import { lazyService } from '../lazy-service/index.js';
 

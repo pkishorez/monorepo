@@ -9,6 +9,13 @@ export {
   uncommittedBase,
   WorktreeSchema,
 } from './changes.js';
+export {
+  FileContentSchema,
+  FileNotFoundError,
+  FileOutsideError,
+  FileReadError,
+} from './files.js';
+
 export type {
   Branch,
   Branches,
@@ -20,10 +27,4 @@ export type {
   FileDiff,
   Worktree,
 } from './changes.js';
-export {
-  FileContentSchema,
-  FileNotFoundError,
-  FileOutsideError,
-  FileReadError,
-} from './files.js';
 export type { FileContent } from './files.js';

@@ -1,7 +1,4 @@
-import * as Data from 'effect/Data';
-import * as Effect from 'effect/Effect';
-import * as Stream from 'effect/Stream';
-import * as SubscriptionRef from 'effect/SubscriptionRef';
+import { Data, Effect, Stream, SubscriptionRef } from 'effect';
 import type { RpcClient } from 'effect/rpc';
 
 /**

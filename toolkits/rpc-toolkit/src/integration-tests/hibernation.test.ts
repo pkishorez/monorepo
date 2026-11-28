@@ -3,7 +3,15 @@ import { HttpServerResponse } from 'effect/http';
 import { Rpc as EffectRpc, RpcGroup } from 'effect/rpc';
 import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { middleware } from '../rpc/index.ts';
-import * as websocket from '../rpc/websocket/index.ts';
+import {
+  checkpoint as websocketCheckpoint,
+  InvocationKind,
+  RESUME_LOST,
+  server as websocketServer,
+  type ConnectionSlot,
+  type HibernatingSocket,
+  type StreamStore,
+} from '../rpc/websocket/index.ts';
 import { accept, socket, stores, watch, type TestSocket } from './harness.ts';
 
 class Forbidden extends Schema.Error<Forbidden>('replay/Forbidden')({
@@ -28,7 +36,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 const send = (
   server: {
-    message: (s: websocket.HibernatingSocket, d: string) => Effect.Effect<void>;
+    message: (s: HibernatingSocket, d: string) => Effect.Effect<void>;
   },
   target: TestSocket,
   data: string,
@@ -38,14 +46,14 @@ describe.each(stores)('with the $name Stream Store', ({ make }) => {
   /** Boots a server instance: `live` are the sockets that survived hibernation. */
   const booter =
     <L extends Layer.Layer<any, any, never>>(
-      store: () => websocket.StreamStore,
+      store: () => StreamStore,
       group: typeof Plain | typeof Group,
       handlers: L,
-      connection?: websocket.ConnectionSlot<string>,
+      connection?: ConnectionSlot<string>,
     ) =>
     (live: TestSocket[], next?: TestSocket) =>
       Effect.runPromise(
-        websocket.server(group as typeof Plain, handlers as never, {
+        websocketServer(group as typeof Plain, handlers as never, {
           state: {
             getWebSockets: () => Effect.succeed(live.map(({ port }) => port)),
             setWebSocketAutoResponse: () => Effect.void,
@@ -161,7 +169,7 @@ describe.each(stores)('with the $name Stream Store', ({ make }) => {
     const cursors: number[] = [];
     const middleware = Access.layer(({ headers }) =>
       Effect.gen(function* () {
-        const kind = yield* websocket.InvocationKind;
+        const kind = yield* InvocationKind;
         calls.push({
           kind,
           identity: yield* Identity,
@@ -175,7 +183,7 @@ describe.each(stores)('with the $name Stream Store', ({ make }) => {
       watch: () =>
         Stream.unwrap(
           Effect.gen(function* () {
-            const checkpoint = yield* websocket.checkpoint(
+            const checkpoint = yield* websocketCheckpoint(
               Schema.NumberFromString,
             );
             expectTypeOf(checkpoint.put).parameter(0).toEqualTypeOf<number>();
@@ -239,7 +247,7 @@ describe.each(stores)('with the $name Stream Store', ({ make }) => {
           Stream.unwrap(
             Effect.gen(function* () {
               starts++;
-              yield* (yield* websocket.checkpoint(Schema.Number))
+              yield* (yield* websocketCheckpoint(Schema.Number))
                 .put(starts)
                 .pipe(Effect.orDie);
               return Stream.never;
@@ -286,9 +294,7 @@ describe.each(stores)('with the $name Stream Store', ({ make }) => {
     const resumed = kept.hibernate();
     const woken = await boot([lost, resumed]);
     await vi.waitFor(() => expect(starts).toBe(2));
-    expect(lost.closed).toEqual([
-      { code: websocket.RESUME_LOST, reason: 'resume lost' },
-    ]);
+    expect(lost.closed).toEqual([{ code: RESUME_LOST, reason: 'resume lost' }]);
     expect(resumed.closed).toEqual([]);
 
     // A message from a socket the server has no record of closes it too.
@@ -307,7 +313,7 @@ describe('with the sqlite Stream Store', () => {
     const { store, rows } = sqlite.make();
     const boot = (live: TestSocket[], next?: TestSocket) =>
       Effect.runPromise(
-        websocket.server(
+        websocketServer(
           Plain,
           Plain.toLayer({ watch: () => Stream.make(1, 2) }),
           {
@@ -346,7 +352,7 @@ describe('with the sqlite Stream Store', () => {
     const { store, rows } = sqlite.make();
     const boot = (live: TestSocket[], next?: TestSocket) =>
       Effect.runPromise(
-        websocket.server(Plain, Plain.toLayer({ watch: () => Stream.never }), {
+        websocketServer(Plain, Plain.toLayer({ watch: () => Stream.never }), {
           state: {
             getWebSockets: () => Effect.succeed(live.map(({ port }) => port)),
             setWebSocketAutoResponse: () => Effect.void,

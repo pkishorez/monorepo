@@ -1,6 +1,4 @@
-import * as Effect from 'effect/Effect';
-import * as Fiber from 'effect/Fiber';
-import * as Option from 'effect/Option';
+import { Effect, Fiber, Option } from 'effect';
 import { KeepAlive } from '../../global-scope/index.js';
 
 /**

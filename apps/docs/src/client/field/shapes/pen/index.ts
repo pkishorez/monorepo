@@ -1,5 +1,4 @@
 export { Kind, STILL, STORY, cloud, moved, seeded } from './cloud.ts';
-export type { Baked, Cloud, Motion, V3 } from './cloud.ts';
 export {
   TAU,
   add3,
@@ -24,7 +23,6 @@ export {
   line,
   ring,
 } from './strokes.ts';
-export type { Path } from './strokes.ts';
 export {
   TIMING,
   gathered,
@@ -35,6 +33,9 @@ export {
   smooth,
   travelled,
 } from './clock.ts';
-export type { Clock, Label } from './clock.ts';
 export { WAIT, message, node, ripples, sec } from './beats.ts';
+
+export type { Baked, Cloud, Motion, V3 } from './cloud.ts';
+export type { Path } from './strokes.ts';
+export type { Clock, Label } from './clock.ts';
 export type { Pops } from './beats.ts';

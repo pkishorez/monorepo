@@ -1,5 +1,6 @@
 export { NotLive, OpenCodeError } from './errors.js';
-export { OpenCode, type OpenCodeService } from './service.js';
+export { OpenCode } from './service.js';
+export type { OpenCodeService } from './service.js';
 export type {
   Answer,
   Client,

@@ -27,13 +27,6 @@ export const RECORDING_NAMES = [
   'subagent',
   'subagent-streamed',
 ] as const;
-export type RecordingName = (typeof RECORDING_NAMES)[number];
-
-export interface Recording {
-  readonly harness: HarnessName;
-  readonly name: Exclude<RecordingName, 'random'>;
-  readonly records: ReadonlyArray<RawOut>;
-}
 
 const recording = (
   harness: HarnessName,
@@ -70,16 +63,6 @@ export const recordingFor = (
     own[Math.floor(random() * own.length)]!
   );
 };
-
-/** Where a replay runs: the Agent, the Turn and the folders it shows. */
-export interface ReplayedIn {
-  /** The Agent's Native Id: Claude's session id, Codex's thread id. */
-  readonly nativeId: string;
-  /** The Turn's id, as Codex names it. */
-  readonly turnId: string;
-  readonly cwd: string;
-  readonly home: string;
-}
 
 /** The temporary folder an e2e run worked in, as each harness wrote it. */
 const RECORDED_CWD =
@@ -123,3 +106,19 @@ export const replayed = (
     return { ...record, payload: JSON.parse(text) as RawOut['payload'] };
   });
 };
+
+export type RecordingName = (typeof RECORDING_NAMES)[number];
+export interface Recording {
+  readonly harness: HarnessName;
+  readonly name: Exclude<RecordingName, 'random'>;
+  readonly records: ReadonlyArray<RawOut>;
+}
+/** Where a replay runs: the Agent, the Turn and the folders it shows. */
+export interface ReplayedIn {
+  /** The Agent's Native Id: Claude's session id, Codex's thread id. */
+  readonly nativeId: string;
+  /** The Turn's id, as Codex names it. */
+  readonly turnId: string;
+  readonly cwd: string;
+  readonly home: string;
+}

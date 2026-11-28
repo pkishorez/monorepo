@@ -6,6 +6,10 @@ import type {
   KabukiSessionSummary,
 } from '@kestack/devtools-kabuki/devtools';
 
+export class Sessions extends Context.Service<Sessions, SessionsService>()(
+  'Kabuki/service/Sessions',
+) {}
+
 export interface SessionsService {
   readonly watch: Stream.Stream<
     ReadonlyArray<KabukiSessionSummary>,
@@ -13,7 +17,3 @@ export interface SessionsService {
   >;
   readonly session: (name: string) => Layer.Layer<KabukiSession>;
 }
-
-export class Sessions extends Context.Service<Sessions, SessionsService>()(
-  'Kabuki/service/Sessions',
-) {}

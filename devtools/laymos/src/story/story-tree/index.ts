@@ -7,6 +7,7 @@ export {
   storiesOf,
   storyIdOf,
 } from './story-tree.js';
-export type { StoryFolder } from './story-tree.js';
 export { parseTelling } from './telling.js';
+
+export type { StoryFolder } from './story-tree.js';
 export type { Telling } from './telling.js';

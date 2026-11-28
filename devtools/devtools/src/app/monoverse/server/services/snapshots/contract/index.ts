@@ -5,6 +5,10 @@ import type {
   InvalidRootError,
 } from '../../../rpc/project/contract/index.js';
 
+export class Snapshots extends Context.Service<Snapshots, SnapshotsShape>()(
+  'Monoverse/server/Snapshots',
+) {}
+
 export interface Snapshot {
   readonly root: string;
   readonly source:
@@ -23,7 +27,6 @@ export interface Snapshot {
   ) => Promise<ReadonlyMap<string, Uint8Array>>;
   readonly onDisk: () => Promise<string>;
 }
-
 export interface SnapshotsShape {
   readonly open: (
     root: string,
@@ -33,7 +36,3 @@ export interface SnapshotsShape {
     root: string,
   ) => Effect.Effect<string, InvalidRootError>;
 }
-
-export class Snapshots extends Context.Service<Snapshots, SnapshotsShape>()(
-  'Monoverse/server/Snapshots',
-) {}

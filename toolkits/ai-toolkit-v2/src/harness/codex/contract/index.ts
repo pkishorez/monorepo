@@ -1,17 +1,26 @@
-export type * from './protocol.gen.ts';
-export {
-  Codex,
-  type Answer,
-  type CreateInput,
-  type ForkInput,
-  type ItemCompleted,
-  type Live,
-  type Method,
-  type Mode,
-  type Out,
-  type Params,
-  type Result,
-  type SendInput,
-  type TurnInput,
-} from './codex.ts';
+export { Codex } from './codex.ts';
 export { CodexError, NotLive } from './errors.ts';
+
+export type {
+  RequestId,
+  ServerNotification,
+  ServerRequest,
+  ThreadStartResponse,
+  Turn,
+  TurnStartParams,
+  TurnStatus,
+} from './protocol.gen.ts';
+export type {
+  Answer,
+  CreateInput,
+  ForkInput,
+  ItemCompleted,
+  Live,
+  Method,
+  Mode,
+  Out,
+  Params,
+  Result,
+  SendInput,
+  TurnInput,
+} from './codex.ts';

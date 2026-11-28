@@ -1,4 +1,4 @@
-export { Api, ApiError, apiLive, type GoogleSignIn } from './api.ts';
+export { Api, ApiError, apiLive } from './api.ts';
 export {
   ADD_ACCOUNT,
   RETURN_TO,
@@ -7,7 +7,6 @@ export {
   returnDestination,
   sameOriginPath,
   signedOAuthQuery,
-  type ReturnTrust,
 } from './addresses.ts';
 export {
   Account,
@@ -27,9 +26,14 @@ export {
   SignIn,
   Theme,
   pagesData,
-  type AccountList,
-  type ConsentRequest,
-  type DeviceRequest,
-  type PagesEnv,
 } from './schemas.ts';
 export { deviceCodeFailure, signInFailure } from './words.ts';
+
+export type { GoogleSignIn } from './api.ts';
+export type { ReturnTrust } from './addresses.ts';
+export type {
+  AccountList,
+  ConsentRequest,
+  DeviceRequest,
+  PagesEnv,
+} from './schemas.ts';

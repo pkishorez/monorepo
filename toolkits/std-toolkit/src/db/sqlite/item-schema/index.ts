@@ -1,7 +1,7 @@
-export {
-  itemSchema,
-  type NativeItem,
-  type ItemSchema,
-  type SQLiteRow,
-  type SQLiteValue,
+export { itemSchema } from './item-schema.js';
+export type {
+  NativeItem,
+  ItemSchema,
+  SQLiteRow,
+  SQLiteValue,
 } from './item-schema.js';

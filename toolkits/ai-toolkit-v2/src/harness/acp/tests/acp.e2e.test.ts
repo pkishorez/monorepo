@@ -4,7 +4,13 @@ import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from '@effect/vitest';
 import { Context, Effect, Stream } from 'effect';
-import * as acp from '@agentclientprotocol/sdk/unstable';
+import {
+  CreateElicitationRequest,
+  type CreateElicitationResponse,
+  ElicitationPropertySchema,
+  type RequestPermissionResponse,
+  type SessionUpdate,
+} from '@agentclientprotocol/sdk/unstable';
 import type {
   AcpAgent,
   ConfigValue,
@@ -12,8 +18,8 @@ import type {
   Out,
   Pending,
 } from '../contract/index.ts';
-import type * as AcpFake from '../fake/index.ts';
-import * as AcpReal from '../real/index.ts';
+import type { Recording, Step } from '../fake/index.ts';
+import { layer, type Options } from '../real/index.ts';
 
 const e2e = process.env['AI_TOOLKIT_V2_E2E'] === '1';
 const RECORDINGS = join(import.meta.dirname, '..', 'fake', 'recordings');
@@ -21,7 +27,7 @@ const TIMEOUT = 300_000;
 
 class Agy extends Context.Service<Agy, AcpAgent>()('test/Agy') {}
 
-const options: AcpReal.Options = {
+const options: Options = {
   command: 'agy',
   args: ['acp'],
   linger: '1 second',
@@ -34,7 +40,7 @@ const config: ReadonlyArray<ConfigValue> = [
 
 const text = (value: string) => [{ type: 'text' as const, text: value }];
 
-const trim = (update: acp.SessionUpdate): acp.SessionUpdate =>
+const trim = (update: SessionUpdate): SessionUpdate =>
   update.sessionUpdate === 'available_commands_update'
     ? { ...update, availableCommands: update.availableCommands.slice(0, 3) }
     : update;
@@ -45,7 +51,7 @@ const ended = (outs: ReadonlyArray<Out>) => {
   return last;
 };
 
-const step = (out: Out): Array<AcpFake.Step> => {
+const step = (out: Out): Array<Step> => {
   if (out._tag === 'Record') return [{ update: trim(out.record.update) }];
   if (out._tag !== 'Requested') return [];
   if (out.method === 'elicitation/create') {
@@ -55,7 +61,7 @@ const step = (out: Out): Array<AcpFake.Step> => {
   return [{ request }];
 };
 
-const allow = (pending: Pending): acp.RequestPermissionResponse => {
+const allow = (pending: Pending): RequestPermissionResponse => {
   if (pending.method !== 'session/request_permission') {
     throw new Error(`not a permission: ${pending.method}`);
   }
@@ -65,17 +71,17 @@ const allow = (pending: Pending): acp.RequestPermissionResponse => {
   return { outcome: { outcome: 'selected', optionId: option.optionId } };
 };
 
-const choose = (pending: Pending): acp.CreateElicitationResponse => {
+const choose = (pending: Pending): CreateElicitationResponse => {
   if (pending.method !== 'elicitation/create') {
     throw new Error(`not an elicitation: ${pending.method}`);
   }
-  if (!acp.CreateElicitationRequest.isForm(pending.request)) {
+  if (!CreateElicitationRequest.isForm(pending.request)) {
     return { action: 'decline' };
   }
   const properties = pending.request.requestedSchema.properties ?? {};
   const content = Object.fromEntries(
     Object.entries(properties).flatMap(([key, property]) => {
-      if (!acp.ElicitationPropertySchema.isString(property)) return [];
+      if (!ElicitationPropertySchema.isString(property)) return [];
       const first = property.oneOf?.[0];
       return first ? [[key, first.const]] : [];
     }),
@@ -92,7 +98,7 @@ describe.skipIf(!e2e)('Acp e2e', () => {
           mkdtempSync(join(tmpdir(), 'ai-toolkit-v2-acp-antigravity-')),
         );
         const service = yield* Agy;
-        const recordings: Array<AcpFake.Recording> = [];
+        const recordings: Array<Recording> = [];
         const initialize = yield* service.initialize;
         const capabilities = initialize.agentCapabilities;
         let live: Live | undefined;
@@ -244,7 +250,7 @@ describe.skipIf(!e2e)('Acp e2e', () => {
         const file = join(RECORDINGS, 'antigravity.json');
         writeFileSync(file, `${sanitized}\n`);
         execFileSync('npx', ['vp', 'fmt', '--write', file]);
-      }).pipe(Effect.provide(AcpReal.layer(Agy, options))),
+      }).pipe(Effect.provide(layer(Agy, options))),
     TIMEOUT,
   );
 });

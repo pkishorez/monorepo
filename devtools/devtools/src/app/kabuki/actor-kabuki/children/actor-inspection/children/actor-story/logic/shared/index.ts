@@ -8,15 +8,6 @@ export {
   StoryShape,
   THREAD_KIND,
 } from './shape.js';
-export type {
-  At,
-  Explored,
-  Kind,
-  Link,
-  Section,
-  Shown,
-  Turn,
-} from './shape.js';
 export {
   beatsOf,
   chipOf,
@@ -46,6 +37,16 @@ export {
   titleOf,
   turnsOf,
 } from './selectors/index.js';
+
+export type {
+  At,
+  Explored,
+  Kind,
+  Link,
+  Section,
+  Shown,
+  Turn,
+} from './shape.js';
 export type {
   Connector,
   Focus,

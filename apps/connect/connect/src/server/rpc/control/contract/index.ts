@@ -7,9 +7,10 @@ export const RunningConnection = ESchema.make('RunningConnection', {
   id: Schema.String,
   url: Schema.NullOr(Schema.String),
 }).build();
-export type RunningConnection = typeof RunningConnection.Type;
 
 export const ConnectionControl = RpcGroup.make(
   Rpc.make('status', { success: RunningConnection.schema }),
   Rpc.make('stop'),
 );
+
+export type RunningConnection = typeof RunningConnection.Type;

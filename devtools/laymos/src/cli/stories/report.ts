@@ -1,4 +1,4 @@
-import * as colors from 'yoctocolors';
+import { blue, bold, dim, green, magenta, red, yellow } from 'yoctocolors';
 
 import type {
   ProofLeaf,
@@ -31,7 +31,7 @@ export function renderTally(tally: VerdictTally, total: number): string {
       parts.push(verdictColors[verdict](`${tally[verdict]} ${verdict}`));
     }
   }
-  return parts.join(colors.dim(' · '));
+  return parts.join(dim(' · '));
 }
 
 export function renderSummary(
@@ -48,7 +48,7 @@ export function renderSummary(
   const told =
     issues === 0
       ? ''
-      : `${colors.dim(' · ')}${colors.yellow(`${issues} Telling ${issues === 1 ? 'issue' : 'issues'}`)}`;
+      : `${dim(' · ')}${yellow(`${issues} Telling ${issues === 1 ? 'issue' : 'issues'}`)}`;
   return `${mark} ${renderTally(tally, total)}${told}`;
 }
 
@@ -65,7 +65,7 @@ export function renderStoryRun(
     critical.length === 0
       ? []
       : [
-          colors.red(colors.bold('Critical Proofs that did not pass')),
+          red(bold('Critical Proofs that did not pass')),
           ...critical.map((leaf) => `  ${renderLeaf(leaf, byId.get(leaf.id))}`),
           '',
         ];
@@ -79,10 +79,8 @@ function renderStory(
 ): string[] {
   const inner = `${pad}  `;
   return [
-    `${pad}${colors.bold(story.title)} ${colors.dim(story.id)}`,
-    ...story.issues.map(
-      (issue) => `${inner}${colors.yellow('⚠')} ${issue.message}`,
-    ),
+    `${pad}${bold(story.title)} ${dim(story.id)}`,
+    ...story.issues.map((issue) => `${inner}${yellow('⚠')} ${issue.message}`),
     ...story.proofs.flatMap((leaf) => {
       const report = byId.get(leaf.id);
       return [
@@ -95,12 +93,11 @@ function renderStory(
 }
 
 function renderLeaf(leaf: ProofLeaf, report: ProofReport | undefined): string {
-  const mark =
-    report === undefined ? colors.dim('·') : verdictMarks[report.verdict];
-  const critical = leaf.critical ? ` ${colors.magenta('critical')}` : '';
+  const mark = report === undefined ? dim('·') : verdictMarks[report.verdict];
+  const critical = leaf.critical ? ` ${magenta('critical')}` : '';
   const timing =
-    report === undefined ? '' : colors.dim(` ${Math.round(report.duration)}ms`);
-  return `${mark} ${leaf.title}${critical}${timing} ${colors.dim(leaf.id)}`;
+    report === undefined ? '' : dim(` ${Math.round(report.duration)}ms`);
+  return `${mark} ${leaf.title}${critical}${timing} ${dim(leaf.id)}`;
 }
 
 function renderProblems(report: ProofReport, pad: string): string[] {
@@ -116,13 +113,13 @@ function renderProblems(report: ProofReport, pad: string): string[] {
     }
     if (phase.error !== undefined && phase.error !== report.error) {
       lines.push(
-        `${pad}${colors.yellow(`${phase.phase} died:`)}`,
+        `${pad}${yellow(`${phase.phase} died:`)}`,
         indent(phase.error, `${pad}  `),
       );
     }
   }
   if (report.error !== undefined) {
-    lines.push(indent(colors.yellow(report.error), pad));
+    lines.push(indent(yellow(report.error), pad));
   }
   return lines;
 }
@@ -142,15 +139,15 @@ const verdicts = ['passed', 'failed', 'errored', 'unprepared'] as const;
 
 const verdictColors: Readonly<Record<ProofVerdict, (text: string) => string>> =
   {
-    passed: colors.green,
-    failed: colors.red,
-    errored: colors.yellow,
-    unprepared: colors.blue,
+    passed: green,
+    failed: red,
+    errored: yellow,
+    unprepared: blue,
   };
 
 const verdictMarks: Readonly<Record<ProofVerdict, string>> = {
-  passed: colors.green('✓'),
-  failed: colors.red('✗'),
-  errored: colors.yellow('!'),
-  unprepared: colors.blue('○'),
+  passed: green('✓'),
+  failed: red('✗'),
+  errored: yellow('!'),
+  unprepared: blue('○'),
 };

@@ -6,17 +6,20 @@ import type {
   Thread,
 } from '../../../agent/server/rpc/agent/contract/index.js';
 
+export class AgentProblem extends Data.TaggedError('AgentProblem')<{
+  readonly message: string;
+}> {}
+
+export class Agent extends Context.Service<Agent, AgentService>()(
+  'DevTools/service/Agent',
+) {}
+
 export type {
   JsonSchema,
   Message,
   RunStatus,
   Thread,
 } from '../../../agent/server/rpc/agent/contract/index.js';
-
-export class AgentProblem extends Data.TaggedError('AgentProblem')<{
-  readonly message: string;
-}> {}
-
 export interface Question {
   readonly folder: string;
   readonly kind: string;
@@ -25,13 +28,11 @@ export interface Question {
   readonly schema?: JsonSchema;
   readonly mcp?: boolean;
 }
-
 export interface FollowUp {
   readonly thread: string;
   readonly prompt: string;
   readonly schema?: JsonSchema;
 }
-
 export interface AgentService {
   readonly ask: (question: Question) => Effect.Effect<string, AgentProblem>;
   readonly followUp: (followUp: FollowUp) => Effect.Effect<void, AgentProblem>;
@@ -48,7 +49,3 @@ export interface AgentService {
     kind: string,
   ) => Effect.Effect<number, AgentProblem>;
 }
-
-export class Agent extends Context.Service<Agent, AgentService>()(
-  'DevTools/service/Agent',
-) {}

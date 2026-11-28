@@ -3,5 +3,5 @@ export {
   configFolderOf,
   harnessHostLayer,
   modelsLayer,
-  type ModelsOptions,
 } from './catalog.js';
+export type { ModelsOptions } from './catalog.js';

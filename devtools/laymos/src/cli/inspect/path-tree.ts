@@ -1,4 +1,4 @@
-import * as colors from 'yoctocolors';
+import { cyan, gray, green, yellow } from 'yoctocolors';
 
 export type PathTreeEntryKind =
   | 'direct'
@@ -88,8 +88,8 @@ function renderNodes(nodes: readonly PathTreeNode[], prefix: string): string[] {
 
 function renderLabel(node: PathTreeNode): string {
   if (node.kind === undefined) return node.name;
-  if (node.kind === 'active') return colors.green(node.name);
-  if (node.kind === 'dependent') return colors.cyan(node.name);
-  if (node.kind === 'recursive') return colors.gray(node.name);
-  return colors.yellow(node.name);
+  if (node.kind === 'active') return green(node.name);
+  if (node.kind === 'dependent') return cyan(node.name);
+  if (node.kind === 'recursive') return gray(node.name);
+  return yellow(node.name);
 }

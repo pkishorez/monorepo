@@ -14,7 +14,6 @@ export const StoreState = Schema.Struct({
   ),
   claims: Schema.Finite,
 });
-export type StoreState = typeof StoreState.Type;
 
 export const store = Fake.make({
   name: 'store',
@@ -65,3 +64,5 @@ export const store = Fake.make({
       }),
     ),
 });
+
+export type StoreState = typeof StoreState.Type;

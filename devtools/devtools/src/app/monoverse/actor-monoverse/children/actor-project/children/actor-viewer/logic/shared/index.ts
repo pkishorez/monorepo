@@ -1,5 +1,4 @@
 export { ViewerShape, defaultSettings } from './shape.js';
-export type { FileTreeRow, FolderEntry, FolderState } from './shape.js';
 export {
   entriesOf,
   fileTreeRows,
@@ -10,3 +9,5 @@ export {
   stepFrom,
   stepsOf,
 } from './selectors.js';
+
+export type { FileTreeRow, FolderEntry, FolderState } from './shape.js';

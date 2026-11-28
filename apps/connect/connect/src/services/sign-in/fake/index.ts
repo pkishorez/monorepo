@@ -9,7 +9,6 @@ export const SignInState = Schema.Struct({
   asking: Schema.Boolean,
   refused: Schema.Boolean,
 });
-export type SignInState = typeof SignInState.Type;
 
 const idOf = (email: string) =>
   email
@@ -94,3 +93,5 @@ export const signIn = Fake.make({
       }),
     ),
 });
+
+export type SignInState = typeof SignInState.Type;

@@ -1,5 +1,4 @@
 export { InstanceShape } from './shape.ts';
-export type { Action, Outcome } from './shape.ts';
 export {
   actionsOf,
   hasFields,
@@ -7,3 +6,5 @@ export {
   messageOf,
   outcomeOf,
 } from './selectors.ts';
+
+export type { Action, Outcome } from './shape.ts';

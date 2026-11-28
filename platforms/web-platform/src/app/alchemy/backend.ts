@@ -1,4 +1,4 @@
-import type * as Cloudflare from '@alchemy.run/cloudflare';
+import type { WorkerProps } from '@alchemy.run/cloudflare';
 import { noFake } from '../no-fake/index.ts';
 import type { Where } from './stage.ts';
 
@@ -7,7 +7,7 @@ import type { Where } from './stage.ts';
  * site: anywhere but `alchemy dev`, failing if it carries a fake.
  */
 
-type Build = NonNullable<Cloudflare.WorkerProps['build']>;
+type Build = NonNullable<WorkerProps['build']>;
 
 /** A backend Worker's `build`, spread into its props: `...backend(at)`. */
 export const backend = (at: Pick<Where, 'dev'>): { readonly build?: Build } =>

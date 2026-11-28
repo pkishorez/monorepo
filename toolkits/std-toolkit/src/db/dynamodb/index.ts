@@ -1,9 +1,8 @@
-export {
-  DynamoDB,
-  DynamoDBNativeError,
-  type DynamoDBConfig,
-  type DynamoDBTable,
-  type DynamoIndexKeys,
-  type DynamoTableKeys,
-  type DynamoTableTopology,
+export { DynamoDB, DynamoDBNativeError } from './dynamodb.js';
+export type {
+  DynamoDBConfig,
+  DynamoDBTable,
+  DynamoIndexKeys,
+  DynamoTableKeys,
+  DynamoTableTopology,
 } from './dynamodb.js';

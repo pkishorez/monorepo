@@ -1,4 +1,9 @@
-import * as acp from '@agentclientprotocol/sdk/unstable';
+import {
+  type ClientContext,
+  type InitializeResponse,
+  methods,
+  type NewSessionRequest,
+} from '@agentclientprotocol/sdk/unstable';
 import {
   Deferred,
   Effect,
@@ -18,13 +23,18 @@ import {
   type SendInput,
 } from '../contract/index.ts';
 import { call, connect, Driver } from './driver.ts';
-import * as Instance from './instance.ts';
+import {
+  type Instance,
+  make as makeInstance,
+  type Options as InstanceOptions,
+  read,
+} from './instance.ts';
 
 export interface Options {
   readonly linger?: Duration.Input;
 }
 
-const withSystemPrompt = (input: CreateInput): acp.NewSessionRequest =>
+const withSystemPrompt = (input: CreateInput): NewSessionRequest =>
   input.systemPrompt === undefined
     ? input.session
     : {
@@ -40,11 +50,9 @@ export const make = (options: Options = {}) =>
     const driver = yield* Driver;
     const parent = yield* Effect.scope;
     const linger = options.linger ?? '30 seconds';
-    const instances = yield* SynchronizedRef.make(
-      new Map<string, Instance.Instance>(),
-    );
+    const instances = yield* SynchronizedRef.make(new Map<string, Instance>());
 
-    const forget = (instance: Instance.Instance) =>
+    const forget = (instance: Instance) =>
       SynchronizedRef.update(instances, (map) => {
         if (map.get(instance.id) !== instance) return map;
         const next = new Map(map);
@@ -55,9 +63,9 @@ export const make = (options: Options = {}) =>
     const start = (
       cwd: string,
       flags: Flags | undefined,
-      open: Instance.Options['open'],
+      open: InstanceOptions['open'],
     ) =>
-      Instance.make({ cwd, flags, linger, parent, open, onGone: forget }).pipe(
+      makeInstance({ cwd, flags, linger, parent, open, onGone: forget }).pipe(
         Effect.provideService(Driver, driver),
       );
 
@@ -79,7 +87,7 @@ export const make = (options: Options = {}) =>
         if (live) return Effect.succeed([live, map] as const);
         return start(input.session.cwd, input.flags, (agent) =>
           call(() =>
-            agent.request(acp.methods.agent.session.resume, input.session),
+            agent.request(methods.agent.session.resume, input.session),
           ).pipe(
             Effect.map((opened) => ({
               ...opened,
@@ -102,11 +110,11 @@ export const make = (options: Options = {}) =>
         if (input.mode === 'steer') {
           const live = yield* find(input.session.sessionId);
           const joined = live ? yield* live.join(input.prompt) : undefined;
-          if (joined) return Instance.read(joined);
+          if (joined) return read(joined);
         }
         const instance = yield* resume(input);
         const run = yield* instance.submit(input);
-        if (run) return Instance.read(run);
+        if (run) return read(run);
         yield* forget(instance);
         if (retried)
           return yield* new AntigravityError({
@@ -118,8 +126,8 @@ export const make = (options: Options = {}) =>
     const once = <A>(
       flags: Flags | undefined,
       f: (
-        agent: acp.ClientContext,
-        initialize: acp.InitializeResponse,
+        agent: ClientContext,
+        initialize: InitializeResponse,
       ) => Effect.Effect<A, AntigravityError>,
     ) =>
       Effect.scoped(
@@ -140,7 +148,7 @@ export const make = (options: Options = {}) =>
               (agent) =>
                 call(() =>
                   agent.request(
-                    acp.methods.agent.session.new,
+                    methods.agent.session.new,
                     withSystemPrompt(input),
                   ),
                 ),
@@ -150,7 +158,7 @@ export const make = (options: Options = {}) =>
             );
             const run = yield* instance.submit(input);
             return run
-              ? Instance.read(run)
+              ? read(run)
               : Stream.fail(new AntigravityError({ message: 'agy exited' }));
           }),
         ),
@@ -188,13 +196,13 @@ export const make = (options: Options = {}) =>
         once(flags, (_, initialize) => Effect.succeed(initialize)),
       listSessions: (request = {}, flags) =>
         once(flags, (agent) =>
-          call(() => agent.request(acp.methods.agent.session.list, request)),
+          call(() => agent.request(methods.agent.session.list, request)),
         ),
       closeSession: (id) =>
         found(id).pipe(
           Effect.flatMap((instance) =>
             call(() =>
-              instance.agent.request(acp.methods.agent.session.close, {
+              instance.agent.request(methods.agent.session.close, {
                 sessionId: id,
               }),
             ).pipe(Effect.andThen(instance.stop)),

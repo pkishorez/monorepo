@@ -14,8 +14,8 @@ export type Heading = {
   readonly depth: 2 | 3;
 };
 
-/** A page from its MDX module, as `import * as page from './page.mdx'` gives it. */
-export const page = (module: {
-  readonly default: ComponentType<MDXProps>;
-  readonly headings: ReadonlyArray<Heading>;
-}): Page => ({ Content: module.default, headings: module.headings });
+/** A page from its MDX module's content and the headings it exports. */
+export const page = (
+  Content: ComponentType<MDXProps>,
+  headings: ReadonlyArray<Heading>,
+): Page => ({ Content, headings });

@@ -15,8 +15,8 @@ import { pathToFileURL } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Effect, Layer } from 'effect';
 import { Downloads } from '../contract/index.js';
-import * as DownloadsReal from '../real/index.js';
-import * as LocksReal from '../../locks/real/index.js';
+import { layer as downloadsLayer } from '../real/index.js';
+import { layer as locksLayer } from '../../locks/real/index.js';
 
 const content = Buffer.from('a Plugin, one file\n'.repeat(4096));
 const sha256 = createHash('sha256').update(content).digest('hex');
@@ -48,9 +48,7 @@ const withCache = <A, E>(
   const cache = mkdtempSync(join(tmpdir(), 'kc2-downloads-'));
   return Effect.runPromise(
     Effect.flatMap(Downloads, (downloads) => use(downloads, cache)).pipe(
-      Effect.provide(
-        DownloadsReal.layer(cache).pipe(Layer.provide(LocksReal.layer)),
-      ),
+      Effect.provide(downloadsLayer(cache).pipe(Layer.provide(locksLayer))),
     ),
   );
 };

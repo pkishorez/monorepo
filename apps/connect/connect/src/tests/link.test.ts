@@ -11,12 +11,12 @@ import {
   pluginPath,
 } from '../http/link/contract/index.js';
 import { Downloads } from '../services/downloads/contract/index.js';
-import * as DownloadsReal from '../services/downloads/real/index.js';
-import * as LocksReal from '../services/locks/real/index.js';
+import { layer as downloadsLayer } from '../services/downloads/real/index.js';
+import { layer as locksLayer } from '../services/locks/real/index.js';
 import { Plugins } from '../services/plugins/contract/index.js';
-import * as PluginsReal from '../services/plugins/real/index.js';
+import { layer as pluginsLayer } from '../services/plugins/real/index.js';
 import { Server } from '../services/server/contract/index.js';
-import * as ServerReal from '../services/server/real/index.js';
+import { layer as serverLayer } from '../services/server/real/index.js';
 import { Echo } from './fixtures/echo.js';
 import { cleanUp, folder, releaseOf } from './fixtures/releases.js';
 
@@ -25,9 +25,9 @@ afterEach(cleanUp);
 const ORIGINS = ['https://*.kishore.app'];
 
 const services = (cache: string) =>
-  Layer.mergeAll(PluginsReal.layer, ServerReal.layer).pipe(
-    Layer.provideMerge(DownloadsReal.layer(cache)),
-    Layer.provideMerge(LocksReal.layer),
+  Layer.mergeAll(pluginsLayer, serverLayer).pipe(
+    Layer.provideMerge(downloadsLayer(cache)),
+    Layer.provideMerge(locksLayer),
   );
 
 const runOf = (

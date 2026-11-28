@@ -7,16 +7,6 @@ import create from './create.json' with { type: 'json' };
 import steer from './steer.json' with { type: 'json' };
 import structured from './structured.json' with { type: 'json' };
 
-export type Step = Message | { readonly exit: string };
-
-export interface Recording {
-  readonly thread: string;
-  readonly turn: string;
-  readonly messages: ReadonlyArray<Step>;
-}
-
-export type Answers = { readonly [M in Method]?: Result<M> };
-
 export const recordings = {
   create,
   steer,
@@ -26,3 +16,11 @@ export const recordings = {
 } as unknown as Readonly<Record<string, Recording>>;
 
 export const answers = answersJson as unknown as Answers;
+
+export type Step = Message | { readonly exit: string };
+export interface Recording {
+  readonly thread: string;
+  readonly turn: string;
+  readonly messages: ReadonlyArray<Step>;
+}
+export type Answers = { readonly [M in Method]?: Result<M> };

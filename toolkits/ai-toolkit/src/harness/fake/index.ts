@@ -13,10 +13,9 @@
  * `makeFakeHarness` is the older fake for tests, driven Turn by Turn.
  */
 
-export { agent, type AgentState } from './agent.js';
+export { agent } from './agent.js';
+export { FAKE_SKILLS, makeFakeHarness } from './fake-harness.js';
+
+export type { AgentState } from './agent.js';
 export type { AgentOptions } from './layer.js';
-export {
-  FAKE_SKILLS,
-  makeFakeHarness,
-  type FakeHarness,
-} from './fake-harness.js';
+export type { FakeHarness } from './fake-harness.js';

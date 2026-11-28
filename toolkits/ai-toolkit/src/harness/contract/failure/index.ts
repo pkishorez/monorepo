@@ -1,1 +1,2 @@
-export { failureReason, type FailedIn } from './failure.js';
+export { failureReason } from './failure.js';
+export type { FailedIn } from './failure.js';

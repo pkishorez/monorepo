@@ -5,27 +5,6 @@ import { isInside } from '../tree/index.ts';
 
 export const configFile = 'monoverse.json';
 
-export interface Rules {
-  readonly imports?: ImportsRule;
-  readonly contracts?: ContractsRule;
-}
-
-export interface Pass {
-  readonly from: string;
-  readonly to: string;
-  readonly reason: string;
-}
-
-export interface Config {
-  readonly sourceRoots: readonly string[];
-  readonly ignore: readonly string[];
-  readonly rules: Rules;
-  readonly exceptions: readonly Pass[];
-  readonly restrictions: readonly Pass[];
-}
-
-export type PresetName = 'default' | 'kabuki';
-
 export const presets: Readonly<Record<PresetName, Rules>> = {
   default: { imports: { doors: ['shared'] } },
   kabuki: {
@@ -48,10 +27,6 @@ export const presets: Readonly<Record<PresetName, Rules>> = {
     },
   },
 };
-
-export type ConfigResult =
-  | { readonly ok: true; readonly config: Config }
-  | { readonly ok: false; readonly error: string };
 
 export const parseConfig = (text: string): ConfigResult => {
   let json: unknown;
@@ -78,6 +53,27 @@ export const isChecked = (config: Config, path: string): boolean =>
   !/\.d\.[cm]?ts$/.test(path) &&
   !/\.min\.[cm]?js$/.test(path) &&
   !config.ignore.some((glob) => matches(path, glob));
+
+export interface Rules {
+  readonly imports?: ImportsRule;
+  readonly contracts?: ContractsRule;
+}
+export interface Pass {
+  readonly from: string;
+  readonly to: string;
+  readonly reason: string;
+}
+export interface Config {
+  readonly sourceRoots: readonly string[];
+  readonly ignore: readonly string[];
+  readonly rules: Rules;
+  readonly exceptions: readonly Pass[];
+  readonly restrictions: readonly Pass[];
+}
+export type PresetName = 'default' | 'kabuki';
+export type ConfigResult =
+  | { readonly ok: true; readonly config: Config }
+  | { readonly ok: false; readonly error: string };
 
 class Invalid extends Error {}
 

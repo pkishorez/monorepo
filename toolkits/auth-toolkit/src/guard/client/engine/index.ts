@@ -4,10 +4,7 @@ export {
   makeAccounts,
   signedOut,
   signing,
-  type Peers,
-  type Snapshot,
   SnapshotSchema,
-  type Source,
-  type SourceAccount,
   watchTabs,
 } from './engine.js';
+export type { Peers, Snapshot, Source, SourceAccount } from './engine.js';

@@ -1,6 +1,4 @@
-import * as Effect from 'effect/Effect';
-import * as Fiber from 'effect/Fiber';
-import * as Stream from 'effect/Stream';
+import { Effect, Fiber, Stream } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
 import { makeRpcConnection } from './connection.ts';
 

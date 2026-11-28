@@ -1,14 +1,11 @@
-import * as Context from 'effect/Context';
-import * as Effect from 'effect/Effect';
-import * as Layer from 'effect/Layer';
-import * as Stream from 'effect/Stream';
+import { Context, Effect, Layer, Stream } from 'effect';
 import {
   RpcClient,
   RpcSerialization,
   type Rpc,
   type RpcGroup,
 } from 'effect/rpc';
-import * as Socket from 'effect/socket/Socket';
+import { Socket } from 'effect/socket';
 import { makeRpcConnection, type RpcConnectionService } from './connection.ts';
 import { withExitObservers } from '../../on-exit/index.ts';
 import { resolveUrl } from './url.ts';

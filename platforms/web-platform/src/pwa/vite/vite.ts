@@ -1,4 +1,4 @@
-import * as Schema from 'effect/Schema';
+import { Schema } from 'effect';
 import type { Plugin } from 'vite';
 import { PwaOptions, resolvePwaConfig } from '../contract/config/index.js';
 import { buildPlugin, makeBuildState } from './build/index.js';

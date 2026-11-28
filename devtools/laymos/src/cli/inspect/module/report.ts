@@ -1,4 +1,4 @@
-import * as colors from 'yoctocolors';
+import { cyan, dim, green, yellow } from 'yoctocolors';
 
 import type { ModuleInspection } from '../../../orchestrator/inspect/index.js';
 import { renderPathTree, type PathTreeEntry } from '../path-tree.js';
@@ -24,21 +24,21 @@ export function renderModuleInspection(inspection: ModuleInspection): string {
     ...(reach.rules.length === 0
       ? ['  nothing by Rule']
       : reach.rules.map(
-          ({ from, to }) => `  ${to}  ${colors.dim(`by ${from} → ${to}`)}`,
+          ({ from, to }) => `  ${to}  ${dim(`by ${from} → ${to}`)}`,
         )),
     ...reach.exceptions.map(
       ({ from, to, because }) =>
-        `  ${to}  ${colors.dim(`by exception ${from} → ${to}: ${because}`)}`,
+        `  ${to}  ${dim(`by exception ${from} → ${to}: ${because}`)}`,
     ),
     '',
-    `${colors.green('■')} active   ${colors.cyan('■')} dependents   ${colors.yellow('■')} dependencies`,
+    `${green('■')} active   ${cyan('■')} dependents   ${yellow('■')} dependencies`,
     '',
     renderPathTree(node.path, entries),
   ];
   if (inspection.hasViolations) {
     output.push(
       '',
-      colors.yellow('Warning: this Module has violations.'),
+      yellow('Warning: this Module has violations.'),
       'Run `laymos lint` for details.',
     );
   }

@@ -7,7 +7,6 @@ export {
   linkKey,
   shownLinks,
 } from './connections.js';
-export type { Connection, LinkKinds } from './connections.js';
 export { findingsOf, findingsWithin } from './findings.js';
 export {
   buildTree,
@@ -20,5 +19,7 @@ export {
   visibleRows,
   withDeleted,
 } from './folder-tree.js';
-export type { Crumb, FolderTree, Leaf, Row, TreeNode } from './folder-tree.js';
 export { structureOf } from './structure.js';
+
+export type { Connection, LinkKinds } from './connections.js';
+export type { Crumb, FolderTree, Leaf, Row, TreeNode } from './folder-tree.js';

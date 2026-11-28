@@ -15,6 +15,15 @@ export {
   StepKindSchema,
   StepSchema,
 } from './proof-report-schema.js';
+export {
+  ProofLeafSchema,
+  ProofSourceSchema,
+  StoryNodeSchema,
+  StoryTreeSchema,
+  TellingIssueSchema,
+  VenueSchema,
+} from './story-tree-schema.js';
+
 export type {
   CapturedTrace,
   DeviceKind,
@@ -31,14 +40,6 @@ export type {
   Step,
   StepKind,
 } from './proof-report-schema.js';
-export {
-  ProofLeafSchema,
-  ProofSourceSchema,
-  StoryNodeSchema,
-  StoryTreeSchema,
-  TellingIssueSchema,
-  VenueSchema,
-} from './story-tree-schema.js';
 export type {
   ProofLeaf,
   ProofSource,

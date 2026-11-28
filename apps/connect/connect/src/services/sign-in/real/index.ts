@@ -20,11 +20,6 @@ const activeOf = (state: AccountsState): User | null =>
     ? { id: state.active.id, email: state.active.email }
     : null;
 
-export interface SignInOptions {
-  readonly cloud: string;
-  readonly version: string;
-}
-
 export const layer = (options: SignInOptions) =>
   Layer.effect(
     SignIn,
@@ -122,3 +117,8 @@ export const layer = (options: SignInOptions) =>
       });
     }),
   );
+
+export interface SignInOptions {
+  readonly cloud: string;
+  readonly version: string;
+}

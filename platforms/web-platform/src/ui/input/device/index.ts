@@ -1,1 +1,2 @@
-export { DEVICE_SCRIPT, type Device, useDevice } from './device.ts';
+export { DEVICE_SCRIPT, useDevice } from './device.ts';
+export type { Device } from './device.ts';

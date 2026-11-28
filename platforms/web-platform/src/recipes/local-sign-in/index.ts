@@ -1,5 +1,2 @@
-export {
-  LocalSignIn,
-  type LocalSignInChoice,
-  type LocalSignInProps,
-} from './local-sign-in';
+export { LocalSignIn } from './local-sign-in';
+export type { LocalSignInChoice, LocalSignInProps } from './local-sign-in';

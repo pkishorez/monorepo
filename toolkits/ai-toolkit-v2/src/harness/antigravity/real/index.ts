@@ -1,12 +1,15 @@
 import { NodeServices } from '@effect/platform-node';
 import { Layer } from 'effect';
-import * as Router from '../shared/index.ts';
-import * as Agy from './agy.ts';
-
-export type Options = Router.Options & Agy.Options;
+import {
+  layer as routerLayer,
+  type Options as RouterOptions,
+} from '../shared/index.ts';
+import { layer as agyLayer, type Options as AgyOptions } from './agy.ts';
 
 export const layer = (options: Options = {}) =>
-  Router.layer(options).pipe(
-    Layer.provide(Agy.layer(options)),
+  routerLayer(options).pipe(
+    Layer.provide(agyLayer(options)),
     Layer.provide(NodeServices.layer),
   );
+
+export type Options = RouterOptions & AgyOptions;

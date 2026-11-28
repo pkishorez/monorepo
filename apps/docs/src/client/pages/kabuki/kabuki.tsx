@@ -1,5 +1,5 @@
 import { View } from '@kestack/kabuki/react';
-import { Pages } from '../../../shared/index.ts';
+import { KabukiLive } from '../../../shared/index.ts';
 import {
   DemoView,
   SnakeRecordView,
@@ -14,7 +14,7 @@ import { Landing } from './landing/landing.tsx';
  * or a demo full screen, which the root draws outside the site's layout.
  */
 
-export const KabukiView = View.make(Pages.KabukiLive, (self) => {
+export const KabukiView = View.make(KabukiLive, (self) => {
   const {
     Doc: doc,
     Demo: demo,

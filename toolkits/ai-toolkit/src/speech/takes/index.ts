@@ -1,7 +1,2 @@
-export {
-  makeTakes,
-  TakeFailed,
-  type ModelNow,
-  type Takes,
-  type TakesModel,
-} from './takes.js';
+export { makeTakes, TakeFailed } from './takes.js';
+export type { ModelNow, Takes, TakesModel } from './takes.js';

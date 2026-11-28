@@ -1,1 +1,2 @@
-export { Strategies, type Strategy, type Wire } from './strategy.js';
+export { Strategies } from './strategy.js';
+export type { Strategy, Wire } from './strategy.js';

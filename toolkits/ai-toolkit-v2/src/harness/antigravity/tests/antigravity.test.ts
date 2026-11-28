@@ -1,16 +1,17 @@
-import type * as acp from '@agentclientprotocol/sdk/unstable';
+import type {
+  ContentBlock,
+  SessionConfigOption,
+} from '@agentclientprotocol/sdk/unstable';
 import { describe, expect, it } from '@effect/vitest';
 import { Effect, Fiber, Stream } from 'effect';
 import { Antigravity, type Live, type Out } from '../contract/index.ts';
-import * as AntigravityFake from '../fake/index.ts';
-
-const { recordings } = AntigravityFake;
+import { layer as antigravityFakeLayer, recordings } from '../fake/index.ts';
 const base = recordings['create'] ?? {
   steps: [],
   response: { stopReason: 'end_turn' },
 };
 
-const layer = AntigravityFake.layer({
+const layer = antigravityFakeLayer({
   linger: '100 millis',
   pace: '5 millis',
   recordings: {
@@ -29,7 +30,7 @@ const layer = AntigravityFake.layer({
 });
 
 const cwd = '/tmp';
-const text = (value: string): Array<acp.ContentBlock> => [
+const text = (value: string): Array<ContentBlock> => [
   { type: 'text', text: value },
 ];
 
@@ -424,7 +425,7 @@ describe('Antigravity on the fake agy', () => {
         value: 'medium',
       });
       const level = (
-        options: ReadonlyArray<acp.SessionConfigOption> | null | undefined,
+        options: ReadonlyArray<SessionConfigOption> | null | undefined,
       ) =>
         options?.find((option) => option.id === 'thought_level')?.currentValue;
       expect(level(set.configOptions)).toBe('medium');

@@ -1,5 +1,2 @@
-export {
-  authWorkerApi,
-  type AuthWorkerApi,
-  type AuthWorkerFailure,
-} from './auth-worker-api.js';
+export { authWorkerApi } from './auth-worker-api.js';
+export type { AuthWorkerApi, AuthWorkerFailure } from './auth-worker-api.js';

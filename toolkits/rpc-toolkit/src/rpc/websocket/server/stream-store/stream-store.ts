@@ -1,5 +1,4 @@
-import type * as Effect from 'effect/Effect';
-import type * as Option from 'effect/Option';
+import type { Effect, Option } from 'effect';
 import type { HibernatingSocket } from '../durable-object-state.ts';
 
 /** A streaming call exactly as the client sent it, headers included, still encoded. */

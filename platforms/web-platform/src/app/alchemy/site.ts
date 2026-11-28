@@ -1,6 +1,6 @@
 import type { InputProps } from 'alchemy';
-import * as Cloudflare from '@alchemy.run/cloudflare';
-import * as Effect from 'effect/Effect';
+import { Website, type WorkerBindingProps } from '@alchemy.run/cloudflare';
+import { Effect } from 'effect';
 import { type Address, portlessPort, type Where, where } from './stage.ts';
 
 /** The Workers runtime every site is built for, unless it says otherwise. */
@@ -23,22 +23,15 @@ export interface SiteOptions extends Address {
  * `compatibility`, comes from `props`, given where the Stage serves.
  */
 export const Site = <
-  const Bindings extends Cloudflare.WorkerBindingProps = {},
+  const Bindings extends WorkerBindingProps = {},
   Req = never,
 >(
   options: SiteOptions,
   props?: (
     at: Where,
-  ) => Effect.Effect<
-    InputProps<Cloudflare.Website.ViteProps<Bindings>>,
-    never,
-    Req
-  >,
+  ) => Effect.Effect<InputProps<Website.ViteProps<Bindings>>, never, Req>,
 ) =>
-  Cloudflare.Website.Vite<
-    Bindings,
-    Req | Effect.Services<ReturnType<typeof where>>
-  >(
+  Website.Vite<Bindings, Req | Effect.Services<ReturnType<typeof where>>>(
     options.id ?? 'Site',
     Effect.gen(function* () {
       const at = yield* where(options);
@@ -48,6 +41,6 @@ export const Site = <
         dev: at.dev ? { port: portlessPort(), strictPort: true } : undefined,
         domain: at.domain(),
         ...own,
-      } as InputProps<Cloudflare.Website.ViteProps<Bindings>>;
+      } as InputProps<Website.ViteProps<Bindings>>;
     }),
   );

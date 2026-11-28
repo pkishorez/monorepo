@@ -1,5 +1,5 @@
-import type * as Effect from 'effect/Effect';
-import * as Option from 'effect/Option';
+import type { Effect } from 'effect';
+import { Option } from 'effect';
 import type { WorkerBuildInfo } from '../../contract/config/index.js';
 import { isNeverCached } from '../../contract/config/strategy/index.js';
 import type { GlobalScope, KeepAlive } from '../global-scope/index.js';

@@ -20,16 +20,16 @@ import {
   type TurnInput,
 } from '../contract/index.ts';
 import { Driver, type Connection } from './driver.ts';
-import * as Instance from './instance.ts';
+import { type Instance, make as makeInstance } from './instance.ts';
 
 export interface Options {
   readonly linger?: Duration.Input;
 }
 
-type Open = Effect.Effect<Instance.Instance, CodexError, Scope.Scope>;
+type Open = Effect.Effect<Instance, CodexError, Scope.Scope>;
 
 interface Held {
-  readonly instance: Instance.Instance;
+  readonly instance: Instance;
   readonly release: Effect.Effect<void>;
 }
 
@@ -37,37 +37,36 @@ const opened = (
   connection: Connection,
   id: string,
   answer: { readonly cwd: string; readonly model: string },
-) => Instance.make(connection, { id, cwd: answer.cwd, model: answer.model });
+) => makeInstance(connection, { id, cwd: answer.cwd, model: answer.model });
 
 export const make = (options: Options = {}) =>
   Effect.gen(function* () {
     const driver = yield* Driver;
-    const instances = new Map<string, Instance.Instance>();
+    const instances = new Map<string, Instance>();
     const openers = new Map<string, Open>();
 
-    const map: RcMap.RcMap<string, Instance.Instance, CodexError> =
-      yield* RcMap.make({
-        lookup: (id: string) =>
-          Effect.gen(function* () {
-            const open = openers.get(id);
-            if (open === undefined)
-              return yield* new CodexError({
-                message: `Nothing opens Codex thread ${id}`,
-              });
-            const instance = yield* open;
-            instances.set(id, instance);
-            const forget = Effect.sync(() => {
-              if (instances.get(id) === instance) instances.delete(id);
+    const map: RcMap.RcMap<string, Instance, CodexError> = yield* RcMap.make({
+      lookup: (id: string) =>
+        Effect.gen(function* () {
+          const open = openers.get(id);
+          if (open === undefined)
+            return yield* new CodexError({
+              message: `Nothing opens Codex thread ${id}`,
             });
-            yield* Effect.addFinalizer(() => forget);
-            yield* Deferred.await(instance.gone).pipe(
-              Effect.andThen(forget),
-              Effect.forkScoped,
-            );
-            return instance;
-          }),
-        idleTimeToLive: options.linger ?? Duration.seconds(30),
-      });
+          const instance = yield* open;
+          instances.set(id, instance);
+          const forget = Effect.sync(() => {
+            if (instances.get(id) === instance) instances.delete(id);
+          });
+          yield* Effect.addFinalizer(() => forget);
+          yield* Deferred.await(instance.gone).pipe(
+            Effect.andThen(forget),
+            Effect.forkScoped,
+          );
+          return instance;
+        }),
+      idleTimeToLive: options.linger ?? Duration.seconds(30),
+    });
 
     const hold = (
       id: string,
@@ -118,7 +117,7 @@ export const make = (options: Options = {}) =>
     const fresh = (
       start: (
         connection: Connection,
-      ) => Effect.Effect<Instance.Instance, CodexError, Scope.Scope>,
+      ) => Effect.Effect<Instance, CodexError, Scope.Scope>,
       cwd: string | undefined,
     ) =>
       Effect.gen(function* () {

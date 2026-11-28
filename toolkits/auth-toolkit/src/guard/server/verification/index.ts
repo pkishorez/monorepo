@@ -1,1 +1,2 @@
-export { resolve, resolver, type Target } from './verification.js';
+export { resolve, resolver } from './verification.js';
+export type { Target } from './verification.js';

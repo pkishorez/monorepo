@@ -1,6 +1,2 @@
-export {
-  buildPacedUpdate,
-  coalesceStrategy,
-  paceStrategy,
-  type PaceStrategyFactory,
-} from './pacing.js';
+export { buildPacedUpdate, coalesceStrategy, paceStrategy } from './pacing.js';
+export type { PaceStrategyFactory } from './pacing.js';

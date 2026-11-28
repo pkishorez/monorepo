@@ -31,10 +31,6 @@ import {
   connectionsTable,
 } from './services/connections/real/index.js';
 
-export type Catalog = CatalogEntries;
-
-export type { ReleaseFiles };
-
 export { connectionsTable };
 
 const RELEASE_FILE = /^\/([^/]+)\/([^/]+)\.mjs$/;
@@ -171,3 +167,6 @@ export const serve = <Statement extends D1Statement<Statement>>(options: {
     driver: makeD1SQLite({ database }),
   });
 };
+
+export type Catalog = CatalogEntries;
+export type { ReleaseFiles };

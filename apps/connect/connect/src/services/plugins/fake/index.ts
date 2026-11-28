@@ -9,7 +9,6 @@ export const PluginsState = Schema.Struct({
   failing: Schema.Array(Schema.String),
   starts: Schema.Finite,
 });
-export type PluginsState = typeof PluginsState.Type;
 
 const NAME = Schema.Struct({ name: Schema.String });
 
@@ -85,3 +84,5 @@ export const plugins = Fake.make({
       }),
     ),
 });
+
+export type PluginsState = typeof PluginsState.Type;

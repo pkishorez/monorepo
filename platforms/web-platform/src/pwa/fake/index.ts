@@ -7,4 +7,5 @@
  * reloads into it.
  */
 
-export { newBuild, type NewBuildState } from './new-build.ts';
+export { newBuild } from './new-build.ts';
+export type { NewBuildState } from './new-build.ts';

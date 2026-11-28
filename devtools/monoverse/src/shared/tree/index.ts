@@ -1,10 +1,5 @@
 import { posix } from 'node:path';
 
-export interface Tree {
-  readonly isModule: (dir: string) => boolean;
-  readonly packageOf: (dir: string) => string;
-}
-
 export const indexFiles = [
   'index.ts',
   'index.tsx',
@@ -88,3 +83,8 @@ export const enclosing = (
   }
   return undefined;
 };
+
+export interface Tree {
+  readonly isModule: (dir: string) => boolean;
+  readonly packageOf: (dir: string) => string;
+}

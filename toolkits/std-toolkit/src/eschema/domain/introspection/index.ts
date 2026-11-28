@@ -7,8 +7,10 @@ export {
   latestSchema,
   registerESchemaComposition,
   registerESchemaIntrospection,
-  type ESchemaCompositionIntrospection,
-  type ESchemaEvolutionIntrospection,
-  type ESchemaIntrospection,
-  type ESchemaKind,
+} from './introspection.js';
+export type {
+  ESchemaCompositionIntrospection,
+  ESchemaEvolutionIntrospection,
+  ESchemaIntrospection,
+  ESchemaKind,
 } from './introspection.js';

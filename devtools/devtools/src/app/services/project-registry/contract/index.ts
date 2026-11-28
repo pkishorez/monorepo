@@ -7,12 +7,16 @@ export class ProjectRegistryProblem extends Data.TaggedError(
   readonly message: string;
 }> {}
 
+export class ProjectRegistry extends Context.Service<
+  ProjectRegistry,
+  ProjectRegistryService
+>()('DevTools/service/ProjectRegistry') {}
+
 export interface RegisteredProject {
   readonly id: string;
   readonly name: string;
   readonly path: string;
 }
-
 export interface Worktree {
   readonly folder: string;
   readonly branch: string | null;
@@ -20,7 +24,6 @@ export interface Worktree {
   readonly primary: boolean;
   readonly current: boolean;
 }
-
 export interface ProjectRegistryService {
   readonly projects: Effect.Effect<
     ReadonlyArray<RegisteredProject>,
@@ -30,8 +33,3 @@ export interface ProjectRegistryService {
     path: string,
   ) => Effect.Effect<ReadonlyArray<Worktree>, ProjectRegistryProblem>;
 }
-
-export class ProjectRegistry extends Context.Service<
-  ProjectRegistry,
-  ProjectRegistryService
->()('DevTools/service/ProjectRegistry') {}

@@ -1,6 +1,6 @@
 // Hand-rolled browser for client and extras tests: just enough of window,
 // document and navigator.
-import * as Effect from 'effect/Effect';
+import { Effect } from 'effect';
 import { vi } from 'vitest';
 import { BUILD_ID_META_NAME } from '../../src/pwa/contract/build/index.js';
 import {

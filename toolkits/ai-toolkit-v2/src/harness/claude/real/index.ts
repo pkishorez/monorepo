@@ -1,1 +1,2 @@
-export { layer, type LayerOptions } from './layer.js';
+export { layer } from './layer.js';
+export type { LayerOptions } from './layer.js';

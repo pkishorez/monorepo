@@ -1,1 +1,2 @@
-export { type Choice, ThumbPicker } from './thumb-picker.tsx';
+export { ThumbPicker } from './thumb-picker.tsx';
+export type { Choice } from './thumb-picker.tsx';
