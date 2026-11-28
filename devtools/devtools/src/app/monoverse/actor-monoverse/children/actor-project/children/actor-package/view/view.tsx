@@ -23,7 +23,7 @@ export function Body({ root, model, props, state, send, tree }: BodyProps) {
   return (
     <div {...root} className="h-full min-h-0">
       {reading ? (
-        <Waiting>Reading the package and its imports…</Waiting>
+        <Waiting>Reading {model.name} and its imports…</Waiting>
       ) : state._tag === 'Failure' ? (
         <Problem title="Could not read this package" problem={state.problem}>
           <Button

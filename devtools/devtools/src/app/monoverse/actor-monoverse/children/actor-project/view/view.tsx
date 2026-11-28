@@ -152,7 +152,7 @@ export function Body(self: BodyProps) {
             value={{ docked: wide, selection, folders }}
           >
             {state._tag === 'Opening' ? (
-              <Opening root={model.root} />
+              <Opening name={project} root={model.root} />
             ) : state._tag === 'Failure' ? (
               <CannotOpen
                 root={model.root}

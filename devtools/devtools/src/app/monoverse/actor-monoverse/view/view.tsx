@@ -52,7 +52,7 @@ export function Body({ root, model, state, send, picker, project }: BodyProps) {
   if (state._tag === 'Finding')
     return (
       <div {...root} className="h-full min-h-0">
-        <Opening root={null} />
+        <Opening name={null} root={null} />
       </div>
     );
   return (
