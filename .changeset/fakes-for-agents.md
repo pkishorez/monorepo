@@ -1,5 +1,4 @@
 ---
-'@kestack/connect': patch
 '@kestack/auth-toolkit': patch
 '@kestack/ai-toolkit': patch
 '@kestack/web-platform': patch

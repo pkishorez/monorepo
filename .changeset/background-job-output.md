@@ -1,6 +1,5 @@
 ---
 '@kestack/ai-toolkit': patch
-'@kestack/connect': patch
 ---
 
 A Background Job's output can be followed live.

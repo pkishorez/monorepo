@@ -1,6 +1,5 @@
 ---
 '@kestack/ai-toolkit': patch
-'@kestack/connect': patch
 ---
 
 A Dictation can be heard while it is recorded, as a Take: its audio goes in numbered stretches and its text comes back as it goes.

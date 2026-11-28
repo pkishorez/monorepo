@@ -1,7 +1,7 @@
 packages:
   - apps/*
-  - apps/connect-v2/*
-  - apps/connect-v2/plugins/*
+  - apps/connect/*
+  - apps/connect/plugins/*
   - devtools/*
   - packages/*
   - toolkits/*

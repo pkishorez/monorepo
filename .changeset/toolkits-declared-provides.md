@@ -3,7 +3,6 @@
 '@kestack/web-platform': patch
 '@kestack/auth-toolkit': patch
 '@kestack/ai-toolkit': patch
-'@kestack/connect': patch
 '@kestack/cli-platform': patch
 ---
 

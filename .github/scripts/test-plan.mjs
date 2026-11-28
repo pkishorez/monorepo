@@ -5,8 +5,7 @@ import { join, relative } from 'node:path';
 // Seconds each workspace's tests took in CI (October 2026). They only balance
 // the shards: a workspace missing here still runs, weighted as DEFAULT_SECONDS.
 const SECONDS = {
-  'apps/code': 48,
-  'apps/connect': 45,
+  'apps/connect/connect': 45,
   'apps/kabuki-start': 35,
   'toolkits/std-toolkit': 26,
   'toolkits/auth-toolkit': 20,

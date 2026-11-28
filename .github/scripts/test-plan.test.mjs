@@ -3,8 +3,7 @@ import { test } from 'node:test';
 import { shard } from './test-plan.mjs';
 
 const names = [
-  'apps/code',
-  'apps/connect',
+  'apps/connect/connect',
   'apps/docs',
   'apps/kabuki-start',
   'devtools/laymos',
@@ -23,11 +22,15 @@ test('every workspace lands in exactly one shard', () => {
 
 test('the slowest workspaces are spread across shards', () => {
   const shards = shard(names, 3);
-  for (const slow of ['apps/code', 'apps/connect', 'apps/kabuki-start'])
+  for (const slow of [
+    'apps/connect/connect',
+    'apps/kabuki-start',
+    'toolkits/std-toolkit',
+  ])
     assert.equal(shards.filter((names) => names.includes(slow)).length, 1);
   assert.notDeepEqual(
-    shards.findIndex((names) => names.includes('apps/code')),
-    shards.findIndex((names) => names.includes('apps/connect')),
+    shards.findIndex((names) => names.includes('apps/connect/connect')),
+    shards.findIndex((names) => names.includes('apps/kabuki-start')),
   );
 });
 
